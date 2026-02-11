@@ -231,8 +231,19 @@ FinishReview --> RemoveWorktree[Remove worktree]
 | FR-6 | CLI: start, run (incremental), finish, status, approve, doctor | All from repo root (main worktree) |
 | FR-7 | Emit structured findings (e.g. JSON/NDJSON): file, line or range, severity, message, finding id | For extension and scripting |
 | FR-8 | Extension: panel listing findings; jump to file:line; copy to chat; "Finish review" button | Minimal surface; no second window. Cursor deep links supported. |
-| FR-9 | When `.cursor/rules/` or `AGENTS.md` exist, optionally discover applicable rules and inject a bounded "Review criteria" section into the review prompt to align with CursorRules standards. | Optional; tool works without them. Only use when present and helpful. |
-| FR-10 | Estimate prompt (and optional response) token count before calling the model; report to user in CLI and extension; warn when above configurable context threshold. | Avoids silent truncation; configurable context limit and warn ratio. |
+| FR-9 | When `.cursor/rules/` or `AGENTS.md` exist, optionally discover applicable## 3h. Review Quality Optimizer (DSPy)
+
+To continuously improve review quality and reduce false positives without manual prompt engineering, Stet will include an **Optimizer** module powered by [DSPy](https://github.com/stanfordnlp/dspy).
+
+-   **Goal:** Automatically tune the system prompt and few-shot examples based on the team's feedback (dismissals vs. approvals).
+-   **Mechanism:**
+    -   **Data Collection:** The tool silently accumulates a dataset of `(Diff, Review, UserAction)` tuples in `.review/history.jsonl`. The format is designed so that a future phase may support periodic upload or export of history for org-wide learning (architecture TBD).
+    -   **Optimization Loop:** A sidecar process (run weekly or on-demand via `stet optimize`) uses DSPy to:
+        1.  Load the history as a training set.
+        2.  Define a metric: maximize acceptance rate, minimize dismissal rate.
+        3.  Compile a new system prompt that effectively "learns" the project's specific style and tolerance for nits.
+-   **Output:** Generates a `system_prompt_optimized.txt` which the main CLI loads if present, replacing the default prompt.
+-   **Integration:** The core tool remains a static Go binary; the Optimizer is a Python script (or container) invoked optionally. This keeps the runtime lightweight while allowing for advanced AI capability. Estimate prompt (and optional response) token count before calling the model; report to user in CLI and extension; warn when above configurable context threshold. | Avoids silent truncation; configurable context limit and warn ratio. |
 | FR-11 | RAG-Lite Context: Inject definitions of symbols used in the hunk. | Simple lookup for v1 (grep/ctags). |
 | FR-12 | Prompt Shadowing: Save dismissed findings as negative examples for future prompts. | |
 
@@ -241,6 +252,7 @@ FinishReview --> RemoveWorktree[Remove worktree]
 ## 7. Non-Functional Requirements
 
 - **State storage:** Stored: baseline ref, last_reviewed_at ref, dismissals (IDs user marked "won't fix"); optionally explicit per-hunk approvals. Worktree path and "already reviewed" set are derived (worktree from baseline; already-reviewed from baseline + last_reviewed_at), not stored. State lives in a documented location (e.g. out-of-repo `~/.local/share/stet/` keyed by repo/branch, or in-repo `.review/`). Exact path and schema at implementation time; document in a "State storage" subsection.
+- **Optimizer history:** `.review/history.jsonl` holds (Diff, Review, UserAction) tuples for the DSPy optimizer. Stored locally in v1; schema is designed for future periodic export/upload for org-wide learning (see §3h, §9).
 - **State storage tradeoffs:** In-repo `.review/`: portable, visible in git status; may need .gitignore. Out-of-repo (e.g. `~/.local/share/stet/` keyed by repo): no repo pollution. Recommend one for v1 and document. Optional state file schema example: e.g. JSON or TOML with `baseline`, `last_reviewed_at`, `dismissals` (array of finding IDs).
 - **No daemon:** Basic flow works without a long-running daemon; CLI and extension invoke the same review binary/script.
 - **Single active review:** One active review session per repo/branch (or per baseline); "Finish" clears it.
@@ -300,6 +312,7 @@ Array of objects with at least:
 - **Naming (resolved):** **Project and CLI name: Stet.** Used consistently in code, configs, and documentation. See "About the name Stet" below.
 - **License:** If copying or adapting RoboRev code or structure, respect its license. If starting fresh and reusing only ideas, use a permissive license (e.g. MIT) for the extension and future composition with other tools.
 - **GitHub:** per-PR state and optional CI integration in a future phase.
+- **Org-wide shared learning (future):** Allow the system to learn from all users in an org/corporation. Reviews could be uploaded or added periodically by users (not necessarily real-time). Target something lighter than a shared PostgreSQL DB (e.g. periodic push to an endpoint, or export/import of history). Architecture and transport TBD in a later phase. Local `.review/history.jsonl` and optimizer remain the v1 design; this is a future extension.
 
 ### About the name Stet
 
