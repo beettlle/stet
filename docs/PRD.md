@@ -36,7 +36,7 @@ Start a **new project** rather than fork or extend RoboRev, because scope and de
 ### Goals
 
 - **Excellent at one thing:** code review only (UNIX philosophy).
-- **Local-first:** Ollama; target model qwen3-coder:30b, 32k context.
+- **Local-first:** Ollama; target model qwen3-coder:30b, 32k context. Ollama server URL (host and port) is configurable; default is localhost; the server may run on another machine.
 - **Persistent state:** approved hunks; no re-reviewing the same code.
 - **Incremental review:** only new or changed hunks since baseline sent to the model.
 - **IDE panel + "Finish review":** minimal extension surface; user stays in main worktree.
@@ -223,7 +223,7 @@ FinishReview --> RemoveWorktree[Remove worktree]
 
 | ID | Requirement | Notes |
 |----|-------------|--------|
-| FR-1 | Run code review using a local LLM via Ollama API | Target: qwen3-coder:30b, 32k context (default; configurable) |
+| FR-1 | Run code review using a local LLM via Ollama API | Target: qwen3-coder:30b, 32k context (default; configurable). Ollama server URL (host and port) configurable for local or remote server. |
 | FR-2 | Create a read-only git worktree at a specified baseline (commit or branch) | Used only as input to the review engine; user never edits here |
 | FR-3 | Persist review state: baseline ref, last_reviewed_at (ref), dismissals (e.g. finding IDs marked "won't fix"); optionally explicit approved hunk IDs if per-hunk approval is supported. "Already reviewed" for incremental runs is derived from baseline + last_reviewed_at; worktree is created from baseline when needed. | Survives re-runs and "Finish review" |
 | FR-4 | Identify hunks in a stable way (Dual-Pass Hashing) so approved state survives small edits | Strict Hash + Semantic Hash (comments/whitespace stripped) |
@@ -250,14 +250,14 @@ FinishReview --> RemoveWorktree[Remove worktree]
 
 - **Hierarchy:** CLI flags > environment variables > repo config > global config > defaults.
 - **Paths:** Repo: `.review/config.toml` (or `.review/config.yaml`); global: `~/.config/stet/config.toml` (or XDG equivalent).
-- **Keys:** model, ollama_base_url, context_limit, warn_threshold, timeout, token_estimation (optional), state_dir (optional), worktree_root (optional). Per-repo prompt: `.review/prompt.md` (path and how it overrides/merges with defaults).
+- **Keys:** model, ollama_base_url, context_limit, warn_threshold, timeout, token_estimation (optional), state_dir (optional), worktree_root (optional). Per-repo prompt: `.review/prompt.md` (path and how it overrides/merges with defaults). **ollama_base_url:** Base URL of the Ollama API (hostname or IP and port). Default: `http://localhost:11434`. The server may run on the same machine or on another machine (e.g. `http://192.168.1.10:11434` or `http://ollama.example.com:11434`).
 - **Format:** TOML preferred for Go; document schema and one example.
 
 ### Error handling and failure modes
 
 | Scenario | Expected behavior | User-facing message |
 |----------|-------------------|---------------------|
-| Ollama unreachable | Fail with clear error | Suggest `ollama serve`, check port |
+| Ollama unreachable | Fail with clear error | Check Ollama server URL (config ollama_base_url), ensure the server is running and reachable; for local server suggest `ollama serve`. |
 | Model not found | Fail with clear error | Suggest `ollama pull <model>` |
 | Malformed JSON from model | Retry once, then fail or best-effort + warning | Clear message; optional fallback |
 | Timeout | Configurable; surface in UI | Timeout exceeded |
