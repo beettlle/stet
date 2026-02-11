@@ -17,6 +17,10 @@ profile.cov
 # Build output
 bin/
 
+# Extension (TypeScript)
+extension/out/
+extension/node_modules/
+
 # Dependency directories (uncomment to ignore if you do not commit vendor)
 # vendor/
 

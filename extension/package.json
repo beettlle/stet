@@ -1,0 +1,30 @@
+{
+  "name": "stet",
+  "displayName": "Stet",
+  "description": "Local-first code review tool (Cursor)",
+  "version": "0.0.1",
+  "publisher": "stet",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onCommand:stet.startReview"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "stet.startReview",
+        "title": "Stet: Start review"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  }
+}
