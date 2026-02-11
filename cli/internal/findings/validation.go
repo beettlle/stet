@@ -1,0 +1,54 @@
+package findings
+
+import (
+	"errors"
+	"fmt"
+)
+
+// Valid severities and categories for Validate.
+var (
+	validSeverities = map[Severity]struct{}{
+		SeverityError: {}, SeverityWarning: {}, SeverityInfo: {}, SeverityNitpick: {},
+	}
+	validCategories = map[Category]struct{}{
+		CategoryBug: {}, CategorySecurity: {}, CategoryPerformance: {},
+		CategoryStyle: {}, CategoryMaintainability: {}, CategoryTesting: {},
+	}
+)
+
+// Validate checks that the finding has required fields and allowed enum values.
+// It returns an error if: severity or category is missing or not in the allowed
+// set; file or message is empty; or neither line nor range is set (or range is
+// invalid: start > end).
+func (f *Finding) Validate() error {
+	if f == nil {
+		return errors.New("finding is nil")
+	}
+	if f.Severity == "" {
+		return errors.New("severity is required")
+	}
+	if _, ok := validSeverities[f.Severity]; !ok {
+		return fmt.Errorf("invalid severity %q", f.Severity)
+	}
+	if f.Category == "" {
+		return errors.New("category is required")
+	}
+	if _, ok := validCategories[f.Category]; !ok {
+		return fmt.Errorf("invalid category %q", f.Category)
+	}
+	if f.File == "" {
+		return errors.New("file is required")
+	}
+	if f.Message == "" {
+		return errors.New("message is required")
+	}
+	hasLine := f.Line > 0
+	hasRange := f.Range != nil
+	if !hasLine && !hasRange {
+		return errors.New("either line or range is required")
+	}
+	if hasRange && f.Range.Start > f.Range.End {
+		return fmt.Errorf("range start %d must be <= end %d", f.Range.Start, f.Range.End)
+	}
+	return nil
+}
