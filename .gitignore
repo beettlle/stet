@@ -1,0 +1,48 @@
+# Go — binaries, test, coverage, workspace, env (see https://github.com/github/gitignore/blob/main/Go.gitignore)
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Code coverage profiles and other test artifacts
+*.out
+coverage.*
+*.coverprofile
+profile.cov
+
+# Build output
+bin/
+
+# Dependency directories (uncomment to ignore if you do not commit vendor)
+# vendor/
+
+# Go workspace file
+go.work
+go.work.sum
+
+# env file
+.env
+
+# Editor/IDE (uncomment to ignore; leave unignored to share .vscode/ for dev container)
+.idea/
+.vscode/
+.cursor/
+
+# Dev container: .devcontainer/ and devcontainer.json are committed.
+# Add below any local devcontainer logs/cache if generated in-repo.
+
+# Project: review worktrees (see docs/PRD.md)
+.review/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor backups / swap
+*~
+*.swp
+*.swo
