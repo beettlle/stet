@@ -200,7 +200,7 @@ func TestUnmarshalFinding(t *testing.T) {
 		check   func(t *testing.T, f *Finding)
 	}{
 		{
-			name: "valid_minimal",
+			name:    "valid_minimal",
 			jsonStr: `{"file":"x.go","line":5,"severity":"error","category":"security","message":"issue"}`,
 			wantErr: false,
 			check: func(t *testing.T, f *Finding) {
@@ -211,7 +211,7 @@ func TestUnmarshalFinding(t *testing.T) {
 			},
 		},
 		{
-			name: "valid_with_range",
+			name:    "valid_with_range",
 			jsonStr: `{"file":"y.go","range":{"start":1,"end":10},"severity":"warning","category":"bug","message":"msg"}`,
 			wantErr: false,
 			check: func(t *testing.T, f *Finding) {
@@ -227,7 +227,7 @@ func TestUnmarshalFinding(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "invalid_severity_validates",
+			name:    "invalid_severity_validates",
 			jsonStr: `{"file":"z.go","line":1,"severity":"critical","category":"style","message":"m"}`,
 			wantErr: false, // unmarshal succeeds; Validate() fails
 			check: func(t *testing.T, f *Finding) {
