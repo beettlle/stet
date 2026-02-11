@@ -64,6 +64,7 @@ The product targets a **32K token context window** as its design baseline so the
 | **State** | Minimal persisted state. Worktree is created from baseline when needed; "already reviewed" is derived from baseline + last_reviewed_at (ref). Only dismissals ("won't fix") are required persisted state; optional explicit per-hunk approval can be stored if supported. Locally, the "PR" is baseline plus follow-up commits; when connected to GitHub (later), state can be per-PR. |
 | **Baseline** | For v1: Option C. Explicit `stet start [<ref>]`; default ref is current HEAD. Scope = baseline..HEAD; state is per-baseline. |
 | **Extension surface** | Minimal: show list of findings (file, line, message, severity), jump to file:line, copy to chat, and a single "Finish review" button. |
+| **Session end** | Explicit "Finish review" (button / `stet finish`). Alternative: tool treats review as done when 0 findings (see §9). |
 | **UNIX philosophy** | This tool does review only; fix/refine can be separate tools composed later. |
 
 ---
@@ -309,6 +310,7 @@ Array of objects with at least:
 
 - **Exact state storage path and format:** in-repo vs out-of-repo; schema for baseline, last_reviewed_at, dismissals; optionally explicit approved hunk/finding IDs. Not for worktree_path or full approved set (those are derived).
 - **Trigger:** Review on every commit (post-commit hook) vs explicit "Start review" (extension or CLI). If hook: post-commit hook can notify the extension (e.g. via file or side-effect) so the extension offers "Start review for this commit." If extension-driven: extension can wrap or follow the Commit action so it runs "commit then start review." Hook is more UNIX; extension wrap keeps flow in-IDE.
+- **Session end:** Keep explicit "Finish review" (user clicks or `stet finish`) vs. **tool knows review is done** when the LLM returns zero findings—then auto-persist state, remove worktree, and write the git note. Tradeoff: explicit Finish gives the user control over when `last_reviewed_at` is set and when the worktree is removed; auto-finish when 0 findings simplifies UX. Optional: retain an explicit "Finish anyway" for closing the session with open findings.
 - **Naming (resolved):** **Project and CLI name: Stet.** Used consistently in code, configs, and documentation. See "About the name Stet" below.
 - **License:** If copying or adapting RoboRev code or structure, respect its license. If starting fresh and reusing only ideas, use a permissive license (e.g. MIT) for the extension and future composition with other tools.
 - **GitHub:** per-PR state and optional CI integration in a future phase.

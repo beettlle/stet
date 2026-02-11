@@ -20,6 +20,7 @@ These are the source of truth for a coding LLM implementing the project.
 | **Dev container** | Development container (Containers.dev) is implemented first (Phase 0.0); contributors and CI use it for a consistent environment. |
 | **DSPy optimizer** | Optional. History in `.review/history.jsonl`; on-demand via `stet optimize` (Python sidecar). Output: `.review/system_prompt_optimized.txt`. CLI loads optimized prompt when present; core remains a static Go binary. Optimizer is optional; dev container and CI do not require Python/DSPy for main CLI build and tests. |
 | **History / org sync (future)** | `.review/history.jsonl` schema and format MUST be designed so records can be exported or uploaded in bulk in a future phase (e.g. for org-wide learning). Each line is a self-contained JSON object; avoid implicit local-only identifiers that would break when aggregating from many machines. Document the schema; do not hardcode assumptions that history is only ever consumed locally. Real-time or shared DB (e.g. PostgreSQL) is out of scope for v1; periodic upload/export is the intended future direction. |
+| **Session end (v1)** | Explicit `stet finish` and extension "Finish review" button. PRD §9 documents the alternative (auto-finish when 0 findings); implementation follows PRD when/if that is adopted. |
 
 ---
 
@@ -122,7 +123,7 @@ flowchart LR
 | **5.1** | Extension scaffold: Cursor extension that spawns CLI; parse JSON (or NDJSON) from stdout; surface errors from stderr/exit code. | Extension loads; unit tests for output parsing. 77% project, no file &lt; 72%. |
 | **5.2** | Findings panel: list findings (file, line, severity, category, message). Progress (e.g. "Scanning …"). Click finding → open file:line (file:// / cursor://). | Cursor test runner: panel shows findings; open file at line. 77% project, no file &lt; 72%. |
 | **5.3** | Copy for chat: per finding, "Copy for Chat" block — `[File:Line](file://...#L10)`, severity, message (PRD §3e). | Manual or automated: copy produces correct markdown. |
-| **5.4** | "Finish review" button: calls `stet finish`; refresh/clear panel. Handle errors (e.g. "Finish or cleanup current review first"). | Test: finish invoked; panel state updated. 77% project, no file &lt; 72%. |
+| **5.4** | "Finish review" button: calls `stet finish`; refresh/clear panel. Handle errors (e.g. "Finish or cleanup current review first"). If PRD later adopts "review done when 0 findings," add auto-persist/cleanup on 0 findings and optionally retain explicit Finish for "close session anyway." | Test: finish invoked; panel state updated. 77% project, no file &lt; 72%. |
 
 **Phase 5 exit:** User can run review from IDE, see findings, jump, copy to chat, and finish.
 
