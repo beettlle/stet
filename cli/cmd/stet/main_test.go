@@ -153,11 +153,35 @@ func TestRunCLI_startFinishFromGitRepo(t *testing.T) {
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
-	if got := runCLI([]string{"start", "HEAD~1"}); got != 0 {
-		t.Errorf("runCLI(start HEAD~1) = %d, want 0", got)
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+		t.Errorf("runCLI(start HEAD~1 --dry-run) = %d, want 0", got)
+	}
+	if got := runCLI([]string{"run", "--dry-run"}); got != 0 {
+		t.Errorf("runCLI(run --dry-run) = %d, want 0", got)
 	}
 	if got := runCLI([]string{"finish"}); got != 0 {
 		t.Errorf("runCLI(finish) = %d, want 0", got)
+	}
+}
+
+func TestRunCLI_runWithDryRun(t *testing.T) {
+	// Do not run in parallel: test changes process cwd.
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = os.Chdir(orig)
+	}()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
+	}
+	if got := runCLI([]string{"run", "--dry-run"}); got != 0 {
+		t.Errorf("runCLI(run --dry-run) = %d, want 0", got)
 	}
 }
 

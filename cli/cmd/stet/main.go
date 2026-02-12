@@ -38,6 +38,7 @@ func runCLI(args []string) int {
 		Short: "Local-first code review tool",
 	}
 	rootCmd.AddCommand(newStartCmd())
+	rootCmd.AddCommand(newRunCmd())
 	rootCmd.AddCommand(newFinishCmd())
 	rootCmd.AddCommand(newDoctorCmd())
 	rootCmd.SilenceUsage = true
@@ -59,6 +60,7 @@ func newStartCmd() *cobra.Command {
 		Short: "Start a review session at the given ref (default HEAD)",
 		RunE:  runStart,
 	}
+	cmd.Flags().Bool("dry-run", false, "Skip LLM; inject canned findings for CI")
 	return cmd
 }
 
@@ -67,6 +69,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		ref = args[0]
 	}
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("start: %w", err)
@@ -81,12 +84,65 @@ func runStart(cmd *cobra.Command, args []string) error {
 	}
 	stateDir := cfg.EffectiveStateDir(repoRoot)
 	opts := run.StartOptions{
-		RepoRoot:     repoRoot,
-		StateDir:     stateDir,
-		WorktreeRoot: cfg.WorktreeRoot,
-		Ref:          ref,
+		RepoRoot:      repoRoot,
+		StateDir:      stateDir,
+		WorktreeRoot:  cfg.WorktreeRoot,
+		Ref:           ref,
+		DryRun:        dryRun,
+		Model:         cfg.Model,
+		OllamaBaseURL: cfg.OllamaBaseURL,
 	}
 	if err := run.Start(cmd.Context(), opts); err != nil {
+		if errors.Is(err, ollama.ErrUnreachable) {
+			fmt.Fprintf(os.Stderr, "Ollama unreachable. Is the server running? For local: ollama serve.\n")
+			return errExit(2)
+		}
+		return err
+	}
+	return nil
+}
+
+func newRunCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "run",
+		Short: "Run incremental review (only to-review hunks)",
+		RunE:  runRun,
+	}
+	cmd.Flags().Bool("dry-run", false, "Skip LLM; inject canned findings for CI")
+	return cmd
+}
+
+func runRun(cmd *cobra.Command, args []string) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("run: %w", err)
+	}
+	repoRoot, err := git.RepoRoot(cwd)
+	if err != nil {
+		return fmt.Errorf("run: not a git repository: %w", err)
+	}
+	cfg, err := config.Load(cmd.Context(), config.LoadOptions{RepoRoot: repoRoot})
+	if err != nil {
+		return fmt.Errorf("run: load config: %w", err)
+	}
+	stateDir := cfg.EffectiveStateDir(repoRoot)
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
+	opts := run.RunOptions{
+		RepoRoot:      repoRoot,
+		StateDir:      stateDir,
+		DryRun:        dryRun,
+		Model:         cfg.Model,
+		OllamaBaseURL: cfg.OllamaBaseURL,
+	}
+	if err := run.Run(cmd.Context(), opts); err != nil {
+		if errors.Is(err, run.ErrNoSession) {
+			fmt.Fprintln(os.Stderr, err.Error())
+			return errExit(1)
+		}
+		if errors.Is(err, ollama.ErrUnreachable) {
+			fmt.Fprintf(os.Stderr, "Ollama unreachable. Is the server running? For local: ollama serve.\n")
+			return errExit(2)
+		}
 		return err
 	}
 	return nil

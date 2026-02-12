@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"stet/cli/internal/findings"
 )
 
 // ErrLocked indicates the session lock is already held (e.g. another stet start).
@@ -33,6 +35,7 @@ type Session struct {
 	LastReviewedAt string         `json:"last_reviewed_at"`
 	DismissedIDs   []string       `json:"dismissed_ids,omitempty"`
 	PromptShadows  []PromptShadow `json:"prompt_shadows,omitempty"`
+	Findings       []findings.Finding `json:"findings,omitempty"`
 }
 
 // Load reads the session from stateDir/session.json. If the file does not

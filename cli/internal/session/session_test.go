@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"stet/cli/internal/findings"
 )
 
 func TestLoad_missingFile(t *testing.T) {
@@ -14,8 +16,36 @@ func TestLoad_missingFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if got.BaselineRef != "" || got.LastReviewedAt != "" || len(got.DismissedIDs) != 0 || len(got.PromptShadows) != 0 {
+	if got.BaselineRef != "" || got.LastReviewedAt != "" || len(got.DismissedIDs) != 0 || len(got.PromptShadows) != 0 || len(got.Findings) != 0 {
 		t.Errorf("Load(missing) = %+v, want zero Session", got)
+	}
+}
+
+func TestSaveLoad_roundtripWithFindings(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	want := Session{
+		BaselineRef:    "sha1",
+		LastReviewedAt: "sha2",
+		Findings: []findings.Finding{
+			{ID: "id1", File: "a.go", Line: 1, Severity: findings.SeverityWarning, Category: findings.CategoryStyle, Message: "msg1"},
+			{ID: "id2", File: "b.go", Line: 2, Severity: findings.SeverityInfo, Category: findings.CategoryMaintainability, Message: "msg2"},
+		},
+	}
+	if err := Save(dir, &want); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	got, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(got.Findings) != len(want.Findings) {
+		t.Fatalf("Findings len = %d, want %d", len(got.Findings), len(want.Findings))
+	}
+	for i := range want.Findings {
+		if got.Findings[i].ID != want.Findings[i].ID || got.Findings[i].File != want.Findings[i].File || got.Findings[i].Message != want.Findings[i].Message {
+			t.Errorf("Findings[%d] = %+v, want %+v", i, got.Findings[i], want.Findings[i])
+		}
 	}
 }
 
@@ -85,7 +115,7 @@ func TestSaveLoad_emptySession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if got.BaselineRef != "" || got.LastReviewedAt != "" || len(got.DismissedIDs) != 0 || len(got.PromptShadows) != 0 {
+	if got.BaselineRef != "" || got.LastReviewedAt != "" || len(got.DismissedIDs) != 0 || len(got.PromptShadows) != 0 || len(got.Findings) != 0 {
 		t.Errorf("Load(empty roundtrip) = %+v, want zero Session", got)
 	}
 }
