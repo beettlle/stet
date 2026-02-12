@@ -739,6 +739,40 @@ func TestWriteFindingsJSON_filtersDismissed(t *testing.T) {
 	}
 }
 
+func TestWriteFindingsJSON_emptyFindingsEmitsArray(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	s := session.Session{
+		BaselineRef:     "abc",
+		LastReviewedAt:  "def",
+		Findings:        nil,
+		DismissedIDs:    nil,
+	}
+	if err := session.Save(dir, &s); err != nil {
+		t.Fatalf("save session: %v", err)
+	}
+	var buf bytes.Buffer
+	if err := writeFindingsJSON(&buf, dir); err != nil {
+		t.Fatalf("writeFindingsJSON: %v", err)
+	}
+	raw := buf.String()
+	if strings.Contains(raw, `"findings":null`) {
+		t.Errorf("output must not contain findings:null; got %q", raw)
+	}
+	if !strings.Contains(raw, `"findings":[]`) {
+		t.Errorf("output must contain findings:[]; got %q", raw)
+	}
+	var out struct {
+		Findings []findings.Finding `json:"findings"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(out.Findings) != 0 {
+		t.Errorf("findings len = %d, want 0", len(out.Findings))
+	}
+}
+
 func TestRunCLI_optimizeNotConfiguredExitsNonZero(t *testing.T) {
 	repo := initRepo(t)
 	orig, err := os.Getwd()

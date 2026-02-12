@@ -45,7 +45,7 @@ func writeFindingsJSON(w io.Writer, stateDir string) error {
 	for _, id := range s.DismissedIDs {
 		dismissed[id] = struct{}{}
 	}
-	var active []findings.Finding
+	active := make([]findings.Finding, 0, len(s.Findings))
 	for _, f := range s.Findings {
 		if _, ok := dismissed[f.ID]; !ok {
 			active = append(active, f)
