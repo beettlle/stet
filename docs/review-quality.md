@@ -18,6 +18,7 @@ Examples from Stet self-review; keep this list brief and update as patterns emer
 - Misreading coverage profile (e.g. statement vs count) and flagging uncovered code that is covered.
 - Flagging possible nil dereference when a nil check exists earlier in the flow.
 - Suggesting "restore full hint" when the hint was intentionally aligned to the documented contract.
+- Tests that set `findingsOut` and restore in `t.Cleanup()` without `t.Parallel()`: flagging "test interference" is redundant when the isolation convention is documented and followed.
 
 ## Known false positive patterns (curated)
 
@@ -26,6 +27,7 @@ Structured entries for prompt lessons, optimizer feedback, and future filtering.
 | Category      | Message pattern                         | Reason         | Note                                                                 |
 |---------------|-----------------------------------------|----------------|----------------------------------------------------------------------|
 | maintainability | Using t.Cleanup instead of defer for test | false_positive | Full defer→t.Cleanup migration completed; suggestion is redundant    |
+| testing      | Test uses global variable 'findingsOut' which may cause test interference | already_correct | Isolation ensured: tests that set findingsOut do not use t.Parallel() and restore via t.Cleanup(); comment documents the convention. |
 
 ## Schema for false positive entries
 

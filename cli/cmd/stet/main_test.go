@@ -610,6 +610,7 @@ func TestRunCLI_approveNoSessionExitsNonZero(t *testing.T) {
 }
 
 func TestRunCLI_approvePersistence(t *testing.T) {
+	// Do not run in parallel: test changes cwd and findingsOut.
 	repo := initRepo(t)
 	orig, err := os.Getwd()
 	if err != nil {
@@ -657,6 +658,7 @@ func TestRunCLI_approvePersistence(t *testing.T) {
 }
 
 func TestRunCLI_approveIdempotent(t *testing.T) {
+	// Do not run in parallel: test changes cwd and findingsOut.
 	repo := initRepo(t)
 	orig, err := os.Getwd()
 	if err != nil {
@@ -703,6 +705,7 @@ func TestRunCLI_approveIdempotent(t *testing.T) {
 }
 
 func TestRunCLI_approveDoesNotWritePromptShadows(t *testing.T) {
+	// Do not run in parallel: test changes cwd and findingsOut.
 	repo := initRepo(t)
 	orig, err := os.Getwd()
 	if err != nil {
