@@ -95,12 +95,12 @@ func TestAddNote_JSON_roundtrip(t *testing.T) {
 	headSHA := runOut(t, repo, "git", "rev-parse", "HEAD")
 	payload := map[string]interface{}{
 		"session_id":       "abc123",
-		"baseline_sha":    strings.Repeat("a", 40),
-		"head_sha":       headSHA,
-		"findings_count":  3,
+		"baseline_sha":     strings.Repeat("a", 40),
+		"head_sha":         headSHA,
+		"findings_count":   3,
 		"dismissals_count": 1,
-		"tool_version":    "1.0.0",
-		"finished_at":     "2025-02-12T14:30:00Z",
+		"tool_version":     "1.0.0",
+		"finished_at":      "2025-02-12T14:30:00Z",
 	}
 	enc, err := json.Marshal(payload)
 	if err != nil {

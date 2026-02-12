@@ -34,7 +34,7 @@ var ErrNoSession = errors.New("no active session; run stet start first")
 var ErrDirtyWorktree = errors.New("working tree has uncommitted changes; commit or stash before starting")
 
 const (
-	dryRunMessage        = "Dry-run placeholder (CI)"
+	dryRunMessage         = "Dry-run placeholder (CI)"
 	_defaultOllamaTimeout = 5 * time.Minute
 )
 
@@ -77,20 +77,20 @@ func cannedFindingsForHunks(hunks []diff.Hunk) []findings.Finding {
 // Verbose, when true, prints progress to stderr (worktree, partition summary, per-hunk).
 // AllowDirty, when true, skips the clean worktree check and proceeds with a warning.
 type StartOptions struct {
-	RepoRoot       string
-	StateDir       string
-	WorktreeRoot   string
-	Ref            string
-	DryRun         bool
-	AllowDirty     bool
-	Model          string
-	OllamaBaseURL  string
-	ContextLimit   int
-	WarnThreshold  float64
-	Timeout        time.Duration
-	Temperature    float64
-	NumCtx         int
-	Verbose        bool
+	RepoRoot      string
+	StateDir      string
+	WorktreeRoot  string
+	Ref           string
+	DryRun        bool
+	AllowDirty    bool
+	Model         string
+	OllamaBaseURL string
+	ContextLimit  int
+	WarnThreshold float64
+	Timeout       time.Duration
+	Temperature   float64
+	NumCtx        int
+	Verbose       bool
 }
 
 // FinishOptions configures Finish.
@@ -167,7 +167,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 	if sha == headSHA {
 		s := session.Session{
 			SessionID:      generateSessionID(),
-			BaselineRef:     sha,
+			BaselineRef:    sha,
 			LastReviewedAt: headSHA,
 			DismissedIDs:   nil,
 		}

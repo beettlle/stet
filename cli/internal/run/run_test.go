@@ -725,15 +725,15 @@ func TestStart_tokenWarningWhenOverThreshold(t *testing.T) {
 	stateDir := filepath.Join(repo, ".review")
 	// Low context limit and high threshold so default prompt + hunk easily exceeds.
 	opts := StartOptions{
-		RepoRoot:       repo,
-		StateDir:       stateDir,
-		WorktreeRoot:   "",
-		Ref:            "HEAD~1",
-		DryRun:         false,
-		Model:          "m",
-		OllamaBaseURL:  srv.URL,
-		ContextLimit:   100,
-		WarnThreshold:  0.9,
+		RepoRoot:      repo,
+		StateDir:      stateDir,
+		WorktreeRoot:  "",
+		Ref:           "HEAD~1",
+		DryRun:        false,
+		Model:         "m",
+		OllamaBaseURL: srv.URL,
+		ContextLimit:  100,
+		WarnThreshold: 0.9,
 	}
 	err = Start(ctx, opts)
 	if err != nil {

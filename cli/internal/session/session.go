@@ -31,11 +31,11 @@ type PromptShadow struct {
 // Session is the persisted state for one review session per repo.
 // Stored at stateDir/session.json.
 type Session struct {
-	SessionID      string         `json:"session_id,omitempty"`
-	BaselineRef    string         `json:"baseline_ref"`
-	LastReviewedAt string         `json:"last_reviewed_at"`
-	DismissedIDs   []string       `json:"dismissed_ids,omitempty"`
-	PromptShadows  []PromptShadow `json:"prompt_shadows,omitempty"`
+	SessionID      string             `json:"session_id,omitempty"`
+	BaselineRef    string             `json:"baseline_ref"`
+	LastReviewedAt string             `json:"last_reviewed_at"`
+	DismissedIDs   []string           `json:"dismissed_ids,omitempty"`
+	PromptShadows  []PromptShadow     `json:"prompt_shadows,omitempty"`
 	Findings       []findings.Finding `json:"findings,omitempty"`
 }
 
