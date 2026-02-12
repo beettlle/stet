@@ -95,7 +95,7 @@ func Hunks(ctx context.Context, repoRoot, baselineRef, headRef string, opts *Opt
 func runGitDiff(ctx context.Context, repoRoot, baseline, head string) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", "diff", "--no-color", "--no-ext-diff", baseline+".."+head)
 	cmd.Dir = repoRoot
-	cmd.Env = minimalEnv()
+	cmd.Env = minimalEnvForRepo(repoRoot)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("git diff %s..%s: %w: %s", baseline, head, err, strings.TrimSpace(string(out)))
@@ -107,6 +107,18 @@ func minimalEnv() []string {
 	return []string{
 		"PATH=" + os.Getenv("PATH"),
 		"GIT_TERMINAL_PROMPT=0",
+	}
+}
+
+// minimalEnvForRepo returns a minimal env with GIT_DIR set so git uses the
+// given repo regardless of process cwd (avoids "Not a git repository" when
+// cwd or Dir is ambiguous, e.g. in worktrees or some CI).
+func minimalEnvForRepo(repoRoot string) []string {
+	gitDir := filepath.Join(repoRoot, ".git")
+	return []string{
+		"PATH=" + os.Getenv("PATH"),
+		"GIT_TERMINAL_PROMPT=0",
+		"GIT_DIR=" + gitDir,
 	}
 }
 
