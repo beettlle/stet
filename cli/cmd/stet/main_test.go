@@ -391,7 +391,10 @@ func TestRunCLI_startWorktreeExistsPrintsHint(t *testing.T) {
 	if got == 0 {
 		t.Errorf("runCLI(start) with existing worktree = %d, want non-zero", got)
 	}
-	if !bytes.Contains(buf.Bytes(), []byte("stet finish && stet start HEAD~1")) {
-		t.Errorf("stderr hint missing one-liner 'stet finish && stet start HEAD~1': %q", buf.String())
+	if !bytes.Contains(buf.Bytes(), []byte("stet finish")) {
+		t.Errorf("stderr hint missing 'stet finish': %q", buf.String())
+	}
+	if !bytes.Contains(buf.Bytes(), []byte("stet start")) {
+		t.Errorf("stderr hint missing 'stet start': %q", buf.String())
 	}
 }

@@ -68,6 +68,21 @@ func TestSystemPrompt_fileWithWhitespace_trimmed(t *testing.T) {
 	}
 }
 
+func TestSystemPrompt_fileExistsButUnreadable_returnsError(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, optimizedPromptFilename)
+	if err := os.Mkdir(path, 0755); err != nil {
+		t.Fatalf("create dir as optimized path: %v", err)
+	}
+	_, err := SystemPrompt(dir)
+	if err == nil {
+		t.Fatal("SystemPrompt should return error when path exists but is not a readable file")
+	}
+	if !strings.Contains(err.Error(), "read optimized prompt") {
+		t.Errorf("error should mention read optimized prompt; got %q", err.Error())
+	}
+}
+
 func TestUserPrompt_includesFilePathAndContent(t *testing.T) {
 	hunk := diff.Hunk{
 		FilePath:   "pkg/foo.go",

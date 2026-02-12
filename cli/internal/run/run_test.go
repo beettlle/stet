@@ -111,6 +111,40 @@ func TestStart_createsSessionAndWorktree(t *testing.T) {
 	}
 }
 
+func TestStart_refEqualsHEAD_skipsWorktree(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	opts := StartOptions{
+		RepoRoot: repo, StateDir: stateDir, WorktreeRoot: "", Ref: "HEAD", DryRun: true,
+		Model: "", OllamaBaseURL: "",
+	}
+	err := Start(ctx, opts)
+	if err != nil {
+		t.Fatalf("Start(HEAD): %v", err)
+	}
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	if s.BaselineRef == "" {
+		t.Error("session.BaselineRef: want non-empty")
+	}
+	if s.LastReviewedAt == "" {
+		t.Error("session.LastReviewedAt: want non-empty when baseline is HEAD")
+	}
+	list, err := git.List(repo)
+	if err != nil {
+		t.Fatalf("List worktrees: %v", err)
+	}
+	for _, w := range list {
+		if strings.Contains(w.Path, "stet-") {
+			t.Errorf("Start(HEAD) should not create worktree; found %q", w.Path)
+		}
+	}
+}
+
 func TestStart_requiresCleanWorktree(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

@@ -143,7 +143,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		if errors.Is(err, git.ErrWorktreeExists) {
-			fmt.Fprintf(errHintOut, "Hint: Run: stet finish && stet start %s\n", ref)
+			fmt.Fprintf(errHintOut, "Hint: Run 'stet finish' to end the current review and remove the worktree, then run 'stet start %s' again.\n", ref)
 			return errors.New("worktree already exists")
 		}
 		return err

@@ -81,6 +81,21 @@ func TestFilterByPatterns_emptyPatterns(t *testing.T) {
 	}
 }
 
+func TestFilterByPatterns_malformedPattern_skipsPatternDoesNotExclude(t *testing.T) {
+	t.Parallel()
+	hunks := []Hunk{
+		{FilePath: "foo.go", RawContent: "x", Context: "x"},
+	}
+	// filepath.Match("[", "foo.go") returns an error; malformed pattern must be skipped, hunk kept.
+	got := filterByPatterns(hunks, []string{"["})
+	if len(got) != 1 {
+		t.Errorf("filterByPatterns with malformed pattern: got %d hunks, want 1 (pattern skipped)", len(got))
+	}
+	if len(got) > 0 && got[0].FilePath != "foo.go" {
+		t.Errorf("got file %q, want foo.go", got[0].FilePath)
+	}
+}
+
 func TestHunks_emptyRepoRoot(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

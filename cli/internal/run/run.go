@@ -88,6 +88,7 @@ type FinishOptions struct {
 // ContextLimit and WarnThreshold are used for token estimation warnings (Phase 3.2); zero values disable the warning.
 // Temperature and NumCtx are passed to Ollama /api/generate options.
 // Verbose, when true, prints progress to stderr (partition summary, per-hunk).
+// RunOptions does not include WorktreeRoot because Run does not create or remove worktrees (only Finish does).
 type RunOptions struct {
 	RepoRoot      string
 	StateDir      string
@@ -132,6 +133,28 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 	}
 	defer release()
 
+	sha, err := git.RevParse(opts.RepoRoot, ref)
+	if err != nil {
+		return fmt.Errorf("start: resolve ref %q: %w", ref, err)
+	}
+
+	headSHA, err := git.RevParse(opts.RepoRoot, "HEAD")
+	if err != nil {
+		return fmt.Errorf("start: resolve HEAD: %w", err)
+	}
+
+	// When baseline equals HEAD, there is nothing to review; skip worktree and Ollama.
+	if sha == headSHA {
+		s := session.Session{BaselineRef: sha, LastReviewedAt: headSHA, DismissedIDs: nil}
+		if err := session.Save(opts.StateDir, &s); err != nil {
+			return fmt.Errorf("start: save session: %w", err)
+		}
+		if opts.Verbose {
+			fmt.Fprintln(os.Stderr, "Nothing to review (baseline is HEAD).")
+		}
+		return nil
+	}
+
 	// Upfront Ollama check when not dry-run so wrong URL fails before creating worktree (Phase 3 remediation).
 	// Reuse the same client (with configurable timeout) for the check and the review loop.
 	var ollamaClient *ollama.Client
@@ -146,16 +169,6 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		}
 	}
 
-	sha, err := git.RevParse(opts.RepoRoot, ref)
-	if err != nil {
-		return fmt.Errorf("start: resolve ref %q: %w", ref, err)
-	}
-
-	headSHA, err := git.RevParse(opts.RepoRoot, "HEAD")
-	if err != nil {
-		return fmt.Errorf("start: resolve HEAD: %w", err)
-	}
-
 	worktreePath, err := git.Create(opts.RepoRoot, opts.WorktreeRoot, ref)
 	if err != nil {
 		return fmt.Errorf("start: %w", err)
@@ -166,7 +179,9 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 	// Remove worktree on any error so we do not leave it behind and pollute the repo.
 	defer func() {
 		if err != nil {
-			_ = git.Remove(opts.RepoRoot, worktreePath)
+			if removeErr := git.Remove(opts.RepoRoot, worktreePath); removeErr != nil {
+				fmt.Fprintf(os.Stderr, "warning: cleanup worktree: %v\n", removeErr)
+			}
 		}
 	}()
 
@@ -237,7 +252,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 			collected = append(collected, list...)
 		}
 	}
-
+	findings.SetCursorURIs(opts.RepoRoot, collected)
 	s.Findings = collected
 	s.LastReviewedAt = headSHA
 	if err := session.Save(opts.StateDir, &s); err != nil {
@@ -369,7 +384,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 			newFindings = append(newFindings, list...)
 		}
 	}
-
+	findings.SetCursorURIs(opts.RepoRoot, newFindings)
 	s.Findings = append(s.Findings, newFindings...)
 	s.LastReviewedAt = headSHA
 	if err := session.Save(opts.StateDir, &s); err != nil {

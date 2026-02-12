@@ -174,3 +174,22 @@ flowchart LR
 ## 5. Reference
 
 Implementation follows [docs/PRD.md](PRD.md). This plan adds phasing, coverage rules, and the decisions in §1. Phase 7 runs after feature-complete implementation to improve error UX without changing behavior.
+
+---
+
+## 6. Low priority / polish and optional improvements (Phase 3 audit backlog)
+
+These items were captured from the Phase 0–3 consolidated audit so they are not lost. Implement when convenient or as part of Phase 4+.
+
+### Low priority / polish
+
+- **L1** — Defer `git.Remove` in `cli/internal/run/run.go`: consider logging a failed cleanup or joining with returned error so cleanup failures are visible.
+- **L2** — Makefile: add `test` target (e.g. `go test ./cli/...`) and `coverage` target that enforces 77% / 72% and fails otherwise.
+- **L3** — Recovery hint wording: align worktree-exists hint in `cli/cmd/stet/main.go` with `docs/cli-extension-contract.md` (e.g. "Run 'stet finish' to end the current review and remove the worktree, then run 'stet start' again").
+- **L4** — Contract: add one line in `docs/cli-extension-contract.md` that `--dry-run` skips the LLM and emits deterministic findings for CI.
+- **L5** — RunOptions: optional comment in `cli/internal/run/run.go` that RunOptions intentionally omits WorktreeRoot because Run does not create/remove worktrees.
+
+### Optional improvements
+
+- **O1** — Start when ref == HEAD: when resolved ref equals HEAD, skip worktree creation; only create/update session (e.g. last_reviewed_at = HEAD, empty findings).
+- **O2** — Use `cmd.Context()` for `config.Load` in start/finish for consistency and future cancellation; not required.

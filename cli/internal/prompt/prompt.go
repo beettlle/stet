@@ -3,6 +3,7 @@
 package prompt
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,7 +33,8 @@ Return only the JSON array, no other text. Example: [{"file":"pkg.go","line":10,
 // SystemPrompt returns the system prompt for the review model. If
 // stateDir/system_prompt_optimized.txt exists and is readable, its contents
 // (trimmed) are returned; otherwise DefaultSystemPrompt is returned.
-// Missing or unreadable file is treated as "use default" (no error).
+// Missing file (IsNotExist) returns default with nil error; any other read
+// error (e.g. permission denied) is returned so the user can see it.
 func SystemPrompt(stateDir string) (string, error) {
 	if stateDir == "" {
 		return DefaultSystemPrompt, nil
@@ -43,7 +45,7 @@ func SystemPrompt(stateDir string) (string, error) {
 		if os.IsNotExist(err) {
 			return DefaultSystemPrompt, nil
 		}
-		return DefaultSystemPrompt, nil
+		return "", fmt.Errorf("read optimized prompt: %w", err)
 	}
 	return strings.TrimSpace(string(data)), nil
 }
