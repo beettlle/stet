@@ -29,6 +29,9 @@ func (e errExit) Error() string {
 // findingsOut is the writer for findings JSON on success. Tests may replace it to capture output.
 var findingsOut io.Writer = os.Stdout
 
+// errHintOut is the writer for recovery hints on start failure. Tests may replace it to capture output.
+var errHintOut io.Writer = os.Stderr
+
 // writeFindingsJSON loads the session from stateDir and writes {"findings": [...]} to w.
 func writeFindingsJSON(w io.Writer, stateDir string) error {
 	s, err := session.Load(stateDir)
@@ -125,6 +128,14 @@ func runStart(cmd *cobra.Command, args []string) error {
 		if errors.Is(err, ollama.ErrUnreachable) {
 			fmt.Fprintf(os.Stderr, "Ollama unreachable. Is the server running? For local: ollama serve.\n")
 			return errExit(2)
+		}
+		if errors.Is(err, run.ErrDirtyWorktree) {
+			fmt.Fprintf(errHintOut, "Hint: Commit or stash your changes, then run 'stet start' again.\n")
+			return err
+		}
+		if errors.Is(err, git.ErrWorktreeExists) {
+			fmt.Fprintf(errHintOut, "Hint: Run 'stet finish' to end the current review and remove the worktree, then run 'stet start' again.\n")
+			return err
 		}
 		return err
 	}

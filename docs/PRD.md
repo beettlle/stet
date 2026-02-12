@@ -215,7 +215,7 @@ FinishReview --> RemoveWorktree[Remove worktree]
 - **Invocation:** Extension spawns CLI; no long-lived daemon in v1.
 - **Streaming mode:** CLI MAY emit **NDJSON** to stdout (one event per line): e.g. `{"type":"progress","msg":"..."}`, `{"type":"finding","data":{...}}`, `{"type":"session","data":{...}}`, `{"type":"done"}`. Enables progress and incremental findings.
 - **Non-streaming:** Single JSON object to stdout on success (backward compatible).
-- **Errors:** Structured error to stderr or defined exit code + message; exit 0 on success.
+- **Errors:** Structured error to stderr or defined exit code + message; exit 0 on success. On certain failures (e.g. uncommitted changes, worktree already exists), the CLI may output a one-line recovery hint to stderr (e.g. suggesting `stet finish` or commit/stash).
 - **Exit codes:** Document (e.g. 0 = success, 1 = usage/error, 2 = Ollama unreachable).
 
 ---

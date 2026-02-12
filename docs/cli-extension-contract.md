@@ -29,7 +29,16 @@ On success (exit code 0), the CLI writes exactly one JSON object, followed by a 
 
 ## stderr
 
-Human-readable error and diagnostic messages. The extension should surface these when the process exits with a non-zero code.
+Human-readable error and diagnostic messages. The extension should surface these when the process exits with a non-zero code. For some conditions (e.g. uncommitted changes, or an existing review session), the CLI also prints a one-line **recovery hint** (e.g. `Hint: Run 'stet finish'...`) so the extension or user can suggest the next command.
+
+### Recovery hints
+
+On `stet start` failure, the CLI may print one of the following hints to stderr before the error line:
+
+| Condition | Hint |
+|-----------|------|
+| Uncommitted changes | `Hint: Commit or stash your changes, then run 'stet start' again.` |
+| Worktree already exists | `Hint: Run 'stet finish' to end the current review and remove the worktree, then run 'stet start' again.` |
 
 ## Exit codes
 

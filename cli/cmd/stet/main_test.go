@@ -298,3 +298,65 @@ func TestRunCLI_runDryRunEmitsFindingsJSON(t *testing.T) {
 		}
 	}
 }
+
+func TestRunCLI_startDirtyWorktreePrintsHint(t *testing.T) {
+	// Do not run in parallel: test changes cwd and errHintOut.
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = os.Chdir(orig)
+		errHintOut = os.Stderr
+	}()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	// Uncommitted change so start fails with ErrDirtyWorktree.
+	writeFile(t, repo, "dirty.txt", "uncommitted\n")
+	var buf bytes.Buffer
+	errHintOut = &buf
+	got := runCLI([]string{"start", "HEAD~1"})
+	if got == 0 {
+		t.Errorf("runCLI(start) with dirty worktree = %d, want non-zero", got)
+	}
+	if !bytes.Contains(buf.Bytes(), []byte("Commit or stash")) {
+		t.Errorf("stderr hint missing 'Commit or stash': %q", buf.String())
+	}
+	if !bytes.Contains(buf.Bytes(), []byte("stet start")) {
+		t.Errorf("stderr hint missing 'stet start': %q", buf.String())
+	}
+}
+
+func TestRunCLI_startWorktreeExistsPrintsHint(t *testing.T) {
+	// Do not run in parallel: test changes cwd and errHintOut.
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = os.Chdir(orig)
+		errHintOut = os.Stderr
+	}()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	// Create a worktree so second start fails with ErrWorktreeExists.
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
+	}
+	var buf bytes.Buffer
+	errHintOut = &buf
+	got := runCLI([]string{"start", "HEAD~1"})
+	if got == 0 {
+		t.Errorf("runCLI(start) with existing worktree = %d, want non-zero", got)
+	}
+	if !bytes.Contains(buf.Bytes(), []byte("stet finish")) {
+		t.Errorf("stderr hint missing 'stet finish': %q", buf.String())
+	}
+	if !bytes.Contains(buf.Bytes(), []byte("stet start")) {
+		t.Errorf("stderr hint missing 'stet start': %q", buf.String())
+	}
+}
