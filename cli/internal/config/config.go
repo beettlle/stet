@@ -8,7 +8,8 @@
 // Environment variables (override config files when set):
 //   - STET_MODEL, STET_OLLAMA_BASE_URL, STET_CONTEXT_LIMIT, STET_WARN_THRESHOLD,
 //   - STET_TIMEOUT (Go duration string or integer seconds), STET_STATE_DIR, STET_WORKTREE_ROOT,
-//   - STET_TEMPERATURE, STET_NUM_CTX (Ollama model runtime options; passed to /api/generate).
+//   - STET_TEMPERATURE, STET_NUM_CTX (Ollama model runtime options; passed to /api/generate),
+//   - STET_OPTIMIZER_SCRIPT (command to run for stet optimize; e.g. python3 scripts/optimize.py).
 package config
 
 import (
@@ -34,8 +35,9 @@ type Config struct {
 	StateDir      string        `toml:"state_dir"`
 	WorktreeRoot  string        `toml:"worktree_root"`
 	// Temperature and NumCtx are passed to Ollama /api/generate options (defaults: 0.2, 32768).
-	Temperature float64 `toml:"temperature"`
-	NumCtx      int     `toml:"num_ctx"`
+	Temperature     float64 `toml:"temperature"`
+	NumCtx          int     `toml:"num_ctx"`
+	OptimizerScript string  `toml:"optimizer_script"` // Command for stet optimize (e.g. python3 scripts/optimize.py).
 }
 
 // Overrides represents optional CLI flag overrides. Non-nil pointer means
@@ -48,8 +50,9 @@ type Overrides struct {
 	Timeout       *time.Duration
 	StateDir      *string
 	WorktreeRoot  *string
-	Temperature   *float64
-	NumCtx        *int
+	Temperature     *float64
+	NumCtx          *int
+	OptimizerScript *string
 }
 
 // LoadOptions configures Load. All fields are optional.
@@ -148,15 +151,16 @@ func mergeFile(cfg *Config, path string) error {
 		return fmt.Errorf("read config %s: %w", path, err)
 	}
 	var file struct {
-		Model         *string  `toml:"model"`
-		OllamaBaseURL *string  `toml:"ollama_base_url"`
-		ContextLimit  *int64   `toml:"context_limit"`
-		WarnThreshold *float64 `toml:"warn_threshold"`
-		Timeout       *string  `toml:"timeout"`
-		StateDir      *string  `toml:"state_dir"`
-		WorktreeRoot  *string  `toml:"worktree_root"`
-		Temperature   *float64 `toml:"temperature"`
-		NumCtx        *int64   `toml:"num_ctx"`
+		Model            *string  `toml:"model"`
+		OllamaBaseURL    *string  `toml:"ollama_base_url"`
+		ContextLimit     *int64   `toml:"context_limit"`
+		WarnThreshold    *float64 `toml:"warn_threshold"`
+		Timeout          *string  `toml:"timeout"`
+		StateDir         *string  `toml:"state_dir"`
+		WorktreeRoot     *string  `toml:"worktree_root"`
+		Temperature      *float64 `toml:"temperature"`
+		NumCtx           *int64   `toml:"num_ctx"`
+		OptimizerScript  *string  `toml:"optimizer_script"`
 	}
 	if _, err := toml.Decode(string(data), &file); err != nil {
 		return fmt.Errorf("parse config %s: %w", path, err)
@@ -194,6 +198,9 @@ func mergeFile(cfg *Config, path string) error {
 	} else if file.NumCtx != nil && *file.NumCtx == 0 {
 		cfg.NumCtx = _defaultNumCtx
 	}
+	if file.OptimizerScript != nil {
+		cfg.OptimizerScript = *file.OptimizerScript
+	}
 	return nil
 }
 
@@ -224,8 +231,9 @@ const (
 	envTimeout       = "STET_TIMEOUT"
 	envStateDir      = "STET_STATE_DIR"
 	envWorktreeRoot  = "STET_WORKTREE_ROOT"
-	envTemperature   = "STET_TEMPERATURE"
-	envNumCtx        = "STET_NUM_CTX"
+	envTemperature     = "STET_TEMPERATURE"
+	envNumCtx          = "STET_NUM_CTX"
+	envOptimizerScript = "STET_OPTIMIZER_SCRIPT"
 )
 
 func applyEnv(cfg *Config, env []string) error {
@@ -296,6 +304,9 @@ func applyEnv(cfg *Config, env []string) error {
 			cfg.NumCtx = int(n)
 		}
 	}
+	if v, ok := vals[envOptimizerScript]; ok {
+		cfg.OptimizerScript = v
+	}
 	return nil
 }
 
@@ -329,5 +340,8 @@ func applyOverrides(cfg *Config, o *Overrides) {
 	}
 	if o.NumCtx != nil {
 		cfg.NumCtx = *o.NumCtx
+	}
+	if o.OptimizerScript != nil {
+		cfg.OptimizerScript = *o.OptimizerScript
 	}
 }

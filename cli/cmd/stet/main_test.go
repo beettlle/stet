@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net"
@@ -12,6 +13,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"stet/cli/internal/config"
+	"stet/cli/internal/findings"
+	"stet/cli/internal/session"
 )
 
 func TestRun(t *testing.T) {
@@ -396,5 +401,291 @@ func TestRunCLI_startWorktreeExistsPrintsHint(t *testing.T) {
 	}
 	if !bytes.Contains(buf.Bytes(), []byte("stet start")) {
 		t.Errorf("stderr hint missing 'stet start': %q", buf.String())
+	}
+}
+
+func TestRunCLI_statusNoSessionExitsNonZero(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStderr := os.Stderr
+	os.Stderr = w
+	defer func() { os.Stderr = oldStderr }()
+	got := runCLI([]string{"status"})
+	_ = w.Close()
+	var stderr bytes.Buffer
+	_, _ = io.Copy(&stderr, r)
+	if got != 1 {
+		t.Errorf("runCLI(status) with no session = %d, want 1", got)
+	}
+	if !strings.Contains(stderr.String(), "No active session") {
+		t.Errorf("stderr should contain 'No active session'; got %q", stderr.String())
+	}
+}
+
+func TestRunCLI_statusWithSessionPrintsFields(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+		t.Fatalf("runCLI(start HEAD~1 --dry-run) = %d, want 0", got)
+	}
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStdout := os.Stdout
+	os.Stdout = w
+	defer func() { os.Stdout = oldStdout }()
+	if got := runCLI([]string{"status"}); got != 0 {
+		t.Fatalf("runCLI(status) = %d, want 0", got)
+	}
+	_ = w.Close()
+	var stdout bytes.Buffer
+	_, _ = io.Copy(&stdout, r)
+	out := stdout.String()
+	for _, sub := range []string{"baseline:", "last_reviewed_at:", "worktree:", "findings:", "dismissed:"} {
+		if !strings.Contains(out, sub) {
+			t.Errorf("status output missing %q; got:\n%s", sub, out)
+		}
+	}
+	if !strings.Contains(out, "findings: 1") && !strings.Contains(out, "findings: 2") {
+		t.Errorf("status should show finding count; got:\n%s", out)
+	}
+}
+
+func TestRunCLI_approveNoSessionExitsNonZero(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	got := runCLI([]string{"approve", "some-id"})
+	if got != 1 {
+		t.Errorf("runCLI(approve) with no session = %d, want 1", got)
+	}
+}
+
+func TestRunCLI_approvePersistence(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	findingsOut = &buf
+	defer func() { findingsOut = os.Stdout }()
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
+	}
+	var out struct {
+		Findings []map[string]interface{} `json:"findings"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil || len(out.Findings) == 0 {
+		t.Fatalf("need at least one finding; err=%v", err)
+	}
+	id, _ := out.Findings[0]["id"].(string)
+	if id == "" {
+		t.Fatal("finding missing id")
+	}
+	if got := runCLI([]string{"approve", id}); got != 0 {
+		t.Fatalf("runCLI(approve %q) = %d, want 0", id, got)
+	}
+	ro, wo, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStdout := os.Stdout
+	os.Stdout = wo
+	defer func() { os.Stdout = oldStdout }()
+	if got := runCLI([]string{"status"}); got != 0 {
+		t.Fatalf("runCLI(status) = %d", got)
+	}
+	_ = wo.Close()
+	var stdout bytes.Buffer
+	_, _ = io.Copy(&stdout, ro)
+	if !strings.Contains(stdout.String(), "dismissed: 1") {
+		t.Errorf("status after approve should show dismissed: 1; got %s", stdout.String())
+	}
+}
+
+func TestRunCLI_approveIdempotent(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	findingsOut = &buf
+	defer func() { findingsOut = os.Stdout }()
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
+	}
+	var out struct {
+		Findings []map[string]interface{} `json:"findings"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil || len(out.Findings) == 0 {
+		t.Fatalf("need at least one finding; err=%v", err)
+	}
+	id, _ := out.Findings[0]["id"].(string)
+	if got := runCLI([]string{"approve", id}); got != 0 {
+		t.Fatalf("first approve = %d", got)
+	}
+	if got := runCLI([]string{"approve", id}); got != 0 {
+		t.Errorf("second approve (idempotent) = %d, want 0", got)
+	}
+	cfg, _ := loadConfigForTest(repo)
+	stateDir := cfg.EffectiveStateDir(repo)
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("load session: %v", err)
+	}
+	count := 0
+	for _, d := range s.DismissedIDs {
+		if d == id {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("dismissed_ids should contain id once, got %d", count)
+	}
+}
+
+func loadConfigForTest(repoRoot string) (*config.Config, error) {
+	return config.Load(context.Background(), config.LoadOptions{RepoRoot: repoRoot})
+}
+
+func TestWriteFindingsJSON_filtersDismissed(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	s := session.Session{
+		BaselineRef:    "abc",
+		LastReviewedAt: "def",
+		Findings: []findings.Finding{
+			{ID: "f1", File: "a.go", Line: 1, Severity: findings.SeverityInfo, Category: findings.CategoryStyle, Message: "m1"},
+			{ID: "f2", File: "b.go", Line: 2, Severity: findings.SeverityWarning, Category: findings.CategoryBug, Message: "m2"},
+		},
+		DismissedIDs: []string{"f1"},
+	}
+	if err := session.Save(dir, &s); err != nil {
+		t.Fatalf("save session: %v", err)
+	}
+	var buf bytes.Buffer
+	if err := writeFindingsJSON(&buf, dir); err != nil {
+		t.Fatalf("writeFindingsJSON: %v", err)
+	}
+	var out struct {
+		Findings []findings.Finding `json:"findings"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(out.Findings) != 1 {
+		t.Fatalf("findings len = %d, want 1 (dismissed f1 excluded)", len(out.Findings))
+	}
+	if out.Findings[0].ID != "f2" {
+		t.Errorf("remaining finding id = %q, want f2", out.Findings[0].ID)
+	}
+}
+
+func TestRunCLI_optimizeNotConfiguredExitsNonZero(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	origEnv := os.Getenv("STET_OPTIMIZER_SCRIPT")
+	os.Unsetenv("STET_OPTIMIZER_SCRIPT")
+	defer func() { _ = os.Setenv("STET_OPTIMIZER_SCRIPT", origEnv) }()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStderr := os.Stderr
+	os.Stderr = w
+	defer func() { os.Stderr = oldStderr }()
+	got := runCLI([]string{"optimize"})
+	_ = w.Close()
+	var stderr bytes.Buffer
+	_, _ = io.Copy(&stderr, r)
+	if got != 1 {
+		t.Errorf("runCLI(optimize) with no config = %d, want 1", got)
+	}
+	if !strings.Contains(stderr.String(), "Optimizer not configured") {
+		t.Errorf("stderr should mention Optimizer not configured; got %q", stderr.String())
+	}
+}
+
+func TestRunCLI_optimizeScriptFailsExitsNonZero(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	origEnv := os.Getenv("STET_OPTIMIZER_SCRIPT")
+	if err := os.Setenv("STET_OPTIMIZER_SCRIPT", "false"); err != nil {
+		t.Fatalf("setenv: %v", err)
+	}
+	defer func() { _ = os.Setenv("STET_OPTIMIZER_SCRIPT", origEnv) }()
+	got := runCLI([]string{"optimize"})
+	if got != 1 {
+		t.Errorf("runCLI(optimize) with failing script = %d, want 1", got)
+	}
+}
+
+func TestRunCLI_optimizeScriptSucceedsExitsZero(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	origEnv := os.Getenv("STET_OPTIMIZER_SCRIPT")
+	if err := os.Setenv("STET_OPTIMIZER_SCRIPT", "true"); err != nil {
+		t.Fatalf("setenv: %v", err)
+	}
+	defer func() { _ = os.Setenv("STET_OPTIMIZER_SCRIPT", origEnv) }()
+	got := runCLI([]string{"optimize"})
+	if got != 0 {
+		t.Errorf("runCLI(optimize) with true = %d, want 0", got)
 	}
 }

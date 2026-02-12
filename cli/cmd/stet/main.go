@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -33,14 +35,25 @@ var findingsOut io.Writer = os.Stdout
 var errHintOut io.Writer = os.Stderr
 
 // writeFindingsJSON loads the session from stateDir and writes {"findings": [...]} to w.
+// Findings whose ID is in session.DismissedIDs are excluded so they do not resurface.
 func writeFindingsJSON(w io.Writer, stateDir string) error {
 	s, err := session.Load(stateDir)
 	if err != nil {
 		return fmt.Errorf("write findings: load session: %w", err)
 	}
+	dismissed := make(map[string]struct{}, len(s.DismissedIDs))
+	for _, id := range s.DismissedIDs {
+		dismissed[id] = struct{}{}
+	}
+	var active []findings.Finding
+	for _, f := range s.Findings {
+		if _, ok := dismissed[f.ID]; !ok {
+			active = append(active, f)
+		}
+	}
 	payload := struct {
 		Findings []findings.Finding `json:"findings"`
-	}{Findings: s.Findings}
+	}{Findings: active}
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("write findings: marshal: %w", err)
@@ -72,6 +85,9 @@ func runCLI(args []string) int {
 	rootCmd.AddCommand(newStartCmd())
 	rootCmd.AddCommand(newRunCmd())
 	rootCmd.AddCommand(newFinishCmd())
+	rootCmd.AddCommand(newStatusCmd())
+	rootCmd.AddCommand(newApproveCmd())
+	rootCmd.AddCommand(newOptimizeCmd())
 	rootCmd.AddCommand(newDoctorCmd())
 	rootCmd.SilenceUsage = true
 	rootCmd.SetArgs(args)
@@ -241,7 +257,158 @@ func runFinish(cmd *cobra.Command, args []string) error {
 		WorktreeRoot: cfg.WorktreeRoot,
 	}
 	if err := run.Finish(cmd.Context(), opts); err != nil {
+		if errors.Is(err, run.ErrNoSession) {
+			fmt.Fprintln(os.Stderr, err.Error())
+			return errExit(1)
+		}
 		return err
+	}
+	return nil
+}
+
+func newStatusCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "status",
+		Short: "Report session status (baseline, findings, dismissed)",
+		RunE:  runStatus,
+	}
+	return cmd
+}
+
+func runStatus(cmd *cobra.Command, args []string) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("status: %w", err)
+	}
+	repoRoot, err := git.RepoRoot(cwd)
+	if err != nil {
+		return fmt.Errorf("status: not a git repository: %w", err)
+	}
+	cfg, err := config.Load(context.Background(), config.LoadOptions{RepoRoot: repoRoot})
+	if err != nil {
+		return fmt.Errorf("status: load config: %w", err)
+	}
+	stateDir := cfg.EffectiveStateDir(repoRoot)
+	s, err := session.Load(stateDir)
+	if err != nil {
+		return fmt.Errorf("status: load session: %w", err)
+	}
+	if s.BaselineRef == "" {
+		fmt.Fprintln(os.Stderr, "No active session. Run 'stet start' to begin a review.")
+		return errExit(1)
+	}
+	worktreePath, err := git.PathForRef(repoRoot, cfg.WorktreeRoot, s.BaselineRef)
+	if err != nil {
+		return fmt.Errorf("status: worktree path: %w", err)
+	}
+	fmt.Fprintf(os.Stdout, "baseline: %s\n", s.BaselineRef)
+	fmt.Fprintf(os.Stdout, "last_reviewed_at: %s\n", s.LastReviewedAt)
+	fmt.Fprintf(os.Stdout, "worktree: %s\n", worktreePath)
+	fmt.Fprintf(os.Stdout, "findings: %d\n", len(s.Findings))
+	fmt.Fprintf(os.Stdout, "dismissed: %d\n", len(s.DismissedIDs))
+	return nil
+}
+
+func newApproveCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "approve <id>",
+		Short: "Mark a finding as approved/dismissed so it does not resurface",
+		RunE:  runApprove,
+	}
+	return cmd
+}
+
+func runApprove(cmd *cobra.Command, args []string) error {
+	if len(args) < 1 {
+		return errors.New("approve requires a finding id (e.g. stet approve <id>)")
+	}
+	id := strings.TrimSpace(args[0])
+	if id == "" {
+		return errors.New("approve requires a non-empty finding id")
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("approve: %w", err)
+	}
+	repoRoot, err := git.RepoRoot(cwd)
+	if err != nil {
+		return fmt.Errorf("approve: not a git repository: %w", err)
+	}
+	cfg, err := config.Load(context.Background(), config.LoadOptions{RepoRoot: repoRoot})
+	if err != nil {
+		return fmt.Errorf("approve: load config: %w", err)
+	}
+	stateDir := cfg.EffectiveStateDir(repoRoot)
+	s, err := session.Load(stateDir)
+	if err != nil {
+		return fmt.Errorf("approve: load session: %w", err)
+	}
+	if s.BaselineRef == "" {
+		fmt.Fprintln(os.Stderr, run.ErrNoSession.Error())
+		return errExit(1)
+	}
+	for _, d := range s.DismissedIDs {
+		if d == id {
+			return nil
+		}
+	}
+	s.DismissedIDs = append(s.DismissedIDs, id)
+	if err := session.Save(stateDir, &s); err != nil {
+		return fmt.Errorf("approve: save session: %w", err)
+	}
+	return nil
+}
+
+func newOptimizeCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "optimize",
+		Short: "Run optional DSPy optimizer (reads history.jsonl, writes system_prompt_optimized.txt)",
+		RunE:  runOptimize,
+	}
+	return cmd
+}
+
+func runOptimize(cmd *cobra.Command, args []string) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("optimize: %w", err)
+	}
+	repoRoot, err := git.RepoRoot(cwd)
+	if err != nil {
+		return fmt.Errorf("optimize: not a git repository: %w", err)
+	}
+	cfg, err := config.Load(context.Background(), config.LoadOptions{RepoRoot: repoRoot})
+	if err != nil {
+		return fmt.Errorf("optimize: load config: %w", err)
+	}
+	if cfg.OptimizerScript == "" {
+		fmt.Fprintln(os.Stderr, "Optimizer not configured. Set STET_OPTIMIZER_SCRIPT or optimizer_script in config. See docs.")
+		return errExit(1)
+	}
+	stateDir := cfg.EffectiveStateDir(repoRoot)
+	parts := strings.Fields(cfg.OptimizerScript)
+	if len(parts) == 0 {
+		fmt.Fprintln(os.Stderr, "Optimizer not configured. Set STET_OPTIMIZER_SCRIPT or optimizer_script in config. See docs.")
+		return errExit(1)
+	}
+	var execCmd *exec.Cmd
+	if len(parts) == 1 {
+		execCmd = exec.CommandContext(cmd.Context(), parts[0])
+	} else {
+		execCmd = exec.CommandContext(cmd.Context(), parts[0], parts[1:]...)
+	}
+	execCmd.Env = append(os.Environ(), "STET_STATE_DIR="+stateDir)
+	execCmd.Dir = repoRoot
+	execCmd.Stdout = os.Stdout
+	execCmd.Stderr = os.Stderr
+	if err := execCmd.Run(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			code := exitErr.ExitCode()
+			if code >= 0 && code <= 255 {
+				return errExit(code)
+			}
+		}
+		return errExit(1)
 	}
 	return nil
 }

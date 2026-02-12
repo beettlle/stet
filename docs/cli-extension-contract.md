@@ -49,6 +49,22 @@ On `stet start` failure, the CLI may print one of the following hints to stderr 
 | **1** | Usage error or other failure (e.g. not a git repo, no session, model not found). |
 | **2** | Ollama unreachable (server not running or not reachable). |
 
+## Other commands
+
+- **`stet status`** — Reports baseline, last_reviewed_at, worktree path, finding count, and dismissed count. Exits 1 with "No active session" if no session.
+- **`stet approve <id>`** — Adds the finding ID to the session’s dismissed list so it does not resurface in findings output. Idempotent. Exits 1 if no active session.
+- **`stet finish`** — Ends the session and removes the worktree. Exits 1 if no active session.
+
+## Optimizer (stet optimize)
+
+The optional **`stet optimize`** command invokes an external script (e.g. a Python DSPy optimizer) to improve the system prompt from user feedback. The Go CLI has **no Python or DSPy dependency**; it only runs the configured command.
+
+- **When to run**: e.g. weekly or after enough feedback has been collected in `.review/history.jsonl`.
+- **Input**: The script reads `.review/history.jsonl` (see State storage and history below). The CLI passes the state directory via the **`STET_STATE_DIR`** environment variable when invoking the script.
+- **Output**: The script should write `.review/system_prompt_optimized.txt`. When that file exists, the CLI uses it as the system prompt for review (see Phase 3.3).
+- **Configuration**: Set the command to run via **`STET_OPTIMIZER_SCRIPT`** or **`optimizer_script`** in repo/global config (e.g. `python3 scripts/optimize.py` or a path to your script). If unset, `stet optimize` exits 1 with a message asking you to configure it.
+- **Exit codes**: 0 = success; non-zero = failure (script missing, Python/DSPy error, invalid history, etc.). The CLI propagates the script’s exit code when in 0–255.
+
 ## Configuration (Ollama model options)
 
 The CLI passes model runtime options to the Ollama API on each generate request. Config file keys and environment variables:
@@ -57,6 +73,7 @@ The CLI passes model runtime options to the Ollama API on each generate request.
 |-----------|---------|-------------|
 | `temperature` / `STET_TEMPERATURE` | 0.2 | Sampling temperature (0–2). Lower values give more deterministic output. |
 | `num_ctx` / `STET_NUM_CTX` | 32768 | Model context window size (tokens). Set to 0 in config/env to use default. |
+| `optimizer_script` / `STET_OPTIMIZER_SCRIPT` | (none) | Command to run for `stet optimize` (e.g. `python3 scripts/optimize.py`). |
 
 Config files: repo `.review/config.toml`, global `~/.config/stet/config.toml` (or XDG equivalent). Precedence: CLI flags > env > repo config > global config > defaults.
 
