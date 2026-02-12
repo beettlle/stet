@@ -161,6 +161,97 @@ func TestStart_requiresCleanWorktree(t *testing.T) {
 	}
 }
 
+func TestStart_allowDirty_skipsCleanCheck(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	writeFile(t, repo, "dirty.txt", "x\n")
+	opts := StartOptions{
+		RepoRoot:      repo,
+		StateDir:      stateDir,
+		WorktreeRoot:  "",
+		Ref:           "HEAD~1",
+		DryRun:        true,
+		AllowDirty:    true,
+		Model:         "",
+		OllamaBaseURL: "",
+	}
+	err := Start(ctx, opts)
+	if err != nil {
+		t.Fatalf("Start with AllowDirty and dirty worktree: %v", err)
+	}
+}
+
+func TestStart_allowDirty_warnsToStderr(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	writeFile(t, repo, "dirty.txt", "x\n")
+
+	stderrR, stderrW, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldStderr := os.Stderr
+	os.Stderr = stderrW
+	defer func() {
+		os.Stderr = oldStderr
+		_ = stderrW.Close()
+	}()
+
+	opts := StartOptions{
+		RepoRoot:      repo,
+		StateDir:      stateDir,
+		WorktreeRoot:  "",
+		Ref:           "HEAD~1",
+		DryRun:        true,
+		AllowDirty:    true,
+		Model:         "",
+		OllamaBaseURL: "",
+	}
+	if err := Start(ctx, opts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	_ = stderrW.Close()
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, stderrR)
+	stderr := buf.String()
+	if !strings.Contains(stderr, "Warning") && !strings.Contains(stderr, "uncommitted") {
+		t.Errorf("stderr should contain 'Warning' or 'uncommitted'; got %q", stderr)
+	}
+}
+
+func TestStart_concurrentLockFails(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	release, err := session.AcquireLock(stateDir)
+	if err != nil {
+		t.Fatalf("AcquireLock: %v", err)
+	}
+	defer release()
+
+	opts := StartOptions{
+		RepoRoot:      repo,
+		StateDir:      stateDir,
+		WorktreeRoot:  "",
+		Ref:           "HEAD~1",
+		DryRun:        true,
+		Model:         "",
+		OllamaBaseURL: "",
+	}
+	err = Start(ctx, opts)
+	if err == nil {
+		t.Fatal("Start with lock held: expected error")
+	}
+	if !errors.Is(err, session.ErrLocked) {
+		t.Errorf("Start: got %v, want ErrLocked", err)
+	}
+}
+
 func TestStart_baselineNotAncestor(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

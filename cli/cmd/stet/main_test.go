@@ -354,6 +354,129 @@ func TestRunCLI_startDirtyWorktreePrintsHint(t *testing.T) {
 	}
 }
 
+func TestRunCLI_startBaselineNotAncestorPrintsClearMessage(t *testing.T) {
+	// Do not run in parallel: test changes cwd and stderr.
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	mainBranch := runGitOut(t, repo, "git", "rev-parse", "--abbrev-ref", "HEAD")
+	runGit(t, repo, "git", "checkout", "--orphan", "orphan")
+	writeFile(t, repo, "orphan.txt", "x\n")
+	runGit(t, repo, "git", "add", "orphan.txt")
+	runGit(t, repo, "git", "commit", "-m", "orphan")
+	orphanSHA := runGitOut(t, repo, "git", "rev-parse", "HEAD")
+	runGit(t, repo, "git", "checkout", mainBranch)
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStderr := os.Stderr
+	os.Stderr = w
+	defer func() { os.Stderr = oldStderr }()
+	got := runCLI([]string{"start", orphanSHA, "--dry-run"})
+	_ = w.Close()
+	var stderr bytes.Buffer
+	_, _ = io.Copy(&stderr, r)
+	if got == 0 {
+		t.Errorf("runCLI(start <orphan-sha>) = %d, want non-zero", got)
+	}
+	if !strings.Contains(stderr.String(), "not an ancestor") {
+		t.Errorf("stderr should contain 'not an ancestor'; got %q", stderr.String())
+	}
+}
+
+func runGitOut(t *testing.T, dir string, name string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command(name, args...)
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("%s %v: %v", name, args, err)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func TestRunCLI_startConcurrentLockPrintsClearMessage(t *testing.T) {
+	// Do not run in parallel: test holds lock and changes cwd, errHintOut.
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig); errHintOut = os.Stderr }()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	cfg, _ := loadConfigForTest(repo)
+	stateDir := cfg.EffectiveStateDir(repo)
+	release, err := session.AcquireLock(stateDir)
+	if err != nil {
+		t.Fatalf("AcquireLock: %v", err)
+	}
+	defer release()
+
+	var buf bytes.Buffer
+	errHintOut = &buf
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStderr := os.Stderr
+	os.Stderr = w
+	defer func() { os.Stderr = oldStderr }()
+	got := runCLI([]string{"start", "HEAD~1", "--dry-run"})
+	_ = w.Close()
+	var stderrBuf bytes.Buffer
+	_, _ = io.Copy(&stderrBuf, r)
+	combined := buf.String() + stderrBuf.String()
+	if got == 0 {
+		t.Errorf("runCLI(start) with lock held = %d, want non-zero", got)
+	}
+	if !strings.Contains(combined, "finish or cleanup") && !strings.Contains(combined, "session already active") {
+		t.Errorf("stderr should contain 'finish or cleanup' or 'session already active'; got %q", combined)
+	}
+}
+
+func TestRunCLI_startAllowDirtyProceedsWithWarning(t *testing.T) {
+	// Do not run in parallel: test changes cwd and stderr.
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, repo, "dirty.txt", "uncommitted\n")
+
+	stderrR, stderrW, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldStderr := os.Stderr
+	os.Stderr = stderrW
+	defer func() { os.Stderr = oldStderr }()
+	got := runCLI([]string{"start", "HEAD~1", "--allow-dirty", "--dry-run"})
+	_ = stderrW.Close()
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, stderrR)
+	stderr := buf.String()
+	if got != 0 {
+		t.Errorf("runCLI(start --allow-dirty --dry-run) with dirty worktree = %d, want 0", got)
+	}
+	if !strings.Contains(stderr, "Warning") && !strings.Contains(stderr, "uncommitted") {
+		t.Errorf("stderr should contain 'Warning' or 'uncommitted'; got %q", stderr)
+	}
+}
+
 func TestRunCLI_startWorktreeExistsPrintsHint(t *testing.T) {
 	// Do not run in parallel: test changes cwd, errHintOut, and env.
 	// Mock Ollama so the second start passes the upfront Check and fails at git.Create (worktree exists).

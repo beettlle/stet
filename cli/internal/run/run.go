@@ -61,12 +61,14 @@ func cannedFindingsForHunks(hunks []diff.Hunk) []findings.Finding {
 // ContextLimit and WarnThreshold are used for token estimation warnings (Phase 3.2); zero values disable the warning.
 // Temperature and NumCtx are passed to Ollama /api/generate options.
 // Verbose, when true, prints progress to stderr (worktree, partition summary, per-hunk).
+// AllowDirty, when true, skips the clean worktree check and proceeds with a warning.
 type StartOptions struct {
 	RepoRoot       string
 	StateDir       string
 	WorktreeRoot   string
 	Ref            string
 	DryRun         bool
+	AllowDirty     bool
 	Model          string
 	OllamaBaseURL  string
 	ContextLimit   int
@@ -124,7 +126,11 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		return fmt.Errorf("start: check worktree: %w", err)
 	}
 	if !clean {
-		return ErrDirtyWorktree
+		if opts.AllowDirty {
+			fmt.Fprintln(os.Stderr, "Warning: proceeding with uncommitted changes; review scope may be unclear")
+		} else {
+			return ErrDirtyWorktree
+		}
 	}
 
 	release, err := session.AcquireLock(opts.StateDir)

@@ -110,6 +110,7 @@ func newStartCmd() *cobra.Command {
 	}
 	cmd.Flags().Bool("dry-run", false, "Skip LLM; inject canned findings for CI")
 	cmd.Flags().Bool("verbose", false, "Print progress to stderr")
+	cmd.Flags().Bool("allow-dirty", false, "Proceed with uncommitted changes (warns)")
 	return cmd
 }
 
@@ -120,6 +121,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 	}
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	verbose, _ := cmd.Flags().GetBool("verbose")
+	allowDirty, _ := cmd.Flags().GetBool("allow-dirty")
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("start: %w", err)
@@ -139,6 +141,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 		WorktreeRoot:   cfg.WorktreeRoot,
 		Ref:            ref,
 		DryRun:         dryRun,
+		AllowDirty:     allowDirty,
 		Model:          cfg.Model,
 		OllamaBaseURL:  cfg.OllamaBaseURL,
 		ContextLimit:   cfg.ContextLimit,
@@ -161,6 +164,13 @@ func runStart(cmd *cobra.Command, args []string) error {
 		if errors.Is(err, git.ErrWorktreeExists) {
 			fmt.Fprintf(errHintOut, "Hint: Run 'stet finish' to end the current review and remove the worktree, then run 'stet start %s' again.\n", ref)
 			return errors.New("worktree already exists")
+		}
+		if errors.Is(err, git.ErrBaselineNotAncestor) {
+			return errors.New("baseline ref is not an ancestor of HEAD")
+		}
+		if errors.Is(err, session.ErrLocked) {
+			fmt.Fprintf(errHintOut, "Hint: Run 'stet finish' to end the current review, then run 'stet start %s' again.\n", ref)
+			return errors.New("finish or cleanup current review first")
 		}
 		return err
 	}
