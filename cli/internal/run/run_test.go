@@ -196,10 +196,10 @@ func TestStart_allowDirty_warnsToStderr(t *testing.T) {
 	}
 	oldStderr := os.Stderr
 	os.Stderr = stderrW
-	defer func() {
+	t.Cleanup(func() {
 		os.Stderr = oldStderr
 		_ = stderrW.Close()
-	}()
+	})
 
 	opts := StartOptions{
 		RepoRoot:      repo,
@@ -663,10 +663,10 @@ func TestStart_tokenWarningWhenOverThreshold(t *testing.T) {
 	}
 	oldStderr := os.Stderr
 	os.Stderr = stderrW
-	defer func() {
+	t.Cleanup(func() {
 		os.Stderr = oldStderr
 		_ = stderrW.Close()
-	}()
+	})
 
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
@@ -726,10 +726,10 @@ func TestRun_tokenWarningWhenOverThreshold(t *testing.T) {
 	}
 	oldStderr := os.Stderr
 	os.Stderr = stderrW
-	defer func() {
+	t.Cleanup(func() {
 		os.Stderr = oldStderr
 		_ = stderrW.Close()
-	}()
+	})
 
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")

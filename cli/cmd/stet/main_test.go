@@ -55,7 +55,7 @@ func TestRunCLI_doctorUnreachableExits2(t *testing.T) {
 	}
 	oldStderr := os.Stderr
 	os.Stderr = w
-	defer func() { os.Stderr = oldStderr }()
+	t.Cleanup(func() { os.Stderr = oldStderr })
 
 	got := runCLI([]string{"doctor"})
 	_ = w.Close()
@@ -361,7 +361,7 @@ func TestRunCLI_startBaselineNotAncestorPrintsClearMessage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = os.Chdir(orig) }()
+	t.Cleanup(func() { _ = os.Chdir(orig) })
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
@@ -379,7 +379,7 @@ func TestRunCLI_startBaselineNotAncestorPrintsClearMessage(t *testing.T) {
 	}
 	oldStderr := os.Stderr
 	os.Stderr = w
-	defer func() { os.Stderr = oldStderr }()
+	t.Cleanup(func() { os.Stderr = oldStderr })
 	got := runCLI([]string{"start", orphanSHA, "--dry-run"})
 	_ = w.Close()
 	var stderr bytes.Buffer
@@ -410,7 +410,7 @@ func TestRunCLI_startConcurrentLockPrintsClearMessage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = os.Chdir(orig); errHintOut = os.Stderr }()
+	t.Cleanup(func() { _ = os.Chdir(orig); errHintOut = os.Stderr })
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
@@ -430,7 +430,7 @@ func TestRunCLI_startConcurrentLockPrintsClearMessage(t *testing.T) {
 	}
 	oldStderr := os.Stderr
 	os.Stderr = w
-	defer func() { os.Stderr = oldStderr }()
+	t.Cleanup(func() { os.Stderr = oldStderr })
 	got := runCLI([]string{"start", "HEAD~1", "--dry-run"})
 	_ = w.Close()
 	var stderrBuf bytes.Buffer
@@ -451,7 +451,7 @@ func TestRunCLI_startAllowDirtyProceedsWithWarning(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = os.Chdir(orig) }()
+	t.Cleanup(func() { _ = os.Chdir(orig) })
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
@@ -463,7 +463,7 @@ func TestRunCLI_startAllowDirtyProceedsWithWarning(t *testing.T) {
 	}
 	oldStderr := os.Stderr
 	os.Stderr = stderrW
-	defer func() { os.Stderr = oldStderr }()
+	t.Cleanup(func() { os.Stderr = oldStderr })
 	got := runCLI([]string{"start", "HEAD~1", "--allow-dirty", "--dry-run"})
 	_ = stderrW.Close()
 	var buf bytes.Buffer
@@ -533,7 +533,7 @@ func TestRunCLI_statusNoSessionExitsNonZero(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = os.Chdir(orig) }()
+	t.Cleanup(func() { _ = os.Chdir(orig) })
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
@@ -543,7 +543,7 @@ func TestRunCLI_statusNoSessionExitsNonZero(t *testing.T) {
 	}
 	oldStderr := os.Stderr
 	os.Stderr = w
-	defer func() { os.Stderr = oldStderr }()
+	t.Cleanup(func() { os.Stderr = oldStderr })
 	got := runCLI([]string{"status"})
 	_ = w.Close()
 	var stderr bytes.Buffer
@@ -562,7 +562,7 @@ func TestRunCLI_statusWithSessionPrintsFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = os.Chdir(orig) }()
+	t.Cleanup(func() { _ = os.Chdir(orig) })
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
@@ -575,7 +575,7 @@ func TestRunCLI_statusWithSessionPrintsFields(t *testing.T) {
 	}
 	oldStdout := os.Stdout
 	os.Stdout = w
-	defer func() { os.Stdout = oldStdout }()
+	t.Cleanup(func() { os.Stdout = oldStdout })
 	if got := runCLI([]string{"status"}); got != 0 {
 		t.Fatalf("runCLI(status) = %d, want 0", got)
 	}
@@ -599,7 +599,7 @@ func TestRunCLI_approveNoSessionExitsNonZero(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = os.Chdir(orig) }()
+	t.Cleanup(func() { _ = os.Chdir(orig) })
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
@@ -615,13 +615,13 @@ func TestRunCLI_approvePersistence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = os.Chdir(orig) }()
+	t.Cleanup(func() { _ = os.Chdir(orig) })
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
 	findingsOut = &buf
-	defer func() { findingsOut = os.Stdout }()
+	t.Cleanup(func() { findingsOut = os.Stdout })
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
@@ -644,7 +644,7 @@ func TestRunCLI_approvePersistence(t *testing.T) {
 	}
 	oldStdout := os.Stdout
 	os.Stdout = wo
-	defer func() { os.Stdout = oldStdout }()
+	t.Cleanup(func() { os.Stdout = oldStdout })
 	if got := runCLI([]string{"status"}); got != 0 {
 		t.Fatalf("runCLI(status) = %d", got)
 	}
@@ -662,13 +662,13 @@ func TestRunCLI_approveIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = os.Chdir(orig) }()
+	t.Cleanup(func() { _ = os.Chdir(orig) })
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
 	findingsOut = &buf
-	defer func() { findingsOut = os.Stdout }()
+	t.Cleanup(func() { findingsOut = os.Stdout })
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
@@ -745,20 +745,20 @@ func TestRunCLI_optimizeNotConfiguredExitsNonZero(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = os.Chdir(orig) }()
+	t.Cleanup(func() { _ = os.Chdir(orig) })
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
 	origEnv := os.Getenv("STET_OPTIMIZER_SCRIPT")
 	os.Unsetenv("STET_OPTIMIZER_SCRIPT")
-	defer func() { _ = os.Setenv("STET_OPTIMIZER_SCRIPT", origEnv) }()
+	t.Cleanup(func() { _ = os.Setenv("STET_OPTIMIZER_SCRIPT", origEnv) })
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatalf("pipe: %v", err)
 	}
 	oldStderr := os.Stderr
 	os.Stderr = w
-	defer func() { os.Stderr = oldStderr }()
+	t.Cleanup(func() { os.Stderr = oldStderr })
 	got := runCLI([]string{"optimize"})
 	_ = w.Close()
 	var stderr bytes.Buffer
@@ -777,7 +777,7 @@ func TestRunCLI_optimizeScriptFailsExitsNonZero(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = os.Chdir(orig) }()
+	t.Cleanup(func() { _ = os.Chdir(orig) })
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
@@ -785,7 +785,7 @@ func TestRunCLI_optimizeScriptFailsExitsNonZero(t *testing.T) {
 	if err := os.Setenv("STET_OPTIMIZER_SCRIPT", "false"); err != nil {
 		t.Fatalf("setenv: %v", err)
 	}
-	defer func() { _ = os.Setenv("STET_OPTIMIZER_SCRIPT", origEnv) }()
+	t.Cleanup(func() { _ = os.Setenv("STET_OPTIMIZER_SCRIPT", origEnv) })
 	got := runCLI([]string{"optimize"})
 	if got != 1 {
 		t.Errorf("runCLI(optimize) with failing script = %d, want 1", got)
@@ -798,7 +798,7 @@ func TestRunCLI_optimizeScriptSucceedsExitsZero(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = os.Chdir(orig) }()
+	t.Cleanup(func() { _ = os.Chdir(orig) })
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
@@ -806,7 +806,7 @@ func TestRunCLI_optimizeScriptSucceedsExitsZero(t *testing.T) {
 	if err := os.Setenv("STET_OPTIMIZER_SCRIPT", "true"); err != nil {
 		t.Fatalf("setenv: %v", err)
 	}
-	defer func() { _ = os.Setenv("STET_OPTIMIZER_SCRIPT", origEnv) }()
+	t.Cleanup(func() { _ = os.Setenv("STET_OPTIMIZER_SCRIPT", origEnv) })
 	got := runCLI([]string{"optimize"})
 	if got != 0 {
 		t.Errorf("runCLI(optimize) with true = %d, want 0", got)
