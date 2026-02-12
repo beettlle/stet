@@ -52,7 +52,7 @@ On `stet start` failure, the CLI may print one of the following hints to stderr 
 ## Other commands
 
 - **`stet status`** — Reports baseline, last_reviewed_at, worktree path, finding count, and dismissed count. Exits 1 with "No active session" if no session.
-- **`stet approve <id>`** — Adds the finding ID to the session’s dismissed list so it does not resurface in findings output. Idempotent. Exits 1 if no active session.
+- **`stet approve <id> [reason]`** — Adds the finding ID to the session’s dismissed list so it does not resurface in findings output. Optional **reason** (one of `false_positive`, `already_correct`, `wrong_suggestion`, `out_of_scope`) is recorded for the optimizer. Idempotent. Exits 1 if no active session; exits 1 if reason is provided and invalid.
 - **`stet finish`** — Ends the session and removes the worktree. Exits 1 if no active session.
 
 ## Optimizer (stet optimize)
@@ -87,16 +87,16 @@ If multiple stet worktrees remain after interrupted runs (e.g. `git worktree lis
 
 ## State storage and history (history.jsonl)
 
-State lives under `.review/` (session, config, lock). When implemented (Phase 4.5), the CLI will append to `.review/history.jsonl` on user feedback (e.g. on dismiss and/or on finish with findings). Each line is one JSON object with:
+State lives under `.review/` (session, config, lock). The CLI appends to `.review/history.jsonl` on user feedback (on dismiss via `stet approve` and on finish when there are findings). Each line is one JSON object with:
 
-- **`diff_ref`**: Ref or SHA for the diff scope.
+- **`diff_ref`**: Ref or SHA for the reviewed scope (e.g. the HEAD at last review run, i.e. `last_reviewed_at`).
 - **`review_output`**: Array of finding objects (same shape as stdout findings).
 - **`user_action`**: Object with:
   - **`dismissed_ids`** (array of strings): Finding IDs the user dismissed.
   - **`dismissals`** (optional): Array of `{ "finding_id": "...", "reason": "..." }` for per-finding reasons. Allowed **`reason`** values: `false_positive`, `already_correct`, `wrong_suggestion`, `out_of_scope`.
   - **`finished_at`** (optional): When the session was finished (e.g. ISO8601).
 
-Bounded size or rotation (e.g. last N sessions) is applied to avoid unbounded growth. The schema is suitable for future export/upload for org-wide aggregation. Canonical types: `cli/internal/history/schema.go`.
+Rotation keeps the last N records (default 1000) to avoid unbounded growth. The schema is suitable for future export/upload for org-wide aggregation. Canonical types: `cli/internal/history/schema.go`.
 
 ## Git note (refs/notes/stet)
 

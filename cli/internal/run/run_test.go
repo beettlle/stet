@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"stet/cli/internal/git"
+	"stet/cli/internal/history"
 	"stet/cli/internal/session"
 )
 
@@ -420,6 +421,80 @@ func TestFinish_writesGitNote(t *testing.T) {
 	}
 	if _, ok := note["finished_at"].(string); !ok {
 		t.Errorf("finished_at: want string, got %T", note["finished_at"])
+	}
+}
+
+func TestFinish_appendsHistoryWhenFindings(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	startOpts := StartOptions{RepoRoot: repo, StateDir: stateDir, WorktreeRoot: "", Ref: "HEAD~1", DryRun: true}
+	if err := Start(ctx, startOpts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	if len(s.Findings) == 0 {
+		t.Fatal("need at least one finding from dry-run to test history append")
+	}
+	finishOpts := FinishOptions{RepoRoot: repo, StateDir: stateDir, WorktreeRoot: ""}
+	if err := Finish(ctx, finishOpts); err != nil {
+		t.Fatalf("Finish: %v", err)
+	}
+	historyPath := filepath.Join(stateDir, "history.jsonl")
+	data, err := os.ReadFile(historyPath)
+	if err != nil {
+		t.Fatalf("ReadFile history.jsonl: %v", err)
+	}
+	lines := strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")
+	if len(lines) != 1 || lines[0] == "" {
+		t.Fatalf("history.jsonl: want 1 line, got %d", len(lines))
+	}
+	var rec history.Record
+	if err := json.Unmarshal([]byte(lines[0]), &rec); err != nil {
+		t.Fatalf("Unmarshal history record: %v", err)
+	}
+	if rec.DiffRef == "" {
+		t.Error("diff_ref: want non-empty")
+	}
+	if len(rec.ReviewOutput) != len(s.Findings) {
+		t.Errorf("review_output: got %d findings, want %d", len(rec.ReviewOutput), len(s.Findings))
+	}
+	if rec.UserAction.FinishedAt == "" {
+		t.Error("user_action.finished_at: want non-empty")
+	}
+}
+
+func TestFinish_doesNotAppendHistoryWhenNoFindings(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	startOpts := StartOptions{RepoRoot: repo, StateDir: stateDir, WorktreeRoot: "", Ref: "HEAD~1", DryRun: true}
+	if err := Start(ctx, startOpts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	s.Findings = nil
+	if err := session.Save(stateDir, &s); err != nil {
+		t.Fatalf("Save session (clear findings): %v", err)
+	}
+	if err := Finish(ctx, FinishOptions{RepoRoot: repo, StateDir: stateDir, WorktreeRoot: ""}); err != nil {
+		t.Fatalf("Finish: %v", err)
+	}
+	historyPath := filepath.Join(stateDir, "history.jsonl")
+	if _, err := os.Stat(historyPath); err == nil {
+		data, _ := os.ReadFile(historyPath)
+		lines := strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")
+		if len(lines) > 0 && lines[0] != "" {
+			t.Errorf("Finish with no findings should not append history; file has %d lines", len(lines))
+		}
 	}
 }
 

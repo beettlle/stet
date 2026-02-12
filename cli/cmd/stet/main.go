@@ -16,6 +16,7 @@ import (
 	"stet/cli/internal/config"
 	"stet/cli/internal/findings"
 	"stet/cli/internal/git"
+	"stet/cli/internal/history"
 	"stet/cli/internal/ollama"
 	"stet/cli/internal/run"
 	"stet/cli/internal/session"
@@ -321,7 +322,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 
 func newApproveCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "approve <id>",
+		Use:   "approve <id> [reason]",
 		Short: "Mark a finding as approved/dismissed so it does not resurface",
 		RunE:  runApprove,
 	}
@@ -329,8 +330,8 @@ func newApproveCmd() *cobra.Command {
 }
 
 // runApprove adds the finding id to the session's dismissed list so it does not resurface.
-// Phase 4.4: we only persist the finding ID in dismissed_ids; prompt shadowing (storing
-// prompt context for Phase 6 negative few-shot) is not implemented here.
+// Optional second argument is a dismissal reason (false_positive, already_correct, wrong_suggestion, out_of_scope)
+// for the optimizer. Phase 4.5: appends to .review/history.jsonl on approve.
 func runApprove(cmd *cobra.Command, args []string) error {
 	if len(args) < 1 {
 		return errors.New("approve requires a finding id (e.g. stet approve <id>)")
@@ -338,6 +339,13 @@ func runApprove(cmd *cobra.Command, args []string) error {
 	id := strings.TrimSpace(args[0])
 	if id == "" {
 		return errors.New("approve requires a non-empty finding id")
+	}
+	var reason string
+	if len(args) >= 2 {
+		reason = strings.TrimSpace(strings.ToLower(args[1]))
+		if reason != "" && !history.ValidReason(reason) {
+			return fmt.Errorf("approve: invalid reason %q; must be one of: false_positive, already_correct, wrong_suggestion, out_of_scope", reason)
+		}
 	}
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -360,14 +368,34 @@ func runApprove(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(os.Stderr, run.ErrNoSession.Error())
 		return errExit(1)
 	}
+	alreadyDismissed := false
 	for _, d := range s.DismissedIDs {
 		if d == id {
-			return nil
+			alreadyDismissed = true
+			break
 		}
 	}
-	s.DismissedIDs = append(s.DismissedIDs, id)
-	if err := session.Save(stateDir, &s); err != nil {
-		return fmt.Errorf("approve: save session: %w", err)
+	if !alreadyDismissed {
+		s.DismissedIDs = append(s.DismissedIDs, id)
+		if err := session.Save(stateDir, &s); err != nil {
+			return fmt.Errorf("approve: save session: %w", err)
+		}
+	}
+	diffRef := s.LastReviewedAt
+	if diffRef == "" {
+		diffRef = s.BaselineRef
+	}
+	ua := history.UserAction{DismissedIDs: []string{id}}
+	if reason != "" {
+		ua.Dismissals = []history.Dismissal{{FindingID: id, Reason: reason}}
+	}
+	rec := history.Record{
+		DiffRef:      diffRef,
+		ReviewOutput: s.Findings,
+		UserAction:   ua,
+	}
+	if err := history.Append(stateDir, rec, history.DefaultMaxRecords); err != nil {
+		return fmt.Errorf("approve: append history: %w", err)
 	}
 	return nil
 }

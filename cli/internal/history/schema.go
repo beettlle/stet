@@ -14,11 +14,21 @@ import "stet/cli/internal/findings"
 // Dismissal reason constants. Used when a finding is dismissed or marked
 // not acted on; the optimizer uses these to down-weight similar patterns.
 const (
-	ReasonFalsePositive   = "false_positive"
-	ReasonAlreadyCorrect = "already_correct"
+	ReasonFalsePositive    = "false_positive"
+	ReasonAlreadyCorrect  = "already_correct"
 	ReasonWrongSuggestion = "wrong_suggestion"
-	ReasonOutOfScope     = "out_of_scope"
+	ReasonOutOfScope      = "out_of_scope"
 )
+
+// ValidReason returns true if s is one of the allowed dismissal reason constants.
+func ValidReason(s string) bool {
+	switch s {
+	case ReasonFalsePositive, ReasonAlreadyCorrect, ReasonWrongSuggestion, ReasonOutOfScope:
+		return true
+	default:
+		return false
+	}
+}
 
 // Dismissal represents one finding dismissed with an optional reason.
 type Dismissal struct {

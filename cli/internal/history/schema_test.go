@@ -107,3 +107,22 @@ func TestRecord_jsonShape_snake_case(t *testing.T) {
 		}
 	}
 }
+
+func TestValidReason(t *testing.T) {
+	for _, c := range []struct {
+		s    string
+		want bool
+	}{
+		{ReasonFalsePositive, true},
+		{ReasonAlreadyCorrect, true},
+		{ReasonWrongSuggestion, true},
+		{ReasonOutOfScope, true},
+		{"", false},
+		{"invalid", false},
+		{"FALSE_POSITIVE", false},
+	} {
+		if got := ValidReason(c.s); got != c.want {
+			t.Errorf("ValidReason(%q) = %v, want %v", c.s, got, c.want)
+		}
+	}
+}

@@ -17,6 +17,7 @@ import (
 	"stet/cli/internal/diff"
 	"stet/cli/internal/findings"
 	"stet/cli/internal/git"
+	"stet/cli/internal/history"
 	"stet/cli/internal/hunkid"
 	"stet/cli/internal/ollama"
 	"stet/cli/internal/prompt"
@@ -333,6 +334,23 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 	sessionID := s.SessionID
 	if sessionID == "" {
 		sessionID = generateSessionID()
+	}
+	if len(s.Findings) > 0 {
+		diffRef := s.LastReviewedAt
+		if diffRef == "" {
+			diffRef = s.BaselineRef
+		}
+		rec := history.Record{
+			DiffRef:      diffRef,
+			ReviewOutput: s.Findings,
+			UserAction: history.UserAction{
+				DismissedIDs: s.DismissedIDs,
+				FinishedAt:  time.Now().UTC().Format(time.RFC3339),
+			},
+		}
+		if err := history.Append(opts.StateDir, rec, history.DefaultMaxRecords); err != nil {
+			return fmt.Errorf("finish: append history: %w", err)
+		}
 	}
 	notePayload := struct {
 		SessionID       string `json:"session_id"`

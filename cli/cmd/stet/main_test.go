@@ -16,6 +16,7 @@ import (
 
 	"stet/cli/internal/config"
 	"stet/cli/internal/findings"
+	"stet/cli/internal/history"
 	"stet/cli/internal/session"
 )
 
@@ -749,6 +750,129 @@ func TestRunCLI_approveDoesNotWritePromptShadows(t *testing.T) {
 	}
 	if len(s.PromptShadows) != 0 {
 		t.Errorf("Phase 4.4: approve must not write prompt_shadows; got len = %d", len(s.PromptShadows))
+	}
+}
+
+func TestRunCLI_approveAppendsHistory(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	findingsOut = &buf
+	t.Cleanup(func() { findingsOut = os.Stdout })
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
+	}
+	var out struct {
+		Findings []map[string]interface{} `json:"findings"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil || len(out.Findings) == 0 {
+		t.Fatalf("need at least one finding; err=%v", err)
+	}
+	id, _ := out.Findings[0]["id"].(string)
+	if id == "" {
+		t.Fatal("finding missing id")
+	}
+	if got := runCLI([]string{"approve", id}); got != 0 {
+		t.Fatalf("runCLI(approve %q) = %d, want 0", id, got)
+	}
+	cfg, _ := loadConfigForTest(repo)
+	stateDir := cfg.EffectiveStateDir(repo)
+	historyPath := filepath.Join(stateDir, "history.jsonl")
+	data, err := os.ReadFile(historyPath)
+	if err != nil {
+		t.Fatalf("ReadFile history.jsonl: %v", err)
+	}
+	lines := strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")
+	if len(lines) < 1 || lines[0] == "" {
+		t.Fatalf("history.jsonl: want at least 1 line, got %d", len(lines))
+	}
+	var rec history.Record
+	if err := json.Unmarshal([]byte(lines[0]), &rec); err != nil {
+		t.Fatalf("Unmarshal history record: %v", err)
+	}
+	if len(rec.UserAction.DismissedIDs) != 1 || rec.UserAction.DismissedIDs[0] != id {
+		t.Errorf("user_action.dismissed_ids: got %v, want [%q]", rec.UserAction.DismissedIDs, id)
+	}
+}
+
+func TestRunCLI_approveWithReason(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	findingsOut = &buf
+	t.Cleanup(func() { findingsOut = os.Stdout })
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
+	}
+	var out struct {
+		Findings []map[string]interface{} `json:"findings"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil || len(out.Findings) == 0 {
+		t.Fatalf("need at least one finding; err=%v", err)
+	}
+	id, _ := out.Findings[0]["id"].(string)
+	if got := runCLI([]string{"approve", id, "false_positive"}); got != 0 {
+		t.Fatalf("runCLI(approve %q false_positive) = %d, want 0", id, got)
+	}
+	cfg, _ := loadConfigForTest(repo)
+	stateDir := cfg.EffectiveStateDir(repo)
+	historyPath := filepath.Join(stateDir, "history.jsonl")
+	data, err := os.ReadFile(historyPath)
+	if err != nil {
+		t.Fatalf("ReadFile history.jsonl: %v", err)
+	}
+	lines := strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")
+	if len(lines) < 1 {
+		t.Fatalf("history.jsonl: want at least 1 line, got %d", len(lines))
+	}
+	var rec history.Record
+	if err := json.Unmarshal([]byte(lines[len(lines)-1]), &rec); err != nil {
+		t.Fatalf("Unmarshal last history record: %v", err)
+	}
+	if len(rec.UserAction.Dismissals) != 1 || rec.UserAction.Dismissals[0].FindingID != id || rec.UserAction.Dismissals[0].Reason != history.ReasonFalsePositive {
+		t.Errorf("user_action.dismissals: got %+v, want [{FindingID:%q Reason:%q}]", rec.UserAction.Dismissals, id, history.ReasonFalsePositive)
+	}
+}
+
+func TestRunCLI_approveInvalidReasonExits1(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	findingsOut = &buf
+	t.Cleanup(func() { findingsOut = os.Stdout })
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
+	}
+	var out struct {
+		Findings []map[string]interface{} `json:"findings"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil || len(out.Findings) == 0 {
+		t.Fatalf("need at least one finding; err=%v", err)
+	}
+	id, _ := out.Findings[0]["id"].(string)
+	if got := runCLI([]string{"approve", id, "invalid_reason"}); got != 1 {
+		t.Errorf("runCLI(approve %q invalid_reason) = %d, want 1", id, got)
 	}
 }
 
