@@ -132,6 +132,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 	if err != nil {
 		return fmt.Errorf("start: %w", err)
 	}
+	// Remove worktree on any error so we do not leave it behind and pollute the repo.
 	defer func() {
 		if err != nil {
 			_ = git.Remove(opts.RepoRoot, worktreePath)

@@ -452,6 +452,64 @@ func TestStart_withMockOllama(t *testing.T) {
 	}
 }
 
+// TestStart_removesWorktreeOnFailure asserts that when Start fails after creating the
+// worktree (e.g. Ollama generate fails), the worktree is removed and does not pollute the repo.
+func TestStart_removesWorktreeOnFailure(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	// Tags succeed so upfront check passes and worktree is created; generate fails so review loop errors.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/tags" {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"models": []map[string]interface{}{{"name": "m"}}})
+			return
+		}
+		if r.URL.Path == "/api/generate" {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	opts := StartOptions{
+		RepoRoot:      repo,
+		StateDir:      stateDir,
+		WorktreeRoot:  "",
+		Ref:           "HEAD~1",
+		DryRun:        false,
+		Model:         "m",
+		OllamaBaseURL: srv.URL,
+	}
+	err := Start(ctx, opts)
+	if err == nil {
+		t.Fatal("Start: expected error when generate fails, got nil")
+	}
+
+	// Worktree must have been removed so we do not leave it behind.
+	wantPath, pathErr := git.PathForRef(repo, "", "HEAD~1")
+	if pathErr != nil {
+		t.Fatalf("PathForRef: %v", pathErr)
+	}
+	if _, statErr := os.Stat(wantPath); statErr == nil {
+		t.Errorf("worktree path %q should not exist after Start failure (cleanup expected)", wantPath)
+	} else if !os.IsNotExist(statErr) {
+		t.Errorf("Stat worktree path: %v", statErr)
+	}
+	list, listErr := git.List(repo)
+	if listErr != nil {
+		t.Fatalf("List worktrees: %v", listErr)
+	}
+	for _, w := range list {
+		if w.Path == wantPath {
+			t.Errorf("worktree list should not contain %q after Start failure", wantPath)
+			break
+		}
+	}
+}
+
 // TestStart_tokenWarningWhenOverThreshold asserts that when ContextLimit and WarnThreshold
 // are set so the prompt exceeds the threshold, a warning is written to stderr (Phase 3.2).
 // Not parallel: captures os.Stderr so must run alone to avoid races.
