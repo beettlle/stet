@@ -219,3 +219,22 @@ func TestParseWorktreeList(t *testing.T) {
 		t.Errorf("second: %+v", list[1])
 	}
 }
+
+func TestMinimalEnv_includesHOMEWhenSet(t *testing.T) {
+	env := MinimalEnv()
+	home := os.Getenv("HOME")
+	if home == "" {
+		t.Skip("HOME not set; cannot assert MinimalEnv includes it")
+	}
+	want := "HOME=" + home
+	var found bool
+	for _, e := range env {
+		if e == want {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("MinimalEnv() should contain %q when HOME is set; got %v", want, env)
+	}
+}

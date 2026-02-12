@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -166,8 +167,22 @@ func isWorktreeExistsError(msg, path string) bool {
 }
 
 func minimalEnv() []string {
-	return []string{
+	env := []string{
 		"PATH=" + os.Getenv("PATH"),
 		"GIT_TERMINAL_PROMPT=0",
 	}
+	if home := os.Getenv("HOME"); home != "" {
+		env = append(env, "HOME="+home)
+	} else if runtime.GOOS == "windows" {
+		if profile := os.Getenv("USERPROFILE"); profile != "" {
+			env = append(env, "HOME="+profile)
+		}
+	}
+	return env
+}
+
+// MinimalEnv returns the environment used for git subprocesses. Exported for tests
+// so callers can assert HOME is included when set (e.g. to avoid "Author identity unknown").
+func MinimalEnv() []string {
+	return minimalEnv()
 }
