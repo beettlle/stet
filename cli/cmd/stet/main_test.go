@@ -3,12 +3,14 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -22,8 +24,8 @@ func TestRun(t *testing.T) {
 }
 
 func TestRunCLI_doctorUnreachableExits2(t *testing.T) {
-	// Do not run in parallel: test sets STET_OLLAMA_BASE_URL.
-	// Use a closed port so Ollama is unreachable; doctor should exit 2.
+	// Do not run in parallel: test sets STET_OLLAMA_BASE_URL and captures stderr.
+	// Use a closed port so Ollama is unreachable; doctor should exit 2 and print Details.
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
@@ -40,8 +42,26 @@ func TestRunCLI_doctorUnreachableExits2(t *testing.T) {
 	defer func() {
 		_ = os.Setenv("STET_OLLAMA_BASE_URL", orig)
 	}()
-	if got := runCLI([]string{"doctor"}); got != 2 {
+
+	// Capture stderr to assert underlying error is printed for troubleshooting.
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStderr := os.Stderr
+	os.Stderr = w
+	defer func() { os.Stderr = oldStderr }()
+
+	got := runCLI([]string{"doctor"})
+	_ = w.Close()
+	var stderr bytes.Buffer
+	_, _ = io.Copy(&stderr, r)
+
+	if got != 2 {
 		t.Errorf("runCLI(doctor) with unreachable Ollama = %d, want 2", got)
+	}
+	if !strings.Contains(stderr.String(), "Details:") {
+		t.Errorf("stderr should contain 'Details:' for troubleshooting; got:\n%s", stderr.String())
 	}
 }
 

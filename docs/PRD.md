@@ -135,8 +135,8 @@ To ensure stability across trivial edits (formatting, comments) while maintainin
     -   **Benefit:** Reduces perceived latency for local LLMs, which can be slow.
 -   **Ollama Health Checks:**
     -   **Startup Check:** `stet doctor` or automatic check on start.
-    -   **Verifies:** Ollama running? Model pulled? Context window configured correctly in Modelfile?
-    -   **Action:** Suggests `ollama pull qwen2.5-coder:32b` or config fixes if strict requirements aren't met.
+    -   **Verifies:** Ollama running? Model pulled? Model **runtime settings** (temperature, context size) are applied by Stet when calling the API (Stet passes them in each request; no requirement to configure these in the Modelfile).
+    -   **Action:** Suggests `ollama pull qwen2.5-coder:32b` or config fixes if the model is missing.
 
 ---
 
@@ -224,7 +224,7 @@ FinishReview --> RemoveWorktree[Remove worktree]
 
 | ID | Requirement | Notes |
 |----|-------------|--------|
-| FR-1 | Run code review using a local LLM via Ollama API | Target: qwen3-coder:30b, 32k context (default; configurable). Ollama server URL (host and port) configurable for local or remote server. |
+| FR-1 | Run code review using a local LLM via Ollama API | Target: qwen3-coder:30b, 32k context (default; configurable). The tool SHALL pass configurable model options (temperature, context window) to the Ollama API with documented defaults so the model runs with settings suitable for Stet's review behavior. Ollama server URL (host and port) configurable for local or remote server. |
 | FR-2 | Create a read-only git worktree at a specified baseline (commit or branch) | Used only as input to the review engine; user never edits here |
 | FR-3 | Persist review state: baseline ref, last_reviewed_at (ref), dismissals (e.g. finding IDs marked "won't fix"); optionally explicit approved hunk IDs if per-hunk approval is supported. "Already reviewed" for incremental runs is derived from baseline + last_reviewed_at; worktree is created from baseline when needed. | Survives re-runs and "Finish review" |
 | FR-4 | Identify hunks in a stable way (Dual-Pass Hashing) so approved state survives small edits | Strict Hash + Semantic Hash (comments/whitespace stripped) |
@@ -263,14 +263,14 @@ To continuously improve review quality and reduce false positives without manual
 
 - **Hierarchy:** CLI flags > environment variables > repo config > global config > defaults.
 - **Paths:** Repo: `.review/config.toml` (or `.review/config.yaml`); global: `~/.config/stet/config.toml` (or XDG equivalent).
-- **Keys:** model, ollama_base_url, context_limit, warn_threshold, timeout, token_estimation (optional), state_dir (optional), worktree_root (optional). Per-repo prompt: `.review/prompt.md` (path and how it overrides/merges with defaults). **ollama_base_url:** Base URL of the Ollama API (hostname or IP and port). Default: `http://localhost:11434`. The server may run on the same machine or on another machine (e.g. `http://192.168.1.10:11434` or `http://ollama.example.com:11434`).
+- **Keys:** model, ollama_base_url, context_limit, warn_threshold, timeout, token_estimation (optional), state_dir (optional), worktree_root (optional). Config SHALL support **model runtime settings** for Ollama so Stet runs the model with settings appropriate for code review: at minimum **temperature** (default: low, e.g. 0.2) and **context window for the model** (e.g. num_ctx; default aligned with context_limit 32768). Other options (e.g. top_p) may be added. These are passed to the Ollama API (e.g. /api/generate options) so the model runs with the correct settings regardless of server/Modelfile defaults. Per-repo prompt: `.review/prompt.md` (path and how it overrides/merges with defaults). **ollama_base_url:** Base URL of the Ollama API (hostname or IP and port). Default: `http://localhost:11434`. The server may run on the same machine or on another machine (e.g. `http://192.168.1.10:11434` or `http://ollama.example.com:11434`).
 - **Format:** TOML preferred for Go; document schema and one example.
 
 ### Error handling and failure modes
 
 | Scenario | Expected behavior | User-facing message |
 |----------|-------------------|---------------------|
-| Ollama unreachable | Fail with clear error | Check Ollama server URL (config ollama_base_url), ensure the server is running and reachable; for local server suggest `ollama serve`. |
+| Ollama unreachable | Fail with clear error | Check Ollama server URL (config ollama_base_url), ensure the server is running and reachable; for local server suggest `ollama serve`. The CLI MUST also output the underlying error (e.g. connection refused, context canceled, timeout) to stderr for troubleshooting. |
 | Model not found | Fail with clear error | Suggest `ollama pull <model>` |
 | Malformed JSON from model | Retry once, then fail or best-effort + warning | Clear message; optional fallback |
 | Timeout | Configurable; surface in UI | Timeout exceeded |

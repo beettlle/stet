@@ -129,6 +129,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 	if err := run.Start(cmd.Context(), opts); err != nil {
 		if errors.Is(err, ollama.ErrUnreachable) {
 			fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
+			fmt.Fprintf(os.Stderr, "Details: %v\n", err)
 			return errExit(2)
 		}
 		if errors.Is(err, run.ErrDirtyWorktree) {
@@ -188,6 +189,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 		}
 		if errors.Is(err, ollama.ErrUnreachable) {
 			fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
+			fmt.Fprintf(os.Stderr, "Details: %v\n", err)
 			return errExit(2)
 		}
 		return err
@@ -259,6 +261,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		if errors.Is(err, ollama.ErrUnreachable) {
 			fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
+			fmt.Fprintf(os.Stderr, "Details: %v\n", err)
 			return errExit(2)
 		}
 		fmt.Fprintln(os.Stderr, err.Error())
