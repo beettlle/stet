@@ -5,6 +5,9 @@ package run
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -21,6 +24,7 @@ import (
 	"stet/cli/internal/scope"
 	"stet/cli/internal/session"
 	"stet/cli/internal/tokens"
+	"stet/cli/internal/version"
 )
 
 // ErrNoSession indicates there is no active session (e.g. finish without start).
@@ -30,9 +34,19 @@ var ErrNoSession = errors.New("no active session; run stet start first")
 var ErrDirtyWorktree = errors.New("working tree has uncommitted changes; commit or stash before starting")
 
 const (
-	dryRunMessage       = "Dry-run placeholder (CI)"
+	dryRunMessage        = "Dry-run placeholder (CI)"
 	_defaultOllamaTimeout = 5 * time.Minute
 )
+
+// generateSessionID returns a new random session ID (32 hex chars). Used for
+// session identity and for the git note on finish.
+func generateSessionID() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return fmt.Sprintf("stet-%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(b)
+}
 
 // cannedFindingsForHunks returns one deterministic finding per hunk for dry-run
 // (CI). IDs are stable via hunkid.StableFindingID.
@@ -151,7 +165,12 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 
 	// When baseline equals HEAD, there is nothing to review; skip worktree and Ollama.
 	if sha == headSHA {
-		s := session.Session{BaselineRef: sha, LastReviewedAt: headSHA, DismissedIDs: nil}
+		s := session.Session{
+			SessionID:      generateSessionID(),
+			BaselineRef:     sha,
+			LastReviewedAt: headSHA,
+			DismissedIDs:   nil,
+		}
 		if err := session.Save(opts.StateDir, &s); err != nil {
 			return fmt.Errorf("start: save session: %w", err)
 		}
@@ -192,6 +211,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 	}()
 
 	s := session.Session{
+		SessionID:      generateSessionID(),
 		BaselineRef:    sha,
 		LastReviewedAt: "",
 		DismissedIDs:   nil,
@@ -294,15 +314,49 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 		return fmt.Errorf("finish: worktree path: %w", err)
 	}
 
-	if _, err := os.Stat(path); err != nil {
-		if os.IsNotExist(err) {
-			return nil
+	if _, err := os.Stat(path); err == nil {
+		if err := git.Remove(opts.RepoRoot, path); err != nil {
+			return fmt.Errorf("finish: remove worktree: %w", err)
 		}
+	} else if !os.IsNotExist(err) {
 		return fmt.Errorf("finish: stat worktree: %w", err)
 	}
 
-	if err := git.Remove(opts.RepoRoot, path); err != nil {
-		return fmt.Errorf("finish: remove worktree: %w", err)
+	headSHA, err := git.RevParse(opts.RepoRoot, "HEAD")
+	if err != nil {
+		return fmt.Errorf("finish: resolve HEAD: %w", err)
+	}
+	baselineSHA, err := git.RevParse(opts.RepoRoot, s.BaselineRef)
+	if err != nil {
+		return fmt.Errorf("finish: resolve baseline: %w", err)
+	}
+	sessionID := s.SessionID
+	if sessionID == "" {
+		sessionID = generateSessionID()
+	}
+	notePayload := struct {
+		SessionID       string `json:"session_id"`
+		BaselineSHA     string `json:"baseline_sha"`
+		HeadSHA         string `json:"head_sha"`
+		FindingsCount   int    `json:"findings_count"`
+		DismissalsCount int    `json:"dismissals_count"`
+		ToolVersion     string `json:"tool_version"`
+		FinishedAt      string `json:"finished_at"`
+	}{
+		SessionID:       sessionID,
+		BaselineSHA:     baselineSHA,
+		HeadSHA:         headSHA,
+		FindingsCount:   len(s.Findings),
+		DismissalsCount: len(s.DismissedIDs),
+		ToolVersion:     version.Version,
+		FinishedAt:      time.Now().UTC().Format(time.RFC3339),
+	}
+	noteJSON, err := json.Marshal(notePayload)
+	if err != nil {
+		return fmt.Errorf("finish: marshal note: %w", err)
+	}
+	if err := git.AddNote(opts.RepoRoot, git.NotesRefStet, headSHA, string(noteJSON)); err != nil {
+		return fmt.Errorf("finish: write git note: %w", err)
 	}
 	return nil
 }

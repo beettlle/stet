@@ -19,6 +19,27 @@ Examples from Stet self-review; keep this list brief and update as patterns emer
 - Flagging possible nil dereference when a nil check exists earlier in the flow.
 - Suggesting "restore full hint" when the hint was intentionally aligned to the documented contract.
 
+## Known false positive patterns (curated)
+
+Structured entries for prompt lessons, optimizer feedback, and future filtering. Schema: see [Schema for false positive entries](#schema-for-false-positive-entries) below.
+
+| Category      | Message pattern                         | Reason         | Note                                                                 |
+|---------------|-----------------------------------------|----------------|----------------------------------------------------------------------|
+| maintainability | Using t.Cleanup instead of defer for test | false_positive | Full defer→t.Cleanup migration completed; suggestion is redundant    |
+
+## Schema for false positive entries
+
+For future tooling (optimizer, filter, prompt injection), each curated entry uses:
+
+| Field              | Purpose                                | Example                                                  |
+|--------------------|----------------------------------------|----------------------------------------------------------|
+| `category`         | Narrow matches                         | `maintainability`                                        |
+| `message_pattern`  | Match similar future findings          | `Using t.Cleanup instead of defer`                       |
+| `reason`           | Why not actionable; use `history` schema constants | `false_positive`, `already_correct`, `wrong_suggestion`, `out_of_scope` |
+| `note`             | Short explanation for prompt / docs    | `Code already uses t.Cleanup; suggestion redundant`      |
+
+Optional enriched fields when available: `finding_id`, `file`, `line`, `suggestion_substring`, `recorded_at`. See `cli/internal/history/schema.go` for dismissal reason constants.
+
 ## Optimizer and actionability
 
 When `stet optimize` runs (Phase 6), the DSPy optimizer loads `.review/history.jsonl`. When history includes "not actionable" reasons (e.g. from the per-finding dismissal reasons in the history schema: `false_positive`, `already_correct`, `wrong_suggestion`, `out_of_scope`), the optimizer should use them to down-weight similar patterns or refine the prompt toward higher actionability. The output is `.review/system_prompt_optimized.txt`, which the CLI uses when present (see [CLI–Extension Contract](cli-extension-contract.md) and implementation plan Phase 3.3). Feedback is recorded in `.review/history.jsonl` with optional reasons; see the "State storage and history" section in the contract doc.

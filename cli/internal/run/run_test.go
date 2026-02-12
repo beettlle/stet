@@ -370,6 +370,59 @@ func TestFinish_worktreeAlreadyGone(t *testing.T) {
 	}
 }
 
+func TestFinish_writesGitNote(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	startOpts := StartOptions{RepoRoot: repo, StateDir: stateDir, WorktreeRoot: "", Ref: "HEAD~1", DryRun: true}
+	if err := Start(ctx, startOpts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	wantFindingsCount := len(s.Findings)
+	wantDismissalsCount := len(s.DismissedIDs)
+	finishOpts := FinishOptions{RepoRoot: repo, StateDir: stateDir, WorktreeRoot: ""}
+	if err := Finish(ctx, finishOpts); err != nil {
+		t.Fatalf("Finish: %v", err)
+	}
+	headSHA := runOut(t, repo, "git", "rev-parse", "HEAD")
+	noteBody, err := git.GetNote(repo, git.NotesRefStet, headSHA)
+	if err != nil {
+		t.Fatalf("GetNote after Finish: %v", err)
+	}
+	var note map[string]interface{}
+	if err := json.Unmarshal([]byte(noteBody), &note); err != nil {
+		t.Fatalf("parse note JSON: %v", err)
+	}
+	for _, key := range []string{"session_id", "baseline_sha", "head_sha", "findings_count", "dismissals_count", "tool_version", "finished_at"} {
+		if _, ok := note[key]; !ok {
+			t.Errorf("note missing key %q", key)
+		}
+	}
+	if sid, ok := note["session_id"].(string); !ok || sid == "" {
+		t.Errorf("session_id: want non-empty string, got %T %v", note["session_id"], note["session_id"])
+	}
+	if note["head_sha"] != headSHA {
+		t.Errorf("head_sha: got %v, want %s", note["head_sha"], headSHA)
+	}
+	if fc, ok := note["findings_count"].(float64); !ok || int(fc) != wantFindingsCount {
+		t.Errorf("findings_count: got %v, want %d", note["findings_count"], wantFindingsCount)
+	}
+	if dc, ok := note["dismissals_count"].(float64); !ok || int(dc) != wantDismissalsCount {
+		t.Errorf("dismissals_count: got %v, want %d", note["dismissals_count"], wantDismissalsCount)
+	}
+	if _, ok := note["tool_version"].(string); !ok {
+		t.Errorf("tool_version: want string, got %T", note["tool_version"])
+	}
+	if _, ok := note["finished_at"].(string); !ok {
+		t.Errorf("finished_at: want string, got %T", note["finished_at"])
+	}
+}
+
 func TestStart_dryRun_deterministicFindings(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

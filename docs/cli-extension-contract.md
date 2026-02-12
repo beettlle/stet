@@ -98,6 +98,22 @@ State lives under `.review/` (session, config, lock). When implemented (Phase 4.
 
 Bounded size or rotation (e.g. last N sessions) is applied to avoid unbounded growth. The schema is suitable for future export/upload for org-wide aggregation. Canonical types: `cli/internal/history/schema.go`.
 
+## Git note (refs/notes/stet)
+
+On **`stet finish`**, the CLI writes a Git note to **`refs/notes/stet`** at the commit that is current **HEAD**. The note body is a single JSON object with:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `session_id` | string | Unique id for the review session (from session or generated on finish). |
+| `baseline_sha` | string | Full SHA of the baseline ref. |
+| `head_sha` | string | Full SHA of HEAD at finish time. |
+| `findings_count` | number | Number of findings in the session. |
+| `dismissals_count` | number | Number of dismissed finding IDs. |
+| `tool_version` | string | Stet CLI version (e.g. `dev` or set at build via `-ldflags`). |
+| `finished_at` | string | When the session finished (RFC3339 UTC). |
+
+You can push or fetch this ref (e.g. `git push origin refs/notes/stet`, `git fetch origin refs/notes/stet:refs/notes/stet`) for integration with git-ai or impact analytics. If you run `stet finish` again at the same HEAD, the existing note is overwritten.
+
 ## Review quality and actionability
 
 A finding is **actionable** when the reported issue is real (not already fixed or by design), the suggestion is correct and safe, and the change is within project scope. The default system prompt instructs the model to report only actionable issues and to prefer fewer, high-confidence findings. For the full definition, prompt guidelines, and optional lessons (e.g. common false positives), see [docs/review-quality.md](review-quality.md).
