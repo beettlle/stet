@@ -92,7 +92,7 @@ type RunOptions struct {
 // clean worktree and that ref is an ancestor of HEAD. Caller should default
 // Ref to "HEAD" if unset. Errors are wrapped with %w so callers can use
 // errors.Is for session.ErrLocked, git.ErrWorktreeExists, git.ErrBaselineNotAncestor, ollama.ErrUnreachable.
-func Start(ctx context.Context, opts StartOptions) error {
+func Start(ctx context.Context, opts StartOptions) (err error) {
 	if opts.RepoRoot == "" || opts.StateDir == "" {
 		return fmt.Errorf("run Start: RepoRoot and StateDir required")
 	}
@@ -128,10 +128,15 @@ func Start(ctx context.Context, opts StartOptions) error {
 		return fmt.Errorf("start: resolve ref %q: %w", ref, err)
 	}
 
-	_, err = git.Create(opts.RepoRoot, opts.WorktreeRoot, ref)
+	worktreePath, err := git.Create(opts.RepoRoot, opts.WorktreeRoot, ref)
 	if err != nil {
 		return fmt.Errorf("start: %w", err)
 	}
+	defer func() {
+		if err != nil {
+			_ = git.Remove(opts.RepoRoot, worktreePath)
+		}
+	}()
 
 	s := session.Session{
 		BaselineRef:    sha,
