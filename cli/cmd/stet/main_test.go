@@ -1,6 +1,9 @@
 package main
 
 import (
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,17 +12,62 @@ import (
 
 func TestRun(t *testing.T) {
 	t.Parallel()
-	// Run() uses os.Args[1:]; in test that may be empty or test flags. Just ensure it returns 0 or 1.
+	// Run() uses os.Args[1:]; in test that may be empty or test flags. Just ensure it returns 0, 1, or 2.
 	got := Run()
-	if got != 0 && got != 1 {
-		t.Errorf("Run() = %d, want 0 or 1", got)
+	if got != 0 && got != 1 && got != 2 {
+		t.Errorf("Run() = %d, want 0, 1, or 2", got)
 	}
 }
 
-func TestRunCLI_doctorExitsZero(t *testing.T) {
-	t.Parallel()
-	if got := runCLI([]string{"doctor"}); got != 0 {
-		t.Errorf("runCLI(doctor) = %d, want 0", got)
+func TestRunCLI_doctorUnreachableExits2(t *testing.T) {
+	// Do not run in parallel: test sets STET_OLLAMA_BASE_URL.
+	// Use a closed port so Ollama is unreachable; doctor should exit 2.
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	addr := listener.Addr().String()
+	if err := listener.Close(); err != nil {
+		t.Fatalf("close listener: %v", err)
+	}
+	baseURL := "http://" + addr
+	orig := os.Getenv("STET_OLLAMA_BASE_URL")
+	if err := os.Setenv("STET_OLLAMA_BASE_URL", baseURL); err != nil {
+		t.Fatalf("setenv: %v", err)
+	}
+	defer func() {
+		_ = os.Setenv("STET_OLLAMA_BASE_URL", orig)
+	}()
+	if got := runCLI([]string{"doctor"}); got != 2 {
+		t.Errorf("runCLI(doctor) with unreachable Ollama = %d, want 2", got)
+	}
+}
+
+func TestRunCLI_doctorModelNotFoundExits1(t *testing.T) {
+	// Do not run in parallel: test sets STET_OLLAMA_BASE_URL and STET_MODEL.
+	// Server returns 200 with a model list that does not include the requested model.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/tags" {
+			t.Errorf("path = %q, want /api/tags", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"models":[{"name":"other:7b"}]}`))
+	}))
+	defer srv.Close()
+	origURL := os.Getenv("STET_OLLAMA_BASE_URL")
+	origModel := os.Getenv("STET_MODEL")
+	if err := os.Setenv("STET_OLLAMA_BASE_URL", srv.URL); err != nil {
+		t.Fatalf("setenv: %v", err)
+	}
+	if err := os.Setenv("STET_MODEL", "qwen3-coder:30b"); err != nil {
+		t.Fatalf("setenv: %v", err)
+	}
+	defer func() {
+		_ = os.Setenv("STET_OLLAMA_BASE_URL", origURL)
+		_ = os.Setenv("STET_MODEL", origModel)
+	}()
+	if got := runCLI([]string{"doctor"}); got != 1 {
+		t.Errorf("runCLI(doctor) with model not in list = %d, want 1", got)
 	}
 }
 
