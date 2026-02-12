@@ -743,10 +743,10 @@ func TestWriteFindingsJSON_emptyFindingsEmitsArray(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	s := session.Session{
-		BaselineRef:     "abc",
-		LastReviewedAt:  "def",
-		Findings:        nil,
-		DismissedIDs:    nil,
+		BaselineRef:    "abc",
+		LastReviewedAt: "def",
+		Findings:       nil,
+		DismissedIDs:   nil,
 	}
 	if err := session.Save(dir, &s); err != nil {
 		t.Fatalf("save session: %v", err)

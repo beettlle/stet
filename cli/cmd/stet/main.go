@@ -136,20 +136,20 @@ func runStart(cmd *cobra.Command, args []string) error {
 	}
 	stateDir := cfg.EffectiveStateDir(repoRoot)
 	opts := run.StartOptions{
-		RepoRoot:       repoRoot,
-		StateDir:       stateDir,
-		WorktreeRoot:   cfg.WorktreeRoot,
-		Ref:            ref,
-		DryRun:         dryRun,
-		AllowDirty:     allowDirty,
-		Model:          cfg.Model,
-		OllamaBaseURL:  cfg.OllamaBaseURL,
-		ContextLimit:   cfg.ContextLimit,
-		WarnThreshold:  cfg.WarnThreshold,
-		Timeout:        cfg.Timeout,
-		Temperature:    cfg.Temperature,
-		NumCtx:         cfg.NumCtx,
-		Verbose:        verbose,
+		RepoRoot:      repoRoot,
+		StateDir:      stateDir,
+		WorktreeRoot:  cfg.WorktreeRoot,
+		Ref:           ref,
+		DryRun:        dryRun,
+		AllowDirty:    allowDirty,
+		Model:         cfg.Model,
+		OllamaBaseURL: cfg.OllamaBaseURL,
+		ContextLimit:  cfg.ContextLimit,
+		WarnThreshold: cfg.WarnThreshold,
+		Timeout:       cfg.Timeout,
+		Temperature:   cfg.Temperature,
+		NumCtx:        cfg.NumCtx,
+		Verbose:       verbose,
 	}
 	if err := run.Start(cmd.Context(), opts); err != nil {
 		if errors.Is(err, ollama.ErrUnreachable) {
