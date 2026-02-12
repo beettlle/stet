@@ -141,6 +141,11 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		return fmt.Errorf("start: resolve ref %q: %w", ref, err)
 	}
 
+	headSHA, err := git.RevParse(opts.RepoRoot, "HEAD")
+	if err != nil {
+		return fmt.Errorf("start: resolve HEAD: %w", err)
+	}
+
 	worktreePath, err := git.Create(opts.RepoRoot, opts.WorktreeRoot, ref)
 	if err != nil {
 		return fmt.Errorf("start: %w", err)
@@ -159,11 +164,6 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 	}
 	if err := session.Save(opts.StateDir, &s); err != nil {
 		return fmt.Errorf("start: save session: %w", err)
-	}
-
-	headSHA, err := git.RevParse(opts.RepoRoot, "HEAD")
-	if err != nil {
-		return fmt.Errorf("start: resolve HEAD: %w", err)
 	}
 
 	part, err := scope.Partition(ctx, opts.RepoRoot, sha, headSHA, "", nil)
