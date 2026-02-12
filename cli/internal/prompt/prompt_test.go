@@ -9,6 +9,19 @@ import (
 	"stet/cli/internal/diff"
 )
 
+func TestDefaultSystemPrompt_instructsActionability(t *testing.T) {
+	got := DefaultSystemPrompt
+	if !strings.Contains(got, "actionable") {
+		t.Errorf("default prompt should instruct actionable issues; missing 'actionable'")
+	}
+	if !strings.Contains(got, "reverting intentional") {
+		t.Errorf("default prompt should say do not suggest reverting intentional changes")
+	}
+	if !strings.Contains(got, "fewer") || !strings.Contains(got, "high-confidence") {
+		t.Errorf("default prompt should prefer fewer, high-confidence findings")
+	}
+}
+
 func TestSystemPrompt_absentFile_returnsDefault(t *testing.T) {
 	dir := t.TempDir()
 	got, err := SystemPrompt(dir)

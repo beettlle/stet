@@ -18,6 +18,8 @@ const optimizedPromptFilename = "system_prompt_optimized.txt"
 // the tool assigns IDs). Used when .review/system_prompt_optimized.txt is absent.
 const DefaultSystemPrompt = `You are a code reviewer. Review the provided code diff hunk and report issues.
 
+Report only actionable issues: the developer should be able to apply the suggestion or fix the issue without reverting correct behavior. Do not suggest reverting intentional changes, adding code that already exists, or changing behavior that matches documented design. Prefer fewer, high-confidence findings over volume.
+
 Respond with a single JSON array of findings. Each finding is an object with:
 - file (string, required): path to the file
 - line (integer, optional if range is set): line number

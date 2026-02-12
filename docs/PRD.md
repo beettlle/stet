@@ -42,6 +42,7 @@ Start a **new project** rather than fork or extend RoboRev, because scope and de
 - **IDE panel + "Finish review":** minimal extension surface; user stays in main worktree.
 - **CLI:** for automation and headless use (start, run, finish, status, approve).
 - **git-ai integration:** From v1, record completed review sessions so impact can be quantified (e.g. on "Finish review," attach a Git Note under a dedicated ref such as `refs/notes/stet` with session metadata for correlation with git-ai authorship data).
+- **Actionable findings:** Findings should be actionable: the developer can apply the suggestion or fix the issue without reverting correct behavior. Dismissals and "not actionable" feedback are recorded and used (history, prompt shadowing, optimizer) to reduce false positives and improve future reviews.
 
 The product targets a **32K token context window** as its design baseline so the tool runs reliably on typical development machines (e.g. MacBook Pro). The configurable context limit defaults to 32768; token budgeting and warnings are based on this target unless the user changes it.
 
@@ -137,6 +138,7 @@ To ensure stability across trivial edits (formatting, comments) while maintainin
     -   **Startup Check:** `stet doctor` or automatic check on start.
     -   **Verifies:** Ollama running? Model pulled? Model **runtime settings** (temperature, context size) are applied by Stet when calling the API (Stet passes them in each request; no requirement to configure these in the Modelfile).
     -   **Action:** Suggests `ollama pull qwen2.5-coder:32b` or config fixes if the model is missing.
+-   **Review actionability:** A finding is **actionable** if the reported issue is real (not already fixed or by design), the suggestion is correct and safe, and the change is within project scope. The system learns from dismissals and from explicit "not actionable" reasons (see history schema in implementation plan Phase 4.5) so that prompt shadowing and the DSPy optimizer can reduce non-actionable findings.
 
 ---
 

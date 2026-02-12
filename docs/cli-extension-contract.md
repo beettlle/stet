@@ -68,6 +68,23 @@ The CLI must be run from the repository root (or from a directory under the repo
 
 If multiple stet worktrees remain after interrupted runs (e.g. `git worktree list` shows entries under `.review/worktrees/stet-*`), run `stet finish` to remove the current session's worktree, then remove any remaining paths with `git worktree remove <path>`. Phase 6 will add an optional `stet cleanup` command for orphan worktrees.
 
+## State storage and history (history.jsonl)
+
+State lives under `.review/` (session, config, lock). When implemented (Phase 4.5), the CLI will append to `.review/history.jsonl` on user feedback (e.g. on dismiss and/or on finish with findings). Each line is one JSON object with:
+
+- **`diff_ref`**: Ref or SHA for the diff scope.
+- **`review_output`**: Array of finding objects (same shape as stdout findings).
+- **`user_action`**: Object with:
+  - **`dismissed_ids`** (array of strings): Finding IDs the user dismissed.
+  - **`dismissals`** (optional): Array of `{ "finding_id": "...", "reason": "..." }` for per-finding reasons. Allowed **`reason`** values: `false_positive`, `already_correct`, `wrong_suggestion`, `out_of_scope`.
+  - **`finished_at`** (optional): When the session was finished (e.g. ISO8601).
+
+Bounded size or rotation (e.g. last N sessions) is applied to avoid unbounded growth. The schema is suitable for future export/upload for org-wide aggregation. Canonical types: `cli/internal/history/schema.go`.
+
+## Review quality and actionability
+
+A finding is **actionable** when the reported issue is real (not already fixed or by design), the suggestion is correct and safe, and the change is within project scope. The default system prompt instructs the model to report only actionable issues and to prefer fewer, high-confidence findings. For the full definition, prompt guidelines, and optional lessons (e.g. common false positives), see [docs/review-quality.md](review-quality.md).
+
 ## Environment and pipelines
 
 For pipelines or multiple commands (e.g. `stet doctor ; stet start`), `STET_OLLAMA_BASE_URL`, `STET_TEMPERATURE`, `STET_NUM_CTX`, and other `STET_*` variables must be **exported** (or set in the shell before both commands) so every `stet` invocation sees the same config. Command-prefixed env (e.g. `VAR=value cmd1 ; cmd2`) only applies to the first command; the second process will not see that variable and may fall back to defaults (e.g. `http://localhost:11434`), which can cause "Ollama unreachable" even when the first command succeeded.
