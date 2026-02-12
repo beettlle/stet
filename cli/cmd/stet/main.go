@@ -328,6 +328,9 @@ func newApproveCmd() *cobra.Command {
 	return cmd
 }
 
+// runApprove adds the finding id to the session's dismissed list so it does not resurface.
+// Phase 4.4: we only persist the finding ID in dismissed_ids; prompt shadowing (storing
+// prompt context for Phase 6 negative few-shot) is not implemented here.
 func runApprove(cmd *cobra.Command, args []string) error {
 	if len(args) < 1 {
 		return errors.New("approve requires a finding id (e.g. stet approve <id>)")

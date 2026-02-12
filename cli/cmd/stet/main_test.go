@@ -702,6 +702,53 @@ func TestRunCLI_approveIdempotent(t *testing.T) {
 	}
 }
 
+func TestRunCLI_approveDoesNotWritePromptShadows(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	findingsOut = &buf
+	t.Cleanup(func() { findingsOut = os.Stdout })
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
+	}
+	var out struct {
+		Findings []map[string]interface{} `json:"findings"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil || len(out.Findings) == 0 {
+		t.Fatalf("need at least one finding; err=%v", err)
+	}
+	id, _ := out.Findings[0]["id"].(string)
+	if got := runCLI([]string{"approve", id}); got != 0 {
+		t.Fatalf("runCLI(approve %q) = %d, want 0", id, got)
+	}
+	cfg, _ := loadConfigForTest(repo)
+	stateDir := cfg.EffectiveStateDir(repo)
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("load session: %v", err)
+	}
+	found := false
+	for _, d := range s.DismissedIDs {
+		if d == id {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("after approve: dismissed_ids should contain %q", id)
+	}
+	if len(s.PromptShadows) != 0 {
+		t.Errorf("Phase 4.4: approve must not write prompt_shadows; got len = %d", len(s.PromptShadows))
+	}
+}
+
 func loadConfigForTest(repoRoot string) (*config.Config, error) {
 	return config.Load(context.Background(), config.LoadOptions{RepoRoot: repoRoot})
 }
