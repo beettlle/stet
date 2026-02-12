@@ -67,6 +67,9 @@ func Hunks(ctx context.Context, repoRoot, baselineRef, headRef string, opts *Opt
 	if repoRoot == "" {
 		return nil, fmt.Errorf("diff: repoRoot required")
 	}
+	if baselineRef == headRef {
+		return nil, nil
+	}
 	patterns := defaultExcludePatterns
 	if opts != nil && len(opts.ExcludePatterns) > 0 {
 		patterns = opts.ExcludePatterns
