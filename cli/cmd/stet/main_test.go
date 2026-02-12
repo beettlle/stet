@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -200,5 +202,99 @@ func TestRunCLI_finishWithoutStartReturnsNonZero(t *testing.T) {
 	}
 	if got := runCLI([]string{"finish"}); got == 0 {
 		t.Errorf("runCLI(finish) without start = %d, want non-zero", got)
+	}
+}
+
+func TestRunCLI_startDryRunEmitsFindingsJSON(t *testing.T) {
+	// Do not run in parallel: test changes cwd and findingsOut.
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = os.Chdir(orig)
+		findingsOut = os.Stdout
+	}()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	findingsOut = &buf
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+		t.Fatalf("runCLI(start HEAD~1 --dry-run) = %d, want 0", got)
+	}
+	var out struct {
+		Findings []map[string]interface{} `json:"findings"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("parse stdout JSON: %v\noutput: %s", err, buf.Bytes())
+	}
+	if out.Findings == nil {
+		t.Fatal("output missing findings array")
+	}
+	if len(out.Findings) == 0 {
+		t.Fatal("expected at least one finding from dry-run (initRepo has hunks)")
+	}
+	required := []string{"id", "file", "line", "severity", "category", "message"}
+	for i, f := range out.Findings {
+		for _, k := range required {
+			if _, ok := f[k]; !ok {
+				t.Errorf("finding %d missing required key %q", i, k)
+			}
+		}
+	}
+	// At least one finding should be the canned dry-run message.
+	const dryRunMsg = "Dry-run placeholder (CI)"
+	var found bool
+	for _, f := range out.Findings {
+		if m, _ := f["message"].(string); m == dryRunMsg {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("no finding with message %q", dryRunMsg)
+	}
+}
+
+func TestRunCLI_runDryRunEmitsFindingsJSON(t *testing.T) {
+	// Do not run in parallel: test changes cwd and findingsOut.
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = os.Chdir(orig)
+		findingsOut = os.Stdout
+	}()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
+	}
+	var buf bytes.Buffer
+	findingsOut = &buf
+	if got := runCLI([]string{"run", "--dry-run"}); got != 0 {
+		t.Fatalf("runCLI(run --dry-run) = %d, want 0", got)
+	}
+	var out struct {
+		Findings []map[string]interface{} `json:"findings"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("parse stdout JSON: %v\noutput: %s", err, buf.Bytes())
+	}
+	if out.Findings == nil {
+		t.Fatal("output missing findings array")
+	}
+	required := []string{"id", "file", "line", "severity", "category", "message"}
+	for i, f := range out.Findings {
+		for _, k := range required {
+			if _, ok := f[k]; !ok {
+				t.Errorf("finding %d missing required key %q", i, k)
+			}
+		}
 	}
 }

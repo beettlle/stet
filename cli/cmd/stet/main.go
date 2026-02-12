@@ -2,17 +2,21 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 
 	"github.com/spf13/cobra"
 
 	"stet/cli/internal/config"
+	"stet/cli/internal/findings"
 	"stet/cli/internal/git"
 	"stet/cli/internal/ollama"
 	"stet/cli/internal/run"
+	"stet/cli/internal/session"
 )
 
 // errExit is an error that carries an exit code for the CLI. Use errors.As to detect it.
@@ -20,6 +24,31 @@ type errExit int
 
 func (e errExit) Error() string {
 	return "exit " + strconv.Itoa(int(e))
+}
+
+// findingsOut is the writer for findings JSON on success. Tests may replace it to capture output.
+var findingsOut io.Writer = os.Stdout
+
+// writeFindingsJSON loads the session from stateDir and writes {"findings": [...]} to w.
+func writeFindingsJSON(w io.Writer, stateDir string) error {
+	s, err := session.Load(stateDir)
+	if err != nil {
+		return fmt.Errorf("write findings: load session: %w", err)
+	}
+	payload := struct {
+		Findings []findings.Finding `json:"findings"`
+	}{Findings: s.Findings}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("write findings: marshal: %w", err)
+	}
+	if _, err := w.Write(data); err != nil {
+		return fmt.Errorf("write findings: %w", err)
+	}
+	if _, err := w.Write([]byte("\n")); err != nil {
+		return fmt.Errorf("write findings: %w", err)
+	}
+	return nil
 }
 
 func main() {
@@ -99,6 +128,9 @@ func runStart(cmd *cobra.Command, args []string) error {
 		}
 		return err
 	}
+	if err := writeFindingsJSON(findingsOut, stateDir); err != nil {
+		return fmt.Errorf("start: %w", err)
+	}
 	return nil
 }
 
@@ -144,6 +176,9 @@ func runRun(cmd *cobra.Command, args []string) error {
 			return errExit(2)
 		}
 		return err
+	}
+	if err := writeFindingsJSON(findingsOut, stateDir); err != nil {
+		return fmt.Errorf("run: %w", err)
 	}
 	return nil
 }
