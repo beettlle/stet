@@ -6,11 +6,19 @@ A review-only, local LLM–powered code review tool that uses a read-only git wo
 
 ### CLI (Go)
 
-From the repository root:
+From the repository root, run:
 
 ```bash
-go build -o bin/stet ./cli/cmd/stet
+make build
 ```
+
+This produces:
+
+- **`bin/stet`** — native binary (use when running in the dev container or on your host)
+- **`bin/stet-linux-amd64`** — Linux amd64 (e.g. dev container, Linux CI)
+- **`bin/stet-darwin-amd64`** — Darwin amd64 (Intel Mac)
+
+To build only the native binary: `go build -o bin/stet ./cli/cmd/stet`
 
 ### Extension (TypeScript)
 
