@@ -59,6 +59,7 @@ func cannedFindingsForHunks(hunks []diff.Hunk) []findings.Finding {
 // StartOptions configures Start. All fields are required except Ref (default "HEAD" by caller).
 // DryRun skips the LLM and injects canned findings. Model and OllamaBaseURL are used when DryRun is false.
 // ContextLimit and WarnThreshold are used for token estimation warnings (Phase 3.2); zero values disable the warning.
+// Temperature and NumCtx are passed to Ollama /api/generate options.
 type StartOptions struct {
 	RepoRoot       string
 	StateDir       string
@@ -70,6 +71,8 @@ type StartOptions struct {
 	ContextLimit   int
 	WarnThreshold  float64
 	Timeout        time.Duration
+	Temperature    float64
+	NumCtx         int
 }
 
 // FinishOptions configures Finish.
@@ -81,6 +84,7 @@ type FinishOptions struct {
 
 // RunOptions configures Run. DryRun skips the LLM and injects canned findings.
 // ContextLimit and WarnThreshold are used for token estimation warnings (Phase 3.2); zero values disable the warning.
+// Temperature and NumCtx are passed to Ollama /api/generate options.
 type RunOptions struct {
 	RepoRoot      string
 	StateDir      string
@@ -90,6 +94,8 @@ type RunOptions struct {
 	ContextLimit  int
 	WarnThreshold float64
 	Timeout       time.Duration
+	Temperature   float64
+	NumCtx        int
 }
 
 // Start creates a worktree at the given ref, writes the session, then runs the
@@ -201,8 +207,9 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 				fmt.Fprintln(os.Stderr, w)
 			}
 		}
+		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: opts.NumCtx}
 		for _, hunk := range part.ToReview {
-			list, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk)
+			list, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk, genOpts)
 			if err != nil {
 				return fmt.Errorf("start: review hunk %s: %w", hunk.FilePath, err)
 			}
@@ -322,8 +329,9 @@ func Run(ctx context.Context, opts RunOptions) error {
 				fmt.Fprintln(os.Stderr, w)
 			}
 		}
+		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: opts.NumCtx}
 		for _, hunk := range part.ToReview {
-			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk)
+			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk, genOpts)
 			if err != nil {
 				return fmt.Errorf("run: review hunk %s: %w", hunk.FilePath, err)
 			}

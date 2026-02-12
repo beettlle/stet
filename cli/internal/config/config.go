@@ -7,7 +7,8 @@
 //
 // Environment variables (override config files when set):
 //   - STET_MODEL, STET_OLLAMA_BASE_URL, STET_CONTEXT_LIMIT, STET_WARN_THRESHOLD,
-//   - STET_TIMEOUT (Go duration string or integer seconds), STET_STATE_DIR, STET_WORKTREE_ROOT
+//   - STET_TIMEOUT (Go duration string or integer seconds), STET_STATE_DIR, STET_WORKTREE_ROOT,
+//   - STET_TEMPERATURE, STET_NUM_CTX (Ollama model runtime options; passed to /api/generate).
 package config
 
 import (
@@ -32,6 +33,9 @@ type Config struct {
 	Timeout       time.Duration `toml:"timeout"`
 	StateDir      string        `toml:"state_dir"`
 	WorktreeRoot  string        `toml:"worktree_root"`
+	// Temperature and NumCtx are passed to Ollama /api/generate options (defaults: 0.2, 32768).
+	Temperature float64 `toml:"temperature"`
+	NumCtx      int     `toml:"num_ctx"`
 }
 
 // Overrides represents optional CLI flag overrides. Non-nil pointer means
@@ -44,6 +48,8 @@ type Overrides struct {
 	Timeout       *time.Duration
 	StateDir      *string
 	WorktreeRoot  *string
+	Temperature   *float64
+	NumCtx        *int
 }
 
 // LoadOptions configures Load. All fields are optional.
@@ -64,6 +70,8 @@ const (
 	_defaultContextLimit  = 32768
 	_defaultWarnThreshold = 0.9
 	_defaultTimeout       = 5 * time.Minute
+	_defaultTemperature   = 0.2
+	_defaultNumCtx         = 32768
 )
 
 // DefaultConfig returns the default configuration (no I/O).
@@ -76,6 +84,8 @@ func DefaultConfig() Config {
 		Timeout:       _defaultTimeout,
 		StateDir:      "",
 		WorktreeRoot:  "",
+		Temperature:   _defaultTemperature,
+		NumCtx:        _defaultNumCtx,
 	}
 }
 
@@ -145,6 +155,8 @@ func mergeFile(cfg *Config, path string) error {
 		Timeout       *string  `toml:"timeout"`
 		StateDir      *string  `toml:"state_dir"`
 		WorktreeRoot  *string  `toml:"worktree_root"`
+		Temperature   *float64 `toml:"temperature"`
+		NumCtx        *int64   `toml:"num_ctx"`
 	}
 	if _, err := toml.Decode(string(data), &file); err != nil {
 		return fmt.Errorf("parse config %s: %w", path, err)
@@ -173,6 +185,14 @@ func mergeFile(cfg *Config, path string) error {
 	}
 	if file.WorktreeRoot != nil {
 		cfg.WorktreeRoot = *file.WorktreeRoot
+	}
+	if file.Temperature != nil && *file.Temperature >= 0 && *file.Temperature <= 2 {
+		cfg.Temperature = *file.Temperature
+	}
+	if file.NumCtx != nil && *file.NumCtx > 0 {
+		cfg.NumCtx = int(*file.NumCtx)
+	} else if file.NumCtx != nil && *file.NumCtx == 0 {
+		cfg.NumCtx = _defaultNumCtx
 	}
 	return nil
 }
@@ -204,6 +224,8 @@ const (
 	envTimeout       = "STET_TIMEOUT"
 	envStateDir      = "STET_STATE_DIR"
 	envWorktreeRoot  = "STET_WORKTREE_ROOT"
+	envTemperature   = "STET_TEMPERATURE"
+	envNumCtx        = "STET_NUM_CTX"
 )
 
 func applyEnv(cfg *Config, env []string) error {
@@ -250,6 +272,30 @@ func applyEnv(cfg *Config, env []string) error {
 	if v, ok := vals[envWorktreeRoot]; ok {
 		cfg.WorktreeRoot = v
 	}
+	if v, ok := vals[envTemperature]; ok && v != "" {
+		f, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return fmt.Errorf("%s: invalid float %q: %w", envTemperature, v, err)
+		}
+		if f < 0 || f > 2 {
+			return fmt.Errorf("%s: temperature must be in [0, 2], got %g", envTemperature, f)
+		}
+		cfg.Temperature = f
+	}
+	if v, ok := vals[envNumCtx]; ok && v != "" {
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return fmt.Errorf("%s: invalid integer %q: %w", envNumCtx, v, err)
+		}
+		if n < 0 {
+			return fmt.Errorf("%s: num_ctx must be non-negative, got %d", envNumCtx, n)
+		}
+		if n == 0 {
+			cfg.NumCtx = _defaultNumCtx
+		} else {
+			cfg.NumCtx = int(n)
+		}
+	}
 	return nil
 }
 
@@ -277,5 +323,11 @@ func applyOverrides(cfg *Config, o *Overrides) {
 	}
 	if o.WorktreeRoot != nil {
 		cfg.WorktreeRoot = *o.WorktreeRoot
+	}
+	if o.Temperature != nil {
+		cfg.Temperature = *o.Temperature
+	}
+	if o.NumCtx != nil {
+		cfg.NumCtx = *o.NumCtx
 	}
 }

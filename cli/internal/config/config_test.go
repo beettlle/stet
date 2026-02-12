@@ -28,6 +28,12 @@ func TestDefaultConfig(t *testing.T) {
 	if c.Timeout != _defaultTimeout {
 		t.Errorf("Timeout = %v, want %v", c.Timeout, _defaultTimeout)
 	}
+	if c.Temperature != _defaultTemperature {
+		t.Errorf("Temperature = %f, want %f", c.Temperature, _defaultTemperature)
+	}
+	if c.NumCtx != _defaultNumCtx {
+		t.Errorf("NumCtx = %d, want %d", c.NumCtx, _defaultNumCtx)
+	}
 	if c.StateDir != "" || c.WorktreeRoot != "" {
 		t.Errorf("StateDir or WorktreeRoot non-empty: %q, %q", c.StateDir, c.WorktreeRoot)
 	}
@@ -49,7 +55,7 @@ func TestLoad_defaultsOnly(t *testing.T) {
 	want := DefaultConfig()
 	if cfg.Model != want.Model || cfg.OllamaBaseURL != want.OllamaBaseURL ||
 		cfg.ContextLimit != want.ContextLimit || cfg.WarnThreshold != want.WarnThreshold ||
-		cfg.Timeout != want.Timeout {
+		cfg.Timeout != want.Timeout || cfg.Temperature != want.Temperature || cfg.NumCtx != want.NumCtx {
 		t.Errorf("got %+v, want defaults %+v", cfg, want)
 	}
 }
@@ -340,6 +346,83 @@ func TestLoad_stateDirAndWorktreeRootFromEnv(t *testing.T) {
 	}
 	if cfg.StateDir != "/tmp/stet" || cfg.WorktreeRoot != "/tmp/wt" {
 		t.Errorf("StateDir=%q WorktreeRoot=%q", cfg.StateDir, cfg.WorktreeRoot)
+	}
+}
+
+func TestLoad_temperatureAndNumCtxFromEnv(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ctx := context.Background()
+	cfg, err := Load(ctx, LoadOptions{
+		RepoRoot:         dir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{"STET_TEMPERATURE=0.5", "STET_NUM_CTX=8192"},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Temperature != 0.5 {
+		t.Errorf("Temperature = %f, want 0.5", cfg.Temperature)
+	}
+	if cfg.NumCtx != 8192 {
+		t.Errorf("NumCtx = %d, want 8192", cfg.NumCtx)
+	}
+}
+
+func TestLoad_temperatureAndNumCtxFromFile(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	globalPath := filepath.Join(dir, "global.toml")
+	if err := os.MkdirAll(filepath.Dir(globalPath), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(globalPath, []byte("temperature = 0.1\nnum_ctx = 16384\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	cfg, err := Load(ctx, LoadOptions{
+		GlobalConfigPath: globalPath,
+		Env:              []string{},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Temperature != 0.1 {
+		t.Errorf("Temperature = %f, want 0.1", cfg.Temperature)
+	}
+	if cfg.NumCtx != 16384 {
+		t.Errorf("NumCtx = %d, want 16384", cfg.NumCtx)
+	}
+}
+
+func TestLoad_temperatureInvalidFromEnv(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ctx := context.Background()
+	_, err := Load(ctx, LoadOptions{
+		RepoRoot:         dir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{"STET_TEMPERATURE=3"},
+	})
+	if err == nil {
+		t.Fatal("Load: want error for temperature > 2, got nil")
+	}
+}
+
+func TestLoad_numCtxZeroFromEnv_usesDefault(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ctx := context.Background()
+	cfg, err := Load(ctx, LoadOptions{
+		RepoRoot:         dir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{"STET_NUM_CTX=0"},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.NumCtx != _defaultNumCtx {
+		t.Errorf("NumCtx = %d, want default %d", cfg.NumCtx, _defaultNumCtx)
 	}
 }
 

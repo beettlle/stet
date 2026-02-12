@@ -48,6 +48,17 @@ On `stet start` failure, the CLI may print one of the following hints to stderr 
 | **1** | Usage error or other failure (e.g. not a git repo, no session, model not found). |
 | **2** | Ollama unreachable (server not running or not reachable). |
 
+## Configuration (Ollama model options)
+
+The CLI passes model runtime options to the Ollama API on each generate request. Config file keys and environment variables:
+
+| Key / env | Default | Description |
+|-----------|---------|-------------|
+| `temperature` / `STET_TEMPERATURE` | 0.2 | Sampling temperature (0–2). Lower values give more deterministic output. |
+| `num_ctx` / `STET_NUM_CTX` | 32768 | Model context window size (tokens). Set to 0 in config/env to use default. |
+
+Config files: repo `.review/config.toml`, global `~/.config/stet/config.toml` (or XDG equivalent). Precedence: CLI flags > env > repo config > global config > defaults.
+
 ## Working directory
 
 The CLI must be run from the repository root (or from a directory under the repo) so that `git rev-parse --show-toplevel` succeeds. Invoke from repo root (e.g. `cd /path/to/repo && stet start --dry-run`).
@@ -58,7 +69,7 @@ If multiple stet worktrees remain after interrupted runs (e.g. `git worktree lis
 
 ## Environment and pipelines
 
-For pipelines or multiple commands (e.g. `stet doctor ; stet start`), `STET_OLLAMA_BASE_URL` and other `STET_*` variables must be **exported** (or set in the shell before both commands) so every `stet` invocation sees the same config. Command-prefixed env (e.g. `VAR=value cmd1 ; cmd2`) only applies to the first command; the second process will not see that variable and may fall back to defaults (e.g. `http://localhost:11434`), which can cause "Ollama unreachable" even when the first command succeeded.
+For pipelines or multiple commands (e.g. `stet doctor ; stet start`), `STET_OLLAMA_BASE_URL`, `STET_TEMPERATURE`, `STET_NUM_CTX`, and other `STET_*` variables must be **exported** (or set in the shell before both commands) so every `stet` invocation sees the same config. Command-prefixed env (e.g. `VAR=value cmd1 ; cmd2`) only applies to the first command; the second process will not see that variable and may fall back to defaults (e.g. `http://localhost:11434`), which can cause "Ollama unreachable" even when the first command succeeded.
 
 ## Usage (extension)
 

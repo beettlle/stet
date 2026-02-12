@@ -85,12 +85,20 @@ func (c *Client) Check(ctx context.Context, model string) (*CheckResult, error) 
 	}, nil
 }
 
+// GenerateOptions holds model runtime options sent to Ollama /api/generate.
+// Zero values are sent as-is; omitempty is not used so the API receives explicit values.
+type GenerateOptions struct {
+	Temperature float64 `json:"temperature"`
+	NumCtx      int     `json:"num_ctx"`
+}
+
 type generateRequest struct {
-	Model  string `json:"model"`
-	System string `json:"system,omitempty"`
-	Prompt string `json:"prompt"`
-	Stream bool   `json:"stream"`
-	Format string `json:"format,omitempty"`
+	Model   string           `json:"model"`
+	System  string           `json:"system,omitempty"`
+	Prompt  string           `json:"prompt"`
+	Stream  bool             `json:"stream"`
+	Format  string           `json:"format,omitempty"`
+	Options *GenerateOptions `json:"options,omitempty"`
 }
 
 type generateResponse struct {
@@ -100,15 +108,17 @@ type generateResponse struct {
 
 // Generate sends a completion request to /api/generate with the given model,
 // system prompt, and user prompt. It uses stream: false and format: "json" so
-// the response is a single JSON string. Returns the response text or an error
-// (wrapping ErrUnreachable on connection/HTTP failure).
-func (c *Client) Generate(ctx context.Context, model, systemPrompt, userPrompt string) (string, error) {
+// the response is a single JSON string. opts may be nil (Ollama uses server/model
+// defaults). Returns the response text or an error (wrapping ErrUnreachable on
+// connection/HTTP failure).
+func (c *Client) Generate(ctx context.Context, model, systemPrompt, userPrompt string, opts *GenerateOptions) (string, error) {
 	body := generateRequest{
-		Model:  model,
-		System: systemPrompt,
-		Prompt: userPrompt,
-		Stream: false,
-		Format: "json",
+		Model:   model,
+		System:  systemPrompt,
+		Prompt:  userPrompt,
+		Stream:  false,
+		Format:  "json",
+		Options: opts,
 	}
 	encoded, err := json.Marshal(body)
 	if err != nil {

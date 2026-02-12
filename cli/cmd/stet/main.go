@@ -126,6 +126,8 @@ func runStart(cmd *cobra.Command, args []string) error {
 		ContextLimit:   cfg.ContextLimit,
 		WarnThreshold:  cfg.WarnThreshold,
 		Timeout:        cfg.Timeout,
+		Temperature:    cfg.Temperature,
+		NumCtx:         cfg.NumCtx,
 	}
 	if err := run.Start(cmd.Context(), opts); err != nil {
 		if errors.Is(err, ollama.ErrUnreachable) {
@@ -183,6 +185,8 @@ func runRun(cmd *cobra.Command, args []string) error {
 		ContextLimit:  cfg.ContextLimit,
 		WarnThreshold: cfg.WarnThreshold,
 		Timeout:       cfg.Timeout,
+		Temperature:   cfg.Temperature,
+		NumCtx:        cfg.NumCtx,
 	}
 	if err := run.Run(cmd.Context(), opts); err != nil {
 		if errors.Is(err, run.ErrNoSession) {

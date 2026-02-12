@@ -167,11 +167,12 @@ func TestClient_Generate(t *testing.T) {
 			t.Errorf("method = %q, want POST", r.Method)
 		}
 		var body struct {
-			Model  string `json:"model"`
-			System string `json:"system"`
-			Prompt string `json:"prompt"`
-			Stream bool   `json:"stream"`
-			Format string `json:"format"`
+			Model   string           `json:"model"`
+			System  string           `json:"system"`
+			Prompt  string           `json:"prompt"`
+			Stream  bool             `json:"stream"`
+			Format  string           `json:"format"`
+			Options *GenerateOptions `json:"options"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Errorf("decode request: %v", err)
@@ -201,12 +202,52 @@ func TestClient_Generate(t *testing.T) {
 
 	client := NewClient(srv.URL, srv.Client())
 	ctx := context.Background()
-	got, err := client.Generate(ctx, "m1", "sys", "user")
+	got, err := client.Generate(ctx, "m1", "sys", "user", nil)
 	if err != nil {
 		t.Fatalf("Generate: %v", err)
 	}
 	if got != wantResponse {
 		t.Errorf("response = %q, want %q", got, wantResponse)
+	}
+}
+
+func TestClient_Generate_withOptions_sendsOptionsInRequest(t *testing.T) {
+	t.Parallel()
+	wantResponse := `[]`
+	var receivedOpts *GenerateOptions
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Model   string           `json:"model"`
+			Options *GenerateOptions `json:"options"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decode request: %v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		receivedOpts = body.Options
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": wantResponse, "done": true})
+	}))
+	defer srv.Close()
+	client := NewClient(srv.URL, srv.Client())
+	ctx := context.Background()
+	opts := &GenerateOptions{Temperature: 0.3, NumCtx: 4096}
+	got, err := client.Generate(ctx, "m", "sys", "user", opts)
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	if got != wantResponse {
+		t.Errorf("response = %q, want %q", got, wantResponse)
+	}
+	if receivedOpts == nil {
+		t.Fatal("request body options should be non-nil")
+	}
+	if receivedOpts.Temperature != 0.3 {
+		t.Errorf("options.Temperature = %f, want 0.3", receivedOpts.Temperature)
+	}
+	if receivedOpts.NumCtx != 4096 {
+		t.Errorf("options.NumCtx = %d, want 4096", receivedOpts.NumCtx)
 	}
 }
 
@@ -218,7 +259,7 @@ func TestClient_Generate_nonOK_returnsError(t *testing.T) {
 	defer srv.Close()
 	client := NewClient(srv.URL, srv.Client())
 	ctx := context.Background()
-	_, err := client.Generate(ctx, "m", "sys", "user")
+	_, err := client.Generate(ctx, "m", "sys", "user", nil)
 	if err == nil {
 		t.Fatal("Generate: want error, got nil")
 	}

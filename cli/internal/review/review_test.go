@@ -28,7 +28,7 @@ func TestReviewHunk_successFirstTry(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "a.go", RawContent: "code", Context: "code"}
 	ctx := context.Background()
 
-	list, err := ReviewHunk(ctx, client, "m", dir, hunk)
+	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestReviewHunk_retryThenSuccess(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "b.go", RawContent: "x", Context: "x"}
 	ctx := context.Background()
 
-	list, err := ReviewHunk(ctx, client, "m", dir, hunk)
+	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestReviewHunk_generateFails_returnsError(t *testing.T) {
 	dir := t.TempDir()
 	hunk := diff.Hunk{FilePath: "x.go", RawContent: "code", Context: "code"}
 	ctx := context.Background()
-	_, err := ReviewHunk(ctx, client, "m", dir, hunk)
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil)
 	if err == nil {
 		t.Fatal("ReviewHunk: want error when generate fails, got nil")
 	}
@@ -104,7 +104,7 @@ func TestReviewHunk_parseFailsTwice_returnsError(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "c.go", RawContent: "y", Context: "y"}
 	ctx := context.Background()
 
-	_, err := ReviewHunk(ctx, client, "m", dir, hunk)
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil)
 	if err == nil {
 		t.Fatal("ReviewHunk: want error when parse fails twice, got nil")
 	}
