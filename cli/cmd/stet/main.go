@@ -125,6 +125,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 		OllamaBaseURL:  cfg.OllamaBaseURL,
 		ContextLimit:   cfg.ContextLimit,
 		WarnThreshold:  cfg.WarnThreshold,
+		Timeout:        cfg.Timeout,
 	}
 	if err := run.Start(cmd.Context(), opts); err != nil {
 		if errors.Is(err, ollama.ErrUnreachable) {
@@ -181,6 +182,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 		OllamaBaseURL: cfg.OllamaBaseURL,
 		ContextLimit:  cfg.ContextLimit,
 		WarnThreshold: cfg.WarnThreshold,
+		Timeout:       cfg.Timeout,
 	}
 	if err := run.Run(cmd.Context(), opts); err != nil {
 		if errors.Is(err, run.ErrNoSession) {

@@ -7,7 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
+	"time"
 
 	"stet/cli/internal/diff"
 	"stet/cli/internal/findings"
@@ -27,7 +29,10 @@ var ErrNoSession = errors.New("no active session; run stet start first")
 // ErrDirtyWorktree indicates the working tree has uncommitted changes.
 var ErrDirtyWorktree = errors.New("working tree has uncommitted changes; commit or stash before starting")
 
-const dryRunMessage = "Dry-run placeholder (CI)"
+const (
+	dryRunMessage       = "Dry-run placeholder (CI)"
+	_defaultOllamaTimeout = 5 * time.Minute
+)
 
 // cannedFindingsForHunks returns one deterministic finding per hunk for dry-run
 // (CI). IDs are stable via hunkid.StableFindingID.
@@ -64,6 +69,7 @@ type StartOptions struct {
 	OllamaBaseURL  string
 	ContextLimit   int
 	WarnThreshold  float64
+	Timeout        time.Duration
 }
 
 // FinishOptions configures Finish.
@@ -83,6 +89,7 @@ type RunOptions struct {
 	OllamaBaseURL string
 	ContextLimit  int
 	WarnThreshold float64
+	Timeout       time.Duration
 }
 
 // Start creates a worktree at the given ref, writes the session, then runs the
@@ -116,9 +123,15 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 	defer release()
 
 	// Upfront Ollama check when not dry-run so wrong URL fails before creating worktree (Phase 3 remediation).
+	// Reuse the same client (with configurable timeout) for the check and the review loop.
+	var ollamaClient *ollama.Client
 	if !opts.DryRun {
-		client := ollama.NewClient(opts.OllamaBaseURL, nil)
-		if _, err := client.Check(ctx, opts.Model); err != nil {
+		timeout := opts.Timeout
+		if timeout == 0 {
+			timeout = _defaultOllamaTimeout
+		}
+		ollamaClient = ollama.NewClient(opts.OllamaBaseURL, &http.Client{Timeout: timeout})
+		if _, err := ollamaClient.Check(ctx, opts.Model); err != nil {
 			return fmt.Errorf("start: %w", err)
 		}
 	}
@@ -188,9 +201,8 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 				fmt.Fprintln(os.Stderr, w)
 			}
 		}
-		client := ollama.NewClient(opts.OllamaBaseURL, nil)
 		for _, hunk := range part.ToReview {
-			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk)
+			list, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk)
 			if err != nil {
 				return fmt.Errorf("start: review hunk %s: %w", hunk.FilePath, err)
 			}
@@ -283,8 +295,12 @@ func Run(ctx context.Context, opts RunOptions) error {
 	if opts.DryRun {
 		newFindings = cannedFindingsForHunks(part.ToReview)
 	} else {
+		timeout := opts.Timeout
+		if timeout == 0 {
+			timeout = _defaultOllamaTimeout
+		}
+		client := ollama.NewClient(opts.OllamaBaseURL, &http.Client{Timeout: timeout})
 		// Upfront Ollama check so wrong URL fails before review loop (Phase 3 remediation).
-		client := ollama.NewClient(opts.OllamaBaseURL, nil)
 		if _, err := client.Check(ctx, opts.Model); err != nil {
 			return fmt.Errorf("run: %w", err)
 		}
