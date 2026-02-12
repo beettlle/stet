@@ -14,9 +14,11 @@ import (
 	"stet/cli/internal/git"
 	"stet/cli/internal/hunkid"
 	"stet/cli/internal/ollama"
+	"stet/cli/internal/prompt"
 	"stet/cli/internal/review"
 	"stet/cli/internal/scope"
 	"stet/cli/internal/session"
+	"stet/cli/internal/tokens"
 )
 
 // ErrNoSession indicates there is no active session (e.g. finish without start).
@@ -51,6 +53,7 @@ func cannedFindingsForHunks(hunks []diff.Hunk) []findings.Finding {
 
 // StartOptions configures Start. All fields are required except Ref (default "HEAD" by caller).
 // DryRun skips the LLM and injects canned findings. Model and OllamaBaseURL are used when DryRun is false.
+// ContextLimit and WarnThreshold are used for token estimation warnings (Phase 3.2); zero values disable the warning.
 type StartOptions struct {
 	RepoRoot       string
 	StateDir       string
@@ -59,6 +62,8 @@ type StartOptions struct {
 	DryRun         bool
 	Model          string
 	OllamaBaseURL  string
+	ContextLimit   int
+	WarnThreshold  float64
 }
 
 // FinishOptions configures Finish.
@@ -69,12 +74,15 @@ type FinishOptions struct {
 }
 
 // RunOptions configures Run. DryRun skips the LLM and injects canned findings.
+// ContextLimit and WarnThreshold are used for token estimation warnings (Phase 3.2); zero values disable the warning.
 type RunOptions struct {
 	RepoRoot      string
 	StateDir      string
 	DryRun        bool
 	Model         string
 	OllamaBaseURL string
+	ContextLimit  int
+	WarnThreshold float64
 }
 
 // Start creates a worktree at the given ref, writes the session, then runs the
@@ -106,6 +114,14 @@ func Start(ctx context.Context, opts StartOptions) error {
 		return fmt.Errorf("start: %w", err)
 	}
 	defer release()
+
+	// Upfront Ollama check when not dry-run so wrong URL fails before creating worktree (Phase 3 remediation).
+	if !opts.DryRun {
+		client := ollama.NewClient(opts.OllamaBaseURL, nil)
+		if _, err := client.Check(ctx, opts.Model); err != nil {
+			return fmt.Errorf("start: %w", err)
+		}
+	}
 
 	sha, err := git.RevParse(opts.RepoRoot, ref)
 	if err != nil {
@@ -148,6 +164,24 @@ func Start(ctx context.Context, opts StartOptions) error {
 	if opts.DryRun {
 		collected = cannedFindingsForHunks(part.ToReview)
 	} else {
+		// Token estimation: warn once if any hunk's prompt would exceed context threshold (Phase 3.2).
+		if opts.ContextLimit > 0 && opts.WarnThreshold > 0 {
+			systemPrompt, err := prompt.SystemPrompt(opts.StateDir)
+			if err != nil {
+				return fmt.Errorf("start: system prompt: %w", err)
+			}
+			maxPromptTokens := 0
+			for _, h := range part.ToReview {
+				userPrompt := prompt.UserPrompt(h)
+				n := tokens.Estimate(systemPrompt + "\n" + userPrompt)
+				if n > maxPromptTokens {
+					maxPromptTokens = n
+				}
+			}
+			if w := tokens.WarnIfOver(maxPromptTokens, tokens.DefaultResponseReserve, opts.ContextLimit, opts.WarnThreshold); w != "" {
+				fmt.Fprintln(os.Stderr, w)
+			}
+		}
 		client := ollama.NewClient(opts.OllamaBaseURL, nil)
 		for _, hunk := range part.ToReview {
 			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk)
@@ -243,7 +277,29 @@ func Run(ctx context.Context, opts RunOptions) error {
 	if opts.DryRun {
 		newFindings = cannedFindingsForHunks(part.ToReview)
 	} else {
+		// Upfront Ollama check so wrong URL fails before review loop (Phase 3 remediation).
 		client := ollama.NewClient(opts.OllamaBaseURL, nil)
+		if _, err := client.Check(ctx, opts.Model); err != nil {
+			return fmt.Errorf("run: %w", err)
+		}
+		// Token estimation: warn once if any hunk's prompt would exceed context threshold (Phase 3.2).
+		if opts.ContextLimit > 0 && opts.WarnThreshold > 0 {
+			systemPrompt, err := prompt.SystemPrompt(opts.StateDir)
+			if err != nil {
+				return fmt.Errorf("run: system prompt: %w", err)
+			}
+			maxPromptTokens := 0
+			for _, h := range part.ToReview {
+				userPrompt := prompt.UserPrompt(h)
+				n := tokens.Estimate(systemPrompt + "\n" + userPrompt)
+				if n > maxPromptTokens {
+					maxPromptTokens = n
+				}
+			}
+			if w := tokens.WarnIfOver(maxPromptTokens, tokens.DefaultResponseReserve, opts.ContextLimit, opts.WarnThreshold); w != "" {
+				fmt.Fprintln(os.Stderr, w)
+			}
+		}
 		for _, hunk := range part.ToReview {
 			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk)
 			if err != nil {

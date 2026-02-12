@@ -330,7 +330,25 @@ func TestRunCLI_startDirtyWorktreePrintsHint(t *testing.T) {
 }
 
 func TestRunCLI_startWorktreeExistsPrintsHint(t *testing.T) {
-	// Do not run in parallel: test changes cwd and errHintOut.
+	// Do not run in parallel: test changes cwd, errHintOut, and env.
+	// Mock Ollama so the second start passes the upfront Check and fails at git.Create (worktree exists).
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/tags" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"models":[{"name":"qwen3-coder:30b"}]}`))
+	}))
+	defer srv.Close()
+	origURL := os.Getenv("STET_OLLAMA_BASE_URL")
+	if err := os.Setenv("STET_OLLAMA_BASE_URL", srv.URL); err != nil {
+		t.Fatalf("setenv: %v", err)
+	}
+	defer func() {
+		_ = os.Setenv("STET_OLLAMA_BASE_URL", origURL)
+	}()
+
 	repo := initRepo(t)
 	orig, err := os.Getwd()
 	if err != nil {

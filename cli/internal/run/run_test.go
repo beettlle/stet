@@ -1,9 +1,11 @@
 package run
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -410,6 +412,11 @@ func TestStart_withMockOllama(t *testing.T) {
 	ctx := context.Background()
 	validResp := `[{"file":"a.go","line":1,"severity":"warning","category":"style","message":"mock finding"}]`
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/tags" {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"models": []map[string]interface{}{{"name": "m"}}})
+			return
+		}
 		if r.URL.Path != "/api/generate" {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -442,5 +449,143 @@ func TestStart_withMockOllama(t *testing.T) {
 	}
 	if len(s.Findings) < 1 {
 		t.Errorf("Findings: want at least 1, got %d", len(s.Findings))
+	}
+}
+
+// TestStart_tokenWarningWhenOverThreshold asserts that when ContextLimit and WarnThreshold
+// are set so the prompt exceeds the threshold, a warning is written to stderr (Phase 3.2).
+// Not parallel: captures os.Stderr so must run alone to avoid races.
+func TestStart_tokenWarningWhenOverThreshold(t *testing.T) {
+	ctx := context.Background()
+	validResp := `[{"file":"a.go","line":1,"severity":"info","category":"style","message":"ok"}]`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/tags" {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"models": []map[string]interface{}{{"name": "m"}}})
+			return
+		}
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": validResp, "done": true})
+	}))
+	defer srv.Close()
+
+	// Capture stderr.
+	stderrR, stderrW, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldStderr := os.Stderr
+	os.Stderr = stderrW
+	defer func() {
+		os.Stderr = oldStderr
+		_ = stderrW.Close()
+	}()
+
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	// Low context limit and high threshold so default prompt + hunk easily exceeds.
+	opts := StartOptions{
+		RepoRoot:       repo,
+		StateDir:       stateDir,
+		WorktreeRoot:   "",
+		Ref:            "HEAD~1",
+		DryRun:         false,
+		Model:          "m",
+		OllamaBaseURL:  srv.URL,
+		ContextLimit:   100,
+		WarnThreshold:  0.9,
+	}
+	err = Start(ctx, opts)
+	if err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	_ = stderrW.Close()
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, stderrR)
+	stderr := buf.String()
+	if !strings.Contains(stderr, "exceeds") {
+		t.Errorf("stderr should contain token warning (exceeds); got: %q", stderr)
+	}
+	if !strings.Contains(stderr, "context limit") {
+		t.Errorf("stderr should contain 'context limit'; got: %q", stderr)
+	}
+}
+
+// TestRun_tokenWarningWhenOverThreshold asserts that Run writes a token warning to stderr
+// when ContextLimit and WarnThreshold are set so the prompt exceeds the threshold (Phase 3.2).
+// Not parallel: captures os.Stderr so must run alone to avoid races.
+func TestRun_tokenWarningWhenOverThreshold(t *testing.T) {
+	ctx := context.Background()
+	validResp := `[{"file":"b.go","line":1,"severity":"info","category":"style","message":"ok"}]`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/tags" {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"models": []map[string]interface{}{{"name": "m"}}})
+			return
+		}
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": validResp, "done": true})
+	}))
+	defer srv.Close()
+
+	stderrR, stderrW, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldStderr := os.Stderr
+	os.Stderr = stderrW
+	defer func() {
+		os.Stderr = oldStderr
+		_ = stderrW.Close()
+	}()
+
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	// Start a session with dry-run so Run has something to run against.
+	startOpts := StartOptions{
+		RepoRoot:      repo,
+		StateDir:      stateDir,
+		WorktreeRoot:  "",
+		Ref:           "HEAD~1",
+		DryRun:        true,
+		Model:         "",
+		OllamaBaseURL: "",
+	}
+	if err := Start(ctx, startOpts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	// New commit so Run has to-review hunks.
+	writeFile(t, repo, "f3.txt", "c\n")
+	runGit(t, repo, "git", "add", "f3.txt")
+	runGit(t, repo, "git", "commit", "-m", "c3")
+
+	runOpts := RunOptions{
+		RepoRoot:      repo,
+		StateDir:      stateDir,
+		DryRun:        false,
+		Model:         "m",
+		OllamaBaseURL: srv.URL,
+		ContextLimit:  100,
+		WarnThreshold: 0.9,
+	}
+	if err := Run(ctx, runOpts); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	_ = stderrW.Close()
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, stderrR)
+	stderr := buf.String()
+	if !strings.Contains(stderr, "exceeds") {
+		t.Errorf("stderr should contain token warning (exceeds); got: %q", stderr)
 	}
 }

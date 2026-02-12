@@ -48,6 +48,10 @@ On `stet start` failure, the CLI may print one of the following hints to stderr 
 | **1** | Usage error or other failure (e.g. not a git repo, no session, model not found). |
 | **2** | Ollama unreachable (server not running or not reachable). |
 
+## Environment and pipelines
+
+For pipelines or multiple commands (e.g. `stet doctor ; stet start`), `STET_OLLAMA_BASE_URL` and other `STET_*` variables must be **exported** (or set in the shell before both commands) so every `stet` invocation sees the same config. Command-prefixed env (e.g. `VAR=value cmd1 ; cmd2`) only applies to the first command; the second process will not see that variable and may fall back to defaults (e.g. `http://localhost:11434`), which can cause "Ollama unreachable" even when the first command succeeded.
+
 ## Usage (extension)
 
 1. Spawn the CLI with the desired subcommand and args (e.g. `stet start --dry-run` or `stet run`).

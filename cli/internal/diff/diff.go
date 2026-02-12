@@ -133,8 +133,11 @@ func filterByPatterns(hunks []Hunk, patterns []string) []Hunk {
 				excluded = true
 				break
 			}
-			// try matching against base name for simple patterns
-			ok, _ = filepath.Match(p, filepath.Base(path))
+			// try matching against base name for simple patterns; skip malformed patterns
+			ok, err = filepath.Match(p, filepath.Base(path))
+			if err != nil {
+				continue
+			}
 			if ok {
 				excluded = true
 				break

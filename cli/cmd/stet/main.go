@@ -116,17 +116,19 @@ func runStart(cmd *cobra.Command, args []string) error {
 	}
 	stateDir := cfg.EffectiveStateDir(repoRoot)
 	opts := run.StartOptions{
-		RepoRoot:      repoRoot,
-		StateDir:      stateDir,
-		WorktreeRoot:  cfg.WorktreeRoot,
-		Ref:           ref,
-		DryRun:        dryRun,
-		Model:         cfg.Model,
-		OllamaBaseURL: cfg.OllamaBaseURL,
+		RepoRoot:       repoRoot,
+		StateDir:       stateDir,
+		WorktreeRoot:   cfg.WorktreeRoot,
+		Ref:            ref,
+		DryRun:         dryRun,
+		Model:          cfg.Model,
+		OllamaBaseURL:  cfg.OllamaBaseURL,
+		ContextLimit:   cfg.ContextLimit,
+		WarnThreshold:  cfg.WarnThreshold,
 	}
 	if err := run.Start(cmd.Context(), opts); err != nil {
 		if errors.Is(err, ollama.ErrUnreachable) {
-			fmt.Fprintf(os.Stderr, "Ollama unreachable. Is the server running? For local: ollama serve.\n")
+			fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
 			return errExit(2)
 		}
 		if errors.Is(err, run.ErrDirtyWorktree) {
@@ -176,6 +178,8 @@ func runRun(cmd *cobra.Command, args []string) error {
 		DryRun:        dryRun,
 		Model:         cfg.Model,
 		OllamaBaseURL: cfg.OllamaBaseURL,
+		ContextLimit:  cfg.ContextLimit,
+		WarnThreshold: cfg.WarnThreshold,
 	}
 	if err := run.Run(cmd.Context(), opts); err != nil {
 		if errors.Is(err, run.ErrNoSession) {
@@ -183,7 +187,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 			return errExit(1)
 		}
 		if errors.Is(err, ollama.ErrUnreachable) {
-			fmt.Fprintf(os.Stderr, "Ollama unreachable. Is the server running? For local: ollama serve.\n")
+			fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
 			return errExit(2)
 		}
 		return err
