@@ -35,6 +35,7 @@ These are the source of truth for a coding LLM implementing the project.
 | **Phase 4** | CLI completeness: status, approve, edge cases, git note on finish. |
 | **Phase 5** | Extension: spawn CLI, panel, jump to file:line, copy-for-chat, Finish button. |
 | **Phase 6** | Optional and polish: CursorRules injection, streaming NDJSON, RAG-lite, prompt shadowing, **DSPy optimizer (`stet optimize`)**, docs, cleanup. |
+| **Phase 7** | User-facing error messages: audit and rewrite so every error shown to the user is human-readable and actionable; no raw command names or exit codes in the primary message. |
 
 ```mermaid
 flowchart LR
@@ -44,6 +45,7 @@ flowchart LR
   P3 --> P4[Phase_4_CLI_Complete]
   P4 --> P5[Phase_5_Extension]
   P5 --> P6[Phase_6_Optional]
+  P6 --> P7[Phase_7_ErrorMessages]
 ```
 
 ---
@@ -144,6 +146,21 @@ flowchart LR
 
 ---
 
+### Phase 7: User-facing error message pass
+
+- **Purpose:** Single pass over the codebase to ensure every error path that reaches the user (CLI stderr / exit) presents a clear, actionable message. Technical detail (e.g. command name, exit code) may be preserved via `%w` for debugging but must not be the primary text.
+- **Scope:** All error returns that surface to the user: `cli/cmd/stet/main.go` (start, run, finish, doctor, writeFindingsJSON); errors from `cli/internal/git/repo.go` (e.g. RepoRoot), `cli/internal/git/worktree.go`; `cli/internal/run/run.go` (Start, Run, Finish); `cli/internal/config/config.go` (Load); and `cli/internal/session` when they bubble to the CLI.
+- **Principles:**
+  - Primary message: one short sentence in plain language (e.g. "This directory is not inside a Git repository").
+  - Include an actionable next step where possible (e.g. "Run 'stet start' from your project root (the folder that contains .git).").
+  - Do not expose raw command names or exit codes in the main user-facing string; keep them in wrapped errors for logs or `Details:` output if needed.
+  - Use consistent wording for the same situation across commands (e.g. same "not a Git repository" text for start, run, finish).
+- **Deliverable / verification:** List of error sites updated; tests that assert on user-visible message content (or at least that messages do not contain substrings like "exit status" or "rev-parse") where practical. No new coverage target beyond existing 77% / 72%; focus is message content.
+
+**Phase 7 exit:** User-facing errors are human-readable and actionable; technical details are not the primary message.
+
+---
+
 ## 4. Coverage and quality rules
 
 - **77%** = line coverage for the **entire project**.
@@ -156,4 +173,4 @@ flowchart LR
 
 ## 5. Reference
 
-Implementation follows [docs/PRD.md](PRD.md). This plan adds phasing, coverage rules, and the decisions in §1.
+Implementation follows [docs/PRD.md](PRD.md). This plan adds phasing, coverage rules, and the decisions in §1. Phase 7 runs after feature-complete implementation to improve error UX without changing behavior.

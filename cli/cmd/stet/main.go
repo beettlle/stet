@@ -93,6 +93,7 @@ func newStartCmd() *cobra.Command {
 		RunE:  runStart,
 	}
 	cmd.Flags().Bool("dry-run", false, "Skip LLM; inject canned findings for CI")
+	cmd.Flags().Bool("verbose", false, "Print progress to stderr")
 	return cmd
 }
 
@@ -102,6 +103,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 		ref = args[0]
 	}
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
+	verbose, _ := cmd.Flags().GetBool("verbose")
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("start: %w", err)
@@ -128,6 +130,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 		Timeout:        cfg.Timeout,
 		Temperature:    cfg.Temperature,
 		NumCtx:         cfg.NumCtx,
+		Verbose:        verbose,
 	}
 	if err := run.Start(cmd.Context(), opts); err != nil {
 		if errors.Is(err, ollama.ErrUnreachable) {
@@ -158,6 +161,7 @@ func newRunCmd() *cobra.Command {
 		RunE:  runRun,
 	}
 	cmd.Flags().Bool("dry-run", false, "Skip LLM; inject canned findings for CI")
+	cmd.Flags().Bool("verbose", false, "Print progress to stderr")
 	return cmd
 }
 
@@ -176,6 +180,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 	}
 	stateDir := cfg.EffectiveStateDir(repoRoot)
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
+	verbose, _ := cmd.Flags().GetBool("verbose")
 	opts := run.RunOptions{
 		RepoRoot:      repoRoot,
 		StateDir:      stateDir,
@@ -187,6 +192,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 		Timeout:       cfg.Timeout,
 		Temperature:   cfg.Temperature,
 		NumCtx:        cfg.NumCtx,
+		Verbose:       verbose,
 	}
 	if err := run.Run(cmd.Context(), opts); err != nil {
 		if errors.Is(err, run.ErrNoSession) {

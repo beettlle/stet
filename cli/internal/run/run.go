@@ -60,6 +60,7 @@ func cannedFindingsForHunks(hunks []diff.Hunk) []findings.Finding {
 // DryRun skips the LLM and injects canned findings. Model and OllamaBaseURL are used when DryRun is false.
 // ContextLimit and WarnThreshold are used for token estimation warnings (Phase 3.2); zero values disable the warning.
 // Temperature and NumCtx are passed to Ollama /api/generate options.
+// Verbose, when true, prints progress to stderr (worktree, partition summary, per-hunk).
 type StartOptions struct {
 	RepoRoot       string
 	StateDir       string
@@ -73,6 +74,7 @@ type StartOptions struct {
 	Timeout        time.Duration
 	Temperature    float64
 	NumCtx         int
+	Verbose        bool
 }
 
 // FinishOptions configures Finish.
@@ -85,6 +87,7 @@ type FinishOptions struct {
 // RunOptions configures Run. DryRun skips the LLM and injects canned findings.
 // ContextLimit and WarnThreshold are used for token estimation warnings (Phase 3.2); zero values disable the warning.
 // Temperature and NumCtx are passed to Ollama /api/generate options.
+// Verbose, when true, prints progress to stderr (partition summary, per-hunk).
 type RunOptions struct {
 	RepoRoot      string
 	StateDir      string
@@ -96,6 +99,7 @@ type RunOptions struct {
 	Timeout       time.Duration
 	Temperature   float64
 	NumCtx        int
+	Verbose       bool
 }
 
 // Start creates a worktree at the given ref, writes the session, then runs the
@@ -156,6 +160,9 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 	if err != nil {
 		return fmt.Errorf("start: %w", err)
 	}
+	if opts.Verbose {
+		fmt.Fprintf(os.Stderr, "Worktree created at %s\n", worktreePath)
+	}
 	// Remove worktree on any error so we do not leave it behind and pollute the repo.
 	defer func() {
 		if err != nil {
@@ -176,8 +183,18 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 	if err != nil {
 		return fmt.Errorf("start: partition: %w", err)
 	}
+	if opts.Verbose {
+		approvedN := 0
+		if part.Approved != nil {
+			approvedN = len(part.Approved)
+		}
+		fmt.Fprintf(os.Stderr, "%d hunks to review, %d already approved\n", len(part.ToReview), approvedN)
+	}
 
 	if len(part.ToReview) == 0 {
+		if opts.Verbose {
+			fmt.Fprintln(os.Stderr, "Nothing to review.")
+		}
 		s.LastReviewedAt = headSHA
 		if err := session.Save(opts.StateDir, &s); err != nil {
 			return fmt.Errorf("start: save session: %w", err)
@@ -208,7 +225,11 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 			}
 		}
 		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: opts.NumCtx}
-		for _, hunk := range part.ToReview {
+		total := len(part.ToReview)
+		for i, hunk := range part.ToReview {
+			if opts.Verbose {
+				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", i+1, total, hunk.FilePath)
+			}
 			list, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk, genOpts)
 			if err != nil {
 				return fmt.Errorf("start: review hunk %s: %w", hunk.FilePath, err)
@@ -292,8 +313,14 @@ func Run(ctx context.Context, opts RunOptions) error {
 	if err != nil {
 		return fmt.Errorf("run: partition: %w", err)
 	}
+	if opts.Verbose {
+		fmt.Fprintf(os.Stderr, "%d hunks to review\n", len(part.ToReview))
+	}
 
 	if len(part.ToReview) == 0 {
+		if opts.Verbose {
+			fmt.Fprintln(os.Stderr, "Nothing to review.")
+		}
 		s.LastReviewedAt = headSHA
 		return session.Save(opts.StateDir, &s)
 	}
@@ -330,7 +357,11 @@ func Run(ctx context.Context, opts RunOptions) error {
 			}
 		}
 		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: opts.NumCtx}
-		for _, hunk := range part.ToReview {
+		total := len(part.ToReview)
+		for i, hunk := range part.ToReview {
+			if opts.Verbose {
+				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", i+1, total, hunk.FilePath)
+			}
 			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk, genOpts)
 			if err != nil {
 				return fmt.Errorf("run: review hunk %s: %w", hunk.FilePath, err)
