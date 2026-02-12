@@ -98,7 +98,7 @@ flowchart LR
 | **3.5** | Wire `stet start` and `stet run`: start = create worktree, diff baseline..HEAD, for each to-review hunk call Ollama, collect findings, write session (findings + last_reviewed_at = HEAD). run = same baseline, incremental (only to-review hunks), update findings and last_reviewed_at. `--dry-run`: skip LLM, inject canned findings for CI. | Integration tests: dry-run → deterministic findings; with real Ollama (optional) → full run. 77% project, no file &lt; 72%. |
 | **3.6** | CLI output contract: emit findings as JSON (or NDJSON for streaming). Exit codes: 0 = success, 1 = usage/error, 2 = Ollama unreachable. Document contract for extension. | Tests: run start with dry-run, parse stdout JSON, assert shape. 77% project, no file &lt; 72%. |
 
-**Phase 3 exit:** Full CLI review path works. **Milestone: use the product to review itself** — run `stet start --dry-run` (and ideally `stet start` with Ollama) on the Stet repo and inspect findings.
+**Phase 3 exit:** Full CLI review path works. **Milestone: use the product to review itself** — run `stet start --dry-run` (and ideally `stet start` with Ollama) on the Stet repo and inspect findings. If multiple stet worktrees remain after interrupted runs, run `stet finish` and remove remaining `.review/worktrees/stet-*` with `git worktree remove <path>` (or use Phase 6 `stet cleanup` when implemented).
 
 ---
 
