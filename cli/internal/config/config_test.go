@@ -343,6 +343,39 @@ func TestLoad_stateDirAndWorktreeRootFromEnv(t *testing.T) {
 	}
 }
 
+func TestEffectiveStateDir(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		cfg      Config
+		repoRoot string
+		want     string
+	}{
+		{
+			name:     "empty StateDir returns repo_root/.review",
+			cfg:      Config{StateDir: ""},
+			repoRoot: "/home/user/repo",
+			want:     filepath.Join("/home", "user", "repo", ".review"),
+		},
+		{
+			name:     "non-empty StateDir returned as-is",
+			cfg:      Config{StateDir: "/tmp/stet-state"},
+			repoRoot: "/home/user/repo",
+			want:     "/tmp/stet-state",
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := tt.cfg.EffectiveStateDir(tt.repoRoot)
+			if got != tt.want {
+				t.Errorf("EffectiveStateDir(%q) = %q, want %q", tt.repoRoot, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestParseDuration(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

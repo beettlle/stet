@@ -79,6 +79,15 @@ func DefaultConfig() Config {
 	}
 }
 
+// EffectiveStateDir returns the directory used for session and lock files.
+// If StateDir is set, it is returned as-is; otherwise repoRoot/.review is returned.
+func (c Config) EffectiveStateDir(repoRoot string) string {
+	if c.StateDir != "" {
+		return c.StateDir
+	}
+	return filepath.Join(repoRoot, ".review")
+}
+
 // Load loads configuration with precedence: defaults < global file < repo file < env < overrides.
 // Missing config files are ignored. Invalid TOML or invalid env values return an error.
 func Load(ctx context.Context, opts LoadOptions) (*Config, error) {
