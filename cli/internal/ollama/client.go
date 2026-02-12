@@ -2,10 +2,12 @@
 package ollama
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -81,4 +83,55 @@ func (c *Client) Check(ctx context.Context, model string) (*CheckResult, error) 
 		ModelPresent: modelPresent,
 		ModelNames:   names,
 	}, nil
+}
+
+type generateRequest struct {
+	Model  string `json:"model"`
+	System string `json:"system,omitempty"`
+	Prompt string `json:"prompt"`
+	Stream bool   `json:"stream"`
+	Format string `json:"format,omitempty"`
+}
+
+type generateResponse struct {
+	Response string `json:"response"`
+	Done     bool   `json:"done"`
+}
+
+// Generate sends a completion request to /api/generate with the given model,
+// system prompt, and user prompt. It uses stream: false and format: "json" so
+// the response is a single JSON string. Returns the response text or an error
+// (wrapping ErrUnreachable on connection/HTTP failure).
+func (c *Client) Generate(ctx context.Context, model, systemPrompt, userPrompt string) (string, error) {
+	body := generateRequest{
+		Model:  model,
+		System: systemPrompt,
+		Prompt: userPrompt,
+		Stream: false,
+		Format: "json",
+	}
+	encoded, err := json.Marshal(body)
+	if err != nil {
+		return "", fmt.Errorf("ollama generate request: %w", err)
+	}
+	url := c.baseURL + "/api/generate"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(encoded))
+	if err != nil {
+		return "", fmt.Errorf("ollama generate request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("ollama generate: %w", errors.Join(ErrUnreachable, err))
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		return "", fmt.Errorf("ollama generate: %w: HTTP %d", ErrUnreachable, resp.StatusCode)
+	}
+	var gen generateResponse
+	if err := json.NewDecoder(resp.Body).Decode(&gen); err != nil {
+		return "", fmt.Errorf("ollama generate: parse response: %w", err)
+	}
+	return gen.Response, nil
 }
