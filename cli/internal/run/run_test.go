@@ -841,6 +841,52 @@ func TestStart_abstentionFilter_keepsHighConfidence(t *testing.T) {
 	}
 }
 
+// TestStart_fpKillList_filtersBannedPhrase asserts that the Phase 6.5 FP kill list
+// suppresses findings whose message matches a banned phrase (e.g. "Consider adding comments"),
+// regardless of confidence. Mock returns such a finding with confidence 0.9 (passes abstention);
+// it must not appear in the final session.
+func TestStart_fpKillList_filtersBannedPhrase(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	bannedResp := `[{"file":"a.go","line":1,"severity":"info","category":"maintainability","message":"Consider adding comments","confidence":0.9}]`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/tags" {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"models": []map[string]interface{}{{"name": "m"}}})
+			return
+		}
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": bannedResp, "done": true})
+	}))
+	defer srv.Close()
+
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	opts := StartOptions{
+		RepoRoot:      repo,
+		StateDir:      stateDir,
+		WorktreeRoot:  "",
+		Ref:           "HEAD~1",
+		DryRun:        false,
+		Model:         "m",
+		OllamaBaseURL: srv.URL,
+	}
+	if err := Start(ctx, opts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	if len(s.Findings) != 0 {
+		t.Errorf("Findings: FP kill list should drop 'Consider adding comments'; got %d findings", len(s.Findings))
+	}
+}
+
 // TestStart_removesWorktreeOnFailure asserts that when Start fails after creating the
 // worktree (e.g. Ollama generate fails), the worktree is removed and does not pollute the repo.
 func TestStart_removesWorktreeOnFailure(t *testing.T) {
