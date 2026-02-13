@@ -118,6 +118,9 @@ For optimizing toward **actionable findings**, see [Review quality and actionabi
 | `optimizer_script` / `STET_OPTIMIZER_SCRIPT` | (none) | Command for `stet optimize` (e.g. `python3 scripts/optimize.py`). |
 | `rag_symbol_max_definitions` / `STET_RAG_SYMBOL_MAX_DEFINITIONS` | 10 | Max symbol definitions to inject (0 = disable). |
 | `rag_symbol_max_tokens` / `STET_RAG_SYMBOL_MAX_TOKENS` | 0 | Max tokens for symbol-definitions block (0 = no cap). |
+| `strictness` / `STET_STRICTNESS` | `default` | Review strictness preset: `strict`, `default`, `lenient`, or `strict+`, `default+`, `lenient+`. Controls confidence thresholds (strict = 0.6/0.7, default = 0.8/0.9, lenient = 0.9/0.95) and whether the false-positive kill list is applied. The "+" presets use the same thresholds but do not apply the FP kill list (more findings shown). |
+
+The + presets (strict+, default+, lenient+) show more findings by not filtering messages that match the built-in FP kill list.
 
 RAG symbol options can also be set via **`--rag-symbol-max-definitions`** and **`--rag-symbol-max-tokens`** on `stet start` and `stet run`; when set, they override config and env.
 

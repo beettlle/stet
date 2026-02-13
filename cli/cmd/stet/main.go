@@ -226,25 +226,33 @@ func runStart(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	minKeep, minMaint, applyFP, err := findings.ResolveStrictness(cfg.Strictness)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return errExit(1)
+	}
 	stateDir := cfg.EffectiveStateDir(repoRoot)
 	opts := run.StartOptions{
-		RepoRoot:                repoRoot,
-		StateDir:                stateDir,
-		WorktreeRoot:            cfg.WorktreeRoot,
-		Ref:                     ref,
-		DryRun:                  dryRun,
-		AllowDirty:              allowDirty,
-		Model:                   cfg.Model,
-		OllamaBaseURL:           cfg.OllamaBaseURL,
-		ContextLimit:            cfg.ContextLimit,
-		WarnThreshold:           cfg.WarnThreshold,
-		Timeout:                 cfg.Timeout,
-		Temperature:             cfg.Temperature,
-		NumCtx:                  cfg.NumCtx,
-		Verbose:                 verbose,
-		StreamOut:               nil,
-		RAGSymbolMaxDefinitions: cfg.RAGSymbolMaxDefinitions,
-		RAGSymbolMaxTokens:      cfg.RAGSymbolMaxTokens,
+		RepoRoot:                   repoRoot,
+		StateDir:                   stateDir,
+		WorktreeRoot:               cfg.WorktreeRoot,
+		Ref:                        ref,
+		DryRun:                     dryRun,
+		AllowDirty:                 allowDirty,
+		Model:                      cfg.Model,
+		OllamaBaseURL:              cfg.OllamaBaseURL,
+		ContextLimit:               cfg.ContextLimit,
+		WarnThreshold:              cfg.WarnThreshold,
+		Timeout:                    cfg.Timeout,
+		Temperature:                cfg.Temperature,
+		NumCtx:                     cfg.NumCtx,
+		Verbose:                    verbose,
+		StreamOut:                  nil,
+		RAGSymbolMaxDefinitions:    cfg.RAGSymbolMaxDefinitions,
+		RAGSymbolMaxTokens:         cfg.RAGSymbolMaxTokens,
+		MinConfidenceKeep:          minKeep,
+		MinConfidenceMaintainability: minMaint,
+		ApplyFPKillList:            &applyFP,
 	}
 	if stream {
 		opts.StreamOut = findingsOut
@@ -337,6 +345,11 @@ func runRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	minKeep, minMaint, applyFP, err := findings.ResolveStrictness(cfg.Strictness)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return errExit(1)
+	}
 	stateDir := cfg.EffectiveStateDir(repoRoot)
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	quiet, _ := cmd.Flags().GetBool("quiet")
@@ -357,20 +370,23 @@ func runRun(cmd *cobra.Command, args []string) error {
 		verbose = false
 	}
 	opts := run.RunOptions{
-		RepoRoot:                repoRoot,
-		StateDir:                stateDir,
-		DryRun:                  dryRun,
-		Model:                   cfg.Model,
-		OllamaBaseURL:           cfg.OllamaBaseURL,
-		ContextLimit:            cfg.ContextLimit,
-		WarnThreshold:           cfg.WarnThreshold,
-		Timeout:                 cfg.Timeout,
-		Temperature:             cfg.Temperature,
-		NumCtx:                  cfg.NumCtx,
-		Verbose:                 verbose,
-		StreamOut:               nil,
-		RAGSymbolMaxDefinitions: cfg.RAGSymbolMaxDefinitions,
-		RAGSymbolMaxTokens:      cfg.RAGSymbolMaxTokens,
+		RepoRoot:                   repoRoot,
+		StateDir:                   stateDir,
+		DryRun:                     dryRun,
+		Model:                      cfg.Model,
+		OllamaBaseURL:              cfg.OllamaBaseURL,
+		ContextLimit:               cfg.ContextLimit,
+		WarnThreshold:              cfg.WarnThreshold,
+		Timeout:                    cfg.Timeout,
+		Temperature:                cfg.Temperature,
+		NumCtx:                     cfg.NumCtx,
+		Verbose:                    verbose,
+		StreamOut:                  nil,
+		RAGSymbolMaxDefinitions:    cfg.RAGSymbolMaxDefinitions,
+		RAGSymbolMaxTokens:         cfg.RAGSymbolMaxTokens,
+		MinConfidenceKeep:          minKeep,
+		MinConfidenceMaintainability: minMaint,
+		ApplyFPKillList:            &applyFP,
 	}
 	if stream {
 		opts.StreamOut = findingsOut

@@ -11,6 +11,7 @@
 //   - STET_TEMPERATURE, STET_NUM_CTX (Ollama model runtime options; passed to /api/generate),
 //   - STET_OPTIMIZER_SCRIPT (command to run for stet optimize; e.g. python3 scripts/optimize.py).
 //   - STET_RAG_SYMBOL_MAX_DEFINITIONS, STET_RAG_SYMBOL_MAX_TOKENS (RAG-lite symbol lookup; Sub-phase 6.8).
+//   - STET_STRICTNESS (review strictness preset: strict, default, lenient, strict+, default+, lenient+).
 package config
 
 import (
@@ -47,6 +48,8 @@ type Config struct {
 	RAGSymbolMaxDefinitions int `toml:"rag_symbol_max_definitions"`
 	// RAGSymbolMaxTokens caps the token size of the symbol-definitions block (0 = no cap). Default 0.
 	RAGSymbolMaxTokens int `toml:"rag_symbol_max_tokens"`
+	// Strictness is the review preset: strict, default, lenient, strict+, default+, lenient+ (case-insensitive).
+	Strictness string `toml:"strictness"`
 }
 
 // Overrides represents optional CLI flag overrides. Non-nil pointer means
@@ -64,6 +67,7 @@ type Overrides struct {
 	OptimizerScript        *string
 	RAGSymbolMaxDefinitions *int
 	RAGSymbolMaxTokens      *int
+	Strictness              *string
 }
 
 // LoadOptions configures Load. All fields are optional.
@@ -88,7 +92,23 @@ const (
 	_defaultNumCtx               = 32768
 	_defaultRAGSymbolMaxDefs     = 10
 	_defaultRAGSymbolMaxTokens   = 0
+	_defaultStrictness           = "default"
 )
+
+// validStrictness is the set of allowed strictness values (normalized lowercase).
+var validStrictness = map[string]struct{}{
+	"strict": {}, "default": {}, "lenient": {},
+	"strict+": {}, "default+": {}, "lenient+": {},
+}
+
+// validateStrictness normalizes s (trim, lowercase) and returns it if valid; otherwise returns an error.
+func validateStrictness(s string) (string, error) {
+	norm := strings.TrimSpace(strings.ToLower(s))
+	if _, ok := validStrictness[norm]; !ok {
+		return "", erruser.New("Invalid strictness; use strict, default, lenient, strict+, default+, or lenient+.", nil)
+	}
+	return norm, nil
+}
 
 // errIntOverflow is returned when an int64 value does not fit in int (e.g. on 32-bit or huge TOML/env values).
 var errIntOverflow = errors.New("value out of range for int")
@@ -115,6 +135,7 @@ func DefaultConfig() Config {
 		NumCtx:                  _defaultNumCtx,
 		RAGSymbolMaxDefinitions: _defaultRAGSymbolMaxDefs,
 		RAGSymbolMaxTokens:      _defaultRAGSymbolMaxTokens,
+		Strictness:              _defaultStrictness,
 	}
 }
 
@@ -189,6 +210,7 @@ func mergeFile(cfg *Config, path string) error {
 		OptimizerScript         *string `toml:"optimizer_script"`
 		RAGSymbolMaxDefinitions *int64  `toml:"rag_symbol_max_definitions"`
 		RAGSymbolMaxTokens      *int64  `toml:"rag_symbol_max_tokens"`
+		Strictness              *string `toml:"strictness"`
 	}
 	if _, err := toml.Decode(string(data), &file); err != nil {
 		return erruser.New("Invalid configuration in .review/config.toml.", err)
@@ -251,6 +273,13 @@ func mergeFile(cfg *Config, path string) error {
 		}
 		cfg.RAGSymbolMaxTokens = v
 	}
+	if file.Strictness != nil && *file.Strictness != "" {
+		norm, err := validateStrictness(*file.Strictness)
+		if err != nil {
+			return err
+		}
+		cfg.Strictness = norm
+	}
 	return nil
 }
 
@@ -286,6 +315,7 @@ const (
 	envOptimizerScript         = "STET_OPTIMIZER_SCRIPT"
 	envRAGSymbolMaxDefinitions = "STET_RAG_SYMBOL_MAX_DEFINITIONS"
 	envRAGSymbolMaxTokens      = "STET_RAG_SYMBOL_MAX_TOKENS"
+	envStrictness              = "STET_STRICTNESS"
 )
 
 func applyEnv(cfg *Config, env []string) error {
@@ -389,6 +419,13 @@ func applyEnv(cfg *Config, env []string) error {
 			}
 		}
 	}
+	if v, ok := vals[envStrictness]; ok && v != "" {
+		norm, err := validateStrictness(v)
+		if err != nil {
+			return err
+		}
+		cfg.Strictness = norm
+	}
 	return nil
 }
 
@@ -431,5 +468,10 @@ func applyOverrides(cfg *Config, o *Overrides) {
 	}
 	if o.RAGSymbolMaxTokens != nil {
 		cfg.RAGSymbolMaxTokens = *o.RAGSymbolMaxTokens
+	}
+	if o.Strictness != nil && *o.Strictness != "" {
+		if norm, err := validateStrictness(*o.Strictness); err == nil {
+			cfg.Strictness = norm
+		}
 	}
 }

@@ -69,6 +69,8 @@ func runOut(t *testing.T, dir, name string, args ...string) string {
 	return strings.TrimSpace(string(out))
 }
 
+func ptrBool(b bool) *bool { return &b }
+
 func TestStart_createsSessionAndWorktree(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -1161,6 +1163,106 @@ func TestStart_fpKillList_filtersBannedPhrase(t *testing.T) {
 	}
 	if len(s.Findings) != 0 {
 		t.Errorf("Findings: FP kill list should drop 'Consider adding comments'; got %d findings", len(s.Findings))
+	}
+}
+
+// TestStart_strictPreset_keepsLowerConfidence asserts that with strict thresholds (0.6, 0.7),
+// a finding with confidence 0.65 is kept in the session.
+func TestStart_strictPreset_keepsLowerConfidence(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	lowConfResp := `[{"file":"a.go","line":1,"severity":"warning","category":"correctness","message":"borderline","confidence":0.65}]`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/tags" {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"models": []map[string]interface{}{{"name": "m"}}})
+			return
+		}
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": lowConfResp, "done": true})
+	}))
+	defer srv.Close()
+
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	opts := StartOptions{
+		RepoRoot:                   repo,
+		StateDir:                   stateDir,
+		WorktreeRoot:               "",
+		Ref:                        "HEAD~1",
+		DryRun:                     false,
+		Model:                      "m",
+		OllamaBaseURL:              srv.URL,
+		MinConfidenceKeep:         0.6,
+		MinConfidenceMaintainability: 0.7,
+		ApplyFPKillList:            ptrBool(true),
+	}
+	if err := Start(ctx, opts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	if len(s.Findings) != 1 {
+		t.Fatalf("Findings: strict preset should keep confidence 0.65; got %d findings", len(s.Findings))
+	}
+	if s.Findings[0].Confidence != 0.65 || s.Findings[0].Message != "borderline" {
+		t.Errorf("finding: confidence=%g message=%q; want 0.65, borderline", s.Findings[0].Confidence, s.Findings[0].Message)
+	}
+}
+
+// TestStart_strictPlus_keepsBannedPhrase asserts that when ApplyFPKillList is false (strict+),
+// a finding whose message matches the FP kill list (e.g. "Consider adding comments") is kept.
+func TestStart_strictPlus_keepsBannedPhrase(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	bannedResp := `[{"file":"a.go","line":1,"severity":"info","category":"maintainability","message":"Consider adding comments","confidence":0.9}]`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/tags" {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"models": []map[string]interface{}{{"name": "m"}}})
+			return
+		}
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": bannedResp, "done": true})
+	}))
+	defer srv.Close()
+
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	opts := StartOptions{
+		RepoRoot:                   repo,
+		StateDir:                   stateDir,
+		WorktreeRoot:               "",
+		Ref:                        "HEAD~1",
+		DryRun:                     false,
+		Model:                      "m",
+		OllamaBaseURL:              srv.URL,
+		MinConfidenceKeep:          0.8,
+		MinConfidenceMaintainability: 0.9,
+		ApplyFPKillList:            ptrBool(false),
+	}
+	if err := Start(ctx, opts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	if len(s.Findings) != 1 {
+		t.Fatalf("Findings: strict+ (no FP filter) should keep 'Consider adding comments'; got %d findings", len(s.Findings))
+	}
+	if s.Findings[0].Message != "Consider adding comments" {
+		t.Errorf("finding message = %q; want Consider adding comments", s.Findings[0].Message)
 	}
 }
 

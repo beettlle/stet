@@ -41,6 +41,9 @@ func TestDefaultConfig(t *testing.T) {
 	if c.StateDir != "" || c.WorktreeRoot != "" {
 		t.Errorf("StateDir or WorktreeRoot non-empty: %q, %q", c.StateDir, c.WorktreeRoot)
 	}
+	if c.Strictness != _defaultStrictness {
+		t.Errorf("Strictness = %q, want %q", c.Strictness, _defaultStrictness)
+	}
 }
 
 func TestLoad_defaultsOnly(t *testing.T) {
@@ -611,5 +614,173 @@ func TestLoad_envIntOverflow(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "out of range") {
 		t.Errorf("Load: want out-of-range error, got %v", err)
+	}
+}
+
+func TestLoad_strictnessFromTOML(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	repoDir := filepath.Join(dir, "repo")
+	if err := os.MkdirAll(filepath.Join(repoDir, ".review"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(repoDir, ".review", "config.toml")
+	if err := os.WriteFile(configPath, []byte(`strictness = "strict"`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	cfg, err := Load(ctx, LoadOptions{
+		RepoRoot:         repoDir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Strictness != "strict" {
+		t.Errorf("Strictness = %q, want strict", cfg.Strictness)
+	}
+}
+
+func TestLoad_strictnessFromEnv(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ctx := context.Background()
+	cfg, err := Load(ctx, LoadOptions{
+		RepoRoot:         dir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{"STET_STRICTNESS=lenient+"},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Strictness != "lenient+" {
+		t.Errorf("Strictness = %q, want lenient+", cfg.Strictness)
+	}
+}
+
+func TestLoad_strictnessInvalid(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	repoDir := filepath.Join(dir, "repo")
+	if err := os.MkdirAll(filepath.Join(repoDir, ".review"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(repoDir, ".review", "config.toml")
+	if err := os.WriteFile(configPath, []byte(`strictness = "aggressive"`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	_, err := Load(ctx, LoadOptions{
+		RepoRoot:         repoDir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{},
+	})
+	if err == nil {
+		t.Fatal("Load: want error for invalid strictness, got nil")
+	}
+	if !strings.Contains(err.Error(), "Invalid strictness") {
+		t.Errorf("Load: want Invalid strictness in error, got %v", err)
+	}
+}
+
+func TestLoad_strictnessFromOverrides(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ctx := context.Background()
+	cfg, err := Load(ctx, LoadOptions{
+		RepoRoot:         dir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{},
+		Overrides:        &Overrides{Strictness: ptrStr("default+")},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Strictness != "default+" {
+		t.Errorf("Strictness = %q, want default+", cfg.Strictness)
+	}
+}
+
+func TestLoad_strictnessInvalidFromOverrides_keepsDefault(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ctx := context.Background()
+	cfg, err := Load(ctx, LoadOptions{
+		RepoRoot:         dir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{},
+		Overrides:        &Overrides{Strictness: ptrStr("invalid")},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Strictness != _defaultStrictness {
+		t.Errorf("Strictness = %q, want default (invalid override ignored)", cfg.Strictness)
+	}
+}
+
+func TestLoad_strictnessInvalidFromEnv(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ctx := context.Background()
+	_, err := Load(ctx, LoadOptions{
+		RepoRoot:         dir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{"STET_STRICTNESS=aggressive"},
+	})
+	if err == nil {
+		t.Fatal("Load: want error for invalid strictness from env, got nil")
+	}
+	if !strings.Contains(err.Error(), "Invalid strictness") {
+		t.Errorf("Load: want Invalid strictness in error, got %v", err)
+	}
+}
+
+func TestLoad_strictnessNormalizedFromTOML(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	repoDir := filepath.Join(dir, "repo")
+	if err := os.MkdirAll(filepath.Join(repoDir, ".review"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(repoDir, ".review", "config.toml")
+	if err := os.WriteFile(configPath, []byte(`strictness = "  LENIENT+  "`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	cfg, err := Load(ctx, LoadOptions{
+		RepoRoot:         repoDir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Strictness != "lenient+" {
+		t.Errorf("Strictness = %q, want lenient+ (normalized)", cfg.Strictness)
+	}
+}
+
+func TestLoad_optimizerScriptFromTOML(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	globalPath := filepath.Join(dir, "global.toml")
+	if err := os.MkdirAll(filepath.Dir(globalPath), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(globalPath, []byte(`optimizer_script = "python3 scripts/optimize.py"`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	cfg, err := Load(ctx, LoadOptions{
+		GlobalConfigPath: globalPath,
+		Env:              []string{},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.OptimizerScript != "python3 scripts/optimize.py" {
+		t.Errorf("OptimizerScript = %q, want python3 scripts/optimize.py", cfg.OptimizerScript)
 	}
 }

@@ -190,6 +190,11 @@ type StartOptions struct {
 	StreamOut               io.Writer
 	RAGSymbolMaxDefinitions int
 	RAGSymbolMaxTokens      int
+	// MinConfidenceKeep and MinConfidenceMaintainability are abstention thresholds (0,0 = use 0.8, 0.9).
+	// ApplyFPKillList nil = apply FP kill list (true); set to false for strict+ presets.
+	MinConfidenceKeep             float64
+	MinConfidenceMaintainability   float64
+	ApplyFPKillList                *bool
 }
 
 // FinishOptions configures Finish.
@@ -220,6 +225,9 @@ type RunOptions struct {
 	StreamOut               io.Writer
 	RAGSymbolMaxDefinitions int
 	RAGSymbolMaxTokens      int
+	MinConfidenceKeep             float64
+	MinConfidenceMaintainability   float64
+	ApplyFPKillList                *bool
 }
 
 // Start creates a worktree at the given ref, writes the session, then runs the
@@ -356,6 +364,15 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		return nil
 	}
 
+	minKeep, minMaint := opts.MinConfidenceKeep, opts.MinConfidenceMaintainability
+	if minKeep == 0 && minMaint == 0 {
+		minKeep, minMaint = findings.DefaultMinConfidenceKeep, findings.DefaultMinConfidenceMaintainability
+	}
+	applyFP := true
+	if opts.ApplyFPKillList != nil {
+		applyFP = *opts.ApplyFPKillList
+	}
+
 	var collected []findings.Finding
 	findingPromptContext := make(map[string]string)
 	total := len(part.ToReview)
@@ -369,8 +386,10 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 				_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", i+1, total, hunk.FilePath)})
 			}
 			batch := cannedFindingsForHunks([]diff.Hunk{hunk})
-			batch = findings.FilterAbstention(batch)
-			batch = findings.FilterFPKillList(batch)
+			batch = findings.FilterAbstention(batch, minKeep, minMaint)
+			if applyFP {
+				batch = findings.FilterFPKillList(batch)
+			}
 			findings.SetCursorURIs(opts.RepoRoot, batch)
 			ctx := truncateForPromptContext(hunk.RawContent, maxPromptContextStoreLen)
 			for _, f := range batch {
@@ -421,8 +440,10 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 			if err != nil {
 				return erruser.New("Review failed for "+hunk.FilePath+".", err)
 			}
-			batch := findings.FilterAbstention(list)
-			batch = findings.FilterFPKillList(batch)
+			batch := findings.FilterAbstention(list, minKeep, minMaint)
+			if applyFP {
+				batch = findings.FilterFPKillList(batch)
+			}
 			findings.SetCursorURIs(opts.RepoRoot, batch)
 			hunkCtx := truncateForPromptContext(hunk.RawContent, maxPromptContextStoreLen)
 			for _, f := range batch {
@@ -632,6 +653,15 @@ func Run(ctx context.Context, opts RunOptions) error {
 	if s.FindingPromptContext == nil {
 		s.FindingPromptContext = make(map[string]string)
 	}
+	minKeep, minMaint := opts.MinConfidenceKeep, opts.MinConfidenceMaintainability
+	if minKeep == 0 && minMaint == 0 {
+		minKeep, minMaint = findings.DefaultMinConfidenceKeep, findings.DefaultMinConfidenceMaintainability
+	}
+	applyFP := true
+	if opts.ApplyFPKillList != nil {
+		applyFP = *opts.ApplyFPKillList
+	}
+
 	var newFindings []findings.Finding
 	total := len(part.ToReview)
 	if opts.StreamOut != nil {
@@ -644,8 +674,10 @@ func Run(ctx context.Context, opts RunOptions) error {
 				_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", i+1, total, hunk.FilePath)})
 			}
 			batch := cannedFindingsForHunks([]diff.Hunk{hunk})
-			batch = findings.FilterAbstention(batch)
-			batch = findings.FilterFPKillList(batch)
+			batch = findings.FilterAbstention(batch, minKeep, minMaint)
+			if applyFP {
+				batch = findings.FilterFPKillList(batch)
+			}
 			findings.SetCursorURIs(opts.RepoRoot, batch)
 			hunkCtx := truncateForPromptContext(hunk.RawContent, maxPromptContextStoreLen)
 			for _, f := range batch {
@@ -705,8 +737,10 @@ func Run(ctx context.Context, opts RunOptions) error {
 			if err != nil {
 				return erruser.New("Review failed for "+hunk.FilePath+".", err)
 			}
-			batch := findings.FilterAbstention(list)
-			batch = findings.FilterFPKillList(batch)
+			batch := findings.FilterAbstention(list, minKeep, minMaint)
+			if applyFP {
+				batch = findings.FilterFPKillList(batch)
+			}
 			findings.SetCursorURIs(opts.RepoRoot, batch)
 			hunkCtx := truncateForPromptContext(hunk.RawContent, maxPromptContextStoreLen)
 			for _, f := range batch {
