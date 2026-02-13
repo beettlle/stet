@@ -43,7 +43,7 @@ export async function openFinding(
   let uri: vscode.Uri;
   let selection: vscode.Range | undefined;
 
-  if (finding.cursor_uri && finding.cursor_uri.length > 0) {
+  if (finding.cursor_uri) {
     try {
       const parsed = vscode.Uri.parse(finding.cursor_uri, true);
       if (parsed.scheme === "file" || parsed.scheme === "cursor") {

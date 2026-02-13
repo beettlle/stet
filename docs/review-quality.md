@@ -19,6 +19,7 @@ Examples from Stet self-review; keep this list brief and update as patterns emer
 - Flagging possible nil dereference when a nil check exists earlier in the flow.
 - Suggesting "restore full hint" when the hint was intentionally aligned to the documented contract.
 - Tests that set `findingsOut` and restore in `t.Cleanup()` without `t.Parallel()`: flagging "test interference" is redundant when the isolation convention is documented and followed.
+- Findings that point at **generated coverage report HTML** (e.g. `extension/coverage/lcov-report/*.html`) but whose message/suggestion refer to TypeScript or source code (e.g. "Unused import", "Unreachable code"). The model is inferring from embedded or referenced source; the reported file is the HTML report, not the source file. Excluding `coverage/` from the diff avoids these; document here for prompt/optimizer awareness.
 
 ## Known false positive patterns (curated)
 
@@ -30,6 +31,7 @@ Structured entries for prompt lessons, optimizer feedback, and future filtering.
 | testing      | Test uses global variable 'findingsOut' which may cause test interference | already_correct | Isolation ensured: tests that set findingsOut do not use t.Parallel() and restore via t.Cleanup(); comment documents the convention. |
 | testing      | Missing dependency jest / @types/jest / ts-jest after removing Jest | false_positive | Extension uses Vitest only; Jest was intentionally removed; no residual refs. |
 | testing      | Use jest.fn() instead of vi.fn() for consistency | wrong_suggestion | Project uses Vitest; vi.fn() is correct. |
+| (various)    | Findings in `**/coverage/**` (e.g. lcov-report HTML) about "unused import", "unreachable code", "TypeScript in HTML" | out_of_scope | File under review is generated coverage output; suggestion targets source. Exclude `coverage/` from diff to avoid. |
 
 ## Schema for false positive entries
 
@@ -51,6 +53,8 @@ Deferred items from post–Vitest migration review; consider when touching the e
 - **Coverage threshold:** Project rule is 77% global (AGENTS.md). Optionally consider raising to 80–85% in `extension/vitest.config.ts` for stricter coverage.
 - **Coverage report differences:** After switching from Jest to Vitest’s v8 provider, lcov/html reports and counts (e.g. FNF, LH, BRH) differ slightly. Treat as expected tooling difference; optionally verify no real code paths were dropped.
 - **Consistency:** Any remaining style nits (e.g. callback extraction pattern in tests) can be aligned when touching the file.
+- **Review noise from coverage:** After adding diff exclusion for `coverage/`, re-run self-review and confirm no findings on `extension/coverage/` paths. If the model still suggests "improvements" for test mocks (e.g. TreeItem, MarkdownString, createTreeView), treat as optional test-quality improvements; document here so future optimizer/prompt work can consider down-weighting style nits on test files if desired.
+- **Extension small cleanups (optional):** From self-review: simplify `cursor_uri` check (done); consolidate `setFindings([])` (done); consider adding a brief comment in openFinding when falling back from cursor_uri fragment to finding.line/range for clarity.
 
 ## Optimizer and actionability
 

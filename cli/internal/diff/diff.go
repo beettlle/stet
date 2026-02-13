@@ -12,7 +12,8 @@
 // # Generated files
 // By default, hunks for generated or vendored files are excluded. Default
 // patterns include: *.pb.go, *_generated.go, *.min.js, package-lock.json,
-// go.sum, and paths under vendor/. Pass Options to override or extend.
+// go.sum, paths under vendor/, and paths under coverage/ (e.g. lcov-report
+// HTML) so generated coverage output is not reviewed. Pass Options to override or extend.
 //
 // # Empty diff
 // When baseline..HEAD has no changes, Hunks returns a nil slice and no error.
@@ -58,6 +59,7 @@ var defaultExcludePatterns = []string{
 	"go.sum",
 	"vendor/*",
 	"vendor/**/*",
+	"coverage/*",
 }
 
 // Hunks runs git diff baseline..head from repoRoot, parses the unified diff,
@@ -135,9 +137,16 @@ func filterByPatterns(hunks []Hunk, patterns []string) []Hunk {
 		path := norm(h.FilePath)
 		excluded := false
 		for _, p := range patterns {
-			// filepath.Match does not support **; treat vendor/* and vendor/**/* as prefix match
+			// filepath.Match does not support **; treat vendor and coverage as prefix match
 			if strings.HasPrefix(p, "vendor") {
 				if path == "vendor" || strings.HasPrefix(path, "vendor/") {
+					excluded = true
+					break
+				}
+				continue
+			}
+			if strings.HasPrefix(p, "coverage") {
+				if path == "coverage" || strings.HasPrefix(path, "coverage/") {
 					excluded = true
 					break
 				}

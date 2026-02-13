@@ -62,7 +62,7 @@ export function activate(context: vscode.ExtensionContext): void {
           const result = await spawnStet(["start", "--dry-run"], { cwd });
           findingsProvider.setScanning(false);
           if (result.exitCode !== 0) {
-            findingsProvider.setFindings([]);
+            findingsProvider.setFindings([]); // clear on CLI failure
             showCLIError(result.stderr, result.exitCode);
             return;
           }
@@ -73,7 +73,7 @@ export function activate(context: vscode.ExtensionContext): void {
               `Stet: Review complete. ${findings.length} finding(s).`
             );
           } catch (e) {
-            findingsProvider.setFindings([]);
+            findingsProvider.setFindings([]); // clear on parse failure
             const message = e instanceof Error ? e.message : String(e);
             void vscode.window.showErrorMessage(`Stet: Failed to parse output. ${message}`);
           }
