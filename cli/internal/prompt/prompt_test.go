@@ -25,6 +25,21 @@ func TestDefaultSystemPrompt_instructsActionability(t *testing.T) {
 
 // TestDefaultSystemPrompt_instructsCoTAndAssumeValid asserts Phase 6.1 CoT prompt
 // content: step-by-step verification, assume out-of-hunk identifiers valid, nitpick discard, User Intent.
+// TestDefaultSystemPrompt_instructsDiffInterpretation asserts the prompt tells the model
+// to review the resulting code and not report issues that the added lines fix (actionable findings).
+func TestDefaultSystemPrompt_instructsDiffInterpretation(t *testing.T) {
+	got := DefaultSystemPrompt
+	if !strings.Contains(got, "resulting code") {
+		t.Errorf("default prompt should instruct review of resulting code; missing 'resulting code'")
+	}
+	if !strings.Contains(got, "removed lines") || !strings.Contains(got, "added lines") {
+		t.Errorf("default prompt should mention removed lines and added lines for diff interpretation")
+	}
+	if !strings.Contains(got, "Do not report issues that exist only in the removed lines") {
+		t.Errorf("default prompt should say do not report issues only in removed lines that are fixed by added lines")
+	}
+}
+
 func TestDefaultSystemPrompt_instructsCoTAndAssumeValid(t *testing.T) {
 	got := DefaultSystemPrompt
 	if !strings.Contains(got, "Step") && !strings.Contains(got, "steps") && !strings.Contains(strings.ToLower(got), "verify") {

@@ -80,7 +80,8 @@ On `stet start` failure, the CLI may print one of the following hints to stderr 
 
 ## Other commands
 
-- **`stet status`** — Reports baseline, last_reviewed_at, worktree path, finding count, and dismissed count. Exits 1 with "No active session" if no session.
+- **`stet status`** — Reports baseline, last_reviewed_at, worktree path, finding count, and dismissed count. Exits 1 with "No active session" if no session. Use `--ids` or `-i` to list active finding IDs (ID, file:line, severity, message) for use with `stet dismiss`.
+- **`stet list`** — Lists active findings with IDs (same format as `status --ids`). Exits 1 if no active session. Use to copy IDs for `stet dismiss`.
 - **`stet dismiss <id> [reason]`** — Adds the finding ID to the session’s dismissed list so it does not resurface in findings output. Optional **reason** (one of `false_positive`, `already_correct`, `wrong_suggestion`, `out_of_scope`) is recorded for the optimizer. Idempotent. Exits 1 if no active session; exits 1 if reason is provided and invalid.
 - **`stet finish`** — Ends the session and removes the worktree. Exits 1 if no active session.
 

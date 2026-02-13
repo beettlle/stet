@@ -727,6 +727,209 @@ func TestRunCLI_statusWithSessionPrintsFields(t *testing.T) {
 	}
 }
 
+func TestRunCLI_statusWithIdsPrintsFindingsWithIds(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	findingsOut = &buf
+	t.Cleanup(func() { findingsOut = os.Stdout })
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
+	}
+	var out struct {
+		Findings []findings.Finding `json:"findings"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil || len(out.Findings) == 0 {
+		t.Fatalf("need at least one finding; err=%v", err)
+	}
+	wantID := out.Findings[0].ID
+	wantFile := out.Findings[0].File
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStdout := os.Stdout
+	os.Stdout = w
+	t.Cleanup(func() { os.Stdout = oldStdout })
+	if got := runCLI([]string{"status", "--ids"}); got != 0 {
+		t.Fatalf("runCLI(status --ids) = %d, want 0", got)
+	}
+	_ = w.Close()
+	var stdout bytes.Buffer
+	_, _ = io.Copy(&stdout, r)
+	outStr := stdout.String()
+	if !strings.Contains(outStr, "---") {
+		t.Errorf("status --ids should contain ---; got:\n%s", outStr)
+	}
+	if !strings.Contains(outStr, wantID) {
+		t.Errorf("status --ids should contain finding ID %q; got:\n%s", wantID, outStr)
+	}
+	if !strings.Contains(outStr, wantFile) {
+		t.Errorf("status --ids should contain file %q; got:\n%s", wantFile, outStr)
+	}
+}
+
+func TestRunCLI_statusWithoutIdsUnchanged(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
+	}
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStdout := os.Stdout
+	os.Stdout = w
+	t.Cleanup(func() { os.Stdout = oldStdout })
+	if got := runCLI([]string{"status"}); got != 0 {
+		t.Fatalf("runCLI(status) = %d, want 0", got)
+	}
+	_ = w.Close()
+	var stdout bytes.Buffer
+	_, _ = io.Copy(&stdout, r)
+	out := stdout.String()
+	if strings.Contains(out, "---") {
+		t.Errorf("status without --ids should not contain ---; got:\n%s", out)
+	}
+}
+
+func TestRunCLI_listPrintsFindingsWithIds(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	findingsOut = &buf
+	t.Cleanup(func() { findingsOut = os.Stdout })
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
+	}
+	var out struct {
+		Findings []findings.Finding `json:"findings"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil || len(out.Findings) == 0 {
+		t.Fatalf("need at least one finding; err=%v", err)
+	}
+	wantID := out.Findings[0].ID
+	wantFile := out.Findings[0].File
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStdout := os.Stdout
+	os.Stdout = w
+	t.Cleanup(func() { os.Stdout = oldStdout })
+	if got := runCLI([]string{"list"}); got != 0 {
+		t.Fatalf("runCLI(list) = %d, want 0", got)
+	}
+	_ = w.Close()
+	var stdout bytes.Buffer
+	_, _ = io.Copy(&stdout, r)
+	outStr := stdout.String()
+	if !strings.Contains(outStr, wantID) {
+		t.Errorf("list should contain finding ID %q; got:\n%s", wantID, outStr)
+	}
+	if !strings.Contains(outStr, wantFile) {
+		t.Errorf("list should contain file %q; got:\n%s", wantFile, outStr)
+	}
+}
+
+func TestRunCLI_listNoSessionExitsNonZero(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStderr := os.Stderr
+	os.Stderr = w
+	t.Cleanup(func() { os.Stderr = oldStderr })
+	got := runCLI([]string{"list"})
+	_ = w.Close()
+	var stderr bytes.Buffer
+	_, _ = io.Copy(&stderr, r)
+	if got != 1 {
+		t.Errorf("runCLI(list) with no session = %d, want 1", got)
+	}
+	if !strings.Contains(stderr.String(), "No active session") {
+		t.Errorf("stderr should contain 'No active session'; got %q", stderr.String())
+	}
+}
+
+func TestRunCLI_listEmptyFindings(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	findingsOut = &buf
+	t.Cleanup(func() { findingsOut = os.Stdout })
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
+	}
+	var out struct {
+		Findings []findings.Finding `json:"findings"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil || len(out.Findings) == 0 {
+		t.Fatalf("need at least one finding; err=%v", err)
+	}
+	for _, f := range out.Findings {
+		if got := runCLI([]string{"dismiss", f.ID}); got != 0 {
+			t.Fatalf("runCLI(dismiss %q) = %d, want 0", f.ID, got)
+		}
+	}
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStdout := os.Stdout
+	os.Stdout = w
+	t.Cleanup(func() { os.Stdout = oldStdout })
+	if got := runCLI([]string{"list"}); got != 0 {
+		t.Fatalf("runCLI(list) = %d, want 0", got)
+	}
+	_ = w.Close()
+	var stdout bytes.Buffer
+	_, _ = io.Copy(&stdout, r)
+	if stdout.Len() != 0 {
+		t.Errorf("list with all findings dismissed should output nothing; got:\n%s", stdout.String())
+	}
+}
+
 func TestRunCLI_dismissNoSessionExitsNonZero(t *testing.T) {
 	repo := initRepo(t)
 	orig, err := os.Getwd()

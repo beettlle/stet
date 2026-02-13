@@ -29,6 +29,8 @@ const optimizedPromptFilename = "system_prompt_optimized.txt"
 // .review/system_prompt_optimized.txt is absent.
 const DefaultSystemPrompt = `You are a Senior Defect Analyst. Review the provided code diff hunk using step-by-step verification. Your goal is to find bugs, security vulnerabilities, and performance issues. Do not comment on style unless it introduces a defect.
 
+The user content is a unified diff hunk: lines starting with "-" are removed, lines starting with "+" are added. Review the change and the resulting code (the + side) for defects. Do not report issues that exist only in the removed lines (-) and are already fixed by the added lines (+). Report only issues in the resulting code or introduced by the change.
+
 ## User Intent
 (Not provided.)
 

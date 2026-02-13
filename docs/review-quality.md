@@ -8,6 +8,7 @@ A finding is **actionable** when the reported issue is real (not already fixed o
 
 - Report only **actionable** issues: do not suggest reverting intentional changes, adding code that already exists, or changing behavior that matches documented design.
 - Prefer **fewer, high-confidence** findings over volume; avoid speculative or low-signal suggestions.
+- **Diff interpretation:** Any custom or optimized system prompt (e.g. from `stet optimize`) should preserve or replicate the default’s diff-interpretation rule: review the resulting code (the + side) and the change; do not report issues that exist only in the removed lines (-) and are already fixed by the added lines (+). This keeps actionability consistent.
 
 ## Common false positives (examples)
 
@@ -58,6 +59,7 @@ Structured entries for prompt lessons, optimizer feedback, and future filtering.
 | maintainability / documentation | runFinishReview (or similar) "only calls provider.clear() without visual feedback" or "doc should clarify caller handles messages" | false_positive | By design the function does not show UI; caller shows success/error. JSDoc already states caller responsibility. |
 | maintainability | Extension streaming (cli.ts, extension.ts): "onClose called twice", "Potential duplicate resolution in spawnStetStream", "race condition in finding accumulation" or "concurrent access to findingsProvider" | already_correct | One-shot guard in finish() prevents double onClose/resolve; count shown only after await; single-threaded event loop. |
 | security / correctness | Extension streaming (parse.ts): "Missing validation for required fields in finding data", "Potential denial of service through large JSON", "unbounded line length" or "unbounded JSON parsing" | already_correct | parseStreamEvent validates finding data and enforces MAX_STREAM_LINE_LENGTH; user-facing error is generic. |
+| (various) | Finding flags an issue in the removed (-) lines when the added (+) lines fix that issue | already_correct | Prompt instructs to review resulting code and not report issues fixed by the change. |
 
 ## Schema for false positive entries
 

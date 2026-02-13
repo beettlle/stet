@@ -104,6 +104,25 @@ func writeFindingsHuman(w io.Writer, stateDir string) error {
 	return nil
 }
 
+// writeFindingsWithIDs writes one line per active finding: id  file:line  severity  message.
+// Used by status --ids and list commands.
+func writeFindingsWithIDs(w io.Writer, stateDir string) error {
+	active, err := activeFindings(stateDir)
+	if err != nil {
+		return fmt.Errorf("write findings with IDs: %w", err)
+	}
+	for _, f := range active {
+		line := f.Line
+		if f.Range != nil {
+			line = f.Range.Start
+		}
+		if _, err := fmt.Fprintf(w, "%s  %s:%d  %s  %s\n", f.ID, f.File, line, f.Severity, f.Message); err != nil {
+			return fmt.Errorf("write findings with IDs: %w", err)
+		}
+	}
+	return nil
+}
+
 func main() {
 	os.Exit(Run())
 }
@@ -123,6 +142,7 @@ func runCLI(args []string) int {
 	rootCmd.AddCommand(newRunCmd())
 	rootCmd.AddCommand(newFinishCmd())
 	rootCmd.AddCommand(newStatusCmd())
+	rootCmd.AddCommand(newListCmd())
 	rootCmd.AddCommand(newDismissCmd())
 	rootCmd.AddCommand(newOptimizeCmd())
 	rootCmd.AddCommand(newDoctorCmd())
@@ -377,6 +397,7 @@ func newStatusCmd() *cobra.Command {
 		Short: "Report session status (baseline, findings, dismissed)",
 		RunE:  runStatus,
 	}
+	cmd.Flags().BoolP("ids", "i", false, "List active finding IDs (for stet dismiss)")
 	return cmd
 }
 
@@ -411,7 +432,54 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(os.Stdout, "worktree: %s\n", worktreePath)
 	fmt.Fprintf(os.Stdout, "findings: %d\n", len(s.Findings))
 	fmt.Fprintf(os.Stdout, "dismissed: %d\n", len(s.DismissedIDs))
+	showIDs, _ := cmd.Flags().GetBool("ids")
+	if showIDs {
+		active, err := activeFindings(stateDir)
+		if err != nil {
+			return fmt.Errorf("status: %w", err)
+		}
+		if len(active) > 0 {
+			fmt.Fprintln(os.Stdout, "---")
+			if err := writeFindingsWithIDs(os.Stdout, stateDir); err != nil {
+				return fmt.Errorf("status: %w", err)
+			}
+		}
+	}
 	return nil
+}
+
+func newListCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List active findings with IDs (for stet dismiss)",
+		RunE:  runList,
+	}
+	return cmd
+}
+
+func runList(cmd *cobra.Command, args []string) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("list: %w", err)
+	}
+	repoRoot, err := git.RepoRoot(cwd)
+	if err != nil {
+		return fmt.Errorf("list: not a git repository: %w", err)
+	}
+	cfg, err := config.Load(context.Background(), config.LoadOptions{RepoRoot: repoRoot})
+	if err != nil {
+		return fmt.Errorf("list: load config: %w", err)
+	}
+	stateDir := cfg.EffectiveStateDir(repoRoot)
+	s, err := session.Load(stateDir)
+	if err != nil {
+		return fmt.Errorf("list: load session: %w", err)
+	}
+	if s.BaselineRef == "" {
+		fmt.Fprintln(os.Stderr, "No active session. Run 'stet start' to begin a review.")
+		return errExit(1)
+	}
+	return writeFindingsWithIDs(os.Stdout, stateDir)
 }
 
 func newDismissCmd() *cobra.Command {
