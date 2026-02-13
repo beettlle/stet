@@ -20,8 +20,20 @@
       {
         "command": "stet.openFinding",
         "title": "Stet: Open at location"
+      },
+      {
+        "command": "stet.copyFindingForChat",
+        "title": "Stet: Copy for Chat"
       }
     ],
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "stet.copyFindingForChat",
+          "when": "view == stetFindings && viewItem == finding"
+        }
+      ]
+    },
     "viewsContainers": {
       "activitybar": [
         {

@@ -1,7 +1,9 @@
 import * as vscode from "vscode";
 
 import { spawnStet } from "./cli";
+import { buildCopyForChatBlock } from "./copyForChat";
 import { createFindingsPanel } from "./findingsPanel";
+import type { TreeItemModel } from "./findingsPanel";
 import { openFinding } from "./openFinding";
 import type { OpenFindingPayload } from "./openFinding";
 import { parseFindingsJSON } from "./parse";
@@ -41,6 +43,26 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       await openFinding(payload, root);
     })
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "stet.copyFindingForChat",
+      async (element: TreeItemModel | undefined) => {
+        if (element?.kind !== "finding") {
+          return;
+        }
+        const root = getRepoRoot();
+        if (!root) {
+          void vscode.window.showErrorMessage(
+            "Stet: No workspace folder open. Open a folder to copy findings."
+          );
+          return;
+        }
+        const markdown = buildCopyForChatBlock(element.finding, root);
+        await vscode.env.clipboard.writeText(markdown);
+        void vscode.window.setStatusBarMessage("Stet: Copied to clipboard", 2000);
+      }
+    )
   );
   context.subscriptions.push(
     vscode.commands.registerCommand("stet.startReview", async () => {

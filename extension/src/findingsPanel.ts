@@ -67,6 +67,7 @@ export class FindingsTreeDataProvider
       cursor_uri: finding.cursor_uri,
     };
     const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
+    item.contextValue = "finding";
     item.description = description;
     item.tooltip = tooltip;
     item.command = {
