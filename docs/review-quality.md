@@ -21,6 +21,10 @@ Examples from Stet self-review; keep this list brief and update as patterns emer
 - Tests that set `findingsOut` and restore in `t.Cleanup()` without `t.Parallel()`: flagging "test interference" is redundant when the isolation convention is documented and followed.
 - Findings that point at **generated coverage report HTML** (e.g. `extension/coverage/lcov-report/*.html`) but whose message/suggestion refer to TypeScript or source code (e.g. "Unused import", "Unreachable code"). The model is inferring from embedded or referenced source; the reported file is the HTML report, not the source file. Excluding `coverage/` from the diff avoids these; document here for prompt/optimizer awareness.
 - **Dry-run category Maintainability:** Suggesting to "revert" or "consider if" changing dry-run finding category from Style to Maintainability. Per implementation plan 4.5.1 the CLI intentionally emits `category: maintainability` (and `confidence: 1.0`) for dry-run; no change needed.
+- **Copy-for-Chat / extension tests:** Suggesting that unit tests use a "mock or configurable workspace root" when testing a pure function that takes `(finding, workspaceRoot)`. A fixed path (e.g. `/workspace/repo`) is normal and sufficient; no change needed.
+- **Copy-for-Chat implementation:** Suggesting "implementation may use different casing" for admonition text (WARNING, NOTE) when the implementation explicitly returns those strings and tests assert them. Case-insensitive matching is not required.
+- **Copy-for-Chat implementation:** Suggesting that `linePartForLabel` fallback `'1'` and `lineForFragment` fallback `1` are "confusing." Both are the same intentional fallback for missing line/range; consistent and correct.
+- **Copy-for-Chat implementation:** Suggesting to "break into smaller helper functions" when the function already delegates to `lineForFragment`, `linePartForLabel`, `severityToAdmonition`, `categoryToTitle`. Further splitting is optional style, not a correctness issue.
 
 ## Known false positive patterns (curated)
 
@@ -34,6 +38,14 @@ Structured entries for prompt lessons, optimizer feedback, and future filtering.
 | testing      | Use jest.fn() instead of vi.fn() for consistency | wrong_suggestion | Project uses Vitest; vi.fn() is correct. |
 | (various)    | Findings in `**/coverage/**` (e.g. lcov-report HTML) about "unused import", "unreachable code", "TypeScript in HTML" | out_of_scope | File under review is generated coverage output; suggestion targets source. Exclude `coverage/` from diff to avoid. |
 | maintainability / documentation | Findings in `**/coverage/**` (lcov-report HTML, lcov.info) about "coverage percentage/values updated", "line coverage counts", "Coverage data appears to have been updated" | out_of_scope | File under review is generated coverage output; metrics change when tests change. Exclude `coverage/` from diff to avoid. |
+| testing | Test uses hardcoded workspace root which may not match actual implementation | false_positive | Pure-function unit tests often use a fixed path; implementation takes workspaceRoot as argument. |
+| testing | Test expects specific admonition text 'WARNING' / 'NOTE' but implementation may use different casing | wrong_suggestion | Implementation explicitly returns WARNING and NOTE; tests are correct. |
+| testing | Test uses hardcoded category 'best_practice' but implementation may have different handling for underscores | false_positive | Implementation correctly capitalizes and replaces underscores; test verifies that. |
+| style | linePartForLabel / lineForFragment fallback '1' could be confusing | false_positive | Same intentional fallback for missing line; consistent. |
+| style | buildCopyForChatBlock is quite long; consider breaking into smaller helper functions | wrong_suggestion | Function already uses helpers (lineForFragment, linePartForLabel, severityToAdmonition, categoryToTitle). |
+| style | Consider more descriptive variable name than 'root' (e.g. repoRoot, workspaceRoot) | false_positive | Low-signal style nit; document so optimizer can down-weight. |
+| maintainability | Error message text is hardcoded; consider constant or localized string | false_positive | Acceptable for small extension; localization out of scope for v1. |
+| maintainability | Consider adding a comment explaining why contextValue is being set | false_positive | Optional documentation; not a correctness issue. |
 
 ## Schema for false positive entries
 

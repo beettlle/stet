@@ -20,6 +20,7 @@ bin/
 # Extension (TypeScript)
 extension/out/
 extension/node_modules/
+extension/coverage/
 
 # Dependency directories (uncomment to ignore if you do not commit vendor)
 # vendor/

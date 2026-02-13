@@ -30,7 +30,8 @@
       "view/item/context": [
         {
           "command": "stet.copyFindingForChat",
-          "when": "view == stetFindings && viewItem == finding"
+          "when": "view == stetFindings && viewItem == finding",
+          "group": "1_navigation"
         }
       ]
     },

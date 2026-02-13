@@ -12,8 +12,9 @@
 // # Generated files
 // By default, hunks for generated or vendored files are excluded. Default
 // patterns include: *.pb.go, *_generated.go, *.min.js, package-lock.json,
-// go.sum, paths under vendor/, and paths under coverage/ (e.g. lcov-report
-// HTML) so generated coverage output is not reviewed. Pass Options to override or extend.
+// go.sum, paths under vendor/, and paths under any coverage/ directory (e.g.
+// coverage/, extension/coverage/ lcov-report HTML) so generated coverage output
+// is not reviewed. Pass Options to override or extend.
 //
 // # Empty diff
 // When baseline..HEAD has no changes, Hunks returns a nil slice and no error.
@@ -146,7 +147,8 @@ func filterByPatterns(hunks []Hunk, patterns []string) []Hunk {
 				continue
 			}
 			if strings.HasPrefix(p, "coverage") {
-				if path == "coverage" || strings.HasPrefix(path, "coverage/") {
+				// Exclude top-level coverage/ and any path under a coverage directory (e.g. extension/coverage/)
+				if path == "coverage" || strings.HasPrefix(path, "coverage/") || strings.Contains(path, "/coverage/") {
 					excluded = true
 					break
 				}
