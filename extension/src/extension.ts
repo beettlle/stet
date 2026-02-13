@@ -107,7 +107,8 @@ export function activate(context: vscode.ExtensionContext): void {
                   findingsProvider.setFindings([]);
                   findingsProvider.setScanning(false);
                   const message = e instanceof Error ? e.message : String(e);
-                  void vscode.window.showErrorMessage(`Stet: Failed to parse stream. ${message}`);
+                  console.error("Stet: parse stream error:", message);
+                  void vscode.window.showErrorMessage("Stet: Invalid stream output from CLI.");
                 }
               },
               onClose(exitCode, stderr) {
@@ -115,17 +116,17 @@ export function activate(context: vscode.ExtensionContext): void {
                 if (exitCode !== 0) {
                   findingsProvider.setFindings([]);
                   showCLIError(stderr, exitCode);
-                  return;
                 }
-                void vscode.window.showInformationMessage(
-                  `Stet: Review complete. ${accumulatedFindings.length} finding(s).`
-                );
               },
             }
           );
           if (result.exitCode !== 0) {
             findingsProvider.setFindings([]);
             showCLIError(result.stderr, result.exitCode);
+          } else {
+            void vscode.window.showInformationMessage(
+              `Stet: Review complete. ${accumulatedFindings.length} finding(s).`
+            );
           }
         }
       );

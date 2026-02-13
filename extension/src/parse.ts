@@ -5,6 +5,9 @@
 import type { Finding, FindingsResponse, LineRange, Severity, Category } from "./contract";
 import { SEVERITIES, CATEGORIES } from "./contract";
 
+/** Max length for a single NDJSON stream line (prevents DoS via huge JSON.parse). */
+const MAX_STREAM_LINE_LENGTH = 2 * 1024 * 1024;
+
 /** Stream event: one line of NDJSON when CLI is run with --stream. */
 export type StreamEvent =
   | { type: "progress"; msg: string }
@@ -129,6 +132,9 @@ export function parseStreamEvent(line: string): StreamEvent {
   if (trimmed === "") {
     throw new Error("Empty line");
   }
+  if (trimmed.length > MAX_STREAM_LINE_LENGTH) {
+    throw new Error("Stream line exceeds maximum length");
+  }
   let data: unknown;
   try {
     data = JSON.parse(trimmed);
@@ -148,6 +154,9 @@ export function parseStreamEvent(line: string): StreamEvent {
     return { type: "progress", msg: obj.msg };
   }
   if (type === "finding") {
+    if (obj.data == null || typeof obj.data !== "object") {
+      throw new Error("finding event missing or invalid data");
+    }
     if (!validateFinding(obj.data)) {
       throw new Error("Invalid finding");
     }

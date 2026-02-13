@@ -80,6 +80,13 @@ export function spawnStetStream(
   return new Promise((resolve) => {
     const chunksErr: Buffer[] = [];
     let stdoutBuffer = "";
+    let closed = false;
+    const finish = (exitCode: number, stderr: string) => {
+      if (closed) return;
+      closed = true;
+      onClose(exitCode, stderr);
+      resolve({ exitCode, stderr });
+    };
     const proc = spawn(cliPath, args, {
       cwd,
       shell: false,
@@ -105,12 +112,10 @@ export function spawnStetStream(
       if (stdoutBuffer.trim() !== "") {
         onLine?.(stdoutBuffer.trimEnd());
       }
-      onClose(exitCode, stderr);
-      resolve({ exitCode, stderr });
+      finish(exitCode, stderr);
     });
     proc.on("error", (err: Error) => {
-      onClose(1, err.message);
-      resolve({ exitCode: 1, stderr: err.message });
+      finish(1, err.message);
     });
   });
 }

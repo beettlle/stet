@@ -235,4 +235,18 @@ describe("parseStreamEvent", () => {
     });
     expect(() => parseStreamEvent(line)).toThrow("Invalid finding");
   });
+
+  it("throws when finding event has missing or invalid data", () => {
+    expect(() => parseStreamEvent('{"type":"finding"}')).toThrow(
+      "finding event missing or invalid data"
+    );
+    expect(() => parseStreamEvent('{"type":"finding","data":null}')).toThrow(
+      "finding event missing or invalid data"
+    );
+  });
+
+  it("throws when line exceeds maximum length", () => {
+    const longLine = "x".repeat(2 * 1024 * 1024 + 1);
+    expect(() => parseStreamEvent(longLine)).toThrow("Stream line exceeds maximum length");
+  });
 });
