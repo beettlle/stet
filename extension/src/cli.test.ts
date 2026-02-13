@@ -4,6 +4,16 @@ import { spawnStet } from "./cli";
 
 vi.mock("child_process", () => ({ spawn: vi.fn() }));
 
+type CloseCb = (code: number | null, signal: NodeJS.Signals | null) => void;
+type ErrorCb = (err: Error) => void;
+
+function getMockCallback<T>(value: unknown, label: string): T {
+  if (value === undefined || typeof value !== "function") {
+    throw new Error(`${label} callback not found or not a function`);
+  }
+  return value as T;
+}
+
 describe("spawnStet", () => {
   const mockSpawn = vi.mocked(spawn);
 
@@ -27,13 +37,15 @@ describe("spawnStet", () => {
       stdio: ["ignore", "pipe", "pipe"],
     });
 
-    const closeCb = mockProc.on.mock.calls.find((c: [string, unknown]) => c[0] === "close")?.[1];
-    expect(closeCb).toBeDefined();
+    const closeCb = getMockCallback<CloseCb>(
+      mockProc.on.mock.calls.find((c: [string, unknown]) => c[0] === "close")?.[1],
+      "close",
+    );
     // Simulate stdout data (callbacks registered by spawnStet)
     for (const call of mockProc.stdout.on.mock.calls) {
       if (call[0] === "data") call[1](Buffer.from('{"findings":[]}\n'));
     }
-    (closeCb as (code: number | null, signal: NodeJS.Signals | null) => void)(0, null);
+    closeCb(0, null);
 
     const result = await promise;
     expect(result.exitCode).toBe(0);
@@ -62,11 +74,14 @@ describe("spawnStet", () => {
     mockSpawn.mockReturnValue(mockProc as never);
 
     const promise = spawnStet(["start"], { cwd: "/repo" });
-    const closeCb = mockProc.on.mock.calls.find((c: [string, unknown]) => c[0] === "close")?.[1];
+    const closeCb = getMockCallback<CloseCb>(
+      mockProc.on.mock.calls.find((c: [string, unknown]) => c[0] === "close")?.[1],
+      "close",
+    );
     for (const call of mockProc.stderr.on.mock.calls) {
       if (call[0] === "data") call[1](Buffer.from("Not a git repository\n"));
     }
-    (closeCb as (code: number | null, signal: NodeJS.Signals | null) => void)(1, null);
+    closeCb(1, null);
 
     const result = await promise;
     expect(result.exitCode).toBe(1);
@@ -82,8 +97,11 @@ describe("spawnStet", () => {
     mockSpawn.mockReturnValue(mockProc as never);
 
     const promise = spawnStet(["start"], { cwd: "/repo" });
-    const closeCb = mockProc.on.mock.calls.find((c: [string, unknown]) => c[0] === "close")?.[1];
-    (closeCb as (code: number | null, signal: NodeJS.Signals | null) => void)(null, "SIGKILL");
+    const closeCb = getMockCallback<CloseCb>(
+      mockProc.on.mock.calls.find((c: [string, unknown]) => c[0] === "close")?.[1],
+      "close",
+    );
+    closeCb(null, "SIGKILL");
 
     const result = await promise;
     expect(result.exitCode).toBe(137);
@@ -98,8 +116,11 @@ describe("spawnStet", () => {
     mockSpawn.mockReturnValue(mockProc as never);
 
     const promise = spawnStet(["start"], { cwd: "/repo" });
-    const errCb = mockProc.on.mock.calls.find((c: [string, unknown]) => c[0] === "error")?.[1];
-    (errCb as (err: Error) => void)(new Error("ENOENT: stet not found"));
+    const errCb = getMockCallback<ErrorCb>(
+      mockProc.on.mock.calls.find((c: [string, unknown]) => c[0] === "error")?.[1],
+      "error",
+    );
+    errCb(new Error("ENOENT: stet not found"));
 
     const result = await promise;
     expect(result.exitCode).toBe(1);

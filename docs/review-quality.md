@@ -28,6 +28,8 @@ Structured entries for prompt lessons, optimizer feedback, and future filtering.
 |---------------|-----------------------------------------|----------------|----------------------------------------------------------------------|
 | maintainability | Using t.Cleanup instead of defer for test | false_positive | Full defer→t.Cleanup migration completed; suggestion is redundant    |
 | testing      | Test uses global variable 'findingsOut' which may cause test interference | already_correct | Isolation ensured: tests that set findingsOut do not use t.Parallel() and restore via t.Cleanup(); comment documents the convention. |
+| testing      | Missing dependency jest / @types/jest / ts-jest after removing Jest | false_positive | Extension uses Vitest only; Jest was intentionally removed; no residual refs. |
+| testing      | Use jest.fn() instead of vi.fn() for consistency | wrong_suggestion | Project uses Vitest; vi.fn() is correct. |
 
 ## Schema for false positive entries
 
@@ -41,6 +43,14 @@ For future tooling (optimizer, filter, prompt injection), each curated entry use
 | `note`             | Short explanation for prompt / docs    | `Code already uses t.Cleanup; suggestion redundant`      |
 
 Optional enriched fields when available: `finding_id`, `file`, `line`, `suggestion_substring`, `recorded_at`. See `cli/internal/history/schema.go` for dismissal reason constants.
+
+## Improvement backlog
+
+Deferred items from post–Vitest migration review; consider when touching the extension or coverage config:
+
+- **Coverage threshold:** Project rule is 77% global (AGENTS.md). Optionally consider raising to 80–85% in `extension/vitest.config.ts` for stricter coverage.
+- **Coverage report differences:** After switching from Jest to Vitest’s v8 provider, lcov/html reports and counts (e.g. FNF, LH, BRH) differ slightly. Treat as expected tooling difference; optionally verify no real code paths were dropped.
+- **Consistency:** Any remaining style nits (e.g. callback extraction pattern in tests) can be aligned when touching the file.
 
 ## Optimizer and actionability
 
