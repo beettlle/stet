@@ -156,7 +156,7 @@ This project utilizes **Go** and **JavaScript/TypeScript**. Refer to the followi
 - **72%** minimum line coverage for **every file**.
 - **Run Tests:**
   - Go: `go test ./... -cover`
-  - Extension: `npm test`
+  - Extension: `npm test` (Vitest)
 
 ### PR and Commit Guidelines
 - **Source of Truth:** All implementation MUST follow `docs/PRD.md` and `docs/implementation-plan.md`.

@@ -1,20 +1,21 @@
 import { spawn } from "child_process";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnStet } from "./cli";
 
-jest.mock("child_process");
+vi.mock("child_process", () => ({ spawn: vi.fn() }));
 
 describe("spawnStet", () => {
-  const mockSpawn = spawn as jest.MockedFunction<typeof spawn>;
+  const mockSpawn = vi.mocked(spawn);
 
   beforeEach(() => {
-    mockSpawn.mockReset();
+    mockSpawn.mockClear();
   });
 
   it("resolves with exitCode 0 and captured stdout/stderr on close", async () => {
     const mockProc = {
-      stdout: { on: jest.fn() },
-      stderr: { on: jest.fn() },
-      on: jest.fn(),
+      stdout: { on: vi.fn() },
+      stderr: { on: vi.fn() },
+      on: vi.fn(),
     };
     mockSpawn.mockReturnValue(mockProc as never);
 
@@ -32,7 +33,7 @@ describe("spawnStet", () => {
     for (const call of mockProc.stdout.on.mock.calls) {
       if (call[0] === "data") call[1](Buffer.from('{"findings":[]}\n'));
     }
-    closeCb(0, null);
+    (closeCb as (code: number | null, signal: NodeJS.Signals | null) => void)(0, null);
 
     const result = await promise;
     expect(result.exitCode).toBe(0);
@@ -42,9 +43,9 @@ describe("spawnStet", () => {
 
   it("uses custom cliPath when provided", async () => {
     const mockProc = {
-      stdout: { on: jest.fn() },
-      stderr: { on: jest.fn() },
-      on: jest.fn(),
+      stdout: { on: vi.fn() },
+      stderr: { on: vi.fn() },
+      on: vi.fn(),
     };
     mockSpawn.mockReturnValue(mockProc as never);
 
@@ -54,9 +55,9 @@ describe("spawnStet", () => {
 
   it("resolves with non-zero exit code and stderr on close", async () => {
     const mockProc = {
-      stdout: { on: jest.fn() },
-      stderr: { on: jest.fn() },
-      on: jest.fn(),
+      stdout: { on: vi.fn() },
+      stderr: { on: vi.fn() },
+      on: vi.fn(),
     };
     mockSpawn.mockReturnValue(mockProc as never);
 
@@ -65,7 +66,7 @@ describe("spawnStet", () => {
     for (const call of mockProc.stderr.on.mock.calls) {
       if (call[0] === "data") call[1](Buffer.from("Not a git repository\n"));
     }
-    closeCb(1, null);
+    (closeCb as (code: number | null, signal: NodeJS.Signals | null) => void)(1, null);
 
     const result = await promise;
     expect(result.exitCode).toBe(1);
@@ -74,15 +75,15 @@ describe("spawnStet", () => {
 
   it("resolves with exitCode 137 when signal is SIGKILL", async () => {
     const mockProc = {
-      stdout: { on: jest.fn() },
-      stderr: { on: jest.fn() },
-      on: jest.fn(),
+      stdout: { on: vi.fn() },
+      stderr: { on: vi.fn() },
+      on: vi.fn(),
     };
     mockSpawn.mockReturnValue(mockProc as never);
 
     const promise = spawnStet(["start"], { cwd: "/repo" });
     const closeCb = mockProc.on.mock.calls.find((c: [string, unknown]) => c[0] === "close")?.[1];
-    closeCb(null, "SIGKILL");
+    (closeCb as (code: number | null, signal: NodeJS.Signals | null) => void)(null, "SIGKILL");
 
     const result = await promise;
     expect(result.exitCode).toBe(137);
@@ -90,15 +91,15 @@ describe("spawnStet", () => {
 
   it("resolves with exitCode 1 and error message on spawn error", async () => {
     const mockProc = {
-      stdout: { on: jest.fn() },
-      stderr: { on: jest.fn() },
-      on: jest.fn(),
+      stdout: { on: vi.fn() },
+      stderr: { on: vi.fn() },
+      on: vi.fn(),
     };
     mockSpawn.mockReturnValue(mockProc as never);
 
     const promise = spawnStet(["start"], { cwd: "/repo" });
     const errCb = mockProc.on.mock.calls.find((c: [string, unknown]) => c[0] === "error")?.[1];
-    errCb(new Error("ENOENT: stet not found"));
+    (errCb as (err: Error) => void)(new Error("ENOENT: stet not found"));
 
     const result = await promise;
     expect(result.exitCode).toBe(1);
