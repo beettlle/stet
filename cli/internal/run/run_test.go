@@ -14,6 +14,8 @@ import (
 	"strings"
 	"testing"
 
+	"stet/cli/internal/diff"
+	"stet/cli/internal/findings"
 	"stet/cli/internal/git"
 	"stet/cli/internal/history"
 	"stet/cli/internal/session"
@@ -740,6 +742,198 @@ func TestRun_dryRun_withNewCommitAppendsFindings(t *testing.T) {
 		if s1.Findings[i].Message != dryRunMsg {
 			t.Errorf("new finding[%d].Message = %q, want %q", i, s1.Findings[i].Message, dryRunMsg)
 		}
+	}
+}
+
+func TestAddressedFindingIDs(t *testing.T) {
+	t.Parallel()
+	// Hunk with @@ -1,3 +1,4 @@ gives new file lines 1-4.
+	hunkWithRange := diff.Hunk{
+		FilePath:   "a.go",
+		RawContent: "@@ -1,3 +1,4 @@\n context\n+added",
+		Context:    "",
+	}
+	// Hunk with unparseable header does not cover any line.
+	hunkBadHeader := diff.Hunk{FilePath: "b.go", RawContent: "no @@ here", Context: ""}
+	// Second file, lines 10-11.
+	hunkOther := diff.Hunk{
+		FilePath:   "c.go",
+		RawContent: "@@ -9,2 +10,2 @@\n old\n+new",
+		Context:    "",
+	}
+
+	tests := []struct {
+		name            string
+		hunks           []diff.Hunk
+		existing        []findings.Finding
+		newIDSet        map[string]struct{}
+		wantAddressed   []string
+	}{
+		{
+			name:          "finding in hunk not in new set -> addressed",
+			hunks:         []diff.Hunk{hunkWithRange},
+			existing:      []findings.Finding{{ID: "f1", File: "a.go", Line: 2}},
+			newIDSet:      map[string]struct{}{},
+			wantAddressed: []string{"f1"},
+		},
+		{
+			name:          "finding in hunk but in new set -> not addressed",
+			hunks:         []diff.Hunk{hunkWithRange},
+			existing:      []findings.Finding{{ID: "f1", File: "a.go", Line: 2}},
+			newIDSet:      map[string]struct{}{"f1": {}},
+			wantAddressed: nil,
+		},
+		{
+			name:          "finding not in any hunk -> not addressed",
+			hunks:         []diff.Hunk{hunkWithRange},
+			existing:      []findings.Finding{{ID: "f1", File: "other.go", Line: 2}},
+			newIDSet:      map[string]struct{}{},
+			wantAddressed: nil,
+		},
+		{
+			name: "multiple at same location one in new set",
+			hunks: []diff.Hunk{hunkWithRange},
+			existing: []findings.Finding{
+				{ID: "f1", File: "a.go", Line: 2},
+				{ID: "f2", File: "a.go", Line: 2},
+			},
+			newIDSet:      map[string]struct{}{"f1": {}},
+			wantAddressed: []string{"f2"},
+		},
+		{
+			name:          "unparseable hunk header -> no coverage",
+			hunks:         []diff.Hunk{hunkBadHeader},
+			existing:      []findings.Finding{{ID: "f1", File: "b.go", Line: 1}},
+			newIDSet:      map[string]struct{}{},
+			wantAddressed: nil,
+		},
+		{
+			name: "range start used when present",
+			hunks: []diff.Hunk{hunkWithRange},
+			existing: []findings.Finding{{
+				ID: "f1", File: "a.go", Line: 0,
+				Range: &findings.LineRange{Start: 2, End: 3},
+			}},
+			newIDSet:      map[string]struct{}{},
+			wantAddressed: []string{"f1"},
+		},
+		{
+			name:          "finding in second hunk",
+			hunks:         []diff.Hunk{hunkWithRange, hunkOther},
+			existing:      []findings.Finding{{ID: "f2", File: "c.go", Line: 10}},
+			newIDSet:      map[string]struct{}{},
+			wantAddressed: []string{"f2"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := addressedFindingIDs(tt.hunks, tt.existing, tt.newIDSet)
+			if len(got) != len(tt.wantAddressed) {
+				t.Errorf("addressedFindingIDs() len = %d, want %d; got %v", len(got), len(tt.wantAddressed), got)
+				return
+			}
+			gotSet := make(map[string]struct{})
+			for _, id := range got {
+				gotSet[id] = struct{}{}
+			}
+			for _, id := range tt.wantAddressed {
+				if _, ok := gotSet[id]; !ok {
+					t.Errorf("addressedFindingIDs() missing %q; got %v", id, got)
+				}
+			}
+		})
+	}
+}
+
+// TestRun_autoDismiss_addressedFindingNotRereported: after Start (dry-run) we have one finding per hunk.
+// We add an extra finding to the session at the same file/line as a reviewed hunk but with a different ID.
+// Run again (dry-run) produces canned findings with deterministic IDs; the extra finding's ID is not in
+// the new set, so it is auto-dismissed. We assert it is in DismissedIDs and excluded from active output.
+func TestRun_autoDismiss_addressedFindingNotRereported(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	startOpts := StartOptions{
+		RepoRoot:      repo,
+		StateDir:      stateDir,
+		WorktreeRoot:  "",
+		Ref:           "HEAD~1",
+		DryRun:        true,
+		Model:         "",
+		OllamaBaseURL: "",
+	}
+	if err := Start(ctx, startOpts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	s0, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	// Canned findings use StableFindingID(file, 1, 0, 0, dryRunMessage). Add an extra finding with
+	// same file as first hunk, line 1 (inside any hunk), but a different ID so it won't be in newFindings.
+	if len(s0.Findings) < 1 {
+		t.Fatalf("need at least one finding after Start; got %d", len(s0.Findings))
+	}
+	firstHunkFile := s0.Findings[0].File
+	extraID := "extra-addressed-finding"
+	extra := findings.Finding{
+		ID:       extraID,
+		File:     firstHunkFile,
+		Line:     1,
+		Severity: findings.SeverityInfo,
+		Category: findings.CategoryMaintainability,
+		Message:  "pre-existing finding",
+	}
+	s0.Findings = append(s0.Findings, extra)
+	if err := session.Save(stateDir, &s0); err != nil {
+		t.Fatalf("Save session: %v", err)
+	}
+	// Add a new commit so Run has hunks to review (baseline..HEAD vs last_reviewed_at).
+	writeFile(t, repo, firstHunkFile, "new line\nb\n")
+	runGit(t, repo, "git", "add", firstHunkFile)
+	runGit(t, repo, "git", "commit", "-m", "change for re-review")
+	// Run: dry-run will add one finding per hunk (deterministic IDs). Our extra finding
+	// is in a reviewed hunk and its ID is not in the new set -> auto-dismissed.
+	runOpts := RunOptions{RepoRoot: repo, StateDir: stateDir, DryRun: true}
+	if err := Run(ctx, runOpts); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	s1, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	hasExtra := false
+	for _, id := range s1.DismissedIDs {
+		if id == extraID {
+			hasExtra = true
+			break
+		}
+	}
+	if !hasExtra {
+		t.Errorf("DismissedIDs: want %q (auto-dismissed); got %v", extraID, s1.DismissedIDs)
+	}
+	// Findings are not removed from session; activeFindings() filters by DismissedIDs.
+	// Verify the extra finding is excluded from the active set (as list/status/JSON would show).
+	dismissedSet := make(map[string]struct{}, len(s1.DismissedIDs))
+	for _, id := range s1.DismissedIDs {
+		dismissedSet[id] = struct{}{}
+	}
+	activeCount := 0
+	extraInActive := false
+	for _, f := range s1.Findings {
+		if _, dismissed := dismissedSet[f.ID]; !dismissed {
+			activeCount++
+			if f.ID == extraID {
+				extraInActive = true
+			}
+		}
+	}
+	if extraInActive {
+		t.Error("auto-dismissed finding should not appear in active set (filtered by DismissedIDs)")
+	}
+	if activeCount != len(s1.Findings)-1 {
+		t.Errorf("active count = %d, want len(Findings)-1 = %d (one finding dismissed)", activeCount, len(s1.Findings)-1)
 	}
 }
 

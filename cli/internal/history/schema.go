@@ -13,6 +13,8 @@ import "stet/cli/internal/findings"
 
 // Dismissal reason constants. Used when a finding is dismissed or marked
 // not acted on; the optimizer uses these to down-weight similar patterns.
+// ReasonAlreadyCorrect is also used when a finding is auto-dismissed because
+// a re-review of the same code (e.g. after the user fixed the issue) did not report it.
 const (
 	ReasonFalsePositive    = "false_positive"
 	ReasonAlreadyCorrect  = "already_correct"

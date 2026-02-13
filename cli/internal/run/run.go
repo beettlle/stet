@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"stet/cli/internal/diff"
+	"stet/cli/internal/expand"
 	"stet/cli/internal/findings"
 	"stet/cli/internal/git"
 	"stet/cli/internal/history"
@@ -88,6 +89,55 @@ func cannedFindingsForHunks(hunks []diff.Hunk) []findings.Finding {
 		})
 	}
 	return out
+}
+
+// hunkLineRange is the line range (1-based, inclusive) for a reviewed hunk in the new file.
+type hunkLineRange struct {
+	file       string
+	start, end int
+}
+
+// addressedFindingIDs returns IDs of existing findings that lie inside a reviewed hunk
+// and are not in newFindingIDSet (i.e. re-review did not report them, so they are considered addressed).
+// Finding location uses f.Line, or f.Range.Start when Range is set.
+func addressedFindingIDs(hunks []diff.Hunk, existingFindings []findings.Finding, newFindingIDSet map[string]struct{}) []string {
+	var ranges []hunkLineRange
+	for _, h := range hunks {
+		start, end, ok := expand.HunkLineRange(h)
+		if !ok {
+			continue
+		}
+		ranges = append(ranges, hunkLineRange{file: h.FilePath, start: start, end: end})
+	}
+	inReviewedHunk := func(file string, line int) bool {
+		for _, r := range ranges {
+			if r.file == file && line >= r.start && line <= r.end {
+				return true
+			}
+		}
+		return false
+	}
+	var addressed []string
+	seen := make(map[string]struct{})
+	for _, f := range existingFindings {
+		if f.ID == "" {
+			continue
+		}
+		if _, inNew := newFindingIDSet[f.ID]; inNew {
+			continue
+		}
+		line := f.Line
+		if f.Range != nil {
+			line = f.Range.Start
+		}
+		if inReviewedHunk(f.File, line) {
+			if _, ok := seen[f.ID]; !ok {
+				seen[f.ID] = struct{}{}
+				addressed = append(addressed, f.ID)
+			}
+		}
+	}
+	return addressed
 }
 
 // StartOptions configures Start. All fields are required except Ref (default "HEAD" by caller).
@@ -355,6 +405,47 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 	if opts.StreamOut != nil {
 		_ = writeStreamLine(opts.StreamOut, map[string]string{"type": "done"})
 	}
+	// Auto-dismiss: previous findings in reviewed hunks not in collected are considered addressed.
+	if len(s.Findings) > 0 {
+		collectedIDSet := make(map[string]struct{}, len(collected))
+		for _, f := range collected {
+			if f.ID != "" {
+				collectedIDSet[f.ID] = struct{}{}
+			}
+		}
+		addressed := addressedFindingIDs(part.ToReview, s.Findings, collectedIDSet)
+		dismissedSet := make(map[string]struct{}, len(s.DismissedIDs))
+		for _, id := range s.DismissedIDs {
+			dismissedSet[id] = struct{}{}
+		}
+		for _, id := range addressed {
+			if _, ok := dismissedSet[id]; !ok {
+				dismissedSet[id] = struct{}{}
+				s.DismissedIDs = append(s.DismissedIDs, id)
+			}
+		}
+		if len(addressed) > 0 {
+			dismissals := make([]history.Dismissal, len(addressed))
+			for i, id := range addressed {
+				dismissals[i] = history.Dismissal{FindingID: id, Reason: history.ReasonAlreadyCorrect}
+			}
+			diffRef := headSHA
+			if diffRef == "" {
+				diffRef = s.BaselineRef
+			}
+			rec := history.Record{
+				DiffRef:      diffRef,
+				ReviewOutput: s.Findings,
+				UserAction: history.UserAction{
+					DismissedIDs: addressed,
+					Dismissals:   dismissals,
+				},
+			}
+			if err := history.Append(opts.StateDir, rec, history.DefaultMaxRecords); err != nil {
+				return fmt.Errorf("start: append history: %w", err)
+			}
+		}
+	}
 	s.Findings = collected
 	s.LastReviewedAt = headSHA
 	if err := session.Save(opts.StateDir, &s); err != nil {
@@ -585,6 +676,45 @@ func Run(ctx context.Context, opts RunOptions) error {
 	}
 	if opts.StreamOut != nil {
 		_ = writeStreamLine(opts.StreamOut, map[string]string{"type": "done"})
+	}
+	// Auto-dismiss: findings in reviewed hunks that were not re-reported are considered addressed.
+	newFindingIDSet := make(map[string]struct{}, len(newFindings))
+	for _, f := range newFindings {
+		if f.ID != "" {
+			newFindingIDSet[f.ID] = struct{}{}
+		}
+	}
+	addressed := addressedFindingIDs(part.ToReview, s.Findings, newFindingIDSet)
+	dismissedSet := make(map[string]struct{}, len(s.DismissedIDs))
+	for _, id := range s.DismissedIDs {
+		dismissedSet[id] = struct{}{}
+	}
+	for _, id := range addressed {
+		if _, ok := dismissedSet[id]; !ok {
+			dismissedSet[id] = struct{}{}
+			s.DismissedIDs = append(s.DismissedIDs, id)
+		}
+	}
+	if len(addressed) > 0 {
+		dismissals := make([]history.Dismissal, len(addressed))
+		for i, id := range addressed {
+			dismissals[i] = history.Dismissal{FindingID: id, Reason: history.ReasonAlreadyCorrect}
+		}
+		diffRef := headSHA
+		if diffRef == "" {
+			diffRef = s.BaselineRef
+		}
+		rec := history.Record{
+			DiffRef:      diffRef,
+			ReviewOutput: s.Findings,
+			UserAction: history.UserAction{
+				DismissedIDs: addressed,
+				Dismissals:   dismissals,
+			},
+		}
+		if err := history.Append(opts.StateDir, rec, history.DefaultMaxRecords); err != nil {
+			return fmt.Errorf("run: append history: %w", err)
+		}
 	}
 	s.Findings = append(s.Findings, newFindings...)
 	s.LastReviewedAt = headSHA
