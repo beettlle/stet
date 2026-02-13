@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -31,7 +33,7 @@ func TestReviewHunk_successFirstTry(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "a.go", RawContent: "code", Context: "code"}
 	ctx := context.Background()
 
-	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil)
+	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, "", 0)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -66,7 +68,7 @@ func TestReviewHunk_retryThenSuccess(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "b.go", RawContent: "x", Context: "x"}
 	ctx := context.Background()
 
-	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil)
+	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, "", 0)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -87,7 +89,7 @@ func TestReviewHunk_generateFails_returnsError(t *testing.T) {
 	dir := t.TempDir()
 	hunk := diff.Hunk{FilePath: "x.go", RawContent: "code", Context: "code"}
 	ctx := context.Background()
-	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil)
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, "", 0)
 	if err == nil {
 		t.Fatal("ReviewHunk: want error when generate fails, got nil")
 	}
@@ -107,7 +109,7 @@ func TestReviewHunk_parseFailsTwice_returnsError(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "c.go", RawContent: "y", Context: "y"}
 	ctx := context.Background()
 
-	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil)
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, "", 0)
 	if err == nil {
 		t.Fatal("ReviewHunk: want error when parse fails twice, got nil")
 	}
@@ -142,7 +144,7 @@ func TestReviewHunk_hunkWithExternalVariable_mockReturnsNoUndefinedFinding(t *te
 	}
 	ctx := context.Background()
 
-	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil)
+	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, "", 0)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -194,7 +196,7 @@ func TestReviewHunk_injectsUserIntentIntoPrompt(t *testing.T) {
 	userIntent := &prompt.UserIntent{Branch: "main", CommitMsg: commitMsg}
 	ctx := context.Background()
 
-	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, userIntent)
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, userIntent, "", 0)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -205,3 +207,78 @@ func TestReviewHunk_injectsUserIntentIntoPrompt(t *testing.T) {
 		t.Errorf("system prompt must contain branch; got:\n%s", capturedSystem)
 	}
 }
+
+// TestReviewHunk_hunkWithVariableAtTopOfFunction_promptContainsVariable is the
+// Phase 6.4 regression test: when a hunk modifies a line that uses a variable
+// declared at the top of a long function, hunk expansion injects the enclosing
+// function context. The prompt sent to the LLM must contain the variable
+// declaration so the model can correctly identify the variable's type.
+func TestReviewHunk_hunkWithVariableAtTopOfFunction_promptContainsVariable(t *testing.T) {
+	dir := t.TempDir()
+	content := `package pkg
+
+func processData(input string) (int, error) {
+	var count int
+	for i := 0; i < 50; i++ {
+		count += i
+	}
+	return count, nil
+}
+`
+	path := filepath.Join(dir, "pkg", "foo.go")
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	validResp := `[]`
+	var capturedPrompt string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read request body: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		var req struct {
+			Prompt string `json:"prompt"`
+		}
+		if err := json.Unmarshal(body, &req); err != nil {
+			t.Errorf("decode request: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		capturedPrompt = req.Prompt
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": validResp, "done": true})
+	}))
+	defer srv.Close()
+
+	client := ollama.NewClient(srv.URL, srv.Client())
+	stateDir := t.TempDir()
+	// Hunk at lines 4-7 in new file (inside processData; uses count declared at line 4)
+	hunk := diff.Hunk{
+		FilePath:   "pkg/foo.go",
+		RawContent: "@@ -3,6 +3,6 @@\n func processData(input string) (int, error) {\n\tvar count int\n\tfor i := 0; i < 50; i++ {\n\t\tcount += i\n\t}\n\treturn count, nil",
+		Context:    "",
+	}
+	ctx := context.Background()
+
+	_, err := ReviewHunk(ctx, client, "m", stateDir, hunk, nil, nil, dir, 32768)
+	if err != nil {
+		t.Fatalf("ReviewHunk: %v", err)
+	}
+	if !strings.Contains(capturedPrompt, "var count") && !strings.Contains(capturedPrompt, "count :=") {
+		t.Errorf("prompt must contain variable declaration (var count or count :=); got:\n%s", capturedPrompt)
+	}
+	if !strings.Contains(capturedPrompt, "## Enclosing function context") {
+		t.Errorf("prompt must contain enclosing function context section; got:\n%s", capturedPrompt)
+	}
+}
+

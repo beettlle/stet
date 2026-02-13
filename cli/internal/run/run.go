@@ -279,7 +279,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 			if opts.Verbose {
 				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", i+1, total, hunk.FilePath)
 			}
-			list, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk, genOpts, userIntent)
+			list, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk, genOpts, userIntent, opts.RepoRoot, opts.ContextLimit)
 			if err != nil {
 				return fmt.Errorf("start: review hunk %s: %w", hunk.FilePath, err)
 			}
@@ -469,7 +469,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 			if opts.Verbose {
 				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", i+1, total, hunk.FilePath)
 			}
-			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk, genOpts, userIntent)
+			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk, genOpts, userIntent, opts.RepoRoot, opts.ContextLimit)
 			if err != nil {
 				return fmt.Errorf("run: review hunk %s: %w", hunk.FilePath, err)
 			}
