@@ -582,6 +582,12 @@ func runDismiss(cmd *cobra.Command, args []string) error {
 	}
 	if !alreadyDismissed {
 		s.DismissedIDs = append(s.DismissedIDs, id)
+		if s.FindingPromptContext == nil {
+			s.FindingPromptContext = make(map[string]string)
+		}
+		if ctx := s.FindingPromptContext[id]; ctx != "" {
+			s.PromptShadows = append(s.PromptShadows, session.PromptShadow{FindingID: id, PromptContext: ctx})
+		}
 		if err := session.Save(stateDir, &s); err != nil {
 			return fmt.Errorf("dismiss: save session: %w", err)
 		}

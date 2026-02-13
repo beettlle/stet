@@ -16,7 +16,7 @@ func TestLoad_missingFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if got.BaselineRef != "" || got.LastReviewedAt != "" || len(got.DismissedIDs) != 0 || len(got.PromptShadows) != 0 || len(got.Findings) != 0 {
+	if got.BaselineRef != "" || got.LastReviewedAt != "" || len(got.DismissedIDs) != 0 || len(got.PromptShadows) != 0 || len(got.FindingPromptContext) != 0 || len(got.Findings) != 0 {
 		t.Errorf("Load(missing) = %+v, want zero Session", got)
 	}
 }
@@ -104,6 +104,31 @@ func TestSaveLoad_roundtrip(t *testing.T) {
 	}
 }
 
+func TestSaveLoad_roundtripWithFindingPromptContext(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	want := Session{
+		BaselineRef:          "main",
+		LastReviewedAt:      "abc123",
+		FindingPromptContext: map[string]string{"id1": "hunk content one", "id2": "hunk content two"},
+	}
+	if err := Save(dir, &want); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	got, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(got.FindingPromptContext) != len(want.FindingPromptContext) {
+		t.Fatalf("FindingPromptContext len = %d, want %d", len(got.FindingPromptContext), len(want.FindingPromptContext))
+	}
+	for k, v := range want.FindingPromptContext {
+		if got.FindingPromptContext[k] != v {
+			t.Errorf("FindingPromptContext[%q] = %q, want %q", k, got.FindingPromptContext[k], v)
+		}
+	}
+}
+
 func TestSaveLoad_emptySession(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
@@ -115,7 +140,7 @@ func TestSaveLoad_emptySession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if got.BaselineRef != "" || got.LastReviewedAt != "" || len(got.DismissedIDs) != 0 || len(got.PromptShadows) != 0 || len(got.Findings) != 0 {
+	if got.BaselineRef != "" || got.LastReviewedAt != "" || len(got.DismissedIDs) != 0 || len(got.PromptShadows) != 0 || len(got.Findings) != 0 || len(got.FindingPromptContext) != 0 {
 		t.Errorf("Load(empty roundtrip) = %+v, want zero Session", got)
 	}
 }

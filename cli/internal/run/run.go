@@ -39,9 +39,33 @@ var ErrNoSession = errors.New("no active session; run stet start first")
 var ErrDirtyWorktree = errors.New("working tree has uncommitted changes; commit or stash before starting")
 
 const (
-	dryRunMessage         = "Dry-run placeholder (CI)"
-	_defaultOllamaTimeout = 5 * time.Minute
+	dryRunMessage            = "Dry-run placeholder (CI)"
+	_defaultOllamaTimeout     = 5 * time.Minute
+	maxPromptContextStoreLen = 4096
 )
+
+// truncateForPromptContext truncates s to maxLen and appends "\n[truncated]" if truncated.
+func truncateForPromptContext(s string, maxLen int) string {
+	if maxLen <= 0 || len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "\n[truncated]"
+}
+
+// runPromptShadows converts the session's PromptShadows to []prompt.Shadow for injection.
+func runPromptShadows(s *session.Session) []prompt.Shadow {
+	if s == nil || len(s.PromptShadows) == 0 {
+		return nil
+	}
+	out := make([]prompt.Shadow, len(s.PromptShadows))
+	for i := range s.PromptShadows {
+		out[i] = prompt.Shadow{
+			FindingID:     s.PromptShadows[i].FindingID,
+			PromptContext: s.PromptShadows[i].PromptContext,
+		}
+	}
+	return out
+}
 
 // generateSessionID returns a new random session ID (32 hex chars). Used for
 // session identity and for the git note on finish.
@@ -332,6 +356,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 	}
 
 	var collected []findings.Finding
+	findingPromptContext := make(map[string]string)
 	total := len(part.ToReview)
 	if opts.StreamOut != nil {
 		_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("%d hunks to review", total)})
@@ -346,7 +371,11 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 			batch = findings.FilterAbstention(batch)
 			batch = findings.FilterFPKillList(batch)
 			findings.SetCursorURIs(opts.RepoRoot, batch)
+			ctx := truncateForPromptContext(hunk.RawContent, maxPromptContextStoreLen)
 			for _, f := range batch {
+				if f.ID != "" {
+					findingPromptContext[f.ID] = ctx
+				}
 				if opts.StreamOut != nil {
 					_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "finding", "data": f})
 				}
@@ -387,14 +416,18 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 			if opts.Verbose {
 				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", i+1, total, hunk.FilePath)
 			}
-			list, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, opts.ContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens)
+			list, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, opts.ContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, runPromptShadows(&s))
 			if err != nil {
 				return fmt.Errorf("start: review hunk %s: %w", hunk.FilePath, err)
 			}
 			batch := findings.FilterAbstention(list)
 			batch = findings.FilterFPKillList(batch)
 			findings.SetCursorURIs(opts.RepoRoot, batch)
+			hunkCtx := truncateForPromptContext(hunk.RawContent, maxPromptContextStoreLen)
 			for _, f := range batch {
+				if f.ID != "" {
+					findingPromptContext[f.ID] = hunkCtx
+				}
 				if opts.StreamOut != nil {
 					_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "finding", "data": f})
 				}
@@ -447,6 +480,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		}
 	}
 	s.Findings = collected
+	s.FindingPromptContext = findingPromptContext
 	s.LastReviewedAt = headSHA
 	if err := session.Save(opts.StateDir, &s); err != nil {
 		return fmt.Errorf("start: save session: %w", err)
@@ -594,6 +628,9 @@ func Run(ctx context.Context, opts RunOptions) error {
 		return session.Save(opts.StateDir, &s)
 	}
 
+	if s.FindingPromptContext == nil {
+		s.FindingPromptContext = make(map[string]string)
+	}
 	var newFindings []findings.Finding
 	total := len(part.ToReview)
 	if opts.StreamOut != nil {
@@ -609,7 +646,11 @@ func Run(ctx context.Context, opts RunOptions) error {
 			batch = findings.FilterAbstention(batch)
 			batch = findings.FilterFPKillList(batch)
 			findings.SetCursorURIs(opts.RepoRoot, batch)
+			hunkCtx := truncateForPromptContext(hunk.RawContent, maxPromptContextStoreLen)
 			for _, f := range batch {
+				if f.ID != "" {
+					s.FindingPromptContext[f.ID] = hunkCtx
+				}
 				if opts.StreamOut != nil {
 					_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "finding", "data": f})
 				}
@@ -659,14 +700,18 @@ func Run(ctx context.Context, opts RunOptions) error {
 			if opts.Verbose {
 				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", i+1, total, hunk.FilePath)
 			}
-			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, opts.ContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens)
+			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, opts.ContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, runPromptShadows(&s))
 			if err != nil {
 				return fmt.Errorf("run: review hunk %s: %w", hunk.FilePath, err)
 			}
 			batch := findings.FilterAbstention(list)
 			batch = findings.FilterFPKillList(batch)
 			findings.SetCursorURIs(opts.RepoRoot, batch)
+			hunkCtx := truncateForPromptContext(hunk.RawContent, maxPromptContextStoreLen)
 			for _, f := range batch {
+				if f.ID != "" {
+					s.FindingPromptContext[f.ID] = hunkCtx
+				}
 				if opts.StreamOut != nil {
 					_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "finding", "data": f})
 				}

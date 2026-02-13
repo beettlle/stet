@@ -119,7 +119,9 @@ If multiple stet worktrees remain after interrupted runs (e.g. `git worktree lis
 
 ## State storage and history (history.jsonl)
 
-State lives under `.review/` (session, config, lock). The CLI appends to `.review/history.jsonl` on user feedback (on dismiss via `stet dismiss`, on auto-dismiss when re-review no longer reports a finding at that location, and on finish when there are findings). Each line is one JSON object with:
+State lives under `.review/` (session, config, lock). Session state (`.review/session.json`) includes **`prompt_shadows`**: on dismiss, the CLI stores `{ "finding_id": "...", "prompt_context": "..." }` for each dismissed finding so it can be used as a negative few-shot in future prompts. The internal **`finding_prompt_context`** map (finding ID → hunk content) is populated during review and used when the user dismisses to record the code context that produced the finding.
+
+The CLI appends to `.review/history.jsonl` on user feedback (on dismiss via `stet dismiss`, on auto-dismiss when re-review no longer reports a finding at that location, and on finish when there are findings). Each line is one JSON object with:
 
 - **`diff_ref`**: Ref or SHA for the reviewed scope (e.g. the HEAD at last review run, i.e. `last_reviewed_at`).
 - **`review_output`**: Array of finding objects (same shape as stdout findings).

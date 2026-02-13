@@ -1041,7 +1041,7 @@ func TestRunCLI_dismissIdempotent(t *testing.T) {
 	}
 }
 
-func TestRunCLI_dismissDoesNotWritePromptShadows(t *testing.T) {
+func TestRunCLI_dismissWritesPromptShadows(t *testing.T) {
 	// Do not run in parallel: test changes cwd and findingsOut.
 	repo := initRepo(t)
 	orig, err := os.Getwd()
@@ -1065,6 +1065,9 @@ func TestRunCLI_dismissDoesNotWritePromptShadows(t *testing.T) {
 		t.Fatalf("need at least one finding; err=%v", err)
 	}
 	id, _ := out.Findings[0]["id"].(string)
+	if id == "" {
+		t.Fatal("finding missing id")
+	}
 	if got := runCLI([]string{"dismiss", id}); got != 0 {
 		t.Fatalf("runCLI(dismiss %q) = %d, want 0", id, got)
 	}
@@ -1084,8 +1087,56 @@ func TestRunCLI_dismissDoesNotWritePromptShadows(t *testing.T) {
 	if !found {
 		t.Errorf("after dismiss: dismissed_ids should contain %q", id)
 	}
-	if len(s.PromptShadows) != 0 {
-		t.Errorf("Phase 4.4: dismiss must not write prompt_shadows; got len = %d", len(s.PromptShadows))
+	if len(s.PromptShadows) != 1 {
+		t.Fatalf("after dismiss: prompt_shadows len = %d, want 1", len(s.PromptShadows))
+	}
+	if s.PromptShadows[0].FindingID != id {
+		t.Errorf("prompt_shadows[0].finding_id = %q, want %q", s.PromptShadows[0].FindingID, id)
+	}
+	if s.PromptShadows[0].PromptContext == "" {
+		t.Error("prompt_shadows[0].prompt_context should be non-empty (hunk content)")
+	}
+}
+
+func TestRunCLI_dismissWithoutPromptContext(t *testing.T) {
+	// When session has a finding but no FindingPromptContext (e.g. legacy session),
+	// dismiss still adds to dismissed_ids but does not append a prompt shadow.
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	cfg, _ := loadConfigForTest(repo)
+	stateDir := cfg.EffectiveStateDir(repo)
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		t.Fatalf("mkdir state: %v", err)
+	}
+	id := "legacy-finding-id"
+	s := session.Session{
+		BaselineRef:    "HEAD~1",
+		LastReviewedAt: "HEAD",
+		Findings:       []findings.Finding{{ID: id, File: "a.go", Line: 1, Severity: findings.SeverityInfo, Category: findings.CategoryMaintainability, Confidence: 1.0, Message: "msg"}},
+		// No FindingPromptContext - e.g. session from before 6.9
+	}
+	if err := session.Save(stateDir, &s); err != nil {
+		t.Fatalf("save session: %v", err)
+	}
+	if got := runCLI([]string{"dismiss", id}); got != 0 {
+		t.Fatalf("runCLI(dismiss %q) = %d, want 0", id, got)
+	}
+	s2, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("load session: %v", err)
+	}
+	if len(s2.DismissedIDs) != 1 || s2.DismissedIDs[0] != id {
+		t.Errorf("dismissed_ids = %v, want [%q]", s2.DismissedIDs, id)
+	}
+	if len(s2.PromptShadows) != 0 {
+		t.Errorf("dismiss without prompt context should not add prompt_shadows; got len = %d", len(s2.PromptShadows))
 	}
 }
 

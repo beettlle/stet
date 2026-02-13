@@ -295,6 +295,56 @@ func TestAppendCursorRules_overTokenBudget_truncated(t *testing.T) {
 	}
 }
 
+func TestAppendPromptShadows_empty_unchanged(t *testing.T) {
+	base := "System prompt."
+	got := AppendPromptShadows(base, nil)
+	if got != base {
+		t.Errorf("AppendPromptShadows(nil): want unchanged; got %q", got)
+	}
+	got = AppendPromptShadows(base, []Shadow{})
+	if got != base {
+		t.Errorf("AppendPromptShadows(empty): want unchanged; got %q", got)
+	}
+}
+
+func TestAppendPromptShadows_nonEmpty_appendsSection(t *testing.T) {
+	base := "System prompt."
+	shadows := []Shadow{
+		{FindingID: "f1", PromptContext: "code snippet one"},
+	}
+	got := AppendPromptShadows(base, shadows)
+	if !strings.Contains(got, "## Negative examples (do not report)") {
+		t.Errorf("AppendPromptShadows: want section header; got:\n%s", got)
+	}
+	if !strings.Contains(got, "code snippet one") {
+		t.Errorf("AppendPromptShadows: want context in output; got:\n%s", got)
+	}
+	if !strings.Contains(got, "dismissed") {
+		t.Errorf("AppendPromptShadows: want instruction about dismissed; got:\n%s", got)
+	}
+	if !strings.HasPrefix(got, base) {
+		t.Errorf("AppendPromptShadows: should start with original prompt")
+	}
+}
+
+func TestAppendPromptShadows_contextExceedsLimit_truncated(t *testing.T) {
+	base := "System prompt."
+	longCtx := strings.Repeat("x", 1000)
+	shadows := []Shadow{
+		{FindingID: "f1", PromptContext: longCtx},
+	}
+	got := AppendPromptShadows(base, shadows)
+	if !strings.Contains(got, "## Negative examples (do not report)") {
+		t.Errorf("AppendPromptShadows: want section header")
+	}
+	if !strings.Contains(got, "[truncated]") {
+		t.Errorf("AppendPromptShadows: want truncation when context exceeds %d chars", maxShadowContextChars)
+	}
+	if len(got) >= len(base)+len(longCtx) {
+		t.Errorf("AppendPromptShadows: should have truncated; output len %d >= base+full context %d", len(got), len(base)+len(longCtx))
+	}
+}
+
 func TestAppendSymbolDefinitions_empty_unchanged(t *testing.T) {
 	userPrompt := "File: foo.go\n\ncontent"
 	got := AppendSymbolDefinitions(userPrompt, nil, 0)

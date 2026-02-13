@@ -206,6 +206,44 @@ func AppendSymbolDefinitions(userPrompt string, defs []rag.Definition, maxTokens
 	return userPrompt + "\n\n" + symbolDefinitionsHeader + text
 }
 
+// Shadow holds a dismissed finding's ID and the prompt context (hunk content)
+// for optional negative few-shot injection (Sub-phase 6.9).
+type Shadow struct {
+	FindingID     string
+	PromptContext string
+}
+
+const (
+	maxPromptShadowsInject = 5
+	maxShadowContextChars = 512
+)
+
+// AppendPromptShadows appends a "## Negative examples (do not report)" section
+// with up to maxPromptShadowsInject most recent shadows, each truncated to
+// maxShadowContextChars when injecting. Returns system unchanged if shadows is nil/empty.
+func AppendPromptShadows(system string, shadows []Shadow) string {
+	if len(shadows) == 0 {
+		return system
+	}
+	n := len(shadows)
+	if n > maxPromptShadowsInject {
+		n = maxPromptShadowsInject
+	}
+	var b strings.Builder
+	b.WriteString("\n\n## Negative examples (do not report)\n\n")
+	b.WriteString("The following code contexts previously produced findings that the user dismissed. Do not report similar issues for similar code.\n\n")
+	for i := len(shadows) - n; i < len(shadows); i++ {
+		ctx := shadows[i].PromptContext
+		if len(ctx) > maxShadowContextChars {
+			ctx = ctx[:maxShadowContextChars] + "\n[truncated]"
+		}
+		b.WriteString("Context (dismissed):\n```\n")
+		b.WriteString(ctx)
+		b.WriteString("\n```\n\n")
+	}
+	return system + b.String()
+}
+
 // UserPrompt builds the user-facing prompt for one hunk: file path and the
 // hunk content (context). Phase 3 uses only hunk content; no RAG or extra context.
 func UserPrompt(hunk diff.Hunk) string {
