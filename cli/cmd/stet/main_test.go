@@ -269,13 +269,25 @@ func TestRunCLI_startDryRunEmitsFindingsJSON(t *testing.T) {
 				t.Errorf("finding %d missing required key %q", i, k)
 			}
 		}
-		conf, ok := f["confidence"].(float64)
-		if !ok {
-			t.Errorf("finding %d: confidence must be a number", i)
-		} else if conf < 0 || conf > 1 {
+		var conf float64
+		var hasNum bool
+		switch v := f["confidence"].(type) {
+		case float64:
+			conf, hasNum = v, true
+		case int:
+			conf, hasNum = float64(v), true
+		case int64:
+			conf, hasNum = float64(v), true
+		default:
+			t.Errorf("finding %d: confidence must be a number, got %T", i, f["confidence"])
+		}
+		if hasNum && (conf < 0 || conf > 1) {
 			t.Errorf("finding %d: confidence %g must be in [0, 1]", i, conf)
 		}
-		if cat, _ := f["category"].(string); cat == "" {
+		cat, ok := f["category"].(string)
+		if !ok {
+			t.Errorf("finding %d: category must be a non-empty string, got %T", i, f["category"])
+		} else if cat == "" {
 			t.Errorf("finding %d: category must be non-empty", i)
 		}
 	}
@@ -331,13 +343,25 @@ func TestRunCLI_runDryRunEmitsFindingsJSON(t *testing.T) {
 				t.Errorf("finding %d missing required key %q", i, k)
 			}
 		}
-		conf, ok := f["confidence"].(float64)
-		if !ok {
-			t.Errorf("finding %d: confidence must be a number", i)
-		} else if conf < 0 || conf > 1 {
+		var conf float64
+		var hasNum bool
+		switch v := f["confidence"].(type) {
+		case float64:
+			conf, hasNum = v, true
+		case int:
+			conf, hasNum = float64(v), true
+		case int64:
+			conf, hasNum = float64(v), true
+		default:
+			t.Errorf("finding %d: confidence must be a number, got %T", i, f["confidence"])
+		}
+		if hasNum && (conf < 0 || conf > 1) {
 			t.Errorf("finding %d: confidence %g must be in [0, 1]", i, conf)
 		}
-		if cat, _ := f["category"].(string); cat == "" {
+		cat, ok := f["category"].(string)
+		if !ok {
+			t.Errorf("finding %d: category must be a non-empty string, got %T", i, f["category"])
+		} else if cat == "" {
 			t.Errorf("finding %d: category must be non-empty", i)
 		}
 	}

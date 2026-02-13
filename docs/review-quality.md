@@ -20,6 +20,7 @@ Examples from Stet self-review; keep this list brief and update as patterns emer
 - Suggesting "restore full hint" when the hint was intentionally aligned to the documented contract.
 - Tests that set `findingsOut` and restore in `t.Cleanup()` without `t.Parallel()`: flagging "test interference" is redundant when the isolation convention is documented and followed.
 - Findings that point at **generated coverage report HTML** (e.g. `extension/coverage/lcov-report/*.html`) but whose message/suggestion refer to TypeScript or source code (e.g. "Unused import", "Unreachable code"). The model is inferring from embedded or referenced source; the reported file is the HTML report, not the source file. Excluding `coverage/` from the diff avoids these; document here for prompt/optimizer awareness.
+- **Dry-run category Maintainability:** Suggesting to "revert" or "consider if" changing dry-run finding category from Style to Maintainability. Per implementation plan 4.5.1 the CLI intentionally emits `category: maintainability` (and `confidence: 1.0`) for dry-run; no change needed.
 
 ## Known false positive patterns (curated)
 
@@ -32,6 +33,7 @@ Structured entries for prompt lessons, optimizer feedback, and future filtering.
 | testing      | Missing dependency jest / @types/jest / ts-jest after removing Jest | false_positive | Extension uses Vitest only; Jest was intentionally removed; no residual refs. |
 | testing      | Use jest.fn() instead of vi.fn() for consistency | wrong_suggestion | Project uses Vitest; vi.fn() is correct. |
 | (various)    | Findings in `**/coverage/**` (e.g. lcov-report HTML) about "unused import", "unreachable code", "TypeScript in HTML" | out_of_scope | File under review is generated coverage output; suggestion targets source. Exclude `coverage/` from diff to avoid. |
+| maintainability / documentation | Findings in `**/coverage/**` (lcov-report HTML, lcov.info) about "coverage percentage/values updated", "line coverage counts", "Coverage data appears to have been updated" | out_of_scope | File under review is generated coverage output; metrics change when tests change. Exclude `coverage/` from diff to avoid. |
 
 ## Schema for false positive entries
 
