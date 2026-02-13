@@ -13,12 +13,22 @@ import (
 
 const optimizedPromptFilename = "system_prompt_optimized.txt"
 
-// DefaultSystemPrompt instructs the model to perform code review and return a
-// single JSON array of findings. Schema matches findings.Finding (without id;
-// the tool assigns IDs). Used when .review/system_prompt_optimized.txt is absent.
-const DefaultSystemPrompt = `You are a code reviewer. Review the provided code diff hunk and report issues.
+// DefaultSystemPrompt instructs the model to perform defect-focused code review
+// (System 2 / Chain-of-Thought) and return a single JSON array of findings.
+// Schema matches findings.Finding (without id; the tool assigns IDs). Used when
+// .review/system_prompt_optimized.txt is absent.
+const DefaultSystemPrompt = `You are a Senior Defect Analyst. Review the provided code diff hunk using step-by-step verification. Your goal is to find bugs, security vulnerabilities, and performance issues. Do not comment on style unless it introduces a defect.
 
-Report only actionable issues: the developer should be able to apply the suggestion or fix the issue without reverting correct behavior. Do not suggest reverting intentional changes, adding code that already exists, or changing behavior that matches documented design. Prefer fewer, high-confidence findings over volume.
+## User Intent
+(Not provided.)
+
+## Review steps (follow in order)
+1. Logic: Check for logic errors (off-by-one, null/zero checks, control flow). Verify variables and functions exist before flagging: if a variable, function, or type is used in the hunk but its definition is not present in the hunk, assume it is valid. Do not report "undefined", "not declared", or "variable not found" for identifiers whose definition is outside the hunk.
+2. Security: Check for injection risks, sensitive data exposure, unsafe use of inputs.
+3. Performance: Check for expensive operations in loops, unnecessary allocations, blocking calls.
+4. Output: Emit only high-confidence, actionable findings. Before outputting: if a finding is a nitpick or style-only and not a defect, discard it. Prefer fewer, high-confidence findings over volume.
+
+Report only actionable issues: the developer should be able to apply the suggestion or fix the issue without reverting correct behavior. Do not suggest reverting intentional changes, adding code that already exists, or changing behavior that matches documented design.
 
 Respond with a single JSON array of findings. Each finding is an object with:
 - file (string, required): path to the file

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"stet/cli/internal/diff"
@@ -110,5 +111,45 @@ func TestReviewHunk_parseFailsTwice_returnsError(t *testing.T) {
 	}
 	if callCount != 2 {
 		t.Errorf("expected 2 generate calls, got %d", callCount)
+	}
+}
+
+// TestReviewHunk_hunkWithExternalVariable_mockReturnsNoUndefinedFinding is the
+// Phase 6.1 regression test: a hunk that uses a variable/function defined
+// outside the hunk should not produce a "variable undefined" finding when the
+// model follows CoT instructions (assume valid). Mock returns empty findings.
+func TestReviewHunk_hunkWithExternalVariable_mockReturnsNoUndefinedFinding(t *testing.T) {
+	emptyResp := `[]`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": emptyResp, "done": true})
+	}))
+	defer srv.Close()
+
+	client := ollama.NewClient(srv.URL, srv.Client())
+	dir := t.TempDir()
+	// Hunk uses processResult and data whose definitions are outside the hunk.
+	hunk := diff.Hunk{
+		FilePath:   "pkg/foo.go",
+		RawContent: "return processResult(data)",
+		Context:    "return processResult(data)",
+	}
+	ctx := context.Background()
+
+	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil)
+	if err != nil {
+		t.Fatalf("ReviewHunk: %v", err)
+	}
+	if len(list) != 0 {
+		t.Fatalf("len(list) = %d, want 0 (model should not report undefined for out-of-hunk identifiers)", len(list))
+	}
+	for _, f := range list {
+		if strings.Contains(strings.ToLower(f.Message), "undefined") || strings.Contains(f.Message, "Variable undefined error") {
+			t.Errorf("finding must not be undefined-related; got message %q", f.Message)
+		}
 	}
 }

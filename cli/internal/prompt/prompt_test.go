@@ -22,6 +22,27 @@ func TestDefaultSystemPrompt_instructsActionability(t *testing.T) {
 	}
 }
 
+// TestDefaultSystemPrompt_instructsCoTAndAssumeValid asserts Phase 6.1 CoT prompt
+// content: step-by-step verification, assume out-of-hunk identifiers valid, nitpick discard, User Intent.
+func TestDefaultSystemPrompt_instructsCoTAndAssumeValid(t *testing.T) {
+	got := DefaultSystemPrompt
+	if !strings.Contains(got, "Step") && !strings.Contains(got, "steps") && !strings.Contains(strings.ToLower(got), "verify") {
+		t.Errorf("default prompt should instruct step-by-step verification; missing 'Step'/'steps' or 'verify'")
+	}
+	if !strings.Contains(got, "assume") || !strings.Contains(got, "valid") {
+		t.Errorf("default prompt should tell model to assume identifiers not in hunk are valid")
+	}
+	if !strings.Contains(got, "undefined") {
+		t.Errorf("default prompt should mention not reporting undefined for out-of-hunk identifiers")
+	}
+	if !strings.Contains(got, "nitpick") || !strings.Contains(got, "discard") {
+		t.Errorf("default prompt should instruct discard of nitpicks (self-correction)")
+	}
+	if !strings.Contains(got, "## User Intent") {
+		t.Errorf("default prompt should include ## User Intent section (placeholder for 6.2)")
+	}
+}
+
 func TestSystemPrompt_absentFile_returnsDefault(t *testing.T) {
 	dir := t.TempDir()
 	got, err := SystemPrompt(dir)
