@@ -13,6 +13,7 @@ var (
 	validCategories = map[Category]struct{}{
 		CategoryBug: {}, CategorySecurity: {}, CategoryPerformance: {},
 		CategoryStyle: {}, CategoryMaintainability: {}, CategoryTesting: {},
+		CategoryDocumentation: {}, CategoryDesign: {},
 	}
 )
 

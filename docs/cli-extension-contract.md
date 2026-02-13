@@ -23,7 +23,7 @@ On success (exit code 0), the CLI writes exactly one JSON object, followed by a 
   - **`line`** (number, optional): Line number.
   - **`range`** (object, optional): `{"start": n, "end": m}` for multi-line span.
   - **`severity`** (string): `"error"`, `"warning"`, `"info"`, or `"nitpick"`.
-  - **`category`** (string): e.g. `"bug"`, `"security"`, `"style"`, `"maintainability"`, `"performance"`, `"testing"`.
+  - **`category`** (string): e.g. `"bug"`, `"security"`, `"style"`, `"maintainability"`, `"performance"`, `"testing"`, `"documentation"`, `"design"`.
   - **`message`** (string): Description of the finding.
   - **`suggestion`** (string, optional): Suggested fix.
   - **`cursor_uri`** (string, optional): Deep link (e.g. `file://` or `cursor://`). When the CLI sets it (when the model omits it), it uses `file://` with absolute path and line (or range) so the extension can open at location.

@@ -37,6 +37,9 @@ func TestSystemPrompt_absentFile_returnsDefault(t *testing.T) {
 	if !strings.Contains(got, "severity") || !strings.Contains(got, "category") {
 		t.Errorf("default prompt should mention severity and category")
 	}
+	if !strings.Contains(got, "documentation") || !strings.Contains(got, "design") {
+		t.Errorf("default prompt should list documentation and design categories")
+	}
 }
 
 func TestSystemPrompt_presentFile_returnsFileContents(t *testing.T) {

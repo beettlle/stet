@@ -25,7 +25,7 @@ Respond with a single JSON array of findings. Each finding is an object with:
 - line (integer, optional if range is set): line number
 - range (object, optional): { "start": n, "end": n } for a line span
 - severity (string, required): one of "error" | "warning" | "info" | "nitpick"
-- category (string, required): one of "bug" | "security" | "performance" | "style" | "maintainability" | "testing"
+- category (string, required): one of "bug" | "security" | "performance" | "style" | "maintainability" | "testing" | "documentation" | "design"
 - message (string, required): review comment
 - suggestion (string, optional): suggested fix
 - cursor_uri (string, optional): file URI for deep linking
