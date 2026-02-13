@@ -48,7 +48,7 @@ go run ./cli/cmd/stet
 
 ### Extension
 
-Load the extension in Cursor: open the `extension` folder as the extension development workspace, or install from a VSIX. The placeholder command "Stet: Start review" is available from the Command Palette.
+Load the extension in Cursor: open the `extension` folder as the extension development workspace, or install from a VSIX. The extension adds a **Stet** panel with a Findings view. Commands **Stet: Start review**, **Stet: Open at location**, **Stet: Copy for Chat**, and **Stet: Finish review** are available from the Command Palette; Finish review is also available from the panel.
 
 ## Documentation
 
