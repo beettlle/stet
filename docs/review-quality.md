@@ -1,5 +1,7 @@
 # Review Quality and Actionability
 
+The PRD defines “actionable” and review goals in [PRD.md](PRD.md) §2 and §3f; this document expands with prompt guidelines and curated lessons (e.g. common false positives).
+
 ## What we mean by actionable
 
 A finding is **actionable** when the reported issue is real (not already fixed or by design), the suggestion is correct and safe, and the change is within project scope. Developers should be able to apply the suggestion or fix the issue without reverting correct behavior. See [PRD §2 Goals](PRD.md#2-goals-and-non-goals) (Actionable findings) and [PRD §3f Review actionability](PRD.md#3f-advanced-features-shadowing-streaming-health).

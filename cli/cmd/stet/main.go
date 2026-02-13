@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -147,6 +148,7 @@ func runCLI(args []string) int {
 	rootCmd.AddCommand(newStartCmd())
 	rootCmd.AddCommand(newRunCmd())
 	rootCmd.AddCommand(newFinishCmd())
+	rootCmd.AddCommand(newCleanupCmd())
 	rootCmd.AddCommand(newStatusCmd())
 	rootCmd.AddCommand(newListCmd())
 	rootCmd.AddCommand(newDismissCmd())
@@ -430,6 +432,90 @@ func runFinish(cmd *cobra.Command, args []string) error {
 			return errExit(1)
 		}
 		return err
+	}
+	return nil
+}
+
+func newCleanupCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "cleanup",
+		Short: "Remove orphan stet worktrees (not the current session's worktree)",
+		RunE:  runCleanup,
+	}
+	return cmd
+}
+
+func runCleanup(cmd *cobra.Command, args []string) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("cleanup: %w", err)
+	}
+	repoRoot, err := git.RepoRoot(cwd)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return errExit(1)
+	}
+	cfg, err := config.Load(context.Background(), config.LoadOptions{RepoRoot: repoRoot})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return errExit(1)
+	}
+	stateDir := cfg.EffectiveStateDir(repoRoot)
+	worktreeRoot := cfg.WorktreeRoot
+	if worktreeRoot == "" {
+		worktreeRoot = filepath.Join(repoRoot, ".review", "worktrees")
+	}
+	worktreeRoot, err = filepath.Abs(worktreeRoot)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return errExit(1)
+	}
+
+	var currentPath string
+	s, err := session.Load(stateDir)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return errExit(1)
+	}
+	if s.BaselineRef != "" {
+		currentPath, err = git.PathForRef(repoRoot, cfg.WorktreeRoot, s.BaselineRef)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+			return errExit(1)
+		}
+		currentPath, err = filepath.Abs(currentPath)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+			return errExit(1)
+		}
+	}
+
+	list, err := git.List(repoRoot)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return errExit(1)
+	}
+
+	var removed int
+	for _, w := range list {
+		wtPath := filepath.Clean(w.Path)
+		dir := filepath.Dir(wtPath)
+		base := filepath.Base(wtPath)
+		if dir != worktreeRoot || !strings.HasPrefix(base, "stet-") {
+			continue
+		}
+		if currentPath != "" && wtPath == currentPath {
+			continue
+		}
+		if err := git.Remove(repoRoot, wtPath); err != nil {
+			fmt.Fprintf(os.Stderr, "cleanup: remove worktree %s: %v\n", wtPath, err)
+			return errExit(1)
+		}
+		fmt.Fprintf(os.Stderr, "Removed worktree: %s\n", wtPath)
+		removed++
+	}
+	if removed == 0 {
+		fmt.Fprintln(os.Stderr, "No orphan worktrees.")
 	}
 	return nil
 }

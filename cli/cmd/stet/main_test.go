@@ -1407,3 +1407,112 @@ func TestRunCLI_optimizeScriptSucceedsExitsZero(t *testing.T) {
 		t.Errorf("runCLI(optimize) with true = %d, want 0", got)
 	}
 }
+
+func TestRunCLI_cleanupNotGitRepoExits1(t *testing.T) {
+	// Run cleanup from a directory that is not a git repo.
+	dir := t.TempDir()
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	got := runCLI([]string{"cleanup"})
+	if got != 1 {
+		t.Errorf("runCLI(cleanup) from non-repo = %d, want 1", got)
+	}
+}
+
+func TestRunCLI_cleanupNoOrphansExitsZero(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	got := runCLI([]string{"cleanup"})
+	if got != 0 {
+		t.Errorf("runCLI(cleanup) with no worktrees = %d, want 0", got)
+	}
+}
+
+func TestRunCLI_cleanupRemovesOrphanWhenNoSession(t *testing.T) {
+	// No session; create one orphan stet worktree manually, then cleanup removes it.
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	worktreesDir := filepath.Join(repo, ".review", "worktrees")
+	if err := os.MkdirAll(worktreesDir, 0755); err != nil {
+		t.Fatalf("mkdir worktrees: %v", err)
+	}
+	shortSha := runGitOut(t, repo, "git", "rev-parse", "--short=12", "HEAD~1")
+	orphanPath := filepath.Join(worktreesDir, "stet-"+shortSha)
+	runGit(t, repo, "git", "worktree", "add", orphanPath, "HEAD~1")
+	if _, err := os.Stat(orphanPath); err != nil {
+		t.Fatalf("orphan worktree should exist: %v", err)
+	}
+
+	got := runCLI([]string{"cleanup"})
+	if got != 0 {
+		t.Errorf("runCLI(cleanup) = %d, want 0", got)
+	}
+	if _, err := os.Stat(orphanPath); !os.IsNotExist(err) {
+		t.Errorf("orphan worktree should be removed; stat err: %v", err)
+	}
+	listOut := runGitOut(t, repo, "git", "worktree", "list", "--porcelain")
+	if strings.Contains(listOut, "stet-") {
+		t.Errorf("git worktree list should not contain stet- worktrees after cleanup; got:\n%s", listOut)
+	}
+}
+
+func TestRunCLI_cleanupRemovesOnlyOrphanWhenSessionExists(t *testing.T) {
+	// Start a session (creates session worktree at HEAD~1). Add another worktree at HEAD~2 (orphan). Cleanup removes only the orphan.
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
+		t.Fatalf("runCLI(start) = %d, want 0", got)
+	}
+	// Session worktree is at .review/worktrees/stet-<sha of HEAD~1>. Create orphan at HEAD~2.
+	worktreesDir := filepath.Join(repo, ".review", "worktrees")
+	shortSha2 := runGitOut(t, repo, "git", "rev-parse", "--short=12", "HEAD~2")
+	orphanPath := filepath.Join(worktreesDir, "stet-"+shortSha2)
+	runGit(t, repo, "git", "worktree", "add", orphanPath, "HEAD~2")
+	if _, err := os.Stat(orphanPath); err != nil {
+		t.Fatalf("orphan worktree should exist: %v", err)
+	}
+
+	got := runCLI([]string{"cleanup"})
+	if got != 0 {
+		t.Errorf("runCLI(cleanup) = %d, want 0", got)
+	}
+	// Orphan (HEAD~2) should be removed.
+	if _, err := os.Stat(orphanPath); !os.IsNotExist(err) {
+		t.Errorf("orphan worktree should be removed; stat err: %v", err)
+	}
+	// Session worktree (HEAD~1) should still exist. Path = worktrees/stet-<sha of HEAD~1>.
+	shortSha1 := runGitOut(t, repo, "git", "rev-parse", "--short=12", "HEAD~1")
+	sessionPath := filepath.Join(worktreesDir, "stet-"+shortSha1)
+	if _, err := os.Stat(sessionPath); err != nil {
+		t.Errorf("session worktree should still exist: %v", err)
+	}
+	// Finish to clean up for next tests (optional; t.TempDir is cleaned anyway).
+	_ = runCLI([]string{"finish"})
+}

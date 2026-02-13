@@ -84,10 +84,11 @@ On `stet start` failure, the CLI may print one of the following hints to stderr 
 - **`stet list`** — Lists active findings with IDs (same format as `status --ids`). Exits 1 if no active session. Use to copy IDs for `stet dismiss`.
 - **`stet dismiss <id> [reason]`** — Adds the finding ID to the session’s dismissed list so it does not resurface in findings output. Optional **reason** (one of `false_positive`, `already_correct`, `wrong_suggestion`, `out_of_scope`) is recorded for the optimizer. Idempotent. Exits 1 if no active session; exits 1 if reason is provided and invalid. Findings can also be **auto-dismissed** when a re-review of the same code (e.g. after the user fixes issues) no longer reports them, so the list shrinks as issues are fixed.
 - **`stet finish`** — Ends the session and removes the worktree. Exits 1 if no active session.
+- **`stet cleanup`** — Removes orphan stet worktrees (worktrees named `stet-*` that are not the current session’s worktree). Optional; exits 0 when there are no orphans. Exits 1 on error (e.g. not a git repo or `git worktree remove` failure).
 
 ## Optimizer (stet optimize)
 
-The optional **`stet optimize`** command invokes an external script (e.g. a Python DSPy optimizer) to improve the system prompt from user feedback. The Go CLI has **no Python or DSPy dependency**; it only runs the configured command.
+The optional **`stet optimize`** command invokes an external script (e.g. a Python DSPy optimizer) to improve the system prompt from user feedback. The Go CLI has **no Python or DSPy dependency**; it only runs the configured command. To run the optimizer you need a Python environment with DSPy (or whatever your script requires); the CLI does not install or depend on Python.
 
 - **When to run**: e.g. weekly or after enough feedback has been collected in `.review/history.jsonl`.
 - **Input**: The script reads `.review/history.jsonl` (see State storage and history below). The CLI passes the state directory via the **`STET_STATE_DIR`** environment variable when invoking the script.
@@ -95,19 +96,30 @@ The optional **`stet optimize`** command invokes an external script (e.g. a Pyth
 - **Configuration**: Set the command to run via **`STET_OPTIMIZER_SCRIPT`** or **`optimizer_script`** in repo/global config (e.g. `python3 scripts/optimize.py` or a path to your script). If unset, `stet optimize` exits 1 with a message asking you to configure it.
 - **Exit codes**: 0 = success; non-zero = failure (script missing, Python/DSPy error, invalid history, etc.). The CLI propagates the script’s exit code when in 0–255.
 
-## Configuration (Ollama model options)
+For optimizing toward **actionable findings**, see [Review quality and actionability](#review-quality-and-actionability) and [docs/review-quality.md](review-quality.md).
 
-The CLI passes model runtime options to the Ollama API on each generate request. Config file keys and environment variables:
+## Configuration
+
+**Precedence:** CLI flags > environment variables > repo config (`.review/config.toml`) > global config (`~/.config/stet/config.toml` or XDG equivalent) > defaults. Canonical defaults and types: `cli/internal/config/config.go`.
+
+### Config schema (full)
 
 | Key / env | Default | Description |
 |-----------|---------|-------------|
-| `temperature` / `STET_TEMPERATURE` | 0.2 | Sampling temperature (0–2). Lower values give more deterministic output. |
-| `num_ctx` / `STET_NUM_CTX` | 32768 | Model context window size (tokens). Set to 0 in config/env to use default. |
-| `optimizer_script` / `STET_OPTIMIZER_SCRIPT` | (none) | Command to run for `stet optimize` (e.g. `python3 scripts/optimize.py`). |
-| `rag_symbol_max_definitions` / `STET_RAG_SYMBOL_MAX_DEFINITIONS` | 10 | Max symbol definitions to inject into the prompt (0 = disable). |
-| `rag_symbol_max_tokens` / `STET_RAG_SYMBOL_MAX_TOKENS` | 0 | Max tokens for the symbol-definitions block (0 = no cap). |
+| `model` / `STET_MODEL` | `qwen3-coder:30b` | Ollama model name. |
+| `ollama_base_url` / `STET_OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API base URL. |
+| `context_limit` / `STET_CONTEXT_LIMIT` | 32768 | Token context limit for prompts. |
+| `warn_threshold` / `STET_WARN_THRESHOLD` | 0.9 | Warn when estimated tokens exceed this fraction of context limit. |
+| `timeout` / `STET_TIMEOUT` | 5m | Timeout for Ollama generate requests (Go duration or seconds). |
+| `state_dir` / `STET_STATE_DIR` | (empty → `.review` in repo) | Directory for session, lock, history, optimized prompt. |
+| `worktree_root` / `STET_WORKTREE_ROOT` | (empty → `repo/.review/worktrees`) | Directory for stet worktrees. |
+| `temperature` / `STET_TEMPERATURE` | 0.2 | Sampling temperature (0–2). Passed to Ollama. |
+| `num_ctx` / `STET_NUM_CTX` | 32768 | Model context window size (tokens). Passed to Ollama; 0 = use model default. |
+| `optimizer_script` / `STET_OPTIMIZER_SCRIPT` | (none) | Command for `stet optimize` (e.g. `python3 scripts/optimize.py`). |
+| `rag_symbol_max_definitions` / `STET_RAG_SYMBOL_MAX_DEFINITIONS` | 10 | Max symbol definitions to inject (0 = disable). |
+| `rag_symbol_max_tokens` / `STET_RAG_SYMBOL_MAX_TOKENS` | 0 | Max tokens for symbol-definitions block (0 = no cap). |
 
-Config files: repo `.review/config.toml`, global `~/.config/stet/config.toml` (or XDG equivalent). Precedence: CLI flags > env > repo config > global config > defaults. RAG symbol options can also be set via **`--rag-symbol-max-definitions`** and **`--rag-symbol-max-tokens`** on `stet start` and `stet run`; when set, they override config and env.
+RAG symbol options can also be set via **`--rag-symbol-max-definitions`** and **`--rag-symbol-max-tokens`** on `stet start` and `stet run`; when set, they override config and env.
 
 ## Working directory
 
@@ -115,11 +127,24 @@ The CLI must be run from the repository root (or from a directory under the repo
 
 ## Cleanup after interrupted runs
 
-If multiple stet worktrees remain after interrupted runs (e.g. `git worktree list` shows entries under `.review/worktrees/stet-*`), run `stet finish` to remove the current session's worktree, then remove any remaining paths with `git worktree remove <path>`. Phase 6 will add an optional `stet cleanup` command for orphan worktrees.
+If multiple stet worktrees remain after interrupted runs (e.g. `git worktree list` shows entries under `.review/worktrees/stet-*`), run **`stet cleanup`** to remove orphan stet worktrees. Alternatively, run `stet finish` to remove the current session’s worktree, then remove any remaining paths with `git worktree remove <path>`.
+
+## State storage
+
+State lives under `.review/` (or the path given by `state_dir`). Artifacts:
+
+- **`session.json`** — Session state (baseline ref, last_reviewed_at, findings, dismissed_ids, prompt_shadows).
+- **`lock`** — Advisory lock for a single active session.
+- **`config.toml`** — Repo-level config (optional).
+- **`history.jsonl`** — Feedback log for the optimizer and prompt shadowing (see below).
+- **`system_prompt_optimized.txt`** — Written by `stet optimize`; used as system prompt when present.
+- **`worktrees/`** — Directory for stet worktrees (default `repo/.review/worktrees` or `worktree_root`). Each entry is `stet-<short-sha>`.
+
+The `.review/` directory is in `.gitignore` by default so state does not pollute version control; it can be removed from `.gitignore` if the team wants to commit state.
 
 ## State storage and history (history.jsonl)
 
-State lives under `.review/` (session, config, lock). Session state (`.review/session.json`) includes **`prompt_shadows`**: on dismiss, the CLI stores `{ "finding_id": "...", "prompt_context": "..." }` for each dismissed finding so it can be used as a negative few-shot in future prompts. The internal **`finding_prompt_context`** map (finding ID → hunk content) is populated during review and used when the user dismisses to record the code context that produced the finding.
+Session state (`.review/session.json`) includes **`prompt_shadows`**: on dismiss, the CLI stores `{ "finding_id": "...", "prompt_context": "..." }` for each dismissed finding so it can be used as a negative few-shot in future prompts. The internal **`finding_prompt_context`** map (finding ID → hunk content) is populated during review and used when the user dismisses to record the code context that produced the finding.
 
 The CLI appends to `.review/history.jsonl` on user feedback (on dismiss via `stet dismiss`, on auto-dismiss when re-review no longer reports a finding at that location, and on finish when there are findings). Each line is one JSON object with:
 
