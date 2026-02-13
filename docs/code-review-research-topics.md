@@ -24,6 +24,8 @@ This document consolidates research from academic journals, arXiv, and early-rel
 - **Code slicing for relevant context:** Using program slicing (data/control dependencies) to choose what to include instead of a fixed window. *Relevance:* For each hunk, include only dependency-relevant code to avoid noise and stay within token limits.
 - **Sources:** “Towards Practical Defect-Focused Automated Code Review” ([arXiv:2505.17928](https://arxiv.org/abs/2505.17928))—slicing + multi-role LLM; Katana (dual slicing for bug fixes).
 
+For a consolidated strategy and implementation plan for context enrichment and code slicing in stet, see [context-enrichment-research.md](context-enrichment-research.md).
+
 ---
 
 ## 3. Actionability and what developers actually fix
@@ -64,6 +66,8 @@ This document consolidates research from academic journals, arXiv, and early-rel
 - **Confounder-aware aggregation of multiple judges:** When using multiple models or criteria, naive voting can amplify shared biases; structured aggregation can separate “true quality” from confounders (e.g. verbosity). *Relevance:* If adding a second model or rule-based judge, aggregate in a principled way.
 - **Sources:** CARE (Confounder-Aware Aggregation for Reliable Evaluation); “From many voices to one” (Snorkel).
 
+For a full deep dive (research synthesis, ideas, and phased plan), see [calibration-fp-aggregation.md](calibration-fp-aggregation.md).
+
 ---
 
 ## 7. Defect-focused and multi-role review
@@ -72,6 +76,8 @@ This document consolidates research from academic journals, arXiv, and early-rel
 - **Sources:** “Towards Practical Defect-Focused Automated Code Review” ([arXiv:2505.17928](https://arxiv.org/abs/2505.17928))—four challenges: context, KBI, FAR, human integration; 2× vs standard LLM, 10× vs older baselines.
 - **Multi-role or multi-pass LLM review:** Different “roles” or passes for different concern types (e.g. security vs style). *Relevance:* Reduces mixed-signal prompts and can improve precision per category.
 - **Sources:** Same defect-focused paper; industry tools with separate flows for security vs quality.
+
+For a consolidated implementation plan for defect-focused review in stet (defect-hunter prompt, RAG-Lite, self-critique filter, feedback loop, CRScore-style checklist, and risks), see [defect-focused-review-plan.md](defect-focused-review-plan.md).
 
 ---
 
@@ -126,6 +132,8 @@ Focusing on defect-focused objectives (capturing context, reducing false alarms,
 - Evaluate adding a single “evidence” or “required_change” field to findings (actionable vs suggestion) and whether to down-rank or tag “design” when operating with diff-only context.
 - Set internal targets for resolution/outdated rates using RovoDev and BitsAI-CR as benchmarks; track resolution or “dismissed” signals if stet is integrated with a platform that supports it.
 
+See [defect-focused-review-plan.md](defect-focused-review-plan.md) for a concrete implementation plan, benchmark targets, and evaluation approach.
+
 ---
 
 ### 2. Context enrichment and code slicing (next priority)
@@ -146,6 +154,8 @@ With only a diff/hunk, quality and relevance of comments are limited. Adding **t
 - Prototype “surrounding function/class” extraction for Go (and other languages) for each hunk and add it to the user prompt when under a token budget; A/B compare vs hunk-only.
 - Investigate lightweight slicing or dependency scopes (e.g. callers/callees, def-use) for stet’s supported languages to include only dependency-relevant lines in the context window.
 
+See [context-enrichment-research.md](context-enrichment-research.md) for a detailed strategy, tiered approach, config/token guidance, and implementation phases.
+
 ---
 
 ### 3. Calibration, false positive mitigation, and multi-judge aggregation (then)
@@ -165,3 +175,5 @@ Using confidence or quality scores to decide when to show vs suppress findings (
 - Add an optional confidence or “actionability” score to stet’s output (e.g. from a second pass or from structured prompt instructions) and document thresholds for “show always” vs “show if high confidence” vs “suppress.”
 - Explore lightweight “grounding” checks (e.g. line exists in diff, category matches a small rule set) to filter clearly invalid findings before presentation.
 - If a second reviewer (model or rule-based) is introduced, design aggregation (e.g. when both agree vs disagree) using confounder-aware or similar methods so that verbosity/length does not dominate the combined signal.
+
+See [calibration-fp-aggregation.md](calibration-fp-aggregation.md) for a detailed research synthesis, implementation ideas, and phased plan.
