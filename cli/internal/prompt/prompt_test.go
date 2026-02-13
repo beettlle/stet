@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"stet/cli/internal/diff"
+	"stet/cli/internal/rules"
 )
 
 func TestDefaultSystemPrompt_instructsActionability(t *testing.T) {
@@ -213,5 +214,67 @@ func TestInjectUserIntent_missingSection_unchanged(t *testing.T) {
 	got := InjectUserIntent(noSection, "main", "fix")
 	if got != noSection {
 		t.Errorf("InjectUserIntent(missing section): want unchanged; got %q", got)
+	}
+}
+
+func TestAppendCursorRules_nilRules_unchanged(t *testing.T) {
+	base := "System prompt."
+	got := AppendCursorRules(base, nil, "app.ts", 1000)
+	if got != base {
+		t.Errorf("AppendCursorRules(nil): want unchanged; got %q", got)
+	}
+}
+
+func TestAppendCursorRules_emptyRules_unchanged(t *testing.T) {
+	base := "System prompt."
+	got := AppendCursorRules(base, []rules.CursorRule{}, "app.ts", 1000)
+	if got != base {
+		t.Errorf("AppendCursorRules(empty): want unchanged; got %q", got)
+	}
+}
+
+func TestAppendCursorRules_noMatch_unchanged(t *testing.T) {
+	base := "System prompt."
+	ruleList := []rules.CursorRule{
+		{Globs: []string{"*.go"}, Content: "Go rule"},
+	}
+	got := AppendCursorRules(base, ruleList, "app.ts", 1000)
+	if got != base {
+		t.Errorf("AppendCursorRules(no match): want unchanged; got %q", got)
+	}
+}
+
+func TestAppendCursorRules_oneMatch_appendsSection(t *testing.T) {
+	base := "System prompt."
+	ruleList := []rules.CursorRule{
+		{Globs: []string{"*.ts"}, Content: "Do not use console.log."},
+	}
+	got := AppendCursorRules(base, ruleList, "app.ts", 1000)
+	if !strings.Contains(got, "## Project review criteria") {
+		t.Errorf("AppendCursorRules: want section header; got:\n%s", got)
+	}
+	if !strings.Contains(got, "Do not use console.log.") {
+		t.Errorf("AppendCursorRules: want rule body; got:\n%s", got)
+	}
+	if !strings.HasPrefix(got, base) {
+		t.Errorf("AppendCursorRules: should start with original prompt")
+	}
+}
+
+func TestAppendCursorRules_overTokenBudget_truncated(t *testing.T) {
+	base := "System prompt."
+	longBody := strings.Repeat("x", 5000)
+	ruleList := []rules.CursorRule{
+		{Globs: []string{"*"}, Content: longBody},
+	}
+	got := AppendCursorRules(base, ruleList, "any.go", 100)
+	if !strings.Contains(got, "## Project review criteria") {
+		t.Errorf("AppendCursorRules: want section header")
+	}
+	if !strings.Contains(got, "[truncated]") {
+		t.Errorf("AppendCursorRules: want truncation marker when over budget")
+	}
+	if len(got) >= len(base)+len(longBody) {
+		t.Errorf("AppendCursorRules: combined output should be shorter than full body")
 	}
 }

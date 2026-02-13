@@ -14,6 +14,7 @@ import (
 	"stet/cli/internal/diff"
 	"stet/cli/internal/ollama"
 	"stet/cli/internal/prompt"
+	"stet/cli/internal/rules"
 )
 
 func TestReviewHunk_successFirstTry(t *testing.T) {
@@ -33,7 +34,7 @@ func TestReviewHunk_successFirstTry(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "a.go", RawContent: "code", Context: "code"}
 	ctx := context.Background()
 
-	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, "", 0)
+	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -68,7 +69,7 @@ func TestReviewHunk_retryThenSuccess(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "b.go", RawContent: "x", Context: "x"}
 	ctx := context.Background()
 
-	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, "", 0)
+	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -89,7 +90,7 @@ func TestReviewHunk_generateFails_returnsError(t *testing.T) {
 	dir := t.TempDir()
 	hunk := diff.Hunk{FilePath: "x.go", RawContent: "code", Context: "code"}
 	ctx := context.Background()
-	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, "", 0)
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0)
 	if err == nil {
 		t.Fatal("ReviewHunk: want error when generate fails, got nil")
 	}
@@ -109,7 +110,7 @@ func TestReviewHunk_parseFailsTwice_returnsError(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "c.go", RawContent: "y", Context: "y"}
 	ctx := context.Background()
 
-	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, "", 0)
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0)
 	if err == nil {
 		t.Fatal("ReviewHunk: want error when parse fails twice, got nil")
 	}
@@ -144,7 +145,7 @@ func TestReviewHunk_hunkWithExternalVariable_mockReturnsNoUndefinedFinding(t *te
 	}
 	ctx := context.Background()
 
-	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, "", 0)
+	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -196,7 +197,7 @@ func TestReviewHunk_injectsUserIntentIntoPrompt(t *testing.T) {
 	userIntent := &prompt.UserIntent{Branch: "main", CommitMsg: commitMsg}
 	ctx := context.Background()
 
-	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, userIntent, "", 0)
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, userIntent, nil, "", 0)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -270,7 +271,7 @@ func processData(input string) (int, error) {
 	}
 	ctx := context.Background()
 
-	_, err := ReviewHunk(ctx, client, "m", stateDir, hunk, nil, nil, dir, 32768)
+	_, err := ReviewHunk(ctx, client, "m", stateDir, hunk, nil, nil, nil, dir, 32768)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -279,6 +280,58 @@ func processData(input string) (int, error) {
 	}
 	if !strings.Contains(capturedPrompt, "## Enclosing function context") {
 		t.Errorf("prompt must contain enclosing function context section; got:\n%s", capturedPrompt)
+	}
+}
+
+// TestReviewHunk_injectsCursorRulesIntoSystemPrompt is the Phase 6.6 integration
+// test: when ruleList contains a rule that matches the hunk's file (e.g. *.js
+// for test.js), the system prompt sent to Ollama must contain "## Project review
+// criteria" and the rule body.
+func TestReviewHunk_injectsCursorRulesIntoSystemPrompt(t *testing.T) {
+	validResp := `[]`
+	var capturedSystem string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read request body: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		var req struct {
+			System string `json:"system"`
+		}
+		if err := json.Unmarshal(body, &req); err != nil {
+			t.Errorf("decode request: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		capturedSystem = req.System
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": validResp, "done": true})
+	}))
+	defer srv.Close()
+
+	client := ollama.NewClient(srv.URL, srv.Client())
+	dir := t.TempDir()
+	hunk := diff.Hunk{FilePath: "test.js", RawContent: "code", Context: "code"}
+	ruleList := []rules.CursorRule{
+		{Globs: []string{"*.js"}, Content: "Do not use console.log."},
+	}
+	ctx := context.Background()
+
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, ruleList, "", 0)
+	if err != nil {
+		t.Fatalf("ReviewHunk: %v", err)
+	}
+	if !strings.Contains(capturedSystem, "## Project review criteria") {
+		t.Errorf("system prompt must contain ## Project review criteria; got:\n%s", capturedSystem)
+	}
+	if !strings.Contains(capturedSystem, "Do not use console.log.") {
+		t.Errorf("system prompt must contain rule body; got:\n%s", capturedSystem)
 	}
 }
 

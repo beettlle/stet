@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"stet/cli/internal/diff"
@@ -22,6 +23,7 @@ import (
 	"stet/cli/internal/ollama"
 	"stet/cli/internal/prompt"
 	"stet/cli/internal/review"
+	"stet/cli/internal/rules"
 	"stet/cli/internal/scope"
 	"stet/cli/internal/session"
 	"stet/cli/internal/tokens"
@@ -274,12 +276,13 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 			}
 		}
 		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: opts.NumCtx}
+		cursorRules, _ := rules.LoadRules(filepath.Join(opts.RepoRoot, ".cursor", "rules"))
 		total := len(part.ToReview)
 		for i, hunk := range part.ToReview {
 			if opts.Verbose {
 				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", i+1, total, hunk.FilePath)
 			}
-			list, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk, genOpts, userIntent, opts.RepoRoot, opts.ContextLimit)
+			list, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, opts.ContextLimit)
 			if err != nil {
 				return fmt.Errorf("start: review hunk %s: %w", hunk.FilePath, err)
 			}
@@ -465,12 +468,13 @@ func Run(ctx context.Context, opts RunOptions) error {
 			}
 		}
 		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: opts.NumCtx}
+		cursorRules, _ := rules.LoadRules(filepath.Join(opts.RepoRoot, ".cursor", "rules"))
 		total := len(part.ToReview)
 		for i, hunk := range part.ToReview {
 			if opts.Verbose {
 				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", i+1, total, hunk.FilePath)
 			}
-			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk, genOpts, userIntent, opts.RepoRoot, opts.ContextLimit)
+			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, opts.ContextLimit)
 			if err != nil {
 				return fmt.Errorf("run: review hunk %s: %w", hunk.FilePath, err)
 			}

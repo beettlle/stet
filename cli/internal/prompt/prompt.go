@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"stet/cli/internal/diff"
+	"stet/cli/internal/rules"
+	"stet/cli/internal/tokens"
 )
 
 const userIntentHeader = "## User Intent\n"
@@ -103,6 +105,65 @@ func InjectUserIntent(systemPrompt, branch, commitMsg string) string {
 	}
 	replacement := userIntentHeader + body
 	return systemPrompt[:sectionStart] + replacement + systemPrompt[sectionEnd:]
+}
+
+const projectReviewCriteriaHeader = "## Project review criteria\n"
+
+// AppendCursorRules appends a "## Project review criteria" section to
+// systemPrompt when rules apply to filePath. Matched rules are ordered with
+// alwaysApply first; combined content is truncated to maxRuleTokens. Returns
+// systemPrompt unchanged if rules is nil/empty or no rules match filePath.
+func AppendCursorRules(systemPrompt string, ruleList []rules.CursorRule, filePath string, maxRuleTokens int) string {
+	if len(ruleList) == 0 {
+		return systemPrompt
+	}
+	matched := rules.FilterRules(ruleList, filePath)
+	if len(matched) == 0 {
+		return systemPrompt
+	}
+	// Order: alwaysApply first, then others.
+	var always, rest []rules.CursorRule
+	for _, r := range matched {
+		if r.AlwaysApply {
+			always = append(always, r)
+		} else {
+			rest = append(rest, r)
+		}
+	}
+	var combined strings.Builder
+	appendContents(&combined, always)
+	appendContents(&combined, rest)
+	text := combined.String()
+	if maxRuleTokens > 0 {
+		text = truncateToTokenBudget(text, maxRuleTokens)
+	}
+	if text == "" {
+		return systemPrompt
+	}
+	return systemPrompt + "\n\n" + projectReviewCriteriaHeader + text
+}
+
+func appendContents(b *strings.Builder, ruleList []rules.CursorRule) {
+	for _, r := range ruleList {
+		if r.Content != "" {
+			if b.Len() > 0 {
+				b.WriteString("\n\n")
+			}
+			b.WriteString(r.Content)
+		}
+	}
+}
+
+func truncateToTokenBudget(s string, maxTokens int) string {
+	if tokens.Estimate(s) <= maxTokens {
+		return s
+	}
+	// Trim from end; ~4 chars per token.
+	maxChars := maxTokens * 4
+	if len(s) <= maxChars {
+		return s
+	}
+	return s[:maxChars] + "\n\n[truncated]"
 }
 
 // UserPrompt builds the user-facing prompt for one hunk: file path and the
