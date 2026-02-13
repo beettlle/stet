@@ -32,6 +32,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"stet/cli/internal/erruser"
 )
 
 // Hunk is one diff block for review: a file path and the raw unified hunk
@@ -68,7 +70,7 @@ var defaultExcludePatterns = []string{
 // Context is used for cancellation when running git.
 func Hunks(ctx context.Context, repoRoot, baselineRef, headRef string, opts *Options) ([]Hunk, error) {
 	if repoRoot == "" {
-		return nil, fmt.Errorf("diff: repoRoot required")
+		return nil, erruser.New("Repository root is required.", nil)
 	}
 	if baselineRef == headRef {
 		return nil, nil
@@ -85,7 +87,7 @@ func Hunks(ctx context.Context, repoRoot, baselineRef, headRef string, opts *Opt
 
 	hunks, err := ParseUnifiedDiff(out)
 	if err != nil {
-		return nil, fmt.Errorf("parse diff: %w", err)
+		return nil, erruser.New("Could not parse diff output.", err)
 	}
 
 	filtered := filterByPatterns(hunks, patterns)
@@ -101,7 +103,7 @@ func runGitDiff(ctx context.Context, repoRoot, baseline, head string) (string, e
 	cmd.Env = minimalEnvForRepo(repoRoot)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("git diff %s..%s: %w: %s", baseline, head, err, strings.TrimSpace(string(out)))
+		return "", erruser.New("Could not compute diff between baseline and HEAD.", fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out))))
 	}
 	return string(out), nil
 }

@@ -132,8 +132,8 @@ func TestSystemPrompt_fileExistsButUnreadable_returnsError(t *testing.T) {
 	if err == nil {
 		t.Fatal("SystemPrompt should return error when path exists but is not a readable file")
 	}
-	if !strings.Contains(err.Error(), "read optimized prompt") {
-		t.Errorf("error should mention read optimized prompt; got %q", err.Error())
+	if !strings.Contains(err.Error(), "read") || !strings.Contains(err.Error(), "prompt") {
+		t.Errorf("error should mention read and prompt; got %q", err.Error())
 	}
 }
 

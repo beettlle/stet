@@ -5,9 +5,9 @@ package scope
 
 import (
 	"context"
-	"fmt"
 
 	"stet/cli/internal/diff"
+	"stet/cli/internal/erruser"
 	"stet/cli/internal/hunkid"
 )
 
@@ -27,7 +27,7 @@ type Result struct {
 func Partition(ctx context.Context, repoRoot, baselineRef, headRef, lastReviewedAt string, opts *diff.Options) (Result, error) {
 	current, err := diff.Hunks(ctx, repoRoot, baselineRef, headRef, opts)
 	if err != nil {
-		return Result{}, fmt.Errorf("diff baseline..head: %w", err)
+		return Result{}, erruser.New("Could not compute diff.", err)
 	}
 	if len(current) == 0 {
 		return Result{ToReview: nil, Approved: nil}, nil
@@ -38,7 +38,7 @@ func Partition(ctx context.Context, repoRoot, baselineRef, headRef, lastReviewed
 
 	reviewed, err := diff.Hunks(ctx, repoRoot, baselineRef, lastReviewedAt, opts)
 	if err != nil {
-		return Result{}, fmt.Errorf("diff baseline..last_reviewed_at: %w", err)
+		return Result{}, erruser.New("Could not compute diff.", err)
 	}
 
 	strictIDs := make(map[string]struct{}, len(reviewed))

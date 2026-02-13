@@ -174,8 +174,8 @@ func TestPartition_invalidLastReviewedAt(t *testing.T) {
 	if err == nil {
 		t.Fatal("Partition with invalid lastReviewedAt: expected error")
 	}
-	if !strings.Contains(err.Error(), "last_reviewed_at") {
-		t.Errorf("error = %v, want mention of last_reviewed_at", err)
+	if !strings.Contains(err.Error(), "diff") {
+		t.Errorf("error = %v, want mention of diff", err)
 	}
 }
 
@@ -207,9 +207,9 @@ func TestPartition_diffErrorPropagated(t *testing.T) {
 	if err == nil {
 		t.Fatal("Partition with empty repoRoot: expected error")
 	}
-	// diff.Hunks returns "diff: repoRoot required" or we wrap with "diff baseline..head"
-	if !strings.Contains(err.Error(), "repoRoot") && !strings.Contains(err.Error(), "baseline") {
-		t.Errorf("error = %v, want mention of repoRoot or baseline", err)
+	// scope wraps diff errors with user message "Could not compute diff."
+	if !strings.Contains(err.Error(), "diff") {
+		t.Errorf("error = %v, want mention of diff", err)
 	}
 }
 

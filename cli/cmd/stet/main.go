@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"stet/cli/internal/config"
+	"stet/cli/internal/erruser"
 	"stet/cli/internal/findings"
 	"stet/cli/internal/git"
 	"stet/cli/internal/history"
@@ -23,10 +24,10 @@ import (
 	"stet/cli/internal/session"
 
 	_ "stet/cli/internal/rag/go"     // register Go resolver for RAG symbol lookup
-	_ "stet/cli/internal/rag/python" // register Python resolver
 	_ "stet/cli/internal/rag/java"   // register Java resolver
-	_ "stet/cli/internal/rag/swift"  // register Swift resolver
 	_ "stet/cli/internal/rag/js"     // register JavaScript/TypeScript resolver
+	_ "stet/cli/internal/rag/python" // register Python resolver
+	_ "stet/cli/internal/rag/swift"  // register Swift resolver
 )
 
 // errExit is an error that carries an exit code for the CLI. Use errors.As to detect it.
@@ -46,7 +47,7 @@ var errHintOut io.Writer = os.Stderr
 func activeFindings(stateDir string) ([]findings.Finding, error) {
 	s, err := session.Load(stateDir)
 	if err != nil {
-		return nil, fmt.Errorf("load session: %w", err)
+		return nil, erruser.New("Could not load session.", err)
 	}
 	dismissed := make(map[string]struct{}, len(s.DismissedIDs))
 	for _, id := range s.DismissedIDs {
@@ -65,20 +66,20 @@ func activeFindings(stateDir string) ([]findings.Finding, error) {
 func writeFindingsJSON(w io.Writer, stateDir string) error {
 	active, err := activeFindings(stateDir)
 	if err != nil {
-		return fmt.Errorf("write findings: %w", err)
+		return err
 	}
 	payload := struct {
 		Findings []findings.Finding `json:"findings"`
 	}{Findings: active}
 	data, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("write findings: marshal: %w", err)
+		return erruser.New("Could not write findings.", err)
 	}
 	if _, err := w.Write(data); err != nil {
-		return fmt.Errorf("write findings: %w", err)
+		return erruser.New("Could not write findings.", err)
 	}
 	if _, err := w.Write([]byte("\n")); err != nil {
-		return fmt.Errorf("write findings: %w", err)
+		return erruser.New("Could not write findings.", err)
 	}
 	return nil
 }
@@ -87,7 +88,7 @@ func writeFindingsJSON(w io.Writer, stateDir string) error {
 func writeFindingsHuman(w io.Writer, stateDir string) error {
 	active, err := activeFindings(stateDir)
 	if err != nil {
-		return fmt.Errorf("write findings: %w", err)
+		return err
 	}
 	for _, f := range active {
 		line := f.Line
@@ -95,17 +96,17 @@ func writeFindingsHuman(w io.Writer, stateDir string) error {
 			line = f.Range.Start
 		}
 		if _, err := fmt.Fprintf(w, "%s:%d  %s  %s\n", f.File, line, f.Severity, f.Message); err != nil {
-			return fmt.Errorf("write findings: %w", err)
+			return erruser.New("Could not write findings.", err)
 		}
 	}
 	n := len(active)
 	if n != 1 {
 		if _, err := fmt.Fprintf(w, "%d finding(s).\n", n); err != nil {
-			return fmt.Errorf("write findings: %w", err)
+			return erruser.New("Could not write findings.", err)
 		}
 	} else {
 		if _, err := fmt.Fprintln(w, "1 finding."); err != nil {
-			return fmt.Errorf("write findings: %w", err)
+			return erruser.New("Could not write findings.", err)
 		}
 	}
 	return nil
@@ -116,7 +117,7 @@ func writeFindingsHuman(w io.Writer, stateDir string) error {
 func writeFindingsWithIDs(w io.Writer, stateDir string) error {
 	active, err := activeFindings(stateDir)
 	if err != nil {
-		return fmt.Errorf("write findings with IDs: %w", err)
+		return err
 	}
 	for _, f := range active {
 		line := f.Line
@@ -124,7 +125,7 @@ func writeFindingsWithIDs(w io.Writer, stateDir string) error {
 			line = f.Range.Start
 		}
 		if _, err := fmt.Fprintf(w, "%s  %s:%d  %s  %s\n", f.ID, f.File, line, f.Severity, f.Message); err != nil {
-			return fmt.Errorf("write findings with IDs: %w", err)
+			return erruser.New("Could not write findings.", err)
 		}
 	}
 	return nil
@@ -155,12 +156,16 @@ func runCLI(args []string) int {
 	rootCmd.AddCommand(newOptimizeCmd())
 	rootCmd.AddCommand(newDoctorCmd())
 	rootCmd.SilenceUsage = true
+	rootCmd.SilenceErrors = true
 	rootCmd.SetArgs(args)
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
 		var exitErr errExit
 		if errors.As(err, &exitErr) {
 			return int(exitErr)
+		}
+		fmt.Fprintln(os.Stderr, err)
+		if u := errors.Unwrap(err); u != nil {
+			fmt.Fprintf(os.Stderr, "Details: %v\n", u)
 		}
 		return 1
 	}
@@ -197,11 +202,11 @@ func runStart(cmd *cobra.Command, args []string) error {
 		output = "json"
 	}
 	if output != "human" && output != "json" {
-		return fmt.Errorf("start: invalid output %q; use human or json", output)
+		return errors.New("Invalid output format; use human or json.")
 	}
 	stream, _ := cmd.Flags().GetBool("stream")
 	if stream && output != "json" {
-		return fmt.Errorf("start: --stream requires --output=json or --json")
+		return errors.New("--stream requires --output=json or --json.")
 	}
 	verbose := !quiet
 	if stream || output == "json" {
@@ -210,31 +215,31 @@ func runStart(cmd *cobra.Command, args []string) error {
 	allowDirty, _ := cmd.Flags().GetBool("allow-dirty")
 	cwd, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("start: %w", err)
+		return erruser.New("Could not determine current directory.", err)
 	}
 	repoRoot, err := git.RepoRoot(cwd)
 	if err != nil {
-		return fmt.Errorf("start: not a git repository: %w", err)
+		return err
 	}
 	overrides := ragOverridesFromFlags(cmd)
 	cfg, err := config.Load(context.Background(), config.LoadOptions{RepoRoot: repoRoot, Overrides: overrides})
 	if err != nil {
-		return fmt.Errorf("start: load config: %w", err)
+		return err
 	}
 	stateDir := cfg.EffectiveStateDir(repoRoot)
 	opts := run.StartOptions{
-		RepoRoot:      repoRoot,
-		StateDir:      stateDir,
-		WorktreeRoot:  cfg.WorktreeRoot,
-		Ref:           ref,
-		DryRun:        dryRun,
-		AllowDirty:    allowDirty,
-		Model:         cfg.Model,
-		OllamaBaseURL: cfg.OllamaBaseURL,
-		ContextLimit:  cfg.ContextLimit,
-		WarnThreshold: cfg.WarnThreshold,
-		Timeout:       cfg.Timeout,
-		Temperature:   cfg.Temperature,
+		RepoRoot:                repoRoot,
+		StateDir:                stateDir,
+		WorktreeRoot:            cfg.WorktreeRoot,
+		Ref:                     ref,
+		DryRun:                  dryRun,
+		AllowDirty:              allowDirty,
+		Model:                   cfg.Model,
+		OllamaBaseURL:           cfg.OllamaBaseURL,
+		ContextLimit:            cfg.ContextLimit,
+		WarnThreshold:           cfg.WarnThreshold,
+		Timeout:                 cfg.Timeout,
+		Temperature:             cfg.Temperature,
 		NumCtx:                  cfg.NumCtx,
 		Verbose:                 verbose,
 		StreamOut:               nil,
@@ -273,11 +278,11 @@ func runStart(cmd *cobra.Command, args []string) error {
 	}
 	if output == "json" {
 		if err := writeFindingsJSON(findingsOut, stateDir); err != nil {
-			return fmt.Errorf("start: %w", err)
+			return err
 		}
 	} else {
 		if err := writeFindingsHuman(findingsOut, stateDir); err != nil {
-			return fmt.Errorf("start: %w", err)
+			return err
 		}
 	}
 	return nil
@@ -321,16 +326,16 @@ func ragOverridesFromFlags(cmd *cobra.Command) *config.Overrides {
 func runRun(cmd *cobra.Command, args []string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("run: %w", err)
+		return erruser.New("Could not determine current directory.", err)
 	}
 	repoRoot, err := git.RepoRoot(cwd)
 	if err != nil {
-		return fmt.Errorf("run: not a git repository: %w", err)
+		return err
 	}
 	overrides := ragOverridesFromFlags(cmd)
 	cfg, err := config.Load(cmd.Context(), config.LoadOptions{RepoRoot: repoRoot, Overrides: overrides})
 	if err != nil {
-		return fmt.Errorf("run: load config: %w", err)
+		return err
 	}
 	stateDir := cfg.EffectiveStateDir(repoRoot)
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
@@ -341,26 +346,26 @@ func runRun(cmd *cobra.Command, args []string) error {
 		output = "json"
 	}
 	if output != "human" && output != "json" {
-		return fmt.Errorf("run: invalid output %q; use human or json", output)
+		return errors.New("Invalid output format; use human or json.")
 	}
 	stream, _ := cmd.Flags().GetBool("stream")
 	if stream && output != "json" {
-		return fmt.Errorf("run: --stream requires --output=json or --json")
+		return errors.New("--stream requires --output=json or --json.")
 	}
 	verbose := !quiet
 	if stream || output == "json" {
 		verbose = false
 	}
 	opts := run.RunOptions{
-		RepoRoot:      repoRoot,
-		StateDir:      stateDir,
-		DryRun:        dryRun,
-		Model:         cfg.Model,
-		OllamaBaseURL: cfg.OllamaBaseURL,
-		ContextLimit:  cfg.ContextLimit,
-		WarnThreshold: cfg.WarnThreshold,
-		Timeout:       cfg.Timeout,
-		Temperature:   cfg.Temperature,
+		RepoRoot:                repoRoot,
+		StateDir:                stateDir,
+		DryRun:                  dryRun,
+		Model:                   cfg.Model,
+		OllamaBaseURL:           cfg.OllamaBaseURL,
+		ContextLimit:            cfg.ContextLimit,
+		WarnThreshold:           cfg.WarnThreshold,
+		Timeout:                 cfg.Timeout,
+		Temperature:             cfg.Temperature,
 		NumCtx:                  cfg.NumCtx,
 		Verbose:                 verbose,
 		StreamOut:               nil,
@@ -388,11 +393,11 @@ func runRun(cmd *cobra.Command, args []string) error {
 	}
 	if output == "json" {
 		if err := writeFindingsJSON(findingsOut, stateDir); err != nil {
-			return fmt.Errorf("run: %w", err)
+			return err
 		}
 	} else {
 		if err := writeFindingsHuman(findingsOut, stateDir); err != nil {
-			return fmt.Errorf("run: %w", err)
+			return err
 		}
 	}
 	return nil
@@ -410,15 +415,15 @@ func newFinishCmd() *cobra.Command {
 func runFinish(cmd *cobra.Command, args []string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("finish: %w", err)
+		return erruser.New("Could not determine current directory.", err)
 	}
 	repoRoot, err := git.RepoRoot(cwd)
 	if err != nil {
-		return fmt.Errorf("finish: not a git repository: %w", err)
+		return err
 	}
 	cfg, err := config.Load(context.Background(), config.LoadOptions{RepoRoot: repoRoot})
 	if err != nil {
-		return fmt.Errorf("finish: load config: %w", err)
+		return err
 	}
 	stateDir := cfg.EffectiveStateDir(repoRoot)
 	opts := run.FinishOptions{
@@ -448,16 +453,27 @@ func newCleanupCmd() *cobra.Command {
 func runCleanup(cmd *cobra.Command, args []string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("cleanup: %w", err)
+		e := erruser.New("Could not determine current directory.", err)
+		fmt.Fprintln(os.Stderr, e)
+		if u := errors.Unwrap(e); u != nil {
+			fmt.Fprintf(os.Stderr, "Details: %v\n", u)
+		}
+		return errExit(1)
 	}
 	repoRoot, err := git.RepoRoot(cwd)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
+		if u := errors.Unwrap(err); u != nil {
+			fmt.Fprintf(os.Stderr, "Details: %v\n", u)
+		}
 		return errExit(1)
 	}
 	cfg, err := config.Load(context.Background(), config.LoadOptions{RepoRoot: repoRoot})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
+		if u := errors.Unwrap(err); u != nil {
+			fmt.Fprintf(os.Stderr, "Details: %v\n", u)
+		}
 		return errExit(1)
 	}
 	stateDir := cfg.EffectiveStateDir(repoRoot)
@@ -467,7 +483,7 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 	}
 	worktreeRoot, err = filepath.Abs(worktreeRoot)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
+		fmt.Fprintln(os.Stderr, erruser.New("Could not resolve worktrees path.", err))
 		return errExit(1)
 	}
 
@@ -475,17 +491,23 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 	s, err := session.Load(stateDir)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
+		if u := errors.Unwrap(err); u != nil {
+			fmt.Fprintf(os.Stderr, "Details: %v\n", u)
+		}
 		return errExit(1)
 	}
 	if s.BaselineRef != "" {
 		currentPath, err = git.PathForRef(repoRoot, cfg.WorktreeRoot, s.BaselineRef)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err.Error())
+			if u := errors.Unwrap(err); u != nil {
+				fmt.Fprintf(os.Stderr, "Details: %v\n", u)
+			}
 			return errExit(1)
 		}
 		currentPath, err = filepath.Abs(currentPath)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err.Error())
+			fmt.Fprintln(os.Stderr, erruser.New("Could not resolve worktree path.", err))
 			return errExit(1)
 		}
 	}
@@ -493,6 +515,9 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 	list, err := git.List(repoRoot)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
+		if u := errors.Unwrap(err); u != nil {
+			fmt.Fprintf(os.Stderr, "Details: %v\n", u)
+		}
 		return errExit(1)
 	}
 
@@ -508,7 +533,10 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 			continue
 		}
 		if err := git.Remove(repoRoot, wtPath); err != nil {
-			fmt.Fprintf(os.Stderr, "cleanup: remove worktree %s: %v\n", wtPath, err)
+			fmt.Fprintln(os.Stderr, err.Error())
+			if u := errors.Unwrap(err); u != nil {
+				fmt.Fprintf(os.Stderr, "Details: %v\n", u)
+			}
 			return errExit(1)
 		}
 		fmt.Fprintf(os.Stderr, "Removed worktree: %s\n", wtPath)
@@ -533,20 +561,20 @@ func newStatusCmd() *cobra.Command {
 func runStatus(cmd *cobra.Command, args []string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("status: %w", err)
+		return erruser.New("Could not determine current directory.", err)
 	}
 	repoRoot, err := git.RepoRoot(cwd)
 	if err != nil {
-		return fmt.Errorf("status: not a git repository: %w", err)
+		return err
 	}
 	cfg, err := config.Load(context.Background(), config.LoadOptions{RepoRoot: repoRoot})
 	if err != nil {
-		return fmt.Errorf("status: load config: %w", err)
+		return err
 	}
 	stateDir := cfg.EffectiveStateDir(repoRoot)
 	s, err := session.Load(stateDir)
 	if err != nil {
-		return fmt.Errorf("status: load session: %w", err)
+		return err
 	}
 	if s.BaselineRef == "" {
 		fmt.Fprintln(os.Stderr, "No active session. Run 'stet start' to begin a review.")
@@ -554,7 +582,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	}
 	worktreePath, err := git.PathForRef(repoRoot, cfg.WorktreeRoot, s.BaselineRef)
 	if err != nil {
-		return fmt.Errorf("status: worktree path: %w", err)
+		return err
 	}
 	fmt.Fprintf(os.Stdout, "baseline: %s\n", s.BaselineRef)
 	fmt.Fprintf(os.Stdout, "last_reviewed_at: %s\n", s.LastReviewedAt)
@@ -565,12 +593,12 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	if showIDs {
 		active, err := activeFindings(stateDir)
 		if err != nil {
-			return fmt.Errorf("status: %w", err)
+			return err
 		}
 		if len(active) > 0 {
 			fmt.Fprintln(os.Stdout, "---")
 			if err := writeFindingsWithIDs(os.Stdout, stateDir); err != nil {
-				return fmt.Errorf("status: %w", err)
+				return err
 			}
 		}
 	}
@@ -589,20 +617,20 @@ func newListCmd() *cobra.Command {
 func runList(cmd *cobra.Command, args []string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("list: %w", err)
+		return erruser.New("Could not determine current directory.", err)
 	}
 	repoRoot, err := git.RepoRoot(cwd)
 	if err != nil {
-		return fmt.Errorf("list: not a git repository: %w", err)
+		return err
 	}
 	cfg, err := config.Load(context.Background(), config.LoadOptions{RepoRoot: repoRoot})
 	if err != nil {
-		return fmt.Errorf("list: load config: %w", err)
+		return err
 	}
 	stateDir := cfg.EffectiveStateDir(repoRoot)
 	s, err := session.Load(stateDir)
 	if err != nil {
-		return fmt.Errorf("list: load session: %w", err)
+		return err
 	}
 	if s.BaselineRef == "" {
 		fmt.Fprintln(os.Stderr, "No active session. Run 'stet start' to begin a review.")
@@ -635,25 +663,25 @@ func runDismiss(cmd *cobra.Command, args []string) error {
 	if len(args) >= 2 {
 		reason = strings.TrimSpace(strings.ToLower(args[1]))
 		if reason != "" && !history.ValidReason(reason) {
-			return fmt.Errorf("dismiss: invalid reason %q; must be one of: false_positive, already_correct, wrong_suggestion, out_of_scope", reason)
+			return errors.New("Invalid reason; use one of: false_positive, already_correct, wrong_suggestion, out_of_scope.")
 		}
 	}
 	cwd, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("dismiss: %w", err)
+		return erruser.New("Could not determine current directory.", err)
 	}
 	repoRoot, err := git.RepoRoot(cwd)
 	if err != nil {
-		return fmt.Errorf("dismiss: not a git repository: %w", err)
+		return err
 	}
 	cfg, err := config.Load(context.Background(), config.LoadOptions{RepoRoot: repoRoot})
 	if err != nil {
-		return fmt.Errorf("dismiss: load config: %w", err)
+		return err
 	}
 	stateDir := cfg.EffectiveStateDir(repoRoot)
 	s, err := session.Load(stateDir)
 	if err != nil {
-		return fmt.Errorf("dismiss: load session: %w", err)
+		return err
 	}
 	if s.BaselineRef == "" {
 		fmt.Fprintln(os.Stderr, run.ErrNoSession.Error())
@@ -675,7 +703,7 @@ func runDismiss(cmd *cobra.Command, args []string) error {
 			s.PromptShadows = append(s.PromptShadows, session.PromptShadow{FindingID: id, PromptContext: ctx})
 		}
 		if err := session.Save(stateDir, &s); err != nil {
-			return fmt.Errorf("dismiss: save session: %w", err)
+			return err
 		}
 	}
 	diffRef := s.LastReviewedAt
@@ -692,7 +720,7 @@ func runDismiss(cmd *cobra.Command, args []string) error {
 		UserAction:   ua,
 	}
 	if err := history.Append(stateDir, rec, history.DefaultMaxRecords); err != nil {
-		return fmt.Errorf("dismiss: append history: %w", err)
+		return err
 	}
 	return nil
 }
@@ -709,15 +737,15 @@ func newOptimizeCmd() *cobra.Command {
 func runOptimize(cmd *cobra.Command, args []string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("optimize: %w", err)
+		return erruser.New("Could not determine current directory.", err)
 	}
 	repoRoot, err := git.RepoRoot(cwd)
 	if err != nil {
-		return fmt.Errorf("optimize: not a git repository: %w", err)
+		return err
 	}
 	cfg, err := config.Load(context.Background(), config.LoadOptions{RepoRoot: repoRoot})
 	if err != nil {
-		return fmt.Errorf("optimize: load config: %w", err)
+		return err
 	}
 	if cfg.OptimizerScript == "" {
 		fmt.Fprintln(os.Stderr, "Optimizer not configured. Set STET_OPTIMIZER_SCRIPT or optimizer_script in config. See docs.")
@@ -763,7 +791,7 @@ func newDoctorCmd() *cobra.Command {
 func runDoctor(cmd *cobra.Command, args []string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("doctor: %w", err)
+		return erruser.New("Could not determine current directory.", err)
 	}
 	repoRoot := ""
 	if r, e := git.RepoRoot(cwd); e == nil {
@@ -771,7 +799,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	}
 	cfg, err := config.Load(cmd.Context(), config.LoadOptions{RepoRoot: repoRoot})
 	if err != nil {
-		return fmt.Errorf("doctor: load config: %w", err)
+		return err
 	}
 	client := ollama.NewClient(cfg.OllamaBaseURL, nil)
 	result, err := client.Check(cmd.Context(), cfg.Model)

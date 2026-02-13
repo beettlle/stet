@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"stet/cli/internal/diff"
+	"stet/cli/internal/erruser"
 	"stet/cli/internal/expand"
 	"stet/cli/internal/findings"
 	"stet/cli/internal/git"
@@ -230,7 +231,7 @@ type RunOptions struct {
 // errors.Is for session.ErrLocked, git.ErrWorktreeExists, git.ErrBaselineNotAncestor, ollama.ErrUnreachable.
 func Start(ctx context.Context, opts StartOptions) (err error) {
 	if opts.RepoRoot == "" || opts.StateDir == "" {
-		return fmt.Errorf("run Start: RepoRoot and StateDir required")
+		return erruser.New("Start failed: repository root and state directory are required.", nil)
 	}
 	ref := opts.Ref
 	if ref == "" {
@@ -245,7 +246,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 
 	clean, err := git.IsClean(opts.RepoRoot)
 	if err != nil {
-		return fmt.Errorf("start: check worktree: %w", err)
+		return err
 	}
 	if !clean {
 		if opts.AllowDirty {
@@ -257,18 +258,18 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 
 	release, err := session.AcquireLock(opts.StateDir)
 	if err != nil {
-		return fmt.Errorf("start: %w", err)
+		return err
 	}
 	defer release()
 
 	sha, err := git.RevParse(opts.RepoRoot, ref)
 	if err != nil {
-		return fmt.Errorf("start: resolve ref %q: %w", ref, err)
+		return erruser.New("Could not resolve baseline ref.", err)
 	}
 
 	headSHA, err := git.RevParse(opts.RepoRoot, "HEAD")
 	if err != nil {
-		return fmt.Errorf("start: resolve HEAD: %w", err)
+		return erruser.New("Could not resolve current commit (HEAD).", err)
 	}
 
 	// When baseline equals HEAD, there is nothing to review; skip worktree and Ollama.
@@ -280,7 +281,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 			DismissedIDs:   nil,
 		}
 		if err := session.Save(opts.StateDir, &s); err != nil {
-			return fmt.Errorf("start: save session: %w", err)
+			return err
 		}
 		if opts.Verbose {
 			fmt.Fprintln(os.Stderr, "Nothing to review (baseline is HEAD).")
@@ -298,13 +299,13 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		}
 		ollamaClient = ollama.NewClient(opts.OllamaBaseURL, &http.Client{Timeout: timeout})
 		if _, err := ollamaClient.Check(ctx, opts.Model); err != nil {
-			return fmt.Errorf("start: %w", err)
+			return err
 		}
 	}
 
 	worktreePath, err := git.Create(opts.RepoRoot, opts.WorktreeRoot, ref)
 	if err != nil {
-		return fmt.Errorf("start: %w", err)
+		return err
 	}
 	if opts.Verbose {
 		fmt.Fprintf(os.Stderr, "Worktree created at %s\n", worktreePath)
@@ -325,12 +326,12 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		DismissedIDs:   nil,
 	}
 	if err := session.Save(opts.StateDir, &s); err != nil {
-		return fmt.Errorf("start: save session: %w", err)
+		return err
 	}
 
 	part, err := scope.Partition(ctx, opts.RepoRoot, sha, headSHA, "", nil)
 	if err != nil {
-		return fmt.Errorf("start: partition: %w", err)
+		return erruser.New("Could not compute hunks to review.", err)
 	}
 	if opts.Verbose {
 		approvedN := 0
@@ -350,7 +351,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		}
 		s.LastReviewedAt = headSHA
 		if err := session.Save(opts.StateDir, &s); err != nil {
-			return fmt.Errorf("start: save session: %w", err)
+			return err
 		}
 		return nil
 	}
@@ -392,7 +393,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		if opts.ContextLimit > 0 && opts.WarnThreshold > 0 {
 			systemPrompt, err := prompt.SystemPrompt(opts.StateDir)
 			if err != nil {
-				return fmt.Errorf("start: system prompt: %w", err)
+				return err
 			}
 			systemPrompt = prompt.InjectUserIntent(systemPrompt, branch, commitMsg)
 			maxPromptTokens := 0
@@ -418,7 +419,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 			}
 			list, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, opts.ContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, runPromptShadows(&s))
 			if err != nil {
-				return fmt.Errorf("start: review hunk %s: %w", hunk.FilePath, err)
+				return erruser.New("Review failed for "+hunk.FilePath+".", err)
 			}
 			batch := findings.FilterAbstention(list)
 			batch = findings.FilterFPKillList(batch)
@@ -475,7 +476,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 				},
 			}
 			if err := history.Append(opts.StateDir, rec, history.DefaultMaxRecords); err != nil {
-				return fmt.Errorf("start: append history: %w", err)
+				return erruser.New("Could not record review history.", err)
 			}
 		}
 	}
@@ -483,7 +484,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 	s.FindingPromptContext = findingPromptContext
 	s.LastReviewedAt = headSHA
 	if err := session.Save(opts.StateDir, &s); err != nil {
-		return fmt.Errorf("start: save session: %w", err)
+		return err
 	}
 	return nil
 }
@@ -493,12 +494,12 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 // Finish succeeds without error.
 func Finish(ctx context.Context, opts FinishOptions) error {
 	if opts.RepoRoot == "" || opts.StateDir == "" {
-		return fmt.Errorf("run Finish: RepoRoot and StateDir required")
+		return erruser.New("Finish failed: repository root and state directory are required.", nil)
 	}
 
 	s, err := session.Load(opts.StateDir)
 	if err != nil {
-		return fmt.Errorf("finish: load session: %w", err)
+		return err
 	}
 	if s.BaselineRef == "" {
 		return ErrNoSession
@@ -506,30 +507,30 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 
 	release, err := session.AcquireLock(opts.StateDir)
 	if err != nil {
-		return fmt.Errorf("finish: %w", err)
+		return err
 	}
 	defer release()
 
 	path, err := git.PathForRef(opts.RepoRoot, opts.WorktreeRoot, s.BaselineRef)
 	if err != nil {
-		return fmt.Errorf("finish: worktree path: %w", err)
+		return erruser.New("Could not determine worktree path.", err)
 	}
 
 	if _, err := os.Stat(path); err == nil {
 		if err := git.Remove(opts.RepoRoot, path); err != nil {
-			return fmt.Errorf("finish: remove worktree: %w", err)
+			return erruser.New("Could not remove review worktree.", err)
 		}
 	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("finish: stat worktree: %w", err)
+		return erruser.New("Could not access worktree directory.", err)
 	}
 
 	headSHA, err := git.RevParse(opts.RepoRoot, "HEAD")
 	if err != nil {
-		return fmt.Errorf("finish: resolve HEAD: %w", err)
+		return erruser.New("Could not resolve current commit (HEAD).", err)
 	}
 	baselineSHA, err := git.RevParse(opts.RepoRoot, s.BaselineRef)
 	if err != nil {
-		return fmt.Errorf("finish: resolve baseline: %w", err)
+		return erruser.New("Could not resolve baseline commit.", err)
 	}
 	sessionID := s.SessionID
 	if sessionID == "" {
@@ -548,9 +549,9 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 				FinishedAt:   time.Now().UTC().Format(time.RFC3339),
 			},
 		}
-		if err := history.Append(opts.StateDir, rec, history.DefaultMaxRecords); err != nil {
-			return fmt.Errorf("finish: append history: %w", err)
-		}
+			if err := history.Append(opts.StateDir, rec, history.DefaultMaxRecords); err != nil {
+				return erruser.New("Could not record review history.", err)
+			}
 	}
 	notePayload := struct {
 		SessionID       string `json:"session_id"`
@@ -571,10 +572,10 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 	}
 	noteJSON, err := json.Marshal(notePayload)
 	if err != nil {
-		return fmt.Errorf("finish: marshal note: %w", err)
+		return erruser.New("Could not write Git note for this review.", err)
 	}
 	if err := git.AddNote(opts.RepoRoot, git.NotesRefStet, headSHA, string(noteJSON)); err != nil {
-		return fmt.Errorf("finish: write git note: %w", err)
+		return erruser.New("Could not write Git note for this review.", err)
 	}
 	return nil
 }
@@ -586,7 +587,7 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 // session. On Ollama unreachable, returns an error that wraps ollama.ErrUnreachable.
 func Run(ctx context.Context, opts RunOptions) error {
 	if opts.RepoRoot == "" || opts.StateDir == "" {
-		return fmt.Errorf("run Run: RepoRoot and StateDir required")
+		return erruser.New("Run failed: repository root and state directory are required.", nil)
 	}
 	if opts.RAGSymbolMaxDefinitions < 0 {
 		opts.RAGSymbolMaxDefinitions = 0
@@ -597,7 +598,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 
 	s, err := session.Load(opts.StateDir)
 	if err != nil {
-		return fmt.Errorf("run: load session: %w", err)
+		return err
 	}
 	if s.BaselineRef == "" {
 		return ErrNoSession
@@ -605,12 +606,12 @@ func Run(ctx context.Context, opts RunOptions) error {
 
 	headSHA, err := git.RevParse(opts.RepoRoot, "HEAD")
 	if err != nil {
-		return fmt.Errorf("run: resolve HEAD: %w", err)
+		return erruser.New("Could not resolve current commit (HEAD).", err)
 	}
 
 	part, err := scope.Partition(ctx, opts.RepoRoot, s.BaselineRef, headSHA, s.LastReviewedAt, nil)
 	if err != nil {
-		return fmt.Errorf("run: partition: %w", err)
+		return erruser.New("Could not compute hunks to review.", err)
 	}
 	if opts.Verbose {
 		fmt.Fprintf(os.Stderr, "%d hunks to review\n", len(part.ToReview))
@@ -665,7 +666,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 		client := ollama.NewClient(opts.OllamaBaseURL, &http.Client{Timeout: timeout})
 		// Upfront Ollama check so wrong URL fails before review loop (Phase 3 remediation).
 		if _, err := client.Check(ctx, opts.Model); err != nil {
-			return fmt.Errorf("run: %w", err)
+			return err
 		}
 		branch, commitMsg, intentErr := git.UserIntent(opts.RepoRoot)
 		if intentErr != nil {
@@ -676,7 +677,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 		if opts.ContextLimit > 0 && opts.WarnThreshold > 0 {
 			systemPrompt, err := prompt.SystemPrompt(opts.StateDir)
 			if err != nil {
-				return fmt.Errorf("run: system prompt: %w", err)
+				return err
 			}
 			systemPrompt = prompt.InjectUserIntent(systemPrompt, branch, commitMsg)
 			maxPromptTokens := 0
@@ -702,7 +703,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 			}
 			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, opts.ContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, runPromptShadows(&s))
 			if err != nil {
-				return fmt.Errorf("run: review hunk %s: %w", hunk.FilePath, err)
+				return erruser.New("Review failed for "+hunk.FilePath+".", err)
 			}
 			batch := findings.FilterAbstention(list)
 			batch = findings.FilterFPKillList(batch)
@@ -758,13 +759,13 @@ func Run(ctx context.Context, opts RunOptions) error {
 			},
 		}
 		if err := history.Append(opts.StateDir, rec, history.DefaultMaxRecords); err != nil {
-			return fmt.Errorf("run: append history: %w", err)
+			return erruser.New("Could not record review history.", err)
 		}
 	}
 	s.Findings = append(s.Findings, newFindings...)
 	s.LastReviewedAt = headSHA
 	if err := session.Save(opts.StateDir, &s); err != nil {
-		return fmt.Errorf("run: save session: %w", err)
+		return err
 	}
 	return nil
 }

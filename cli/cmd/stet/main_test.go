@@ -124,6 +124,48 @@ func TestRunCLI_startFromNonGitReturnsNonZero(t *testing.T) {
 	}
 }
 
+func TestRunCLI_startFromNonGitStderrHumanReadable(t *testing.T) {
+	// Phase 7: user-facing error must not contain raw command names or exit codes.
+	dir := t.TempDir()
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = os.Chdir(orig)
+	}()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStderr := os.Stderr
+	os.Stderr = w
+	t.Cleanup(func() { os.Stderr = oldStderr })
+	_ = runCLI([]string{"start"})
+	_ = w.Close()
+	var stderr bytes.Buffer
+	_, _ = io.Copy(&stderr, r)
+	out := stderr.String()
+	// Primary user-facing lines must not contain technical jargon; "Details:" line may.
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "Details:") {
+			continue
+		}
+		if strings.Contains(line, "exit status") {
+			t.Errorf("primary stderr line must not contain 'exit status'; got %q", out)
+		}
+		if strings.Contains(line, "rev-parse") {
+			t.Errorf("primary stderr line must not contain 'rev-parse'; got %q", out)
+		}
+	}
+	if !strings.Contains(out, "not inside a Git repository") && !strings.Contains(out, "Git repository") {
+		t.Errorf("stderr should contain human message about Git repository; got %q", out)
+	}
+}
+
 func TestRunCLI_noArgs(t *testing.T) {
 	t.Parallel()
 	// No subcommand: Cobra may return 0 (show usage) or 1 depending on version.
@@ -685,8 +727,13 @@ func TestRunCLI_statusNoSessionExitsNonZero(t *testing.T) {
 	if got != 1 {
 		t.Errorf("runCLI(status) with no session = %d, want 1", got)
 	}
-	if !strings.Contains(stderr.String(), "No active session") {
-		t.Errorf("stderr should contain 'No active session'; got %q", stderr.String())
+	out := stderr.String()
+	if !strings.Contains(out, "No active session") {
+		t.Errorf("stderr should contain 'No active session'; got %q", out)
+	}
+	// Phase 7: errExit must not be printed as primary message (no "exit 1" on stderr).
+	if strings.Contains(out, "exit 1") {
+		t.Errorf("stderr must not contain 'exit 1'; got %q", out)
 	}
 }
 

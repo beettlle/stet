@@ -2,10 +2,11 @@
 package git
 
 import (
-	"fmt"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"stet/cli/internal/erruser"
 )
 
 // RepoRoot returns the absolute path of the git repository root containing dir.
@@ -17,7 +18,7 @@ func RepoRoot(dir string) (string, error) {
 	cmd.Env = minimalEnv()
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("git rev-parse --show-toplevel: %w", err)
+		return "", erruser.New("This directory is not inside a Git repository.", err)
 	}
 	root := strings.TrimSpace(string(out))
 	return filepath.Abs(root)
@@ -32,7 +33,7 @@ func IsClean(repoRoot string) (bool, error) {
 	cmd.Env = minimalEnv()
 	out, err := cmd.Output()
 	if err != nil {
-		return false, fmt.Errorf("git status --porcelain: %w", err)
+		return false, erruser.New("Could not check working tree status.", err)
 	}
 	return len(strings.TrimSpace(string(out))) == 0, nil
 }
@@ -45,7 +46,7 @@ func RevParse(repoRoot, ref string) (string, error) {
 	cmd.Env = minimalEnv()
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("git rev-parse %q: %w", ref, err)
+		return "", erruser.New("Invalid ref or commit.", err)
 	}
 	return strings.TrimSpace(string(out)), nil
 }
@@ -59,7 +60,7 @@ func UserIntent(repoRoot string) (branch, commitMsg string, err error) {
 	cmd.Env = minimalEnv()
 	out, err := cmd.Output()
 	if err != nil {
-		return "", "", fmt.Errorf("git rev-parse --abbrev-ref HEAD: %w", err)
+		return "", "", erruser.New("Could not read branch or commit message.", err)
 	}
 	branch = strings.TrimSpace(string(out))
 
@@ -68,7 +69,7 @@ func UserIntent(repoRoot string) (branch, commitMsg string, err error) {
 	cmd.Env = minimalEnv()
 	out, err = cmd.Output()
 	if err != nil {
-		return "", "", fmt.Errorf("git log -1 --format=%%B HEAD: %w", err)
+		return "", "", erruser.New("Could not read branch or commit message.", err)
 	}
 	commitMsg = strings.TrimSpace(string(out))
 

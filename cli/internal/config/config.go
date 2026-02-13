@@ -25,6 +25,8 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+
+	"stet/cli/internal/erruser"
 )
 
 // Config holds all Stet configuration. Empty string or zero values for
@@ -137,7 +139,7 @@ func Load(ctx context.Context, opts LoadOptions) (*Config, error) {
 	if globalPath == "" {
 		dir, err := os.UserConfigDir()
 		if err != nil {
-			return nil, fmt.Errorf("global config path: %w", err)
+			return nil, erruser.New("Could not determine config directory.", err)
 		}
 		globalPath = filepath.Join(dir, "stet", "config.toml")
 	}
@@ -168,11 +170,11 @@ func mergeFile(cfg *Config, path string) error {
 		if os.IsNotExist(err) {
 			return nil
 		}
-		return fmt.Errorf("config file %s: %w", path, err)
+		return erruser.New("Invalid configuration file.", err)
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("read config %s: %w", path, err)
+		return erruser.New("Could not read configuration file.", err)
 	}
 	var file struct {
 		Model            *string  `toml:"model"`
@@ -189,7 +191,7 @@ func mergeFile(cfg *Config, path string) error {
 		RAGSymbolMaxTokens      *int64  `toml:"rag_symbol_max_tokens"`
 	}
 	if _, err := toml.Decode(string(data), &file); err != nil {
-		return fmt.Errorf("parse config %s: %w", path, err)
+		return erruser.New("Invalid configuration in .review/config.toml.", err)
 	}
 	if file.Model != nil && *file.Model != "" {
 		cfg.Model = *file.Model
@@ -200,7 +202,7 @@ func mergeFile(cfg *Config, path string) error {
 	if file.ContextLimit != nil && *file.ContextLimit > 0 {
 		v, err := int64ToInt(*file.ContextLimit)
 		if err != nil {
-			return fmt.Errorf("config %s context_limit value out of range: %w", path, err)
+			return erruser.New("Configuration context_limit value out of range.", err)
 		}
 		cfg.ContextLimit = v
 	}
@@ -210,7 +212,7 @@ func mergeFile(cfg *Config, path string) error {
 	if file.Timeout != nil && *file.Timeout != "" {
 		d, err := parseDuration(*file.Timeout)
 		if err != nil {
-			return fmt.Errorf("config %s timeout: %w", path, err)
+			return erruser.New("Configuration timeout is invalid.", err)
 		}
 		cfg.Timeout = d
 	}
@@ -226,7 +228,7 @@ func mergeFile(cfg *Config, path string) error {
 	if file.NumCtx != nil && *file.NumCtx > 0 {
 		v, err := int64ToInt(*file.NumCtx)
 		if err != nil {
-			return fmt.Errorf("config %s num_ctx value out of range: %w", path, err)
+			return erruser.New("Configuration num_ctx value out of range.", err)
 		}
 		cfg.NumCtx = v
 	} else if file.NumCtx != nil && *file.NumCtx == 0 {
@@ -238,14 +240,14 @@ func mergeFile(cfg *Config, path string) error {
 	if file.RAGSymbolMaxDefinitions != nil && *file.RAGSymbolMaxDefinitions >= 0 {
 		v, err := int64ToInt(*file.RAGSymbolMaxDefinitions)
 		if err != nil {
-			return fmt.Errorf("config %s rag_symbol_max_definitions value out of range: %w", path, err)
+			return erruser.New("Configuration rag_symbol_max_definitions value out of range.", err)
 		}
 		cfg.RAGSymbolMaxDefinitions = v
 	}
 	if file.RAGSymbolMaxTokens != nil && *file.RAGSymbolMaxTokens >= 0 {
 		v, err := int64ToInt(*file.RAGSymbolMaxTokens)
 		if err != nil {
-			return fmt.Errorf("config %s rag_symbol_max_tokens value out of range: %w", path, err)
+			return erruser.New("Configuration rag_symbol_max_tokens value out of range.", err)
 		}
 		cfg.RAGSymbolMaxTokens = v
 	}
@@ -306,24 +308,24 @@ func applyEnv(cfg *Config, env []string) error {
 	if v, ok := vals[envContextLimit]; ok && v != "" {
 		n, err := strconv.ParseInt(v, 10, 64)
 		if err != nil {
-			return fmt.Errorf("%s: invalid integer %q: %w", envContextLimit, v, err)
+			return erruser.New("STET_CONTEXT_LIMIT must be a valid number.", err)
 		}
 		cfg.ContextLimit, err = int64ToInt(n)
 		if err != nil {
-			return fmt.Errorf("%s: value out of range for int: %w", envContextLimit, err)
+			return erruser.New("STET_CONTEXT_LIMIT value out of range.", err)
 		}
 	}
 	if v, ok := vals[envWarnThreshold]; ok && v != "" {
 		f, err := strconv.ParseFloat(v, 64)
 		if err != nil {
-			return fmt.Errorf("%s: invalid float %q: %w", envWarnThreshold, v, err)
+			return erruser.New("STET_WARN_THRESHOLD must be a valid number.", err)
 		}
 		cfg.WarnThreshold = f
 	}
 	if v, ok := vals[envTimeout]; ok && v != "" {
 		d, err := parseDuration(v)
 		if err != nil {
-			return fmt.Errorf("%s: %w", envTimeout, err)
+			return erruser.New("STET_TIMEOUT must be a valid duration.", err)
 		}
 		cfg.Timeout = d
 	}
@@ -336,27 +338,27 @@ func applyEnv(cfg *Config, env []string) error {
 	if v, ok := vals[envTemperature]; ok && v != "" {
 		f, err := strconv.ParseFloat(v, 64)
 		if err != nil {
-			return fmt.Errorf("%s: invalid float %q: %w", envTemperature, v, err)
+			return erruser.New("STET_TEMPERATURE must be a valid number.", err)
 		}
 		if f < 0 || f > 2 {
-			return fmt.Errorf("%s: temperature must be in [0, 2], got %g", envTemperature, f)
+			return erruser.New("STET_TEMPERATURE must be between 0 and 2.", nil)
 		}
 		cfg.Temperature = f
 	}
 	if v, ok := vals[envNumCtx]; ok && v != "" {
 		n, err := strconv.ParseInt(v, 10, 64)
 		if err != nil {
-			return fmt.Errorf("%s: invalid integer %q: %w", envNumCtx, v, err)
+			return erruser.New("STET_NUM_CTX must be a valid number.", err)
 		}
 		if n < 0 {
-			return fmt.Errorf("%s: num_ctx must be non-negative, got %d", envNumCtx, n)
+			return erruser.New("STET_NUM_CTX must be non-negative.", nil)
 		}
 		if n == 0 {
 			cfg.NumCtx = _defaultNumCtx
 		} else {
 			cfg.NumCtx, err = int64ToInt(n)
 			if err != nil {
-				return fmt.Errorf("%s: value out of range for int: %w", envNumCtx, err)
+				return erruser.New("STET_NUM_CTX value out of range.", err)
 			}
 		}
 	}
@@ -366,24 +368,24 @@ func applyEnv(cfg *Config, env []string) error {
 	if v, ok := vals[envRAGSymbolMaxDefinitions]; ok && v != "" {
 		n, err := strconv.ParseInt(v, 10, 64)
 		if err != nil {
-			return fmt.Errorf("%s: invalid integer %q: %w", envRAGSymbolMaxDefinitions, v, err)
+			return erruser.New("STET_RAG_SYMBOL_MAX_DEFINITIONS must be a valid number.", err)
 		}
 		if n >= 0 {
 			cfg.RAGSymbolMaxDefinitions, err = int64ToInt(n)
 			if err != nil {
-				return fmt.Errorf("%s: value out of range for int: %w", envRAGSymbolMaxDefinitions, err)
+				return erruser.New("STET_RAG_SYMBOL_MAX_DEFINITIONS value out of range.", err)
 			}
 		}
 	}
 	if v, ok := vals[envRAGSymbolMaxTokens]; ok && v != "" {
 		n, err := strconv.ParseInt(v, 10, 64)
 		if err != nil {
-			return fmt.Errorf("%s: invalid integer %q: %w", envRAGSymbolMaxTokens, v, err)
+			return erruser.New("STET_RAG_SYMBOL_MAX_TOKENS must be a valid number.", err)
 		}
 		if n >= 0 {
 			cfg.RAGSymbolMaxTokens, err = int64ToInt(n)
 			if err != nil {
-				return fmt.Errorf("%s: value out of range for int: %w", envRAGSymbolMaxTokens, err)
+				return erruser.New("STET_RAG_SYMBOL_MAX_TOKENS value out of range.", err)
 			}
 		}
 	}

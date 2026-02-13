@@ -103,7 +103,7 @@ func TestHunks_emptyRepoRoot(t *testing.T) {
 	if err == nil {
 		t.Fatal("Hunks with empty repoRoot: expected error")
 	}
-	if !strings.Contains(err.Error(), "repoRoot required") {
+	if !strings.Contains(err.Error(), "Repository root") && !strings.Contains(err.Error(), "required") {
 		t.Errorf("Hunks error = %v", err)
 	}
 }

@@ -3,13 +3,13 @@
 package prompt
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"stet/cli/internal/diff"
+	"stet/cli/internal/erruser"
 	"stet/cli/internal/rag"
 	"stet/cli/internal/rules"
 	"stet/cli/internal/tokens"
@@ -71,7 +71,7 @@ func SystemPrompt(stateDir string) (string, error) {
 		if os.IsNotExist(err) {
 			return DefaultSystemPrompt, nil
 		}
-		return "", fmt.Errorf("read optimized prompt: %w", err)
+		return "", erruser.New("Could not read system prompt file.", err)
 	}
 	return strings.TrimSpace(string(data)), nil
 }

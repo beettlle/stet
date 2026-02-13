@@ -5,9 +5,10 @@ package history
 import (
 	"bufio"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
+
+	"stet/cli/internal/erruser"
 )
 
 const (
@@ -21,32 +22,32 @@ const (
 // keep only the last maxRecords lines (atomic write via temp + rename).
 func Append(stateDir string, record Record, maxRecords int) error {
 	if err := os.MkdirAll(stateDir, 0755); err != nil {
-		return fmt.Errorf("history: create state dir: %w", err)
+		return erruser.New("Could not create state directory for history.", err)
 	}
 	path := filepath.Join(stateDir, historyFilename)
 	line, err := json.Marshal(record)
 	if err != nil {
-		return fmt.Errorf("history: marshal record: %w", err)
+		return erruser.New("Could not record review history.", err)
 	}
 
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		return fmt.Errorf("history: open %s: %w", path, err)
+		return erruser.New("Could not record review history.", err)
 	}
 	if _, err := f.Write(line); err != nil {
 		_ = f.Close()
-		return fmt.Errorf("history: write: %w", err)
+		return erruser.New("Could not record review history.", err)
 	}
 	if _, err := f.WriteString("\n"); err != nil {
 		_ = f.Close()
-		return fmt.Errorf("history: write newline: %w", err)
+		return erruser.New("Could not record review history.", err)
 	}
 	if err := f.Sync(); err != nil {
 		_ = f.Close()
-		return fmt.Errorf("history: sync: %w", err)
+		return erruser.New("Could not record review history.", err)
 	}
 	if err := f.Close(); err != nil {
-		return fmt.Errorf("history: close: %w", err)
+		return erruser.New("Could not record review history.", err)
 	}
 
 	if maxRecords > 0 {
@@ -62,7 +63,7 @@ func Append(stateDir string, record Record, maxRecords int) error {
 func rotateIfNeeded(path string, maxRecords int) error {
 	lines, err := readLines(path)
 	if err != nil {
-		return fmt.Errorf("history: read for rotation: %w", err)
+		return erruser.New("Could not read history for rotation.", err)
 	}
 	if len(lines) <= maxRecords {
 		return nil
@@ -71,25 +72,25 @@ func rotateIfNeeded(path string, maxRecords int) error {
 	dir := filepath.Dir(path)
 	f, err := os.CreateTemp(dir, "history.*.tmp")
 	if err != nil {
-		return fmt.Errorf("history: create temp: %w", err)
+		return erruser.New("Could not rotate history file.", err)
 	}
 	tmpPath := f.Name()
 	defer func() { _ = os.Remove(tmpPath) }()
 	for _, l := range keep {
 		if _, err := f.WriteString(l); err != nil {
 			_ = f.Close()
-			return fmt.Errorf("history: write temp: %w", err)
+			return erruser.New("Could not rotate history file.", err)
 		}
 	}
 	if err := f.Sync(); err != nil {
 		_ = f.Close()
-		return fmt.Errorf("history: sync temp: %w", err)
+		return erruser.New("Could not rotate history file.", err)
 	}
 	if err := f.Close(); err != nil {
-		return fmt.Errorf("history: close temp: %w", err)
+		return erruser.New("Could not rotate history file.", err)
 	}
 	if err := os.Rename(tmpPath, path); err != nil {
-		return fmt.Errorf("history: rename to %s: %w", path, err)
+		return erruser.New("Could not rotate history file.", err)
 	}
 	return nil
 }

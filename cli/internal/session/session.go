@@ -6,10 +6,10 @@ package session
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 
+	"stet/cli/internal/erruser"
 	"stet/cli/internal/findings"
 )
 
@@ -50,11 +50,11 @@ func Load(stateDir string) (Session, error) {
 		if os.IsNotExist(err) {
 			return Session{}, nil
 		}
-		return Session{}, fmt.Errorf("read session %s: %w", path, err)
+		return Session{}, erruser.New("Could not read session file.", err)
 	}
 	var s Session
 	if err := json.Unmarshal(data, &s); err != nil {
-		return Session{}, fmt.Errorf("parse session %s: %w", path, err)
+		return Session{}, erruser.New("Session file is invalid or corrupted.", err)
 	}
 	return s, nil
 }
@@ -63,36 +63,36 @@ func Load(stateDir string) (Session, error) {
 // needed. Uses atomic write (temp file then rename) to avoid corruption.
 func Save(stateDir string, s *Session) error {
 	if s == nil {
-		return fmt.Errorf("session: save nil session")
+		return erruser.New("Cannot save nil session.", nil)
 	}
 	if err := os.MkdirAll(stateDir, 0755); err != nil {
-		return fmt.Errorf("session: create state dir: %w", err)
+		return erruser.New("Could not create session directory.", err)
 	}
 	path := filepath.Join(stateDir, sessionFilename)
 	data, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
-		return fmt.Errorf("session: marshal: %w", err)
+		return erruser.New("Could not save session.", err)
 	}
 	dir := filepath.Dir(path)
 	f, err := os.CreateTemp(dir, "session.*.tmp")
 	if err != nil {
-		return fmt.Errorf("session: create temp file: %w", err)
+		return erruser.New("Could not save session.", err)
 	}
 	tmpPath := f.Name()
 	defer func() { _ = os.Remove(tmpPath) }()
 	if _, err := f.Write(data); err != nil {
 		_ = f.Close()
-		return fmt.Errorf("session: write temp: %w", err)
+		return erruser.New("Could not save session.", err)
 	}
 	if err := f.Sync(); err != nil {
 		_ = f.Close()
-		return fmt.Errorf("session: sync temp: %w", err)
+		return erruser.New("Could not save session.", err)
 	}
 	if err := f.Close(); err != nil {
-		return fmt.Errorf("session: close temp: %w", err)
+		return erruser.New("Could not save session.", err)
 	}
 	if err := os.Rename(tmpPath, path); err != nil {
-		return fmt.Errorf("session: rename to %s: %w", path, err)
+		return erruser.New("Could not save session.", err)
 	}
 	return nil
 }

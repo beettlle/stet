@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"stet/cli/internal/erruser"
 )
 
 // ErrWorktreeExists indicates a worktree already exists at the target path.
@@ -31,7 +33,7 @@ type WorktreeInfo struct {
 func PathForRef(repoRoot, worktreeRoot, ref string) (string, error) {
 	sha, err := revParseShort(repoRoot, ref, 12)
 	if err != nil {
-		return "", fmt.Errorf("resolve ref %q: %w", ref, err)
+		return "", err
 	}
 	var base string
 	if worktreeRoot != "" {
@@ -50,7 +52,7 @@ func revParseShort(repoRoot, ref string, n int) (string, error) {
 	cmd.Env = minimalEnv()
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("git rev-parse: %w", err)
+		return "", erruser.New("Could not resolve ref.", err)
 	}
 	return strings.TrimSpace(string(out)), nil
 }
@@ -67,7 +69,7 @@ func IsAncestor(repoRoot, ancestor, descendant string) (bool, error) {
 	if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
 		return false, nil
 	}
-	return false, fmt.Errorf("git merge-base --is-ancestor: %w", err)
+	return false, erruser.New("Could not check whether baseline is an ancestor of HEAD.", err)
 }
 
 // Create creates a read-only worktree at the given ref. Path is derived via PathForRef.
@@ -75,7 +77,7 @@ func IsAncestor(repoRoot, ancestor, descendant string) (bool, error) {
 // Returns ErrBaselineNotAncestor if ref is not an ancestor of HEAD.
 func Create(repoRoot, worktreeRoot, ref string) (path string, err error) {
 	if ok, err := IsAncestor(repoRoot, ref, "HEAD"); err != nil {
-		return "", fmt.Errorf("validate baseline: %w", err)
+		return "", err
 	} else if !ok {
 		return "", ErrBaselineNotAncestor
 	}
@@ -93,7 +95,7 @@ func Create(repoRoot, worktreeRoot, ref string) (path string, err error) {
 	// Ensure parent dir exists for worktree add.
 	parent := filepath.Dir(path)
 	if err := os.MkdirAll(parent, 0755); err != nil {
-		return "", fmt.Errorf("create worktree parent dir: %w", err)
+		return "", erruser.New("Could not create worktree directory.", err)
 	}
 
 	cmd := exec.Command("git", "worktree", "add", path, ref)
@@ -105,7 +107,7 @@ func Create(repoRoot, worktreeRoot, ref string) (path string, err error) {
 		if isWorktreeExistsError(msg, path) {
 			return path, fmt.Errorf("worktree already exists at %s: %w", path, ErrWorktreeExists)
 		}
-		return "", fmt.Errorf("git worktree add: %w: %s", runErr, msg)
+		return "", erruser.New("Could not add worktree.", fmt.Errorf("%w: %s", runErr, msg))
 	}
 
 	return path, nil
@@ -118,7 +120,7 @@ func List(repoRoot string) ([]WorktreeInfo, error) {
 	cmd.Env = minimalEnv()
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("git worktree list: %w", err)
+		return nil, erruser.New("Could not list worktrees.", err)
 	}
 	return parseWorktreeList(string(out))
 }
@@ -154,7 +156,7 @@ func Remove(repoRoot, path string) error {
 	cmd.Env = minimalEnv()
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("git worktree remove: %w: %s", err, strings.TrimSpace(string(out)))
+		return erruser.New("Could not remove worktree.", fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out))))
 	}
 	return nil
 }
