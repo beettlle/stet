@@ -11,6 +11,14 @@ import (
 	"stet/cli/internal/diff"
 )
 
+const userIntentHeader = "## User Intent\n"
+
+// UserIntent holds Git context (branch, last commit message) to inject into the prompt.
+type UserIntent struct {
+	Branch    string
+	CommitMsg string
+}
+
 const optimizedPromptFilename = "system_prompt_optimized.txt"
 
 // DefaultSystemPrompt instructs the model to perform defect-focused code review
@@ -60,6 +68,41 @@ func SystemPrompt(stateDir string) (string, error) {
 		return "", fmt.Errorf("read optimized prompt: %w", err)
 	}
 	return strings.TrimSpace(string(data)), nil
+}
+
+// InjectUserIntent replaces the "## User Intent" section in systemPrompt with
+// the given branch and commitMsg. If both are empty, uses "(Not provided.)".
+// If the section is missing, returns systemPrompt unchanged.
+func InjectUserIntent(systemPrompt, branch, commitMsg string) string {
+	idx := strings.Index(systemPrompt, userIntentHeader)
+	if idx == -1 {
+		return systemPrompt
+	}
+	body := "(Not provided.)"
+	if branch != "" || commitMsg != "" {
+		var b strings.Builder
+		if branch != "" {
+			b.WriteString("Branch: ")
+			b.WriteString(branch)
+			b.WriteByte('\n')
+		}
+		if commitMsg != "" {
+			b.WriteString("Commit: ")
+			b.WriteString(commitMsg)
+		}
+		body = strings.TrimSpace(b.String())
+	}
+	sectionStart := idx
+	rest := systemPrompt[idx+len(userIntentHeader):]
+	end := strings.Index(rest, "\n## ")
+	var sectionEnd int
+	if end == -1 {
+		sectionEnd = len(systemPrompt)
+	} else {
+		sectionEnd = sectionStart + len(userIntentHeader) + end
+	}
+	replacement := userIntentHeader + body
+	return systemPrompt[:sectionStart] + replacement + systemPrompt[sectionEnd:]
 }
 
 // UserPrompt builds the user-facing prompt for one hunk: file path and the

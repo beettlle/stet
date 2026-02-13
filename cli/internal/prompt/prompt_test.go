@@ -164,3 +164,54 @@ func TestUserPrompt_emptyContext_usesRawContent(t *testing.T) {
 		t.Errorf("should use RawContent when Context empty; got %q", got)
 	}
 }
+
+func TestInjectUserIntent_replacesPlaceholder(t *testing.T) {
+	got := InjectUserIntent(DefaultSystemPrompt, "main", "fix")
+	if !strings.Contains(got, "Branch: main") {
+		t.Errorf("InjectUserIntent: want Branch: main; got:\n%s", got)
+	}
+	if !strings.Contains(got, "Commit: fix") {
+		t.Errorf("InjectUserIntent: want Commit: fix; got:\n%s", got)
+	}
+	if strings.Contains(got, "(Not provided.)") {
+		t.Errorf("InjectUserIntent: should not contain placeholder when intent provided")
+	}
+}
+
+func TestInjectUserIntent_emptyUsesPlaceholder(t *testing.T) {
+	got := InjectUserIntent(DefaultSystemPrompt, "", "")
+	if !strings.Contains(got, "(Not provided.)") {
+		t.Errorf("InjectUserIntent(empty): want (Not provided.); got:\n%s", got)
+	}
+}
+
+func TestInjectUserIntent_optimizedPromptWithSection(t *testing.T) {
+	custom := `Review code.
+
+## User Intent
+(custom placeholder)
+
+## Review steps
+Follow steps.`
+	got := InjectUserIntent(custom, "feat/x", "Add feature")
+	if !strings.Contains(got, "Branch: feat/x") {
+		t.Errorf("InjectUserIntent: want Branch: feat/x; got:\n%s", got)
+	}
+	if !strings.Contains(got, "Commit: Add feature") {
+		t.Errorf("InjectUserIntent: want Commit: Add feature; got:\n%s", got)
+	}
+	if strings.Contains(got, "(custom placeholder)") {
+		t.Errorf("InjectUserIntent: should replace custom placeholder")
+	}
+	if !strings.Contains(got, "## Review steps") {
+		t.Errorf("InjectUserIntent: should preserve following sections")
+	}
+}
+
+func TestInjectUserIntent_missingSection_unchanged(t *testing.T) {
+	noSection := "No User Intent section here at all."
+	got := InjectUserIntent(noSection, "main", "fix")
+	if got != noSection {
+		t.Errorf("InjectUserIntent(missing section): want unchanged; got %q", got)
+	}
+}

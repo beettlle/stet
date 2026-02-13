@@ -10,15 +10,20 @@ import (
 	"stet/cli/internal/prompt"
 )
 
-// ReviewHunk runs the review for a single hunk: loads system prompt, builds user
-// prompt, calls Ollama Generate, parses the JSON response, and assigns finding IDs.
-// generateOpts is passed to the Ollama API (may be nil for server defaults).
-// On malformed JSON it retries the Generate call once; on second parse failure
+// ReviewHunk runs the review for a single hunk: loads system prompt, injects user
+// intent if provided, builds user prompt, calls Ollama Generate, parses the JSON
+// response, and assigns finding IDs. generateOpts is passed to the Ollama API
+// (may be nil for server defaults). userIntent, when non-nil and non-empty,
+// injects branch and commit message into the "## User Intent" section. On
+// malformed JSON it retries the Generate call once; on second parse failure
 // returns an error.
-func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir string, hunk diff.Hunk, generateOpts *ollama.GenerateOptions) ([]findings.Finding, error) {
+func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir string, hunk diff.Hunk, generateOpts *ollama.GenerateOptions, userIntent *prompt.UserIntent) ([]findings.Finding, error) {
 	system, err := prompt.SystemPrompt(stateDir)
 	if err != nil {
 		return nil, fmt.Errorf("review: system prompt: %w", err)
+	}
+	if userIntent != nil && (userIntent.Branch != "" || userIntent.CommitMsg != "") {
+		system = prompt.InjectUserIntent(system, userIntent.Branch, userIntent.CommitMsg)
 	}
 	user := prompt.UserPrompt(hunk)
 

@@ -249,12 +249,18 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 	if opts.DryRun {
 		collected = cannedFindingsForHunks(part.ToReview)
 	} else {
+		branch, commitMsg, intentErr := git.UserIntent(opts.RepoRoot)
+		if intentErr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: could not retrieve Git intent (branch/commit): %v; using placeholder\n", intentErr)
+		}
+		userIntent := &prompt.UserIntent{Branch: branch, CommitMsg: commitMsg}
 		// Token estimation: warn once if any hunk's prompt would exceed context threshold (Phase 3.2).
 		if opts.ContextLimit > 0 && opts.WarnThreshold > 0 {
 			systemPrompt, err := prompt.SystemPrompt(opts.StateDir)
 			if err != nil {
 				return fmt.Errorf("start: system prompt: %w", err)
 			}
+			systemPrompt = prompt.InjectUserIntent(systemPrompt, branch, commitMsg)
 			maxPromptTokens := 0
 			for _, h := range part.ToReview {
 				userPrompt := prompt.UserPrompt(h)
@@ -273,7 +279,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 			if opts.Verbose {
 				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", i+1, total, hunk.FilePath)
 			}
-			list, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk, genOpts)
+			list, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk, genOpts, userIntent)
 			if err != nil {
 				return fmt.Errorf("start: review hunk %s: %w", hunk.FilePath, err)
 			}
@@ -432,12 +438,18 @@ func Run(ctx context.Context, opts RunOptions) error {
 		if _, err := client.Check(ctx, opts.Model); err != nil {
 			return fmt.Errorf("run: %w", err)
 		}
+		branch, commitMsg, intentErr := git.UserIntent(opts.RepoRoot)
+		if intentErr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: could not retrieve Git intent (branch/commit): %v; using placeholder\n", intentErr)
+		}
+		userIntent := &prompt.UserIntent{Branch: branch, CommitMsg: commitMsg}
 		// Token estimation: warn once if any hunk's prompt would exceed context threshold (Phase 3.2).
 		if opts.ContextLimit > 0 && opts.WarnThreshold > 0 {
 			systemPrompt, err := prompt.SystemPrompt(opts.StateDir)
 			if err != nil {
 				return fmt.Errorf("run: system prompt: %w", err)
 			}
+			systemPrompt = prompt.InjectUserIntent(systemPrompt, branch, commitMsg)
 			maxPromptTokens := 0
 			for _, h := range part.ToReview {
 				userPrompt := prompt.UserPrompt(h)
@@ -456,7 +468,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 			if opts.Verbose {
 				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", i+1, total, hunk.FilePath)
 			}
-			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk, genOpts)
+			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk, genOpts, userIntent)
 			if err != nil {
 				return fmt.Errorf("run: review hunk %s: %w", hunk.FilePath, err)
 			}

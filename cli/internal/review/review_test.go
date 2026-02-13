@@ -3,6 +3,7 @@ package review
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"stet/cli/internal/diff"
 	"stet/cli/internal/ollama"
+	"stet/cli/internal/prompt"
 )
 
 func TestReviewHunk_successFirstTry(t *testing.T) {
@@ -29,7 +31,7 @@ func TestReviewHunk_successFirstTry(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "a.go", RawContent: "code", Context: "code"}
 	ctx := context.Background()
 
-	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil)
+	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -64,7 +66,7 @@ func TestReviewHunk_retryThenSuccess(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "b.go", RawContent: "x", Context: "x"}
 	ctx := context.Background()
 
-	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil)
+	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -85,7 +87,7 @@ func TestReviewHunk_generateFails_returnsError(t *testing.T) {
 	dir := t.TempDir()
 	hunk := diff.Hunk{FilePath: "x.go", RawContent: "code", Context: "code"}
 	ctx := context.Background()
-	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil)
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil)
 	if err == nil {
 		t.Fatal("ReviewHunk: want error when generate fails, got nil")
 	}
@@ -105,7 +107,7 @@ func TestReviewHunk_parseFailsTwice_returnsError(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "c.go", RawContent: "y", Context: "y"}
 	ctx := context.Background()
 
-	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil)
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil)
 	if err == nil {
 		t.Fatal("ReviewHunk: want error when parse fails twice, got nil")
 	}
@@ -140,7 +142,7 @@ func TestReviewHunk_hunkWithExternalVariable_mockReturnsNoUndefinedFinding(t *te
 	}
 	ctx := context.Background()
 
-	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil)
+	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -151,5 +153,55 @@ func TestReviewHunk_hunkWithExternalVariable_mockReturnsNoUndefinedFinding(t *te
 		if strings.Contains(strings.ToLower(f.Message), "undefined") || strings.Contains(f.Message, "Variable undefined error") {
 			t.Errorf("finding must not be undefined-related; got message %q", f.Message)
 		}
+	}
+}
+
+// TestReviewHunk_injectsUserIntentIntoPrompt is the Phase 6.2 regression test:
+// when userIntent is provided, the system prompt sent to Ollama must contain
+// the injected commit message (e.g. "Refactor: formatting only").
+func TestReviewHunk_injectsUserIntentIntoPrompt(t *testing.T) {
+	commitMsg := "Refactor: formatting only"
+	validResp := `[]`
+	var capturedSystem string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read request body: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		var req struct {
+			System string `json:"system"`
+		}
+		if err := json.Unmarshal(body, &req); err != nil {
+			t.Errorf("decode request: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		capturedSystem = req.System
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": validResp, "done": true})
+	}))
+	defer srv.Close()
+
+	client := ollama.NewClient(srv.URL, srv.Client())
+	dir := t.TempDir()
+	hunk := diff.Hunk{FilePath: "pkg.go", RawContent: "+x := 1", Context: "+x := 1"}
+	userIntent := &prompt.UserIntent{Branch: "main", CommitMsg: commitMsg}
+	ctx := context.Background()
+
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, userIntent)
+	if err != nil {
+		t.Fatalf("ReviewHunk: %v", err)
+	}
+	if !strings.Contains(capturedSystem, commitMsg) {
+		t.Errorf("system prompt must contain commit message %q; got:\n%s", commitMsg, capturedSystem)
+	}
+	if !strings.Contains(capturedSystem, "Branch: main") {
+		t.Errorf("system prompt must contain branch; got:\n%s", capturedSystem)
 	}
 }

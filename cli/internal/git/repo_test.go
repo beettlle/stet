@@ -125,3 +125,55 @@ func TestRevParse_invalidRef(t *testing.T) {
 		t.Fatal("RevParse(invalid): expected error")
 	}
 }
+
+func TestUserIntent_returnsBranchAndCommit(t *testing.T) {
+	t.Parallel()
+	repo := initRepo(t)
+	// initRepo creates commits "gitignore", "c1", "c2"; HEAD is at "c2"
+	branch, commitMsg, err := UserIntent(repo)
+	if err != nil {
+		t.Fatalf("UserIntent: %v", err)
+	}
+	// Branch is typically "main" or "master" depending on git config
+	if branch != "main" && branch != "master" {
+		t.Errorf("UserIntent branch = %q, want main or master", branch)
+	}
+	if commitMsg != "c2" {
+		t.Errorf("UserIntent commitMsg = %q, want c2", commitMsg)
+	}
+}
+
+func TestUserIntent_customCommitMessage(t *testing.T) {
+	t.Parallel()
+	repo := initRepo(t)
+	writeFile(t, repo, "f3.txt", "c\n")
+	run(t, repo, "git", "add", "f3.txt")
+	run(t, repo, "git", "commit", "-m", "Refactor: formatting only")
+	branch, commitMsg, err := UserIntent(repo)
+	if err != nil {
+		t.Fatalf("UserIntent: %v", err)
+	}
+	if branch == "" {
+		t.Error("UserIntent branch: want non-empty")
+	}
+	if commitMsg != "Refactor: formatting only" {
+		t.Errorf("UserIntent commitMsg = %q, want \"Refactor: formatting only\"", commitMsg)
+	}
+}
+
+func TestUserIntent_detachedHEAD(t *testing.T) {
+	t.Parallel()
+	repo := initRepo(t)
+	sha := runOut(t, repo, "git", "rev-parse", "HEAD~1")
+	run(t, repo, "git", "checkout", sha)
+	branch, commitMsg, err := UserIntent(repo)
+	if err != nil {
+		t.Fatalf("UserIntent: %v", err)
+	}
+	if branch != "HEAD" {
+		t.Errorf("UserIntent branch (detached) = %q, want HEAD", branch)
+	}
+	if commitMsg != "c1" {
+		t.Errorf("UserIntent commitMsg = %q, want c1 (HEAD~1)", commitMsg)
+	}
+}

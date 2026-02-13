@@ -49,3 +49,28 @@ func RevParse(repoRoot, ref string) (string, error) {
 	}
 	return strings.TrimSpace(string(out)), nil
 }
+
+// UserIntent returns the current branch name and the last commit message at HEAD.
+// Branch is from "git rev-parse --abbrev-ref HEAD" (returns "HEAD" when detached).
+// CommitMsg is from "git log -1 --format=%B HEAD". Both are trimmed.
+func UserIntent(repoRoot string) (branch, commitMsg string, err error) {
+	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	cmd.Dir = repoRoot
+	cmd.Env = minimalEnv()
+	out, err := cmd.Output()
+	if err != nil {
+		return "", "", fmt.Errorf("git rev-parse --abbrev-ref HEAD: %w", err)
+	}
+	branch = strings.TrimSpace(string(out))
+
+	cmd = exec.Command("git", "log", "-1", "--format=%B", "HEAD")
+	cmd.Dir = repoRoot
+	cmd.Env = minimalEnv()
+	out, err = cmd.Output()
+	if err != nil {
+		return "", "", fmt.Errorf("git log -1 --format=%%B HEAD: %w", err)
+	}
+	commitMsg = strings.TrimSpace(string(out))
+
+	return branch, commitMsg, nil
+}
