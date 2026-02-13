@@ -18,9 +18,9 @@ var (
 )
 
 // Validate checks that the finding has required fields and allowed enum values.
-// It returns an error if: severity or category is missing or not in the allowed
-// set; file or message is empty; or neither line nor range is set (or range is
-// invalid: start > end).
+// Line and range are optional (file-only findings are valid). It returns an error
+// if: severity or category is missing or not in the allowed set; file or message
+// is empty; or range is present but invalid (start > end).
 func (f *Finding) Validate() error {
 	if f == nil {
 		return errors.New("finding is nil")
@@ -43,12 +43,7 @@ func (f *Finding) Validate() error {
 	if f.Message == "" {
 		return errors.New("message is required")
 	}
-	hasLine := f.Line > 0
-	hasRange := f.Range != nil
-	if !hasLine && !hasRange {
-		return errors.New("either line or range is required")
-	}
-	if hasRange && f.Range.Start > f.Range.End {
+	if f.Range != nil && f.Range.Start > f.Range.End {
 		return fmt.Errorf("range start %d must be <= end %d", f.Range.Start, f.Range.End)
 	}
 	return nil

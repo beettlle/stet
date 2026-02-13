@@ -12,9 +12,9 @@ import (
 
 // ParseFindingsResponse unmarshals the LLM response into a slice of findings.
 // The response may be a JSON array of finding objects or a wrapper object
-// with a "findings" key. Each finding must have severity, category, message,
-// and either line or range; file may be omitted and filled later from the hunk.
-// IDs are not set; use AssignFindingIDs after parsing.
+// with a "findings" key. Each finding must have severity, category, and message.
+// File may be omitted and filled later from the hunk; line and range are optional
+// (file-only findings are valid). IDs are not set; use AssignFindingIDs after parsing.
 func ParseFindingsResponse(jsonStr string) ([]findings.Finding, error) {
 	jsonStr = trimSpace(jsonStr)
 	if jsonStr == "" {

@@ -142,11 +142,12 @@ func TestFindingValidate(t *testing.T) {
 		{"invalid_category", func() Finding { f := validFinding(); f.Category = "unknown"; return f }(), "invalid category"},
 		{"missing_file", func() Finding { f := validFinding(); f.File = ""; return f }(), "file is required"},
 		{"missing_message", func() Finding { f := validFinding(); f.Message = ""; return f }(), "message is required"},
-		{"line_and_range_both_zero", func() Finding {
+		{"valid_file_only", func() Finding {
 			f := validFinding()
 			f.Line = 0
+			f.Range = nil
 			return f
-		}(), "either line or range is required"},
+		}(), ""},
 		{"range_start_gt_end", Finding{
 			File: "a.go", Range: &LineRange{Start: 10, End: 3},
 			Severity: SeverityWarning, Category: CategoryBug, Message: "m",
