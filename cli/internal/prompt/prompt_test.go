@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"stet/cli/internal/diff"
+	"stet/cli/internal/rag"
 	"stet/cli/internal/rules"
 )
 
@@ -291,5 +292,40 @@ func TestAppendCursorRules_overTokenBudget_truncated(t *testing.T) {
 	}
 	if len(got) >= len(base)+len(longBody) {
 		t.Errorf("AppendCursorRules: combined output should be shorter than full body")
+	}
+}
+
+func TestAppendSymbolDefinitions_empty_unchanged(t *testing.T) {
+	userPrompt := "File: foo.go\n\ncontent"
+	got := AppendSymbolDefinitions(userPrompt, nil, 0)
+	if got != userPrompt {
+		t.Errorf("AppendSymbolDefinitions(nil): want unchanged prompt; got %q", got)
+	}
+	got = AppendSymbolDefinitions(userPrompt, []rag.Definition{}, 0)
+	if got != userPrompt {
+		t.Errorf("AppendSymbolDefinitions(empty): want unchanged prompt; got %q", got)
+	}
+}
+
+func TestAppendSymbolDefinitions_injectsSectionAndSignature(t *testing.T) {
+	userPrompt := "File: pkg/foo.go\n\n+hunk line"
+	defs := []rag.Definition{
+		{Symbol: "Bar", File: "pkg/foo.go", Line: 5, Signature: "func Bar() int", Docstring: "Bar does something."},
+	}
+	got := AppendSymbolDefinitions(userPrompt, defs, 0)
+	if !strings.Contains(got, symbolDefinitionsHeader) {
+		t.Errorf("AppendSymbolDefinitions: want section header; got:\n%s", got)
+	}
+	if !strings.Contains(got, "func Bar() int") {
+		t.Errorf("AppendSymbolDefinitions: want signature; got:\n%s", got)
+	}
+	if !strings.Contains(got, "Bar does something.") {
+		t.Errorf("AppendSymbolDefinitions: want docstring; got:\n%s", got)
+	}
+	if !strings.Contains(got, "pkg/foo.go") || !strings.Contains(got, "Line: 5") {
+		t.Errorf("AppendSymbolDefinitions: want file and line; got:\n%s", got)
+	}
+	if !strings.HasPrefix(got, userPrompt) {
+		t.Errorf("AppendSymbolDefinitions: should start with original user prompt")
 	}
 }

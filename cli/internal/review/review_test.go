@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -15,6 +16,8 @@ import (
 	"stet/cli/internal/ollama"
 	"stet/cli/internal/prompt"
 	"stet/cli/internal/rules"
+
+	_ "stet/cli/internal/rag/go" // register Go resolver for RAG tests
 )
 
 func TestReviewHunk_successFirstTry(t *testing.T) {
@@ -34,7 +37,7 @@ func TestReviewHunk_successFirstTry(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "a.go", RawContent: "code", Context: "code"}
 	ctx := context.Background()
 
-	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0)
+	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -69,7 +72,7 @@ func TestReviewHunk_retryThenSuccess(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "b.go", RawContent: "x", Context: "x"}
 	ctx := context.Background()
 
-	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0)
+	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -90,7 +93,7 @@ func TestReviewHunk_generateFails_returnsError(t *testing.T) {
 	dir := t.TempDir()
 	hunk := diff.Hunk{FilePath: "x.go", RawContent: "code", Context: "code"}
 	ctx := context.Background()
-	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0)
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0)
 	if err == nil {
 		t.Fatal("ReviewHunk: want error when generate fails, got nil")
 	}
@@ -110,7 +113,7 @@ func TestReviewHunk_parseFailsTwice_returnsError(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "c.go", RawContent: "y", Context: "y"}
 	ctx := context.Background()
 
-	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0)
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0)
 	if err == nil {
 		t.Fatal("ReviewHunk: want error when parse fails twice, got nil")
 	}
@@ -145,7 +148,7 @@ func TestReviewHunk_hunkWithExternalVariable_mockReturnsNoUndefinedFinding(t *te
 	}
 	ctx := context.Background()
 
-	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0)
+	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -197,7 +200,7 @@ func TestReviewHunk_injectsUserIntentIntoPrompt(t *testing.T) {
 	userIntent := &prompt.UserIntent{Branch: "main", CommitMsg: commitMsg}
 	ctx := context.Background()
 
-	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, userIntent, nil, "", 0)
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, userIntent, nil, "", 0, 0, 0)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -271,7 +274,7 @@ func processData(input string) (int, error) {
 	}
 	ctx := context.Background()
 
-	_, err := ReviewHunk(ctx, client, "m", stateDir, hunk, nil, nil, nil, dir, 32768)
+	_, err := ReviewHunk(ctx, client, "m", stateDir, hunk, nil, nil, nil, dir, 32768, 0, 0)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -323,7 +326,7 @@ func TestReviewHunk_injectsCursorRulesIntoSystemPrompt(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, ruleList, "", 0)
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, ruleList, "", 0, 0, 0)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -332,6 +335,90 @@ func TestReviewHunk_injectsCursorRulesIntoSystemPrompt(t *testing.T) {
 	}
 	if !strings.Contains(capturedSystem, "Do not use console.log.") {
 		t.Errorf("system prompt must contain rule body; got:\n%s", capturedSystem)
+	}
+}
+
+// TestReviewHunk_withRAG_injectsSymbolDefinitions is the Sub-phase 6.8 test: when
+// RAG is enabled (ragMaxDefs > 0) and the hunk references a symbol defined in the
+// repo, the user prompt sent to Ollama must contain the symbol definitions section.
+func TestReviewHunk_withRAG_injectsSymbolDefinitions(t *testing.T) {
+	dir := t.TempDir()
+	initGitRepo(t, dir)
+	pkgDir := filepath.Join(dir, "pkg")
+	if err := os.MkdirAll(pkgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := "package pkg\n\nfunc Bar() int { return 42 }\n"
+	if err := os.WriteFile(filepath.Join(pkgDir, "foo.go"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gitAdd(t, dir, "pkg/foo.go")
+
+	validResp := `[]`
+	var capturedPrompt string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		body, _ := io.ReadAll(r.Body)
+		var req struct {
+			Prompt string `json:"prompt"`
+		}
+		_ = json.Unmarshal(body, &req)
+		capturedPrompt = req.Prompt
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": validResp, "done": true})
+	}))
+	defer srv.Close()
+
+	client := ollama.NewClient(srv.URL, srv.Client())
+	hunk := diff.Hunk{FilePath: "pkg/foo.go", RawContent: "+x := Bar()", Context: "+x := Bar()"}
+	ctx := context.Background()
+
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, dir, 0, 5, 0)
+	if err != nil {
+		t.Fatalf("ReviewHunk: %v", err)
+	}
+	if !strings.Contains(capturedPrompt, "## Symbol definitions") {
+		t.Errorf("user prompt must contain ## Symbol definitions when RAG enabled; got:\n%s", capturedPrompt)
+	}
+	if !strings.Contains(capturedPrompt, "func Bar") {
+		t.Errorf("user prompt must contain symbol signature (func Bar); got:\n%s", capturedPrompt)
+	}
+}
+
+func initGitRepo(t *testing.T, dir string) {
+	t.Helper()
+	cmd := exec.Command("git", "init")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_SYSTEM=/dev/null")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+	cmd = exec.Command("git", "config", "user.email", "test@test")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_SYSTEM=/dev/null")
+	_ = cmd.Run()
+	cmd = exec.Command("git", "config", "user.name", "Test")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_SYSTEM=/dev/null")
+	_ = cmd.Run()
+}
+
+func gitAdd(t *testing.T, dir, path string) {
+	t.Helper()
+	cmd := exec.Command("git", "add", path)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_SYSTEM=/dev/null")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git add: %v\n%s", err, out)
+	}
+	cmd = exec.Command("git", "commit", "-m", "add")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_SYSTEM=/dev/null")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git commit: %v\n%s", err, out)
 	}
 }
 

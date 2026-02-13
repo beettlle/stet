@@ -9,6 +9,7 @@ import (
 	"stet/cli/internal/findings"
 	"stet/cli/internal/ollama"
 	"stet/cli/internal/prompt"
+	"stet/cli/internal/rag"
 	"stet/cli/internal/rules"
 )
 
@@ -23,8 +24,9 @@ const maxExpandTokensCap = 4096
 // injects branch and commit message into the "## User Intent" section. ruleList
 // is from rules.LoadRules (may be nil when .cursor/rules is absent).
 // On malformed JSON it retries the Generate call once; on second parse failure
-// returns an error.
-func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir string, hunk diff.Hunk, generateOpts *ollama.GenerateOptions, userIntent *prompt.UserIntent, ruleList []rules.CursorRule, repoRoot string, contextLimit int) ([]findings.Finding, error) {
+// returns an error. ragMaxDefs and ragMaxTokens control RAG-lite symbol lookup
+// (Sub-phase 6.8); zero ragMaxDefs disables it.
+func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir string, hunk diff.Hunk, generateOpts *ollama.GenerateOptions, userIntent *prompt.UserIntent, ruleList []rules.CursorRule, repoRoot string, contextLimit int, ragMaxDefs, ragMaxTokens int) ([]findings.Finding, error) {
 	system, err := prompt.SystemPrompt(stateDir)
 	if err != nil {
 		return nil, fmt.Errorf("review: system prompt: %w", err)
@@ -43,6 +45,12 @@ func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir stri
 		}
 	}
 	user := prompt.UserPrompt(hunk)
+	if repoRoot != "" && ragMaxDefs > 0 {
+		defs, ragErr := rag.ResolveSymbols(ctx, repoRoot, hunk.FilePath, hunk.RawContent, rag.ResolveOptions{MaxDefinitions: ragMaxDefs, MaxTokens: ragMaxTokens})
+		if ragErr == nil {
+			user = prompt.AppendSymbolDefinitions(user, defs, ragMaxTokens)
+		}
+	}
 
 	raw, err := client.Generate(ctx, model, system, user, generateOpts)
 	if err != nil {

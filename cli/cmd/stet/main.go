@@ -20,6 +20,8 @@ import (
 	"stet/cli/internal/ollama"
 	"stet/cli/internal/run"
 	"stet/cli/internal/session"
+
+	_ "stet/cli/internal/rag/go" // register Go resolver for RAG symbol lookup
 )
 
 // errExit is an error that carries an exit code for the CLI. Use errors.As to detect it.
@@ -224,9 +226,11 @@ func runStart(cmd *cobra.Command, args []string) error {
 		WarnThreshold: cfg.WarnThreshold,
 		Timeout:       cfg.Timeout,
 		Temperature:   cfg.Temperature,
-		NumCtx:        cfg.NumCtx,
-		Verbose:       verbose,
-		StreamOut:     nil,
+		NumCtx:                  cfg.NumCtx,
+		Verbose:                 verbose,
+		StreamOut:               nil,
+		RAGSymbolMaxDefinitions: cfg.RAGSymbolMaxDefinitions,
+		RAGSymbolMaxTokens:      cfg.RAGSymbolMaxTokens,
 	}
 	if stream {
 		opts.StreamOut = findingsOut
@@ -326,9 +330,11 @@ func runRun(cmd *cobra.Command, args []string) error {
 		WarnThreshold: cfg.WarnThreshold,
 		Timeout:       cfg.Timeout,
 		Temperature:   cfg.Temperature,
-		NumCtx:        cfg.NumCtx,
-		Verbose:       verbose,
-		StreamOut:     nil,
+		NumCtx:                  cfg.NumCtx,
+		Verbose:                 verbose,
+		StreamOut:               nil,
+		RAGSymbolMaxDefinitions: cfg.RAGSymbolMaxDefinitions,
+		RAGSymbolMaxTokens:      cfg.RAGSymbolMaxTokens,
 	}
 	if stream {
 		opts.StreamOut = findingsOut

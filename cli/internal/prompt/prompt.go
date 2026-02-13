@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"stet/cli/internal/diff"
+	"stet/cli/internal/rag"
 	"stet/cli/internal/rules"
 	"stet/cli/internal/tokens"
 )
@@ -166,6 +168,42 @@ func truncateToTokenBudget(s string, maxTokens int) string {
 		return s
 	}
 	return s[:maxChars] + "\n\n[truncated]"
+}
+
+const symbolDefinitionsHeader = "## Symbol definitions (for context)\n\n"
+
+// AppendSymbolDefinitions appends a section with symbol definitions (signature +
+// optional docstring) to the user prompt. Used by RAG-lite (Sub-phase 6.8).
+// If defs is nil or empty, returns userPrompt unchanged. If maxTokens > 0,
+// the appended block is truncated to fit the token budget.
+func AppendSymbolDefinitions(userPrompt string, defs []rag.Definition, maxTokens int) string {
+	if len(defs) == 0 {
+		return userPrompt
+	}
+	var b strings.Builder
+	for i, d := range defs {
+		if i > 0 {
+			b.WriteString("\n\n")
+		}
+		b.WriteString("(")
+		b.WriteString("File: ")
+		b.WriteString(d.File)
+		b.WriteString(", Line: ")
+		b.WriteString(strconv.Itoa(d.Line))
+		b.WriteString(")")
+		if d.Docstring != "" {
+			b.WriteString("\n\n")
+			b.WriteString(d.Docstring)
+		}
+		b.WriteString("\n\n```\n")
+		b.WriteString(d.Signature)
+		b.WriteString("\n```")
+	}
+	text := b.String()
+	if maxTokens > 0 {
+		text = truncateToTokenBudget(text, maxTokens)
+	}
+	return userPrompt + "\n\n" + symbolDefinitionsHeader + text
 }
 
 // UserPrompt builds the user-facing prompt for one hunk: file path and the

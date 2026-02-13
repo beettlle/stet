@@ -111,8 +111,10 @@ type StartOptions struct {
 	Timeout       time.Duration
 	Temperature   float64
 	NumCtx        int
-	Verbose       bool
-	StreamOut     io.Writer
+	Verbose                 bool
+	StreamOut               io.Writer
+	RAGSymbolMaxDefinitions int
+	RAGSymbolMaxTokens      int
 }
 
 // FinishOptions configures Finish.
@@ -139,8 +141,10 @@ type RunOptions struct {
 	Timeout       time.Duration
 	Temperature   float64
 	NumCtx        int
-	Verbose       bool
-	StreamOut     io.Writer
+	Verbose                 bool
+	StreamOut               io.Writer
+	RAGSymbolMaxDefinitions int
+	RAGSymbolMaxTokens      int
 }
 
 // Start creates a worktree at the given ref, writes the session, then runs the
@@ -327,7 +331,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 			if opts.Verbose {
 				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", i+1, total, hunk.FilePath)
 			}
-			list, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, opts.ContextLimit)
+			list, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, opts.ContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens)
 			if err != nil {
 				return fmt.Errorf("start: review hunk %s: %w", hunk.FilePath, err)
 			}
@@ -552,7 +556,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 			if opts.Verbose {
 				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", i+1, total, hunk.FilePath)
 			}
-			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, opts.ContextLimit)
+			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, opts.ContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens)
 			if err != nil {
 				return fmt.Errorf("run: review hunk %s: %w", hunk.FilePath, err)
 			}
