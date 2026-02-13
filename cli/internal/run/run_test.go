@@ -146,6 +146,26 @@ func TestStart_refEqualsHEAD_skipsWorktree(t *testing.T) {
 	}
 }
 
+func TestStart_negativeRAGOptions_clamped(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	opts := StartOptions{
+		RepoRoot:                repo,
+		StateDir:                stateDir,
+		WorktreeRoot:            "",
+		Ref:                     "HEAD~1",
+		DryRun:                  true,
+		RAGSymbolMaxDefinitions: -1,
+		RAGSymbolMaxTokens:      -1,
+	}
+	err := Start(ctx, opts)
+	if err != nil {
+		t.Fatalf("Start with negative RAG options (should clamp to 0): %v", err)
+	}
+}
+
 func TestStart_requiresCleanWorktree(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

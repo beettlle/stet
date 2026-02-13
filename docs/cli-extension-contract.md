@@ -104,8 +104,10 @@ The CLI passes model runtime options to the Ollama API on each generate request.
 | `temperature` / `STET_TEMPERATURE` | 0.2 | Sampling temperature (0–2). Lower values give more deterministic output. |
 | `num_ctx` / `STET_NUM_CTX` | 32768 | Model context window size (tokens). Set to 0 in config/env to use default. |
 | `optimizer_script` / `STET_OPTIMIZER_SCRIPT` | (none) | Command to run for `stet optimize` (e.g. `python3 scripts/optimize.py`). |
+| `rag_symbol_max_definitions` / `STET_RAG_SYMBOL_MAX_DEFINITIONS` | 10 | Max symbol definitions to inject into the prompt (0 = disable). |
+| `rag_symbol_max_tokens` / `STET_RAG_SYMBOL_MAX_TOKENS` | 0 | Max tokens for the symbol-definitions block (0 = no cap). |
 
-Config files: repo `.review/config.toml`, global `~/.config/stet/config.toml` (or XDG equivalent). Precedence: CLI flags > env > repo config > global config > defaults.
+Config files: repo `.review/config.toml`, global `~/.config/stet/config.toml` (or XDG equivalent). Precedence: CLI flags > env > repo config > global config > defaults. RAG symbol options can also be set via **`--rag-symbol-max-definitions`** and **`--rag-symbol-max-tokens`** on `stet start` and `stet run`; when set, they override config and env.
 
 ## Working directory
 

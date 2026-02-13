@@ -83,6 +83,11 @@ Deferred items from post–Vitest migration review; consider when touching the e
 - **Consistency:** Any remaining style nits (e.g. callback extraction pattern in tests) can be aligned when touching the file.
 - **Review noise from coverage:** After adding diff exclusion for `coverage/`, re-run self-review and confirm no findings on `extension/coverage/` paths. If the model still suggests "improvements" for test mocks (e.g. TreeItem, MarkdownString, createTreeView), treat as optional test-quality improvements; document here so future optimizer/prompt work can consider down-weighting style nits on test files if desired.
 - **Extension small cleanups (optional):** From self-review: simplify `cursor_uri` check (done); consolidate `setFindings([])` (done); consider adding a brief comment in openFinding when falling back from cursor_uri fragment to finding.line/range for clarity.
+- **Git intent warning:** When the repo is in a detached HEAD (or similar) state, `git rev-parse --abbrev-ref HEAD` can exit 128 and Stet logs "Warning: could not retrieve Git intent (branch/commit): ... using placeholder." For future improvement: consider a clearer user-facing message or document expected behavior when not on a branch (e.g. in CLI help or contract doc).
+
+### Self-review batch (RAG/config/run validation)
+
+A batch of self-review findings (RAG config options without CLI flags, int64→int overflow in config, RunOptions RAG validation) were all actionable or optional improvements; none were false positives or hallucinations, so no new entries were added to the curated false-positive tables.
 
 ## Optimizer and actionability
 

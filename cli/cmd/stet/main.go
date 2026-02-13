@@ -173,6 +173,8 @@ func newStartCmd() *cobra.Command {
 	cmd.Flags().Bool("json", false, "Emit findings as JSON to stdout (same as --output=json)")
 	cmd.Flags().Bool("stream", false, "Emit progress and findings as NDJSON (one event per line); requires --output=json")
 	cmd.Flags().Bool("allow-dirty", false, "Proceed with uncommitted changes (warns)")
+	cmd.Flags().Int("rag-symbol-max-definitions", 0, "Max symbol definitions to inject (0 = use config); overrides config and env")
+	cmd.Flags().Int("rag-symbol-max-tokens", 0, "Max tokens for symbol-definitions block (0 = use config); overrides config and env")
 	return cmd
 }
 
@@ -208,7 +210,8 @@ func runStart(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("start: not a git repository: %w", err)
 	}
-	cfg, err := config.Load(context.Background(), config.LoadOptions{RepoRoot: repoRoot})
+	overrides := ragOverridesFromFlags(cmd)
+	cfg, err := config.Load(context.Background(), config.LoadOptions{RepoRoot: repoRoot, Overrides: overrides})
 	if err != nil {
 		return fmt.Errorf("start: load config: %w", err)
 	}
@@ -285,7 +288,28 @@ func newRunCmd() *cobra.Command {
 	cmd.Flags().String("output", "human", "Output format: human (default) or json")
 	cmd.Flags().Bool("json", false, "Emit findings as JSON to stdout (same as --output=json)")
 	cmd.Flags().Bool("stream", false, "Emit progress and findings as NDJSON (one event per line); requires --output=json")
+	cmd.Flags().Int("rag-symbol-max-definitions", 0, "Max symbol definitions to inject (0 = use config); overrides config and env")
+	cmd.Flags().Int("rag-symbol-max-tokens", 0, "Max tokens for symbol-definitions block (0 = use config); overrides config and env")
 	return cmd
+}
+
+// ragOverridesFromFlags returns Overrides for RAG options when the corresponding flags were set (start/run both define these flags).
+func ragOverridesFromFlags(cmd *cobra.Command) *config.Overrides {
+	defChanged := cmd.Flags().Lookup("rag-symbol-max-definitions") != nil && cmd.Flags().Lookup("rag-symbol-max-definitions").Changed
+	tokChanged := cmd.Flags().Lookup("rag-symbol-max-tokens") != nil && cmd.Flags().Lookup("rag-symbol-max-tokens").Changed
+	if !defChanged && !tokChanged {
+		return nil
+	}
+	o := &config.Overrides{}
+	if defChanged {
+		v, _ := cmd.Flags().GetInt("rag-symbol-max-definitions")
+		o.RAGSymbolMaxDefinitions = &v
+	}
+	if tokChanged {
+		v, _ := cmd.Flags().GetInt("rag-symbol-max-tokens")
+		o.RAGSymbolMaxTokens = &v
+	}
+	return o
 }
 
 func runRun(cmd *cobra.Command, args []string) error {
@@ -297,7 +321,8 @@ func runRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("run: not a git repository: %w", err)
 	}
-	cfg, err := config.Load(cmd.Context(), config.LoadOptions{RepoRoot: repoRoot})
+	overrides := ragOverridesFromFlags(cmd)
+	cfg, err := config.Load(cmd.Context(), config.LoadOptions{RepoRoot: repoRoot, Overrides: overrides})
 	if err != nil {
 		return fmt.Errorf("run: load config: %w", err)
 	}

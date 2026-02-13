@@ -15,7 +15,9 @@ package config
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -85,6 +87,17 @@ const (
 	_defaultRAGSymbolMaxDefs     = 10
 	_defaultRAGSymbolMaxTokens   = 0
 )
+
+// errIntOverflow is returned when an int64 value does not fit in int (e.g. on 32-bit or huge TOML/env values).
+var errIntOverflow = errors.New("value out of range for int")
+
+// int64ToInt converts n to int. It returns an error if n is outside the range of int (e.g. overflow on 32-bit).
+func int64ToInt(n int64) (int, error) {
+	if n < int64(math.MinInt) || n > int64(math.MaxInt) {
+		return 0, errIntOverflow
+	}
+	return int(n), nil
+}
 
 // DefaultConfig returns the default configuration (no I/O).
 func DefaultConfig() Config {
@@ -185,7 +198,11 @@ func mergeFile(cfg *Config, path string) error {
 		cfg.OllamaBaseURL = *file.OllamaBaseURL
 	}
 	if file.ContextLimit != nil && *file.ContextLimit > 0 {
-		cfg.ContextLimit = int(*file.ContextLimit)
+		v, err := int64ToInt(*file.ContextLimit)
+		if err != nil {
+			return fmt.Errorf("config %s context_limit value out of range: %w", path, err)
+		}
+		cfg.ContextLimit = v
 	}
 	if file.WarnThreshold != nil && *file.WarnThreshold >= 0 {
 		cfg.WarnThreshold = *file.WarnThreshold
@@ -207,7 +224,11 @@ func mergeFile(cfg *Config, path string) error {
 		cfg.Temperature = *file.Temperature
 	}
 	if file.NumCtx != nil && *file.NumCtx > 0 {
-		cfg.NumCtx = int(*file.NumCtx)
+		v, err := int64ToInt(*file.NumCtx)
+		if err != nil {
+			return fmt.Errorf("config %s num_ctx value out of range: %w", path, err)
+		}
+		cfg.NumCtx = v
 	} else if file.NumCtx != nil && *file.NumCtx == 0 {
 		cfg.NumCtx = _defaultNumCtx
 	}
@@ -215,10 +236,18 @@ func mergeFile(cfg *Config, path string) error {
 		cfg.OptimizerScript = *file.OptimizerScript
 	}
 	if file.RAGSymbolMaxDefinitions != nil && *file.RAGSymbolMaxDefinitions >= 0 {
-		cfg.RAGSymbolMaxDefinitions = int(*file.RAGSymbolMaxDefinitions)
+		v, err := int64ToInt(*file.RAGSymbolMaxDefinitions)
+		if err != nil {
+			return fmt.Errorf("config %s rag_symbol_max_definitions value out of range: %w", path, err)
+		}
+		cfg.RAGSymbolMaxDefinitions = v
 	}
 	if file.RAGSymbolMaxTokens != nil && *file.RAGSymbolMaxTokens >= 0 {
-		cfg.RAGSymbolMaxTokens = int(*file.RAGSymbolMaxTokens)
+		v, err := int64ToInt(*file.RAGSymbolMaxTokens)
+		if err != nil {
+			return fmt.Errorf("config %s rag_symbol_max_tokens value out of range: %w", path, err)
+		}
+		cfg.RAGSymbolMaxTokens = v
 	}
 	return nil
 }
@@ -279,7 +308,10 @@ func applyEnv(cfg *Config, env []string) error {
 		if err != nil {
 			return fmt.Errorf("%s: invalid integer %q: %w", envContextLimit, v, err)
 		}
-		cfg.ContextLimit = int(n)
+		cfg.ContextLimit, err = int64ToInt(n)
+		if err != nil {
+			return fmt.Errorf("%s: value out of range for int: %w", envContextLimit, err)
+		}
 	}
 	if v, ok := vals[envWarnThreshold]; ok && v != "" {
 		f, err := strconv.ParseFloat(v, 64)
@@ -322,7 +354,10 @@ func applyEnv(cfg *Config, env []string) error {
 		if n == 0 {
 			cfg.NumCtx = _defaultNumCtx
 		} else {
-			cfg.NumCtx = int(n)
+			cfg.NumCtx, err = int64ToInt(n)
+			if err != nil {
+				return fmt.Errorf("%s: value out of range for int: %w", envNumCtx, err)
+			}
 		}
 	}
 	if v, ok := vals[envOptimizerScript]; ok {
@@ -334,7 +369,10 @@ func applyEnv(cfg *Config, env []string) error {
 			return fmt.Errorf("%s: invalid integer %q: %w", envRAGSymbolMaxDefinitions, v, err)
 		}
 		if n >= 0 {
-			cfg.RAGSymbolMaxDefinitions = int(n)
+			cfg.RAGSymbolMaxDefinitions, err = int64ToInt(n)
+			if err != nil {
+				return fmt.Errorf("%s: value out of range for int: %w", envRAGSymbolMaxDefinitions, err)
+			}
 		}
 	}
 	if v, ok := vals[envRAGSymbolMaxTokens]; ok && v != "" {
@@ -343,7 +381,10 @@ func applyEnv(cfg *Config, env []string) error {
 			return fmt.Errorf("%s: invalid integer %q: %w", envRAGSymbolMaxTokens, v, err)
 		}
 		if n >= 0 {
-			cfg.RAGSymbolMaxTokens = int(n)
+			cfg.RAGSymbolMaxTokens, err = int64ToInt(n)
+			if err != nil {
+				return fmt.Errorf("%s: value out of range for int: %w", envRAGSymbolMaxTokens, err)
+			}
 		}
 	}
 	return nil

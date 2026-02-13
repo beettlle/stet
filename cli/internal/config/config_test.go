@@ -2,13 +2,17 @@ package config
 
 import (
 	"context"
+	"errors"
+	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
 
 func ptrStr(s string) *string { return &s }
+func ptrInt(n int) *int       { return &n }
 
 func TestDefaultConfig(t *testing.T) {
 	t.Parallel()
@@ -192,6 +196,28 @@ func TestLoad_precedenceChain(t *testing.T) {
 	}
 	if cfg.OllamaBaseURL != "http://override:11434" {
 		t.Errorf("OllamaBaseURL = %q, want http://override:11434", cfg.OllamaBaseURL)
+	}
+}
+
+func TestLoad_overridesRAGOptions(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ctx := context.Background()
+	defs, tok := 5, 500
+	cfg, err := Load(ctx, LoadOptions{
+		RepoRoot:         dir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{},
+		Overrides:        &Overrides{RAGSymbolMaxDefinitions: ptrInt(defs), RAGSymbolMaxTokens: ptrInt(tok)},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.RAGSymbolMaxDefinitions != defs {
+		t.Errorf("RAGSymbolMaxDefinitions = %d, want %d", cfg.RAGSymbolMaxDefinitions, defs)
+	}
+	if cfg.RAGSymbolMaxTokens != tok {
+		t.Errorf("RAGSymbolMaxTokens = %d, want %d", cfg.RAGSymbolMaxTokens, tok)
 	}
 }
 
@@ -494,5 +520,96 @@ func TestParseDuration_invalid(t *testing.T) {
 	_, err = parseDuration("x1m")
 	if err == nil {
 		t.Error("expected error for invalid duration")
+	}
+}
+
+func TestInt64ToInt_inRange(t *testing.T) {
+	t.Parallel()
+	for _, n := range []int64{0, 1, 100, int64(math.MaxInt) - 1, int64(math.MaxInt)} {
+		got, err := int64ToInt(n)
+		if err != nil {
+			t.Errorf("int64ToInt(%d): %v", n, err)
+			continue
+		}
+		if got != int(n) {
+			t.Errorf("int64ToInt(%d) = %d, want %d", n, got, int(n))
+		}
+	}
+	if math.MinInt == math.MinInt64 {
+		got, err := int64ToInt(math.MinInt64)
+		if err != nil {
+			t.Errorf("int64ToInt(MinInt64) on 64-bit: %v", err)
+		}
+		if got != math.MinInt {
+			t.Errorf("int64ToInt(MinInt64) = %d, want %d", got, math.MinInt)
+		}
+	}
+}
+
+func TestInt64ToInt_overflow(t *testing.T) {
+	t.Parallel()
+	// 2147483648 fits in int64 but exceeds int on 32-bit.
+	v := int64(2147483648)
+	got, err := int64ToInt(v)
+	if math.MaxInt < 2147483648 {
+		if err == nil {
+			t.Errorf("int64ToInt(2147483648) on 32-bit: want error, got %d", got)
+		}
+		if err != nil && !errors.Is(err, errIntOverflow) {
+			t.Errorf("int64ToInt: want errIntOverflow, got %v", err)
+		}
+	} else {
+		if err != nil {
+			t.Errorf("int64ToInt(2147483648) on 64-bit: %v", err)
+		}
+		if got != 2147483648 {
+			t.Errorf("got %d, want 2147483648", got)
+		}
+	}
+}
+
+func TestLoad_tomlIntOverflow(t *testing.T) {
+	t.Parallel()
+	if math.MaxInt >= 2147483648 {
+		t.Skip("int is 64-bit; no int64 value overflows int")
+	}
+	dir := t.TempDir()
+	globalPath := filepath.Join(dir, "global.toml")
+	if err := os.MkdirAll(filepath.Dir(globalPath), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(globalPath, []byte("context_limit = 2147483648\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	_, err := Load(ctx, LoadOptions{
+		GlobalConfigPath: globalPath,
+		Env:              []string{},
+	})
+	if err == nil {
+		t.Fatal("Load: want error for context_limit overflow on 32-bit, got nil")
+	}
+	if !errors.Is(err, errIntOverflow) && !strings.Contains(err.Error(), "out of range") {
+		t.Errorf("Load: want out-of-range error, got %v", err)
+	}
+}
+
+func TestLoad_envIntOverflow(t *testing.T) {
+	t.Parallel()
+	if math.MaxInt >= 2147483648 {
+		t.Skip("int is 64-bit; no int64 value overflows int")
+	}
+	dir := t.TempDir()
+	ctx := context.Background()
+	_, err := Load(ctx, LoadOptions{
+		RepoRoot:         dir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{"STET_CONTEXT_LIMIT=2147483648"},
+	})
+	if err == nil {
+		t.Fatal("Load: want error for STET_CONTEXT_LIMIT overflow on 32-bit, got nil")
+	}
+	if !strings.Contains(err.Error(), "out of range") {
+		t.Errorf("Load: want out-of-range error, got %v", err)
 	}
 }

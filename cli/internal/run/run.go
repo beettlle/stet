@@ -162,6 +162,12 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 	if ref == "" {
 		ref = "HEAD"
 	}
+	if opts.RAGSymbolMaxDefinitions < 0 {
+		opts.RAGSymbolMaxDefinitions = 0
+	}
+	if opts.RAGSymbolMaxTokens < 0 {
+		opts.RAGSymbolMaxTokens = 0
+	}
 
 	clean, err := git.IsClean(opts.RepoRoot)
 	if err != nil {
@@ -456,6 +462,12 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 func Run(ctx context.Context, opts RunOptions) error {
 	if opts.RepoRoot == "" || opts.StateDir == "" {
 		return fmt.Errorf("run Run: RepoRoot and StateDir required")
+	}
+	if opts.RAGSymbolMaxDefinitions < 0 {
+		opts.RAGSymbolMaxDefinitions = 0
+	}
+	if opts.RAGSymbolMaxTokens < 0 {
+		opts.RAGSymbolMaxTokens = 0
 	}
 
 	s, err := session.Load(opts.StateDir)
