@@ -81,11 +81,11 @@ func cannedFindingsForHunks(hunks []diff.Hunk) []findings.Finding {
 		out = append(out, findings.Finding{
 			ID:         id,
 			File:       file,
-			Line:      1,
-			Severity:  findings.SeverityInfo,
-			Category:  findings.CategoryMaintainability,
+			Line:       1,
+			Severity:   findings.SeverityInfo,
+			Category:   findings.CategoryMaintainability,
 			Confidence: 1.0,
-			Message:   dryRunMessage,
+			Message:    dryRunMessage,
 		})
 	}
 	return out
@@ -148,19 +148,19 @@ func addressedFindingIDs(hunks []diff.Hunk, existingFindings []findings.Finding,
 // AllowDirty, when true, skips the clean worktree check and proceeds with a warning.
 // StreamOut, when non-nil, receives NDJSON events (progress, finding, done) one per line.
 type StartOptions struct {
-	RepoRoot      string
-	StateDir      string
-	WorktreeRoot  string
-	Ref           string
-	DryRun        bool
-	AllowDirty    bool
-	Model         string
-	OllamaBaseURL string
-	ContextLimit  int
-	WarnThreshold float64
-	Timeout       time.Duration
-	Temperature   float64
-	NumCtx        int
+	RepoRoot                string
+	StateDir                string
+	WorktreeRoot            string
+	Ref                     string
+	DryRun                  bool
+	AllowDirty              bool
+	Model                   string
+	OllamaBaseURL           string
+	ContextLimit            int
+	WarnThreshold           float64
+	Timeout                 time.Duration
+	Temperature             float64
+	NumCtx                  int
 	Verbose                 bool
 	StreamOut               io.Writer
 	RAGSymbolMaxDefinitions int
@@ -181,16 +181,16 @@ type FinishOptions struct {
 // RunOptions does not include WorktreeRoot because Run does not create or remove worktrees (only Finish does).
 // StreamOut, when non-nil, receives NDJSON events (progress, finding, done) one per line.
 type RunOptions struct {
-	RepoRoot      string
-	StateDir      string
-	DryRun        bool
-	Model         string
-	OllamaBaseURL string
-	ContextLimit  int
-	WarnThreshold float64
-	Timeout       time.Duration
-	Temperature   float64
-	NumCtx        int
+	RepoRoot                string
+	StateDir                string
+	DryRun                  bool
+	Model                   string
+	OllamaBaseURL           string
+	ContextLimit            int
+	WarnThreshold           float64
+	Timeout                 time.Duration
+	Temperature             float64
+	NumCtx                  int
 	Verbose                 bool
 	StreamOut               io.Writer
 	RAGSymbolMaxDefinitions int
@@ -511,7 +511,7 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 			ReviewOutput: s.Findings,
 			UserAction: history.UserAction{
 				DismissedIDs: s.DismissedIDs,
-				FinishedAt:  time.Now().UTC().Format(time.RFC3339),
+				FinishedAt:   time.Now().UTC().Format(time.RFC3339),
 			},
 		}
 		if err := history.Append(opts.StateDir, rec, history.DefaultMaxRecords); err != nil {

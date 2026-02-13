@@ -763,11 +763,11 @@ func TestAddressedFindingIDs(t *testing.T) {
 	}
 
 	tests := []struct {
-		name            string
-		hunks           []diff.Hunk
-		existing        []findings.Finding
-		newIDSet        map[string]struct{}
-		wantAddressed   []string
+		name          string
+		hunks         []diff.Hunk
+		existing      []findings.Finding
+		newIDSet      map[string]struct{}
+		wantAddressed []string
 	}{
 		{
 			name:          "finding in hunk not in new set -> addressed",
@@ -791,7 +791,7 @@ func TestAddressedFindingIDs(t *testing.T) {
 			wantAddressed: nil,
 		},
 		{
-			name: "multiple at same location one in new set",
+			name:  "multiple at same location one in new set",
 			hunks: []diff.Hunk{hunkWithRange},
 			existing: []findings.Finding{
 				{ID: "f1", File: "a.go", Line: 2},
@@ -808,7 +808,7 @@ func TestAddressedFindingIDs(t *testing.T) {
 			wantAddressed: nil,
 		},
 		{
-			name: "range start used when present",
+			name:  "range start used when present",
 			hunks: []diff.Hunk{hunkWithRange},
 			existing: []findings.Finding{{
 				ID: "f1", File: "a.go", Line: 0,

@@ -16,7 +16,7 @@ import "stet/cli/internal/findings"
 // ReasonAlreadyCorrect is also used when a finding is auto-dismissed because
 // a re-review of the same code (e.g. after the user fixed the issue) did not report it.
 const (
-	ReasonFalsePositive    = "false_positive"
+	ReasonFalsePositive   = "false_positive"
 	ReasonAlreadyCorrect  = "already_correct"
 	ReasonWrongSuggestion = "wrong_suggestion"
 	ReasonOutOfScope      = "out_of_scope"
@@ -42,13 +42,13 @@ type Dismissal struct {
 // (with optional reasons) and when the session finished.
 type UserAction struct {
 	DismissedIDs []string    `json:"dismissed_ids,omitempty"`
-	Dismissals   []Dismissal `json:"dismissals,omitempty"` // Per-finding reason when present.
+	Dismissals   []Dismissal `json:"dismissals,omitempty"`  // Per-finding reason when present.
 	FinishedAt   string      `json:"finished_at,omitempty"` // ISO8601 or similar.
 }
 
 // Record is one line in .review/history.jsonl.
 type Record struct {
-	DiffRef     string            `json:"diff_ref"`               // Ref or SHA for the diff scope.
-	ReviewOutput []findings.Finding `json:"review_output"`         // Findings from the review run.
-	UserAction  UserAction        `json:"user_action"`
+	DiffRef      string             `json:"diff_ref"`      // Ref or SHA for the diff scope.
+	ReviewOutput []findings.Finding `json:"review_output"` // Findings from the review run.
+	UserAction   UserAction         `json:"user_action"`
 }
