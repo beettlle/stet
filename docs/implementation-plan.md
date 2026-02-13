@@ -21,6 +21,7 @@ These are the source of truth for a coding LLM implementing the project.
 | **DSPy optimizer** | Optional. History in `.review/history.jsonl`; on-demand via `stet optimize` (Python sidecar). Output: `.review/system_prompt_optimized.txt`. CLI loads optimized prompt when present; core remains a static Go binary. Optimizer is optional; dev container and CI do not require Python/DSPy for main CLI build and tests. |
 | **History / org sync (future)** | `.review/history.jsonl` schema and format MUST be designed so records can be exported or uploaded in bulk in a future phase (e.g. for org-wide learning). Each line is a self-contained JSON object; avoid implicit local-only identifiers that would break when aggregating from many machines. Document the schema; do not hardcode assumptions that history is only ever consumed locally. Real-time or shared DB (e.g. PostgreSQL) is out of scope for v1; periodic upload/export is the intended future direction. |
 | **Session end (v1)** | Explicit `stet finish` and extension "Finish review" button. PRD §9 documents the alternative (auto-finish when 0 findings); implementation follows PRD when/if that is adopted. |
+| **License** | MIT. See `LICENSE` in project root. |
 
 ---
 
@@ -37,6 +38,7 @@ These are the source of truth for a coding LLM implementing the project.
 | **Phase 5** | Extension: spawn CLI, panel, jump to file:line, copy-for-chat, Finish button. |
 | **Phase 6** | Defect-Focused Pipeline: CoT prompts, Git intent, abstention filter, hunk expansion (tree-sitter), FP kill list; then CursorRules, streaming, prompt shadowing, DSPy, docs. |
 | **Phase 7** | User-facing error messages: audit and rewrite so every error shown to the user is human-readable and actionable; no raw command names or exit codes in the primary message. |
+| **Phase 8** | Release readiness: MIT license, installation story, user-first README. |
 
 ```mermaid
 flowchart LR
@@ -47,6 +49,7 @@ flowchart LR
   P4 --> P4_5[Phase_4_5_Schema] --> P5[Phase_5_Extension]
   P5 --> P6[Phase_6_DefectFocused]
   P6 --> P7[Phase_7_ErrorMessages]
+  P7 --> P8[Phase_8_Release]
 ```
 
 ---
@@ -204,6 +207,18 @@ Phase 6 replaces the generic "RAG-lite" placeholder with the research-backed Def
 - **Deliverable / verification:** List of error sites updated; tests that assert on user-visible message content (or at least that messages do not contain substrings like "exit status" or "rev-parse") where practical. No new coverage target beyond existing 77% / 72%; focus is message content.
 
 **Phase 7 exit:** User-facing errors are human-readable and actionable; technical details are not the primary message.
+
+---
+
+### Phase 8: Release readiness
+
+| Sub-phase | Deliverable | Tests / coverage |
+|-----------|-------------|------------------|
+| **8.1** | **LICENSE:** Add MIT license file to project root. Use standard MIT template with current year and copyright holder (project or author as appropriate). | No coverage target. |
+| **8.2** | **Installation story:** Create `install.sh` (Mac/Linux) that installs the stet binary (e.g. downloads from GitHub Releases when available, or builds from source via `go build` as fallback). Document in README: prerequisites (Git, Ollama), Ollama install note, suggested model (`ollama pull qwen2.5-coder:32b`), and installation options (script, `go install`, or `make build`). Optional: `install.ps1` for Windows. | Manual verification; install script runs successfully in dev container. |
+| **8.3** | **README rewrite:** Replace current README with user-first content. README MUST include: hero with local-first value prop, Why Stet (free, privacy), About the name, Quick Start (Ollama + stet), Installation (with Ollama note and model), Commands table, short Extension section (enabler), Documentation links for contributors. No comparisons to other tools. No video/demo placeholder. | No coverage target. |
+
+**Phase 8 exit:** Project has MIT license, installable via script or documented build steps; README is user-first and complete.
 
 ---
 
