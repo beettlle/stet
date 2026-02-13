@@ -14,11 +14,17 @@ type Err struct {
 
 // Error returns the user-facing message only.
 func (e *Err) Error() string {
+	if e == nil {
+		return ""
+	}
 	return e.Msg
 }
 
 // Unwrap returns the underlying error for Details or logging.
 func (e *Err) Unwrap() error {
+	if e == nil {
+		return nil
+	}
 	return e.Err
 }
 

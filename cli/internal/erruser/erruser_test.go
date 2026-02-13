@@ -34,3 +34,14 @@ func TestNew_nilErr_returnsSimpleError(t *testing.T) {
 		t.Errorf("Unwrap() should be nil for New(msg, nil), got %v", errors.Unwrap(e))
 	}
 }
+
+func TestErr_nilReceiver_noPanic(t *testing.T) {
+	t.Parallel()
+	var e *Err
+	if got := e.Error(); got != "" {
+		t.Errorf("(*Err)(nil).Error() = %q, want %q", got, "")
+	}
+	if e.Unwrap() != nil {
+		t.Errorf("(*Err)(nil).Unwrap() = %v, want nil", e.Unwrap())
+	}
+}
