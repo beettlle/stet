@@ -5,6 +5,8 @@
 
 import { spawn } from "child_process";
 
+const CLI_PATH_REQUIRED_MSG = "cliPath must be a non-empty string";
+
 export interface SpawnResult {
   exitCode: number;
   stdout: string;
@@ -27,6 +29,9 @@ export function spawnStet(
   options: { cwd: string; cliPath?: string }
 ): Promise<SpawnResult> {
   const { cwd, cliPath = "stet" } = options;
+  if (typeof cliPath !== "string" || cliPath.trim() === "") {
+    return Promise.reject(new Error(CLI_PATH_REQUIRED_MSG));
+  }
   return new Promise((resolve) => {
     const chunksOut: Buffer[] = [];
     const chunksErr: Buffer[] = [];
@@ -76,6 +81,9 @@ export function spawnStetStream(
   callbacks: SpawnStetStreamCallbacks
 ): Promise<{ exitCode: number; stderr: string }> {
   const { cwd, cliPath = "stet" } = options;
+  if (typeof cliPath !== "string" || cliPath.trim() === "") {
+    return Promise.reject(new Error(CLI_PATH_REQUIRED_MSG));
+  }
   const { onLine, onClose } = callbacks;
   return new Promise((resolve) => {
     const chunksErr: Buffer[] = [];

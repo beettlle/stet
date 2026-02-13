@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.25% </span>
+                <span class="strong">94.68% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>82/87</span>
+                <span class='fraction'>89/94</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">80.95% </span>
+                <span class="strong">84% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>17/21</span>
+                <span class='fraction'>21/25</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.25% </span>
+                <span class="strong">94.68% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>82/87</span>
+                <span class='fraction'>89/94</span>
             </div>
         
             
@@ -184,12 +184,22 @@
 <a name='L119'></a><a href='#L119'>119</a>
 <a name='L120'></a><a href='#L120'>120</a>
 <a name='L121'></a><a href='#L121'>121</a>
-<a name='L122'></a><a href='#L122'>122</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L122'></a><a href='#L122'>122</a>
+<a name='L123'></a><a href='#L123'>123</a>
+<a name='L124'></a><a href='#L124'>124</a>
+<a name='L125'></a><a href='#L125'>125</a>
+<a name='L126'></a><a href='#L126'>126</a>
+<a name='L127'></a><a href='#L127'>127</a>
+<a name='L128'></a><a href='#L128'>128</a>
+<a name='L129'></a><a href='#L129'>129</a>
+<a name='L130'></a><a href='#L130'>130</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -209,10 +219,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
@@ -257,11 +270,14 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">3x</span>
@@ -312,6 +328,8 @@
 &nbsp;
 import { spawn } from "child_process";
 &nbsp;
+const CLI_PATH_REQUIRED_MSG = "cliPath must be a non-empty string";
+&nbsp;
 export interface SpawnResult {
   exitCode: number;
   stdout: string;
@@ -334,6 +352,9 @@ export function spawnStet(
   options: { cwd: string; cliPath?: string }
 ): Promise&lt;SpawnResult&gt; {
   const { cwd, cliPath = "stet" } = options;
+  if (typeof cliPath !== "string" || cliPath.trim() === "") {
+    return Promise.reject(new Error(CLI_PATH_REQUIRED_MSG));
+  }
   return new Promise((resolve) =&gt; {
     const chunksOut: Buffer[] = [];
     const chunksErr: Buffer[] = [];
@@ -383,6 +404,9 @@ export function spawnStetStream(
   callbacks: SpawnStetStreamCallbacks
 ): Promise&lt;{ exitCode: number; stderr: string }&gt; {
   const { cwd, cliPath = "stet" } = options;
+  if (typeof cliPath !== "string" || cliPath.trim() === "") {
+    return Promise.reject(new Error(CLI_PATH_REQUIRED_MSG));
+  }
   const { onLine, onClose } = callbacks;
   return new Promise((resolve) =&gt; {
     const chunksErr: Buffer[] = [];
@@ -433,7 +457,7 @@ export function spawnStetStream(
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-13T17:28:53.664Z
+                at 2026-02-13T18:14:01.583Z
             </div>
         <script src="prettify.js"></script>
         <script>

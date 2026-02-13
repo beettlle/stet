@@ -65,6 +65,12 @@ describe("spawnStet", () => {
     expect(mockSpawn).toHaveBeenCalledWith("/usr/bin/stet", ["run"], expect.any(Object));
   });
 
+  it("rejects when cliPath is empty string and does not call spawn", async () => {
+    const promise = spawnStet(["start"], { cwd: "/repo", cliPath: "" });
+    await expect(promise).rejects.toThrow("cliPath must be a non-empty string");
+    expect(mockSpawn).not.toHaveBeenCalled();
+  });
+
   it("resolves with non-zero exit code and stderr on close", async () => {
     const mockProc = {
       stdout: { on: vi.fn() },
@@ -214,6 +220,16 @@ describe("spawnStetStream", () => {
 
     await promise;
     expect(lines).toContain('{"type":"done"}');
+  });
+
+  it("rejects when cliPath is empty string and does not call spawn", async () => {
+    const promise = spawnStetStream(
+      ["start", "--stream"],
+      { cwd: "/repo", cliPath: "" },
+      { onClose() {} }
+    );
+    await expect(promise).rejects.toThrow("cliPath must be a non-empty string");
+    expect(mockSpawn).not.toHaveBeenCalled();
   });
 
   it("calls onClose with non-zero exitCode and stderr on failure", async () => {

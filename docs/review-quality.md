@@ -56,6 +56,8 @@ Structured entries for prompt lessons, optimizer feedback, and future filtering.
 | documentation | Roadmap: add intro, clarify cognitive complexity, note on circular deps, research topics timeline/priority | false_positive | Optional doc polish; defer or dismiss as out_of_scope if not doing roadmap edits. |
 | design | Missing 'when' clause for context menu item (for a command that already has when on its menu contribution) | false_positive | Context menu entry under view/item/context already has when (e.g. view == stetFindings && viewItem == finding). Model may point at command or wrong line. |
 | maintainability / documentation | runFinishReview (or similar) "only calls provider.clear() without visual feedback" or "doc should clarify caller handles messages" | false_positive | By design the function does not show UI; caller shows success/error. JSDoc already states caller responsibility. |
+| maintainability | Extension streaming (cli.ts, extension.ts): "onClose called twice", "Potential duplicate resolution in spawnStetStream", "race condition in finding accumulation" or "concurrent access to findingsProvider" | already_correct | One-shot guard in finish() prevents double onClose/resolve; count shown only after await; single-threaded event loop. |
+| security / correctness | Extension streaming (parse.ts): "Missing validation for required fields in finding data", "Potential denial of service through large JSON", "unbounded line length" or "unbounded JSON parsing" | already_correct | parseStreamEvent validates finding data and enforces MAX_STREAM_LINE_LENGTH; user-facing error is generic. |
 
 ## Schema for false positive entries
 
