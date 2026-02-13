@@ -238,3 +238,18 @@ func TestMinimalEnv_includesHOMEWhenSet(t *testing.T) {
 		t.Errorf("MinimalEnv() should contain %q when HOME is set; got %v", want, env)
 	}
 }
+
+func TestMinimalEnv_includesGITPAGER(t *testing.T) {
+	env := MinimalEnv()
+	want := "GIT_PAGER=cat"
+	var found bool
+	for _, e := range env {
+		if e == want {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("MinimalEnv() should contain %q; got %v", want, env)
+	}
+}

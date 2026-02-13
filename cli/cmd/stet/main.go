@@ -193,6 +193,10 @@ func runStart(cmd *cobra.Command, args []string) error {
 	if stream && output != "json" {
 		return fmt.Errorf("start: --stream requires --output=json or --json")
 	}
+	verbose := !quiet
+	if stream || output == "json" {
+		verbose = false
+	}
 	allowDirty, _ := cmd.Flags().GetBool("allow-dirty")
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -221,7 +225,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 		Timeout:       cfg.Timeout,
 		Temperature:   cfg.Temperature,
 		NumCtx:        cfg.NumCtx,
-		Verbose:       !quiet,
+		Verbose:       verbose,
 		StreamOut:     nil,
 	}
 	if stream {
@@ -308,6 +312,10 @@ func runRun(cmd *cobra.Command, args []string) error {
 	if stream && output != "json" {
 		return fmt.Errorf("run: --stream requires --output=json or --json")
 	}
+	verbose := !quiet
+	if stream || output == "json" {
+		verbose = false
+	}
 	opts := run.RunOptions{
 		RepoRoot:      repoRoot,
 		StateDir:      stateDir,
@@ -319,7 +327,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 		Timeout:       cfg.Timeout,
 		Temperature:   cfg.Temperature,
 		NumCtx:        cfg.NumCtx,
-		Verbose:       !quiet,
+		Verbose:       verbose,
 		StreamOut:     nil,
 	}
 	if stream {

@@ -170,6 +170,7 @@ func minimalEnv() []string {
 	env := []string{
 		"PATH=" + os.Getenv("PATH"),
 		"GIT_TERMINAL_PROMPT=0",
+		"GIT_PAGER=cat", // prevent pager; subprocess output is captured
 	}
 	if home := os.Getenv("HOME"); home != "" {
 		env = append(env, "HOME="+home)
