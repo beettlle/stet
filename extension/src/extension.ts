@@ -1,6 +1,9 @@
 import * as vscode from "vscode";
 
 import { spawnStet } from "./cli";
+import { createFindingsPanel } from "./findingsPanel";
+import { openFinding } from "./openFinding";
+import type { OpenFindingPayload } from "./openFinding";
 import { parseFindingsJSON } from "./parse";
 
 function getRepoRoot(): string | null {
@@ -26,6 +29,19 @@ function showCLIError(stderr: string, exitCode: number): void {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+  const findingsProvider = createFindingsPanel(context);
+  context.subscriptions.push(
+    vscode.commands.registerCommand("stet.openFinding", async (payload: OpenFindingPayload) => {
+      const root = getRepoRoot();
+      if (!root) {
+        void vscode.window.showErrorMessage(
+          "Stet: No workspace folder open. Open a folder to open findings."
+        );
+        return;
+      }
+      await openFinding(payload, root);
+    })
+  );
   context.subscriptions.push(
     vscode.commands.registerCommand("stet.startReview", async () => {
       const cwd = getRepoRoot();
@@ -35,6 +51,7 @@ export function activate(context: vscode.ExtensionContext): void {
         );
         return;
       }
+      findingsProvider.setScanning(true);
       void vscode.window.withProgress(
         {
           location: vscode.ProgressLocation.Notification,
@@ -43,16 +60,20 @@ export function activate(context: vscode.ExtensionContext): void {
         },
         async () => {
           const result = await spawnStet(["start", "--dry-run"], { cwd });
+          findingsProvider.setScanning(false);
           if (result.exitCode !== 0) {
+            findingsProvider.setFindings([]);
             showCLIError(result.stderr, result.exitCode);
             return;
           }
           try {
             const { findings } = parseFindingsJSON(result.stdout);
+            findingsProvider.setFindings(findings);
             void vscode.window.showInformationMessage(
               `Stet: Review complete. ${findings.length} finding(s).`
             );
           } catch (e) {
+            findingsProvider.setFindings([]);
             const message = e instanceof Error ? e.message : String(e);
             void vscode.window.showErrorMessage(`Stet: Failed to parse output. ${message}`);
           }

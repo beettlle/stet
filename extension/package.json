@@ -16,8 +16,29 @@
       {
         "command": "stet.startReview",
         "title": "Stet: Start review"
+      },
+      {
+        "command": "stet.openFinding",
+        "title": "Stet: Open at location"
       }
-    ]
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "stet",
+          "title": "Stet",
+          "icon": "$(list-unordered)"
+        }
+      ]
+    },
+    "views": {
+      "stet": [
+        {
+          "id": "stetFindings",
+          "name": "Findings"
+        }
+      ]
+    }
   },
   "scripts": {
     "compile": "tsc -p ./",
