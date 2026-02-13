@@ -26,6 +26,7 @@ Examples from Stet self-review; keep this list brief and update as patterns emer
 - **Copy-for-Chat implementation:** Suggesting that `linePartForLabel` fallback `'1'` and `lineForFragment` fallback `1` are "confusing." Both are the same intentional fallback for missing line/range; consistent and correct.
 - **Copy-for-Chat implementation:** Suggesting to "break into smaller helper functions" when the function already delegates to `lineForFragment`, `linePartForLabel`, `severityToAdmonition`, `categoryToTitle`. Further splitting is optional style, not a correctness issue.
 - **This file (review-quality.md):** Findings that suggest reclassifying or "verifying" entries in the curated false-positive table (e.g. "The false_positive classification may be incorrect", "Verify that the implementation..."). This document is human-curated for the optimizer; do not report meta-review of the table as actionable.
+- **Dismiss command naming:** Suggesting that function names `newDismissCmd` or `runDismiss` should be "consistent with command usage 'dismiss'" by renaming them to `newApproveCmd` / `runApprove`. The suggestion is reversed: the command is `dismiss` and the functions already match; renaming to Approve would make them inconsistent. Dismiss as wrong_suggestion.
 
 ## Known false positive patterns (curated)
 
@@ -48,6 +49,9 @@ Structured entries for prompt lessons, optimizer feedback, and future filtering.
 | maintainability | Error message text is hardcoded; consider constant or localized string | false_positive | Acceptable for small extension; localization out of scope for v1. |
 | maintainability | Consider adding a comment explaining why contextValue is being set | false_positive | Optional documentation; not a correctness issue. |
 | (various) | Findings in `docs/review-quality.md` that the false_positive/wrong_suggestion classification "may be incorrect" or that suggest "verify that the implementation..." for table entries | out_of_scope | This file is curated; do not suggest reclassifying or re-verifying table entries as actionable. |
+| style | Function name 'newDismissCmd' should be consistent with command usage 'dismiss' (suggest renaming to newApproveCmd) | wrong_suggestion | Command is `dismiss`; newDismissCmd is correct. Suggestion would make name inconsistent. |
+| style | Function name 'runDismiss' should be consistent with command usage 'dismiss' (suggest renaming to runApprove) | wrong_suggestion | Command is `dismiss`; runDismiss is correct. Suggestion would make name inconsistent. |
+| documentation | Roadmap: add intro, clarify cognitive complexity, note on circular deps, research topics timeline/priority | false_positive | Optional doc polish; defer or dismiss as out_of_scope if not doing roadmap edits. |
 
 ## Schema for false positive entries
 
