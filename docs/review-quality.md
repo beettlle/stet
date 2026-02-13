@@ -25,6 +25,7 @@ Examples from Stet self-review; keep this list brief and update as patterns emer
 - **Copy-for-Chat implementation:** Suggesting "implementation may use different casing" for admonition text (WARNING, NOTE) when the implementation explicitly returns those strings and tests assert them. Case-insensitive matching is not required.
 - **Copy-for-Chat implementation:** Suggesting that `linePartForLabel` fallback `'1'` and `lineForFragment` fallback `1` are "confusing." Both are the same intentional fallback for missing line/range; consistent and correct.
 - **Copy-for-Chat implementation:** Suggesting to "break into smaller helper functions" when the function already delegates to `lineForFragment`, `linePartForLabel`, `severityToAdmonition`, `categoryToTitle`. Further splitting is optional style, not a correctness issue.
+- **This file (review-quality.md):** Findings that suggest reclassifying or "verifying" entries in the curated false-positive table (e.g. "The false_positive classification may be incorrect", "Verify that the implementation..."). This document is human-curated for the optimizer; do not report meta-review of the table as actionable.
 
 ## Known false positive patterns (curated)
 
@@ -46,6 +47,7 @@ Structured entries for prompt lessons, optimizer feedback, and future filtering.
 | style | Consider more descriptive variable name than 'root' (e.g. repoRoot, workspaceRoot) | false_positive | Low-signal style nit; document so optimizer can down-weight. |
 | maintainability | Error message text is hardcoded; consider constant or localized string | false_positive | Acceptable for small extension; localization out of scope for v1. |
 | maintainability | Consider adding a comment explaining why contextValue is being set | false_positive | Optional documentation; not a correctness issue. |
+| (various) | Findings in `docs/review-quality.md` that the false_positive/wrong_suggestion classification "may be incorrect" or that suggest "verify that the implementation..." for table entries | out_of_scope | This file is curated; do not suggest reclassifying or re-verifying table entries as actionable. |
 
 ## Schema for false positive entries
 

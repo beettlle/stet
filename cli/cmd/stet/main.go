@@ -87,7 +87,7 @@ func runCLI(args []string) int {
 	rootCmd.AddCommand(newRunCmd())
 	rootCmd.AddCommand(newFinishCmd())
 	rootCmd.AddCommand(newStatusCmd())
-	rootCmd.AddCommand(newApproveCmd())
+	rootCmd.AddCommand(newDismissCmd())
 	rootCmd.AddCommand(newOptimizeCmd())
 	rootCmd.AddCommand(newDoctorCmd())
 	rootCmd.SilenceUsage = true
@@ -320,49 +320,49 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func newApproveCmd() *cobra.Command {
+func newDismissCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "approve <id> [reason]",
-		Short: "Mark a finding as approved/dismissed so it does not resurface",
-		RunE:  runApprove,
+		Use:   "dismiss <id> [reason]",
+		Short: "Mark a finding as dismissed so it does not resurface",
+		RunE:  runDismiss,
 	}
 	return cmd
 }
 
-// runApprove adds the finding id to the session's dismissed list so it does not resurface.
+// runDismiss adds the finding id to the session's dismissed list so it does not resurface.
 // Optional second argument is a dismissal reason (false_positive, already_correct, wrong_suggestion, out_of_scope)
-// for the optimizer. Phase 4.5: appends to .review/history.jsonl on approve.
-func runApprove(cmd *cobra.Command, args []string) error {
+// for the optimizer. Phase 4.5: appends to .review/history.jsonl on dismiss.
+func runDismiss(cmd *cobra.Command, args []string) error {
 	if len(args) < 1 {
-		return errors.New("approve requires a finding id (e.g. stet approve <id>)")
+		return errors.New("dismiss requires a finding id (e.g. stet dismiss <id>)")
 	}
 	id := strings.TrimSpace(args[0])
 	if id == "" {
-		return errors.New("approve requires a non-empty finding id")
+		return errors.New("dismiss requires a non-empty finding id")
 	}
 	var reason string
 	if len(args) >= 2 {
 		reason = strings.TrimSpace(strings.ToLower(args[1]))
 		if reason != "" && !history.ValidReason(reason) {
-			return fmt.Errorf("approve: invalid reason %q; must be one of: false_positive, already_correct, wrong_suggestion, out_of_scope", reason)
+			return fmt.Errorf("dismiss: invalid reason %q; must be one of: false_positive, already_correct, wrong_suggestion, out_of_scope", reason)
 		}
 	}
 	cwd, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("approve: %w", err)
+		return fmt.Errorf("dismiss: %w", err)
 	}
 	repoRoot, err := git.RepoRoot(cwd)
 	if err != nil {
-		return fmt.Errorf("approve: not a git repository: %w", err)
+		return fmt.Errorf("dismiss: not a git repository: %w", err)
 	}
 	cfg, err := config.Load(context.Background(), config.LoadOptions{RepoRoot: repoRoot})
 	if err != nil {
-		return fmt.Errorf("approve: load config: %w", err)
+		return fmt.Errorf("dismiss: load config: %w", err)
 	}
 	stateDir := cfg.EffectiveStateDir(repoRoot)
 	s, err := session.Load(stateDir)
 	if err != nil {
-		return fmt.Errorf("approve: load session: %w", err)
+		return fmt.Errorf("dismiss: load session: %w", err)
 	}
 	if s.BaselineRef == "" {
 		fmt.Fprintln(os.Stderr, run.ErrNoSession.Error())
@@ -378,7 +378,7 @@ func runApprove(cmd *cobra.Command, args []string) error {
 	if !alreadyDismissed {
 		s.DismissedIDs = append(s.DismissedIDs, id)
 		if err := session.Save(stateDir, &s); err != nil {
-			return fmt.Errorf("approve: save session: %w", err)
+			return fmt.Errorf("dismiss: save session: %w", err)
 		}
 	}
 	diffRef := s.LastReviewedAt
@@ -395,7 +395,7 @@ func runApprove(cmd *cobra.Command, args []string) error {
 		UserAction:   ua,
 	}
 	if err := history.Append(stateDir, rec, history.DefaultMaxRecords); err != nil {
-		return fmt.Errorf("approve: append history: %w", err)
+		return fmt.Errorf("dismiss: append history: %w", err)
 	}
 	return nil
 }

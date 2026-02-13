@@ -636,7 +636,7 @@ func TestRunCLI_statusWithSessionPrintsFields(t *testing.T) {
 	}
 }
 
-func TestRunCLI_approveNoSessionExitsNonZero(t *testing.T) {
+func TestRunCLI_dismissNoSessionExitsNonZero(t *testing.T) {
 	repo := initRepo(t)
 	orig, err := os.Getwd()
 	if err != nil {
@@ -646,13 +646,13 @@ func TestRunCLI_approveNoSessionExitsNonZero(t *testing.T) {
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
-	got := runCLI([]string{"approve", "some-id"})
+	got := runCLI([]string{"dismiss", "some-id"})
 	if got != 1 {
-		t.Errorf("runCLI(approve) with no session = %d, want 1", got)
+		t.Errorf("runCLI(dismiss) with no session = %d, want 1", got)
 	}
 }
 
-func TestRunCLI_approvePersistence(t *testing.T) {
+func TestRunCLI_dismissPersistence(t *testing.T) {
 	// Do not run in parallel: test changes cwd and findingsOut.
 	repo := initRepo(t)
 	orig, err := os.Getwd()
@@ -679,8 +679,8 @@ func TestRunCLI_approvePersistence(t *testing.T) {
 	if id == "" {
 		t.Fatal("finding missing id")
 	}
-	if got := runCLI([]string{"approve", id}); got != 0 {
-		t.Fatalf("runCLI(approve %q) = %d, want 0", id, got)
+	if got := runCLI([]string{"dismiss", id}); got != 0 {
+		t.Fatalf("runCLI(dismiss %q) = %d, want 0", id, got)
 	}
 	ro, wo, err := os.Pipe()
 	if err != nil {
@@ -696,11 +696,11 @@ func TestRunCLI_approvePersistence(t *testing.T) {
 	var stdout bytes.Buffer
 	_, _ = io.Copy(&stdout, ro)
 	if !strings.Contains(stdout.String(), "dismissed: 1") {
-		t.Errorf("status after approve should show dismissed: 1; got %s", stdout.String())
+		t.Errorf("status after dismiss should show dismissed: 1; got %s", stdout.String())
 	}
 }
 
-func TestRunCLI_approveIdempotent(t *testing.T) {
+func TestRunCLI_dismissIdempotent(t *testing.T) {
 	// Do not run in parallel: test changes cwd and findingsOut.
 	repo := initRepo(t)
 	orig, err := os.Getwd()
@@ -724,11 +724,11 @@ func TestRunCLI_approveIdempotent(t *testing.T) {
 		t.Fatalf("need at least one finding; err=%v", err)
 	}
 	id, _ := out.Findings[0]["id"].(string)
-	if got := runCLI([]string{"approve", id}); got != 0 {
-		t.Fatalf("first approve = %d", got)
+	if got := runCLI([]string{"dismiss", id}); got != 0 {
+		t.Fatalf("first dismiss = %d", got)
 	}
-	if got := runCLI([]string{"approve", id}); got != 0 {
-		t.Errorf("second approve (idempotent) = %d, want 0", got)
+	if got := runCLI([]string{"dismiss", id}); got != 0 {
+		t.Errorf("second dismiss (idempotent) = %d, want 0", got)
 	}
 	cfg, _ := loadConfigForTest(repo)
 	stateDir := cfg.EffectiveStateDir(repo)
@@ -747,7 +747,7 @@ func TestRunCLI_approveIdempotent(t *testing.T) {
 	}
 }
 
-func TestRunCLI_approveDoesNotWritePromptShadows(t *testing.T) {
+func TestRunCLI_dismissDoesNotWritePromptShadows(t *testing.T) {
 	// Do not run in parallel: test changes cwd and findingsOut.
 	repo := initRepo(t)
 	orig, err := os.Getwd()
@@ -771,8 +771,8 @@ func TestRunCLI_approveDoesNotWritePromptShadows(t *testing.T) {
 		t.Fatalf("need at least one finding; err=%v", err)
 	}
 	id, _ := out.Findings[0]["id"].(string)
-	if got := runCLI([]string{"approve", id}); got != 0 {
-		t.Fatalf("runCLI(approve %q) = %d, want 0", id, got)
+	if got := runCLI([]string{"dismiss", id}); got != 0 {
+		t.Fatalf("runCLI(dismiss %q) = %d, want 0", id, got)
 	}
 	cfg, _ := loadConfigForTest(repo)
 	stateDir := cfg.EffectiveStateDir(repo)
@@ -788,14 +788,14 @@ func TestRunCLI_approveDoesNotWritePromptShadows(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Errorf("after approve: dismissed_ids should contain %q", id)
+		t.Errorf("after dismiss: dismissed_ids should contain %q", id)
 	}
 	if len(s.PromptShadows) != 0 {
-		t.Errorf("Phase 4.4: approve must not write prompt_shadows; got len = %d", len(s.PromptShadows))
+		t.Errorf("Phase 4.4: dismiss must not write prompt_shadows; got len = %d", len(s.PromptShadows))
 	}
 }
 
-func TestRunCLI_approveAppendsHistory(t *testing.T) {
+func TestRunCLI_dismissAppendsHistory(t *testing.T) {
 	repo := initRepo(t)
 	orig, err := os.Getwd()
 	if err != nil {
@@ -821,8 +821,8 @@ func TestRunCLI_approveAppendsHistory(t *testing.T) {
 	if id == "" {
 		t.Fatal("finding missing id")
 	}
-	if got := runCLI([]string{"approve", id}); got != 0 {
-		t.Fatalf("runCLI(approve %q) = %d, want 0", id, got)
+	if got := runCLI([]string{"dismiss", id}); got != 0 {
+		t.Fatalf("runCLI(dismiss %q) = %d, want 0", id, got)
 	}
 	cfg, _ := loadConfigForTest(repo)
 	stateDir := cfg.EffectiveStateDir(repo)
@@ -844,7 +844,7 @@ func TestRunCLI_approveAppendsHistory(t *testing.T) {
 	}
 }
 
-func TestRunCLI_approveWithReason(t *testing.T) {
+func TestRunCLI_dismissWithReason(t *testing.T) {
 	repo := initRepo(t)
 	orig, err := os.Getwd()
 	if err != nil {
@@ -867,8 +867,8 @@ func TestRunCLI_approveWithReason(t *testing.T) {
 		t.Fatalf("need at least one finding; err=%v", err)
 	}
 	id, _ := out.Findings[0]["id"].(string)
-	if got := runCLI([]string{"approve", id, "false_positive"}); got != 0 {
-		t.Fatalf("runCLI(approve %q false_positive) = %d, want 0", id, got)
+	if got := runCLI([]string{"dismiss", id, "false_positive"}); got != 0 {
+		t.Fatalf("runCLI(dismiss %q false_positive) = %d, want 0", id, got)
 	}
 	cfg, _ := loadConfigForTest(repo)
 	stateDir := cfg.EffectiveStateDir(repo)
@@ -890,7 +890,7 @@ func TestRunCLI_approveWithReason(t *testing.T) {
 	}
 }
 
-func TestRunCLI_approveInvalidReasonExits1(t *testing.T) {
+func TestRunCLI_dismissInvalidReasonExits1(t *testing.T) {
 	repo := initRepo(t)
 	orig, err := os.Getwd()
 	if err != nil {
@@ -913,8 +913,8 @@ func TestRunCLI_approveInvalidReasonExits1(t *testing.T) {
 		t.Fatalf("need at least one finding; err=%v", err)
 	}
 	id, _ := out.Findings[0]["id"].(string)
-	if got := runCLI([]string{"approve", id, "invalid_reason"}); got != 1 {
-		t.Errorf("runCLI(approve %q invalid_reason) = %d, want 1", id, got)
+	if got := runCLI([]string{"dismiss", id, "invalid_reason"}); got != 1 {
+		t.Errorf("runCLI(dismiss %q invalid_reason) = %d, want 1", id, got)
 	}
 }
 

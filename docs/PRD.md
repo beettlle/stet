@@ -40,7 +40,7 @@ Start a **new project** rather than fork or extend RoboRev, because scope and de
 - **Persistent state:** approved hunks; no re-reviewing the same code.
 - **Incremental review:** only new or changed hunks since baseline sent to the model.
 - **IDE panel + "Finish review":** minimal extension surface; user stays in main worktree.
-- **CLI:** for automation and headless use (start, run, finish, status, approve).
+- **CLI:** for automation and headless use (start, run, finish, status, dismiss).
 - **git-ai integration:** From v1, record completed review sessions so impact can be quantified (e.g. on "Finish review," attach a Git Note under a dedicated ref such as `refs/notes/stet` with session metadata for correlation with git-ai authorship data).
 - **Actionable findings:** Findings should be actionable: the developer can apply the suggestion or fix the issue without reverting correct behavior. Dismissals and "not actionable" feedback are recorded and used (history, prompt shadowing, optimizer) to reduce false positives and improve future reviews.
 
@@ -167,7 +167,7 @@ To ensure stability across trivial edits (formatting, comments) while maintainin
 - **`stet doctor`**: Verify environment (Ollama, Git, models).
 - **`stet start`** (or `stet start [<ref>]`): create worktree at baseline, run review, output findings (stdout/JSON).
 - **`stet run`**: incremental re-review (baseline..HEAD), update findings and state.
-- **`stet approve <id>`**, **`stet status`**: optional state interaction.
+- **`stet dismiss <id>`**, **`stet status`**: optional state interaction.
 - **`stet finish`**: persist state, clean up worktree.
 
 All commands run from repo root (main worktree); the user never needs to `cd` into the review worktree.
@@ -231,7 +231,7 @@ FinishReview --> RemoveWorktree[Remove worktree]
 | FR-3 | Persist review state: baseline ref, last_reviewed_at (ref), dismissals (e.g. finding IDs marked "won't fix"); optionally explicit approved hunk IDs if per-hunk approval is supported. "Already reviewed" for incremental runs is derived from baseline + last_reviewed_at; worktree is created from baseline when needed. | Survives re-runs and "Finish review" |
 | FR-4 | Identify hunks in a stable way (Dual-Pass Hashing) so approved state survives small edits | Strict Hash + Semantic Hash (comments/whitespace stripped) |
 | FR-5 | Incremental review: only new or changed hunks since baseline sent to model | Diff baseline..HEAD; skip approved hunks |
-| FR-6 | CLI: start, run (incremental), finish, status, approve, doctor | All from repo root (main worktree) |
+| FR-6 | CLI: start, run (incremental), finish, status, dismiss, doctor | All from repo root (main worktree) |
 | FR-7 | Emit structured findings (e.g. JSON/NDJSON): file, line or range, severity, message, finding id | For extension and scripting |
 | FR-8 | Extension: panel listing findings; jump to file:line; copy to chat; "Finish review" button | Minimal surface; no second window. Cursor deep links supported. |
 | FR-9 | When `.cursor/rules/` or `AGENTS.md` exist, optionally discover applicable## 3h. Review Quality Optimizer (DSPy)

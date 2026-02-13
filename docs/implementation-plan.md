@@ -219,7 +219,7 @@ Phase 6 replaces the generic "RAG-lite" placeholder with the research-backed Def
 
 ## 5. Reference
 
-Implementation follows [docs/PRD.md](PRD.md). This plan adds phasing, coverage rules, and the decisions in §1. Phase 7 runs after feature-complete implementation to improve error UX without changing behavior.
+Implementation follows [docs/PRD.md](PRD.md). This plan adds phasing, coverage rules, and the decisions in §1. Phase 7 runs after feature-complete implementation to improve error UX without changing behavior. For post–Phase 7 direction and research topics, see [roadmap.md](roadmap.md).
 
 ---
 

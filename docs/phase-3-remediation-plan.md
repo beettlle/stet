@@ -70,7 +70,7 @@ This document consolidates issues from the Phase 0–3 brutal audit and the Doct
 
 ## Out of scope
 
-- Phase 4+ features (status, approve, git note, etc.).
+- Phase 4+ features (status, dismiss, git note, etc.).
 - Extension changes (Phase 5).
 - Changing config load order or adding new config keys beyond using existing `ContextLimit` and `WarnThreshold`.
 
