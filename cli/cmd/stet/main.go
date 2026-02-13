@@ -21,7 +21,11 @@ import (
 	"stet/cli/internal/run"
 	"stet/cli/internal/session"
 
-	_ "stet/cli/internal/rag/go" // register Go resolver for RAG symbol lookup
+	_ "stet/cli/internal/rag/go"     // register Go resolver for RAG symbol lookup
+	_ "stet/cli/internal/rag/python" // register Python resolver
+	_ "stet/cli/internal/rag/java"   // register Java resolver
+	_ "stet/cli/internal/rag/swift"  // register Swift resolver
+	_ "stet/cli/internal/rag/js"     // register JavaScript/TypeScript resolver
 )
 
 // errExit is an error that carries an exit code for the CLI. Use errors.As to detect it.

@@ -17,7 +17,11 @@ import (
 	"stet/cli/internal/prompt"
 	"stet/cli/internal/rules"
 
-	_ "stet/cli/internal/rag/go" // register Go resolver for RAG tests
+	_ "stet/cli/internal/rag/go"     // register Go resolver for RAG tests
+	_ "stet/cli/internal/rag/python" // register Python resolver
+	_ "stet/cli/internal/rag/java"   // register Java resolver
+	_ "stet/cli/internal/rag/swift"  // register Swift resolver
+	_ "stet/cli/internal/rag/js"     // register JavaScript/TypeScript resolver
 )
 
 func TestReviewHunk_successFirstTry(t *testing.T) {
