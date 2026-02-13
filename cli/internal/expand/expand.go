@@ -55,8 +55,9 @@ func parsePositiveInt(s string, out *int) bool {
 }
 
 const (
-	goExt          = ".go"
-	truncateMarker = "// ... (truncated)"
+	goExt               = ".go"
+	truncateMarker      = "// ... (truncated)"
+	maxExpandFileSize   = 1024 * 1024 // 1 MiB; skip expansion for larger files
 )
 
 // ExpandHunk enriches a hunk with enclosing function context for Go files.
@@ -77,7 +78,29 @@ func ExpandHunk(repoRoot string, hunk diff.Hunk, maxTokens int) (diff.Hunk, erro
 		return hunk, nil
 	}
 
-	path := filepath.Join(repoRoot, hunk.FilePath)
+	path := filepath.Join(repoRoot, filepath.FromSlash(hunk.FilePath))
+	path = filepath.Clean(path)
+	absRepo, err := filepath.Abs(repoRoot)
+	if err != nil {
+		return hunk, nil
+	}
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return hunk, nil
+	}
+	rel, err := filepath.Rel(absRepo, absPath)
+	if err != nil || strings.HasPrefix(rel, "..") || rel == ".." {
+		return hunk, nil // path escaped repo
+	}
+	path = absPath
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return hunk, nil
+	}
+	if info.Size() > maxExpandFileSize {
+		return hunk, nil
+	}
 	src, err := readFile(path)
 	if err != nil {
 		return hunk, nil
@@ -94,7 +117,12 @@ func ExpandHunk(repoRoot string, hunk diff.Hunk, maxTokens int) (diff.Hunk, erro
 		return hunk, nil
 	}
 
-	funcSrc := string(src[enclosing.Pos()-1 : enclosing.End()])
+	startOff := fset.Position(enclosing.Pos()).Offset
+	endOff := fset.Position(enclosing.End()).Offset
+	if startOff < 0 || endOff > len(src) || startOff >= endOff {
+		return hunk, nil
+	}
+	funcSrc := string(src[startOff:endOff])
 	if maxTokens > 0 {
 		funcSrc = truncateToTokens(funcSrc, maxTokens)
 	}

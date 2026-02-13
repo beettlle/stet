@@ -217,3 +217,59 @@ func TestExpandHunk_badLineRange(t *testing.T) {
 		t.Error("expected unchanged when line range cannot be parsed")
 	}
 }
+
+func TestExpandHunk_pathTraversal_rejected(t *testing.T) {
+	dir := t.TempDir()
+	// Create a valid file inside repo
+	path := filepath.Join(dir, "pkg", "foo.go")
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := "package pkg\n\nfunc f() {}\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// FilePath attempts to escape repo
+	hunk := diff.Hunk{
+		FilePath:   filepath.Join("pkg", "..", "..", "..", "bar.go"),
+		RawContent: "@@ -1,3 +1,3 @@\n package pkg\n\n func f() {}",
+		Context:    "",
+	}
+
+	expanded, err := ExpandHunk(dir, hunk, 0)
+	if err != nil {
+		t.Fatalf("ExpandHunk: %v", err)
+	}
+	if strings.Contains(expanded.Context, "## Enclosing function context") {
+		t.Error("path traversal must be rejected; expected no expansion")
+	}
+}
+
+func TestExpandHunk_largeFile_skipped(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "pkg", "large.go")
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		t.Fatal(err)
+	}
+	// Create file > maxExpandFileSize (1 MiB)
+	data := make([]byte, maxExpandFileSize+1)
+	copy(data, []byte("package pkg\n\nfunc f() {\n}\n"))
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	hunk := diff.Hunk{
+		FilePath:   "pkg/large.go",
+		RawContent: "@@ -1,4 +1,4 @@\n package pkg\n\n func f() {\n }",
+		Context:    "",
+	}
+
+	expanded, err := ExpandHunk(dir, hunk, 0)
+	if err != nil {
+		t.Fatalf("ExpandHunk: %v", err)
+	}
+	if strings.Contains(expanded.Context, "## Enclosing function context") {
+		t.Error("large file must be skipped; expected no expansion")
+	}
+}
