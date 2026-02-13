@@ -9,7 +9,8 @@
   },
   "main": "./out/extension.js",
   "activationEvents": [
-    "onCommand:stet.startReview"
+    "onCommand:stet.startReview",
+    "onCommand:stet.finishReview"
   ],
   "contributes": {
     "commands": [
@@ -24,9 +25,20 @@
       {
         "command": "stet.copyFindingForChat",
         "title": "Stet: Copy for Chat"
+      },
+      {
+        "command": "stet.finishReview",
+        "title": "Stet: Finish review"
       }
     ],
     "menus": {
+      "view/title": [
+        {
+          "command": "stet.finishReview",
+          "when": "view == stetFindings",
+          "group": "navigation"
+        }
+      ],
       "view/item/context": [
         {
           "command": "stet.copyFindingForChat",

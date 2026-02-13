@@ -3,6 +3,7 @@ import * as vscode from "vscode";
 import { spawnStet } from "./cli";
 import { buildCopyForChatBlock } from "./copyForChat";
 import { createFindingsPanel } from "./findingsPanel";
+import { runFinishReview } from "./finishReview";
 import type { TreeItemModel } from "./findingsPanel";
 import { openFinding } from "./openFinding";
 import type { OpenFindingPayload } from "./openFinding";
@@ -98,6 +99,32 @@ export function activate(context: vscode.ExtensionContext): void {
             findingsProvider.setFindings([]); // clear on parse failure
             const message = e instanceof Error ? e.message : String(e);
             void vscode.window.showErrorMessage(`Stet: Failed to parse output. ${message}`);
+          }
+        }
+      );
+    })
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand("stet.finishReview", async () => {
+      const cwd = getRepoRoot();
+      if (!cwd) {
+        void vscode.window.showErrorMessage(
+          "Stet: No workspace folder open. Open a folder that is a Git repository."
+        );
+        return;
+      }
+      void vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: "Finishing review…",
+          cancellable: false,
+        },
+        async () => {
+          const result = await runFinishReview(cwd, findingsProvider);
+          if (result.ok) {
+            void vscode.window.showInformationMessage("Stet: Review finished.");
+          } else {
+            showCLIError(result.stderr, result.exitCode);
           }
         }
       );
