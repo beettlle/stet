@@ -160,6 +160,34 @@ Phase 6 replaces the generic "RAG-lite" placeholder with the research-backed Def
 | **6.9** | Prompt shadowing: on dismiss, store (finding_id, prompt_context) in session; optional injection as negative few-shot in future prompts. Prompt shadowing and the optimizer both consume user feedback; optimizer output (`system_prompt_optimized.txt`) takes precedence at prompt build time as stated in 3.3. | Unit tests: dismiss → state updated; optional prompt build test. 77% project, no file &lt; 72%. |
 | **6.10** | Docs and cleanup: state storage, config schema, exit codes, extension–CLI protocol, git note ref/schema. Optional `stet cleanup` for orphan worktrees. Document the **optimizer**: when to run `stet optimize`, input (`history.jsonl`), output (`system_prompt_optimized.txt`), and that the core binary does not depend on Python. Document **review quality and actionability** (definition in PRD; prompt guidelines and optional lessons in `docs/review-quality.md`). DSPy optimizer (optional): Python script (or container) invoked by `stet optimize`; load `.review/history.jsonl`; define metric (e.g. maximize acceptance, minimize dismissal) and optimize for **actionable findings**; write `.review/system_prompt_optimized.txt`. Document: how to run, required Python/DSPy env, and that the Go CLI has no Python dependency. | No coverage target for docs; optional integration test for optimizer (skip if no Python/DSPy); unit test for CLI: `stet optimize` exit code when optimizer script missing or failing. 77% project, no file &lt; 72%. |
 
+#### 6.6 Feature spec: Cursor Rules Integration (.mdc)
+
+**Overview.** Project standards are defined in `.cursor/rules/*.mdc` as a single source of truth. Stet parses the glob metadata in each rule file and injects only rules that apply to the specific file being reviewed (by `globs` or `alwaysApply`), avoiding dumping all rules into context. Rule body text is framed as review constraints in the system prompt. The feature is optional: stet works without any Cursor rules; if `.cursor/rules` does not exist, the implementation must fail silently (no error).
+
+**Technical requirements**
+
+- **Rule discovery and parsing:** Scan `.cursor/rules/*.mdc`. Files are Markdown with YAML frontmatter between `---` delimiters. Frontmatter schema: `globs` (string or list of glob patterns, e.g. `"*.ts"` or `["foo/*", "bar/*"]`); `alwaysApply` (boolean; if true, rule applies to every file). Body (content after frontmatter) is the text injected into the prompt. Use a standard Go YAML parser (e.g. `gopkg.in/yaml.v3`) for frontmatter and a glob matcher (e.g. `bmatcuk/doublestar` or stdlib `path/filepath` if sufficient).
+- **Context injection logic:** For each file in the review batch, iterate loaded rules; keep a rule if `alwaysApply` is true or if the file path matches `globs`; collect the body of all matching rules; optionally deduplicate; inject into the system prompt.
+- **Prompt adaptation:** Cursor rules are often written as generation instructions (e.g. "Use zod for validation"). Stet must frame them as review constraints. Append a dedicated section to the system prompt (e.g. "## Project review criteria") containing the concatenated rule bodies.
+
+**Implementation steps (Go)**
+
+1. **Data structures:** Create `cli/internal/config/rules.go` (or equivalent): define struct(s) for a single rule (e.g. Globs, AlwaysApply, Content).
+2. **Parser:** Implement `LoadRules(rulesDir string) ([]CursorRule, error)`: use `filepath.Walk` or `os.ReadDir` on `.cursor/rules`; read each file; split on `---` for frontmatter vs body; unmarshal YAML; return slice of rules.
+3. **Matcher:** Implement `FilterRules(rules []CursorRule, targetFile string) []CursorRule`: keep rule if `AlwaysApply` or if any glob matches `targetFile`.
+4. **Integration:** In the review path (e.g. `cli/internal/review/review.go` or wherever the LLM prompt is built): load all rules once at CLI start (e.g. in run/start flow); in the per-hunk or per-file loop, call `FilterRules` for the current file and append matched content to the system prompt.
+
+**Test plan**
+
+- **Unit (cli/internal/config or rules package):** (1) Parsing: dummy `.mdc` string → Globs and Content parsed correctly. (2) Matching: rule `globs: "*.ts"` + file `app.ts` → match; same rule + `main.go` → no match; `globs: ["foo/*", "bar/*"]` + file `foo/x.js` → match.
+- **Integration:** Create a temporary directory with `.cursor/rules/no-console.mdc` (body e.g. "Do not use console.log"). Run stet (mocked LLM) on a file `test.js` containing `console.log`. Verify the prompt sent to the LLM includes the rule text (e.g. "Do not use console.log").
+
+**Constraints**
+
+- **Token budget:** If matched rules exceed ~1000 tokens, truncate the combined content or prioritize `alwaysApply` rules.
+- **Error handling:** If `.cursor/rules` does not exist, fail silently (feature is optional; no user-visible error).
+- **Performance:** Parse rules once at startup; do not re-parse for every file.
+
 **Phase 6 exit:** Defect-Focused Pipeline in place (CoT, Git intent, abstention filter, hunk expansion, FP kill list); optional features (CursorRules, streaming, prompt shadowing, DSPy, docs) as specified.
 
 ---
