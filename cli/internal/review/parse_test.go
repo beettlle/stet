@@ -60,7 +60,7 @@ func TestParseFindingsResponse_emptyString_returnsError(t *testing.T) {
 
 func TestAssignFindingIDs_setsIDAndValidates(t *testing.T) {
 	list := []findings.Finding{
-		{File: "a.go", Line: 5, Severity: findings.SeverityWarning, Category: findings.CategoryStyle, Message: "msg"},
+		{File: "a.go", Line: 5, Severity: findings.SeverityWarning, Category: findings.CategoryStyle, Confidence: 1.0, Message: "msg"},
 	}
 	out, err := AssignFindingIDs(list, "fallback.go")
 	if err != nil {
@@ -79,7 +79,7 @@ func TestAssignFindingIDs_setsIDAndValidates(t *testing.T) {
 
 func TestAssignFindingIDs_emptyFile_usesHunkPath(t *testing.T) {
 	list := []findings.Finding{
-		{File: "", Line: 1, Severity: findings.SeverityInfo, Category: findings.CategoryStyle, Message: "x"},
+		{File: "", Line: 1, Severity: findings.SeverityInfo, Category: findings.CategoryStyle, Confidence: 1.0, Message: "x"},
 	}
 	out, err := AssignFindingIDs(list, "hunk.go")
 	if err != nil {
@@ -93,8 +93,8 @@ func TestAssignFindingIDs_emptyFile_usesHunkPath(t *testing.T) {
 
 func TestAssignFindingIDs_sameInput_sameID(t *testing.T) {
 	list := []findings.Finding{
-		{File: "f.go", Line: 10, Severity: findings.SeverityWarning, Category: findings.CategoryStyle, Message: "same"},
-		{File: "f.go", Line: 10, Severity: findings.SeverityWarning, Category: findings.CategoryStyle, Message: "same"},
+		{File: "f.go", Line: 10, Severity: findings.SeverityWarning, Category: findings.CategoryStyle, Confidence: 1.0, Message: "same"},
+		{File: "f.go", Line: 10, Severity: findings.SeverityWarning, Category: findings.CategoryStyle, Confidence: 1.0, Message: "same"},
 	}
 	out, err := AssignFindingIDs(list, "")
 	if err != nil {
@@ -107,8 +107,8 @@ func TestAssignFindingIDs_sameInput_sameID(t *testing.T) {
 
 func TestAssignFindingIDs_differentMessage_differentID(t *testing.T) {
 	list := []findings.Finding{
-		{File: "f.go", Line: 10, Severity: findings.SeverityWarning, Category: findings.CategoryStyle, Message: "msg1"},
-		{File: "f.go", Line: 10, Severity: findings.SeverityWarning, Category: findings.CategoryStyle, Message: "msg2"},
+		{File: "f.go", Line: 10, Severity: findings.SeverityWarning, Category: findings.CategoryStyle, Confidence: 1.0, Message: "msg1"},
+		{File: "f.go", Line: 10, Severity: findings.SeverityWarning, Category: findings.CategoryStyle, Confidence: 1.0, Message: "msg2"},
 	}
 	out, err := AssignFindingIDs(list, "")
 	if err != nil {
@@ -121,7 +121,7 @@ func TestAssignFindingIDs_differentMessage_differentID(t *testing.T) {
 
 func TestAssignFindingIDs_invalidFinding_returnsError(t *testing.T) {
 	list := []findings.Finding{
-		{File: "a.go", Line: 1, Severity: "invalid", Category: findings.CategoryBug, Message: "m"},
+		{File: "a.go", Line: 1, Severity: "invalid", Category: findings.CategoryBug, Confidence: 1.0, Message: "m"},
 	}
 	_, err := AssignFindingIDs(list, "")
 	if err == nil {
@@ -131,7 +131,7 @@ func TestAssignFindingIDs_invalidFinding_returnsError(t *testing.T) {
 
 func TestAssignFindingIDs_withRange(t *testing.T) {
 	list := []findings.Finding{
-		{File: "a.go", Line: 0, Range: &findings.LineRange{Start: 10, End: 12}, Severity: findings.SeverityWarning, Category: findings.CategoryBug, Message: "range"},
+		{File: "a.go", Line: 0, Range: &findings.LineRange{Start: 10, End: 12}, Severity: findings.SeverityWarning, Category: findings.CategoryBug, Confidence: 1.0, Message: "range"},
 	}
 	out, err := AssignFindingIDs(list, "")
 	if err != nil {

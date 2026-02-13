@@ -16,7 +16,7 @@ func TestAppend_createsFileAndAppendsValidJSONL(t *testing.T) {
 	rec := Record{
 		DiffRef: "HEAD",
 		ReviewOutput: []findings.Finding{
-			{ID: "f1", File: "a.go", Line: 1, Severity: findings.SeverityWarning, Category: findings.CategoryStyle, Message: "msg"},
+			{ID: "f1", File: "a.go", Line: 1, Severity: findings.SeverityWarning, Category: findings.CategoryStyle, Confidence: 1.0, Message: "msg"},
 		},
 		UserAction: UserAction{DismissedIDs: []string{"f1"}},
 	}

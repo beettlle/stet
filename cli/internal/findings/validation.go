@@ -11,16 +11,16 @@ var (
 		SeverityError: {}, SeverityWarning: {}, SeverityInfo: {}, SeverityNitpick: {},
 	}
 	validCategories = map[Category]struct{}{
-		CategoryBug: {}, CategorySecurity: {}, CategoryPerformance: {},
-		CategoryStyle: {}, CategoryMaintainability: {}, CategoryTesting: {},
+		CategoryBug: {}, CategorySecurity: {}, CategoryCorrectness: {}, CategoryPerformance: {},
+		CategoryStyle: {}, CategoryMaintainability: {}, CategoryBestPractice: {}, CategoryTesting: {},
 		CategoryDocumentation: {}, CategoryDesign: {},
 	}
 )
 
 // Validate checks that the finding has required fields and allowed enum values.
 // Line and range are optional (file-only findings are valid). It returns an error
-// if: severity or category is missing or not in the allowed set; file or message
-// is empty; or range is present but invalid (start > end).
+// if: severity or category is missing or not in the allowed set; confidence is
+// not in [0, 1]; file or message is empty; or range is present but invalid (start > end).
 func (f *Finding) Validate() error {
 	if f == nil {
 		return errors.New("finding is nil")
@@ -36,6 +36,9 @@ func (f *Finding) Validate() error {
 	}
 	if _, ok := validCategories[f.Category]; !ok {
 		return fmt.Errorf("invalid category %q", f.Category)
+	}
+	if f.Confidence < 0 || f.Confidence > 1 {
+		return fmt.Errorf("confidence %g must be between 0 and 1", f.Confidence)
 	}
 	if f.File == "" {
 		return errors.New("file is required")

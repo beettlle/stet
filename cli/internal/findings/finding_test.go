@@ -15,22 +15,24 @@ func TestFindingRoundtripJSON(t *testing.T) {
 		{
 			name: "minimal",
 			finding: Finding{
-				File:     "pkg/foo.go",
-				Line:     10,
-				Severity: SeverityWarning,
-				Category: CategoryBug,
-				Message:  "possible nil dereference",
+				File:       "pkg/foo.go",
+				Line:       10,
+				Severity:   SeverityWarning,
+				Category:   CategoryBug,
+				Confidence: 1.0,
+				Message:    "possible nil dereference",
 			},
 		},
 		{
 			name: "with_range",
 			finding: Finding{
-				ID:       "f1",
-				File:     "bar.go",
-				Range:    &LineRange{Start: 5, End: 8},
-				Severity: SeverityInfo,
-				Category: CategoryStyle,
-				Message:  "formatting",
+				ID:         "f1",
+				File:       "bar.go",
+				Range:      &LineRange{Start: 5, End: 8},
+				Severity:   SeverityInfo,
+				Category:   CategoryStyle,
+				Confidence: 0.5,
+				Message:    "formatting",
 			},
 		},
 		{
@@ -41,6 +43,7 @@ func TestFindingRoundtripJSON(t *testing.T) {
 				Line:       42,
 				Severity:   SeverityError,
 				Category:   CategorySecurity,
+				Confidence: 1.0,
 				Message:    "use constant-time compare",
 				Suggestion: "use subtle.ConstantTimeCompare",
 				CursorURI:  "file:///abs/baz.go#L42",
@@ -55,6 +58,7 @@ func TestFindingRoundtripJSON(t *testing.T) {
 				Range:      &LineRange{Start: 1, End: 1},
 				Severity:   SeverityNitpick,
 				Category:   CategoryMaintainability,
+				Confidence: 0.8,
 				Message:    "doc comment",
 				Suggestion: "Add package doc",
 				CursorURI:  "file:///x.go#L1",
@@ -101,6 +105,9 @@ func roundtripCompare(t *testing.T, a, b *Finding) {
 	if a.Category != b.Category {
 		t.Errorf("Category: got %q want %q", b.Category, a.Category)
 	}
+	if a.Confidence != b.Confidence {
+		t.Errorf("Confidence: got %g want %g", b.Confidence, a.Confidence)
+	}
 	if a.Message != b.Message {
 		t.Errorf("Message: got %q want %q", b.Message, a.Message)
 	}
@@ -116,11 +123,12 @@ func TestFindingValidate(t *testing.T) {
 	t.Parallel()
 	validFinding := func() Finding {
 		return Finding{
-			File:     "a.go",
-			Line:     1,
-			Severity: SeverityWarning,
-			Category: CategoryBug,
-			Message:  "msg",
+			File:       "a.go",
+			Line:       1,
+			Severity:   SeverityWarning,
+			Category:   CategoryBug,
+			Confidence: 1.0,
+			Message:    "msg",
 		}
 	}
 	tests := []struct {
@@ -129,9 +137,11 @@ func TestFindingValidate(t *testing.T) {
 		wantErr string
 	}{
 		{"valid", validFinding(), ""},
+		{"valid_confidence_zero", func() Finding { f := validFinding(); f.Confidence = 0; return f }(), ""},
+		{"valid_confidence_half", func() Finding { f := validFinding(); f.Confidence = 0.5; return f }(), ""},
 		{"valid_with_range", Finding{
 			File: "a.go", Range: &LineRange{Start: 1, End: 5},
-			Severity: SeverityInfo, Category: CategoryStyle, Message: "m",
+			Severity: SeverityInfo, Category: CategoryStyle, Confidence: 1.0, Message: "m",
 		}, ""},
 		{"valid_documentation", func() Finding { f := validFinding(); f.Category = CategoryDocumentation; return f }(), ""},
 		{"valid_design", func() Finding { f := validFinding(); f.Category = CategoryDesign; return f }(), ""},
@@ -140,6 +150,8 @@ func TestFindingValidate(t *testing.T) {
 		{"missing_category", func() Finding { f := validFinding(); f.Category = ""; return f }(), "category is required"},
 		{"invalid_severity", func() Finding { f := validFinding(); f.Severity = "unknown"; return f }(), "invalid severity"},
 		{"invalid_category", func() Finding { f := validFinding(); f.Category = "unknown"; return f }(), "invalid category"},
+		{"invalid_confidence_negative", func() Finding { f := validFinding(); f.Confidence = -0.1; return f }(), "confidence"},
+		{"invalid_confidence_over_one", func() Finding { f := validFinding(); f.Confidence = 1.1; return f }(), "confidence"},
 		{"missing_file", func() Finding { f := validFinding(); f.File = ""; return f }(), "file is required"},
 		{"missing_message", func() Finding { f := validFinding(); f.Message = ""; return f }(), "message is required"},
 		{"valid_file_only", func() Finding {
@@ -150,7 +162,7 @@ func TestFindingValidate(t *testing.T) {
 		}(), ""},
 		{"range_start_gt_end", Finding{
 			File: "a.go", Range: &LineRange{Start: 10, End: 3},
-			Severity: SeverityWarning, Category: CategoryBug, Message: "m",
+			Severity: SeverityWarning, Category: CategoryBug, Confidence: 1.0, Message: "m",
 		}, "must be <="},
 	}
 	for _, tt := range tests {
@@ -204,18 +216,29 @@ func TestUnmarshalFinding(t *testing.T) {
 	}{
 		{
 			name:    "valid_minimal",
-			jsonStr: `{"file":"x.go","line":5,"severity":"error","category":"security","message":"issue"}`,
+			jsonStr: `{"file":"x.go","line":5,"severity":"error","category":"security","confidence":1.0,"message":"issue"}`,
 			wantErr: false,
 			check: func(t *testing.T, f *Finding) {
 				t.Helper()
-				if f.File != "x.go" || f.Line != 5 || f.Severity != SeverityError || f.Category != CategorySecurity || f.Message != "issue" {
+				if f.File != "x.go" || f.Line != 5 || f.Severity != SeverityError || f.Category != CategorySecurity || f.Confidence != 1.0 || f.Message != "issue" {
 					t.Errorf("unexpected fields: %+v", f)
 				}
 			},
 		},
 		{
+			name:    "valid_with_confidence",
+			jsonStr: `{"file":"w.go","line":2,"severity":"info","category":"maintainability","confidence":0.8,"message":"check"}`,
+			wantErr: false,
+			check: func(t *testing.T, f *Finding) {
+				t.Helper()
+				if f.Confidence != 0.8 {
+					t.Errorf("confidence = %g, want 0.8", f.Confidence)
+				}
+			},
+		},
+		{
 			name:    "valid_with_range",
-			jsonStr: `{"file":"y.go","range":{"start":1,"end":10},"severity":"warning","category":"bug","message":"msg"}`,
+			jsonStr: `{"file":"y.go","range":{"start":1,"end":10},"severity":"warning","category":"bug","confidence":0.5,"message":"msg"}`,
 			wantErr: false,
 			check: func(t *testing.T, f *Finding) {
 				t.Helper()
@@ -231,7 +254,7 @@ func TestUnmarshalFinding(t *testing.T) {
 		},
 		{
 			name:    "invalid_severity_validates",
-			jsonStr: `{"file":"z.go","line":1,"severity":"critical","category":"style","message":"m"}`,
+			jsonStr: `{"file":"z.go","line":1,"severity":"critical","category":"style","confidence":1.0,"message":"m"}`,
 			wantErr: false, // unmarshal succeeds; Validate() fails
 			check: func(t *testing.T, f *Finding) {
 				t.Helper()
@@ -266,11 +289,12 @@ func TestUnmarshalFinding(t *testing.T) {
 func TestMarshalFinding_omitempty(t *testing.T) {
 	t.Parallel()
 	f := Finding{
-		File:     "a.go",
-		Line:     2,
-		Severity: SeverityInfo,
-		Category: CategoryTesting,
-		Message:  "test",
+		File:       "a.go",
+		Line:       2,
+		Severity:   SeverityInfo,
+		Category:   CategoryTesting,
+		Confidence: 1.0,
+		Message:    "test",
 	}
 	data, err := json.Marshal(f)
 	if err != nil {
@@ -280,7 +304,7 @@ func TestMarshalFinding_omitempty(t *testing.T) {
 	if strings.Contains(s, "suggestion") || strings.Contains(s, "cursor_uri") {
 		t.Errorf("optional empty fields should be omitted: %s", s)
 	}
-	if !strings.Contains(s, "line") || !strings.Contains(s, "file") {
+	if !strings.Contains(s, "line") || !strings.Contains(s, "file") || !strings.Contains(s, "confidence") {
 		t.Errorf("required fields present: %s", s)
 	}
 }
@@ -288,8 +312,8 @@ func TestMarshalFinding_omitempty(t *testing.T) {
 func TestSliceFindingsRoundtrip(t *testing.T) {
 	t.Parallel()
 	list := []Finding{
-		{File: "a.go", Line: 1, Severity: SeverityWarning, Category: CategoryBug, Message: "one"},
-		{File: "b.go", Line: 2, Severity: SeverityError, Category: CategorySecurity, Message: "two"},
+		{File: "a.go", Line: 1, Severity: SeverityWarning, Category: CategoryBug, Confidence: 1.0, Message: "one"},
+		{File: "b.go", Line: 2, Severity: SeverityError, Category: CategorySecurity, Confidence: 0.9, Message: "two"},
 	}
 	data, err := json.Marshal(list)
 	if err != nil {

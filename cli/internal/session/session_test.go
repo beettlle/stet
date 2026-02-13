@@ -28,8 +28,8 @@ func TestSaveLoad_roundtripWithFindings(t *testing.T) {
 		BaselineRef:    "sha1",
 		LastReviewedAt: "sha2",
 		Findings: []findings.Finding{
-			{ID: "id1", File: "a.go", Line: 1, Severity: findings.SeverityWarning, Category: findings.CategoryStyle, Message: "msg1"},
-			{ID: "id2", File: "b.go", Line: 2, Severity: findings.SeverityInfo, Category: findings.CategoryMaintainability, Message: "msg2"},
+			{ID: "id1", File: "a.go", Line: 1, Severity: findings.SeverityWarning, Category: findings.CategoryStyle, Confidence: 1.0, Message: "msg1"},
+			{ID: "id2", File: "b.go", Line: 2, Severity: findings.SeverityInfo, Category: findings.CategoryMaintainability, Confidence: 1.0, Message: "msg2"},
 		},
 	}
 	if err := Save(dir, &want); err != nil {

@@ -55,6 +55,9 @@ func AssignFindingIDs(list []findings.Finding, hunkFilePath string) ([]findings.
 		if f.File == "" {
 			f.File = hunkFilePath
 		}
+		if f.Confidence == 0 {
+			f.Confidence = 1.0
+		}
 		rangeStart, rangeEnd := 0, 0
 		if f.Range != nil {
 			rangeStart, rangeEnd = f.Range.Start, f.Range.End

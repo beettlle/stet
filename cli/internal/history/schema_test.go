@@ -11,7 +11,7 @@ func TestRecord_marshalUnmarshal_withoutDismissals(t *testing.T) {
 	rec := Record{
 		DiffRef: "HEAD~1",
 		ReviewOutput: []findings.Finding{
-			{ID: "f1", File: "a.go", Line: 10, Severity: findings.SeverityWarning, Category: findings.CategoryStyle, Message: "nit"},
+			{ID: "f1", File: "a.go", Line: 10, Severity: findings.SeverityWarning, Category: findings.CategoryStyle, Confidence: 1.0, Message: "nit"},
 		},
 		UserAction: UserAction{
 			DismissedIDs: []string{"f1"},

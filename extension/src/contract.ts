@@ -14,9 +14,11 @@ export type Severity = (typeof SEVERITIES)[number];
 export const CATEGORIES = [
   "bug",
   "security",
+  "correctness",
   "performance",
   "style",
   "maintainability",
+  "best_practice",
   "testing",
   "documentation",
   "design",
@@ -35,6 +37,7 @@ export interface Finding {
   range?: LineRange;
   severity: Severity;
   category: Category;
+  confidence: number;
   message: string;
   suggestion?: string;
   cursor_uri?: string;

@@ -31,6 +31,7 @@ function validateFinding(raw: unknown): raw is Finding {
   if (typeof o.message !== "string") return false;
   if (!isSeverity(String(o.severity))) return false;
   if (!isCategory(String(o.category))) return false;
+  if (typeof o.confidence !== "number" || o.confidence < 0 || o.confidence > 1) return false;
   if (o.id !== undefined && typeof o.id !== "string") return false;
   if (o.line !== undefined && (typeof o.line !== "number" || !Number.isInteger(o.line))) return false;
   if (o.range !== undefined && !validateLineRange(o.range)) return false;

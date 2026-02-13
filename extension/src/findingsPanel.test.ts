@@ -54,6 +54,7 @@ describe("FindingsTreeDataProvider", () => {
     line: 10,
     severity: "warning",
     category: "style",
+    confidence: 1.0,
     message: "Use const",
   };
   const finding2: Finding = {
@@ -62,6 +63,7 @@ describe("FindingsTreeDataProvider", () => {
     range: { start: 5, end: 7 },
     severity: "error",
     category: "bug",
+    confidence: 0.9,
     message: "Possible nil dereference",
     cursor_uri: "file:///repo/pkg/main.go#L5",
   };

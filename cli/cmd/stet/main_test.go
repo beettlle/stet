@@ -262,12 +262,21 @@ func TestRunCLI_startDryRunEmitsFindingsJSON(t *testing.T) {
 	if len(out.Findings) == 0 {
 		t.Fatal("expected at least one finding from dry-run (initRepo has hunks)")
 	}
-	required := []string{"id", "file", "line", "severity", "category", "message"}
+	required := []string{"id", "file", "line", "severity", "category", "message", "confidence"}
 	for i, f := range out.Findings {
 		for _, k := range required {
 			if _, ok := f[k]; !ok {
 				t.Errorf("finding %d missing required key %q", i, k)
 			}
+		}
+		conf, ok := f["confidence"].(float64)
+		if !ok {
+			t.Errorf("finding %d: confidence must be a number", i)
+		} else if conf < 0 || conf > 1 {
+			t.Errorf("finding %d: confidence %g must be in [0, 1]", i, conf)
+		}
+		if cat, _ := f["category"].(string); cat == "" {
+			t.Errorf("finding %d: category must be non-empty", i)
 		}
 	}
 	// At least one finding should be the canned dry-run message.
@@ -315,12 +324,21 @@ func TestRunCLI_runDryRunEmitsFindingsJSON(t *testing.T) {
 	if out.Findings == nil {
 		t.Fatal("output missing findings array")
 	}
-	required := []string{"id", "file", "line", "severity", "category", "message"}
+	required := []string{"id", "file", "line", "severity", "category", "message", "confidence"}
 	for i, f := range out.Findings {
 		for _, k := range required {
 			if _, ok := f[k]; !ok {
 				t.Errorf("finding %d missing required key %q", i, k)
 			}
+		}
+		conf, ok := f["confidence"].(float64)
+		if !ok {
+			t.Errorf("finding %d: confidence must be a number", i)
+		} else if conf < 0 || conf > 1 {
+			t.Errorf("finding %d: confidence %g must be in [0, 1]", i, conf)
+		}
+		if cat, _ := f["category"].(string); cat == "" {
+			t.Errorf("finding %d: category must be non-empty", i)
 		}
 	}
 }
@@ -887,8 +905,8 @@ func TestWriteFindingsJSON_filtersDismissed(t *testing.T) {
 		BaselineRef:    "abc",
 		LastReviewedAt: "def",
 		Findings: []findings.Finding{
-			{ID: "f1", File: "a.go", Line: 1, Severity: findings.SeverityInfo, Category: findings.CategoryStyle, Message: "m1"},
-			{ID: "f2", File: "b.go", Line: 2, Severity: findings.SeverityWarning, Category: findings.CategoryBug, Message: "m2"},
+			{ID: "f1", File: "a.go", Line: 1, Severity: findings.SeverityInfo, Category: findings.CategoryStyle, Confidence: 1.0, Message: "m1"},
+			{ID: "f2", File: "b.go", Line: 2, Severity: findings.SeverityWarning, Category: findings.CategoryBug, Confidence: 1.0, Message: "m2"},
 		},
 		DismissedIDs: []string{"f1"},
 	}

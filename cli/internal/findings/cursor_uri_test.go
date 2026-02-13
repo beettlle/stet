@@ -10,7 +10,7 @@ func TestSetCursorURIs_emptySetFromRepoRootAndLine(t *testing.T) {
 	t.Parallel()
 	repoRoot := t.TempDir()
 	list := []Finding{
-		{File: "pkg/foo.go", Line: 10, Severity: SeverityInfo, Category: CategoryStyle, Message: "x"},
+		{File: "pkg/foo.go", Line: 10, Severity: SeverityInfo, Category: CategoryStyle, Confidence: 1.0, Message: "x"},
 	}
 	SetCursorURIs(repoRoot, list)
 	if list[0].CursorURI == "" {
@@ -36,7 +36,7 @@ func TestSetCursorURIs_nonEmptyNotOverwritten(t *testing.T) {
 	repoRoot := t.TempDir()
 	existing := "file:///custom/path#L99"
 	list := []Finding{
-		{File: "a.go", Line: 1, CursorURI: existing, Severity: SeverityInfo, Category: CategoryStyle, Message: "x"},
+		{File: "a.go", Line: 1, CursorURI: existing, Severity: SeverityInfo, Category: CategoryStyle, Confidence: 1.0, Message: "x"},
 	}
 	SetCursorURIs(repoRoot, list)
 	if list[0].CursorURI != existing {
@@ -48,7 +48,7 @@ func TestSetCursorURIs_rangeUsedWhenPresent(t *testing.T) {
 	t.Parallel()
 	repoRoot := t.TempDir()
 	list := []Finding{
-		{File: "b.go", Line: 5, Range: &LineRange{Start: 5, End: 10}, Severity: SeverityWarning, Category: CategoryBug, Message: "y"},
+		{File: "b.go", Line: 5, Range: &LineRange{Start: 5, End: 10}, Severity: SeverityWarning, Category: CategoryBug, Confidence: 1.0, Message: "y"},
 	}
 	SetCursorURIs(repoRoot, list)
 	if list[0].CursorURI == "" {

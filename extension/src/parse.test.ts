@@ -16,6 +16,7 @@ describe("parseFindingsJSON", () => {
           line: 10,
           severity: "warning",
           category: "style",
+          confidence: 1.0,
           message: "Use const",
         },
       ],
@@ -28,6 +29,7 @@ describe("parseFindingsJSON", () => {
       line: 10,
       severity: "warning",
       category: "style",
+      confidence: 1.0,
       message: "Use const",
     });
   });
@@ -42,6 +44,7 @@ describe("parseFindingsJSON", () => {
           range: { start: 5, end: 7 },
           severity: "error",
           category: "bug",
+          confidence: 0.9,
           message: "Possible nil dereference",
           suggestion: "Add nil check",
           cursor_uri: "file:///repo/pkg/main.go#L5",
@@ -88,28 +91,42 @@ describe("parseFindingsJSON", () => {
 
   it("throws when a finding has invalid severity", () => {
     const stdout = JSON.stringify({
-      findings: [{ file: "a.ts", severity: "critical", category: "bug", message: "x" }],
+      findings: [{ file: "a.ts", severity: "critical", category: "bug", confidence: 1.0, message: "x" }],
     });
     expect(() => parseFindingsJSON(stdout)).toThrow("Invalid finding at index 0");
   });
 
   it("throws when a finding has invalid category", () => {
     const stdout = JSON.stringify({
-      findings: [{ file: "a.ts", severity: "warning", category: "typo", message: "x" }],
+      findings: [{ file: "a.ts", severity: "warning", category: "typo", confidence: 1.0, message: "x" }],
+    });
+    expect(() => parseFindingsJSON(stdout)).toThrow("Invalid finding at index 0");
+  });
+
+  it("throws when a finding is missing required confidence", () => {
+    const stdout = JSON.stringify({
+      findings: [{ file: "a.ts", severity: "warning", category: "style", message: "x" }],
+    });
+    expect(() => parseFindingsJSON(stdout)).toThrow("Invalid finding at index 0");
+  });
+
+  it("throws when a finding has confidence out of range", () => {
+    const stdout = JSON.stringify({
+      findings: [{ file: "a.ts", severity: "warning", category: "style", confidence: 1.5, message: "x" }],
     });
     expect(() => parseFindingsJSON(stdout)).toThrow("Invalid finding at index 0");
   });
 
   it("throws when a finding is missing required file", () => {
     const stdout = JSON.stringify({
-      findings: [{ severity: "warning", category: "style", message: "x" }],
+      findings: [{ severity: "warning", category: "style", confidence: 1.0, message: "x" }],
     });
     expect(() => parseFindingsJSON(stdout)).toThrow("Invalid finding at index 0");
   });
 
   it("throws when a finding has empty file", () => {
     const stdout = JSON.stringify({
-      findings: [{ file: "", severity: "warning", category: "style", message: "x" }],
+      findings: [{ file: "", severity: "warning", category: "style", confidence: 1.0, message: "x" }],
     });
     expect(() => parseFindingsJSON(stdout)).toThrow("Invalid finding at index 0");
   });
@@ -121,6 +138,7 @@ describe("parseFindingsJSON", () => {
           file: "a.ts",
           severity: "info",
           category: "style",
+          confidence: 1.0,
           message: "x",
           range: { start: "1", end: 2 },
         },
@@ -132,7 +150,7 @@ describe("parseFindingsJSON", () => {
 
 describe("parseFindingsNDJSON", () => {
   it("parses single line (same as JSON)", () => {
-    const out = parseFindingsNDJSON('{"findings":[{"file":"a.go","severity":"info","category":"style","message":"m"}]}\n');
+    const out = parseFindingsNDJSON('{"findings":[{"file":"a.go","severity":"info","category":"style","confidence":1.0,"message":"m"}]}\n');
     expect(out).toHaveLength(1);
     expect(out[0].file).toBe("a.go");
     expect(out[0].message).toBe("m");
@@ -140,8 +158,8 @@ describe("parseFindingsNDJSON", () => {
 
   it("merges findings from multiple lines", () => {
     const stdout = [
-      '{"findings":[{"file":"a.ts","severity":"warning","category":"bug","message":"first"}]}',
-      '{"findings":[{"file":"b.ts","severity":"error","category":"security","message":"second"}]}',
+      '{"findings":[{"file":"a.ts","severity":"warning","category":"bug","confidence":1.0,"message":"first"}]}',
+      '{"findings":[{"file":"b.ts","severity":"error","category":"security","confidence":0.8,"message":"second"}]}',
     ].join("\n");
     const out = parseFindingsNDJSON(stdout);
     expect(out).toHaveLength(2);

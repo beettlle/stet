@@ -60,12 +60,13 @@ func cannedFindingsForHunks(hunks []diff.Hunk) []findings.Finding {
 		}
 		id := hunkid.StableFindingID(file, 1, 0, 0, dryRunMessage)
 		out = append(out, findings.Finding{
-			ID:       id,
-			File:     file,
-			Line:     1,
-			Severity: findings.SeverityInfo,
-			Category: findings.CategoryStyle,
-			Message:  dryRunMessage,
+			ID:         id,
+			File:       file,
+			Line:      1,
+			Severity:  findings.SeverityInfo,
+			Category:  findings.CategoryMaintainability,
+			Confidence: 1.0,
+			Message:   dryRunMessage,
 		})
 	}
 	return out

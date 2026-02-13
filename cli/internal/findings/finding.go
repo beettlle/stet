@@ -19,9 +19,11 @@ type Category string
 const (
 	CategoryBug             Category = "bug"
 	CategorySecurity        Category = "security"
+	CategoryCorrectness     Category = "correctness"
 	CategoryPerformance     Category = "performance"
 	CategoryStyle           Category = "style"
 	CategoryMaintainability Category = "maintainability"
+	CategoryBestPractice    Category = "best_practice"
 	CategoryTesting         Category = "testing"
 	CategoryDocumentation   Category = "documentation"
 	CategoryDesign          Category = "design"
@@ -34,7 +36,7 @@ type LineRange struct {
 }
 
 // Finding is a single code review finding with a stable id, location, severity,
-// category, message, and optional suggestion and cursor URI.
+// category, confidence, message, and optional suggestion and cursor URI.
 type Finding struct {
 	ID         string     `json:"id,omitempty"`
 	File       string     `json:"file"`
@@ -42,6 +44,7 @@ type Finding struct {
 	Range      *LineRange `json:"range,omitempty"`
 	Severity   Severity   `json:"severity"`
 	Category   Category   `json:"category"`
+	Confidence float64     `json:"confidence"`
 	Message    string     `json:"message"`
 	Suggestion string     `json:"suggestion,omitempty"`
 	CursorURI  string     `json:"cursor_uri,omitempty"`
