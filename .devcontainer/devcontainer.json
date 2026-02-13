@@ -13,5 +13,5 @@
     },
     "ghcr.io/devcontainers/features/git:1": {}
   },
-  "postCreateCommand": "go version && node --version && npm --version && git --version"
+  "postCreateCommand": "sudo chown -R vscode:vscode /home/vscode/.npm /home/vscode/.npm-cache 2>/dev/null || true && npm install -g npm@11.10.0 && go version && node --version && npm --version && git --version"
 }

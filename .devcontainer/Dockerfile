@@ -15,3 +15,7 @@ RUN echo 'export PATH="/home/vscode/.git-ai/bin:/home/vscode/.local/bin:$PATH"' 
     && chmod 644 /etc/profile.d/git-ai-cursor.sh
 
 USER vscode
+
+# Dedicated npm cache owned by vscode; prevents EACCES when Node feature runs as root
+ENV NPM_CONFIG_CACHE=/home/vscode/.npm-cache
+RUN mkdir -p /home/vscode/.npm-cache
