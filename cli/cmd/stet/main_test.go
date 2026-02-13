@@ -305,6 +305,70 @@ func TestRunCLI_startDryRunEmitsFindingsJSON(t *testing.T) {
 	}
 }
 
+func TestRunCLI_startStreamEmitsNDJSON(t *testing.T) {
+	// Do not run in parallel: test changes cwd and findingsOut.
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = os.Chdir(orig)
+		findingsOut = os.Stdout
+	}()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	findingsOut = &buf
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--quiet", "--json", "--stream"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run --quiet --json --stream) = %d, want 0", got)
+	}
+	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("stream output: want at least 2 lines, got %d", len(lines))
+	}
+	var progressCount, findingCount int
+	var gotDone bool
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		var obj map[string]interface{}
+		if err := json.Unmarshal([]byte(line), &obj); err != nil {
+			t.Errorf("line %q: invalid JSON: %v", line, err)
+			continue
+		}
+		typ, _ := obj["type"].(string)
+		switch typ {
+		case "progress":
+			progressCount++
+		case "finding":
+			findingCount++
+			if obj["data"] == nil {
+				t.Error("finding event missing data")
+			}
+		case "done":
+			gotDone = true
+		default:
+			t.Errorf("unknown event type: %q", typ)
+		}
+		// Stream mode must not emit single {"findings": [...]} blob
+		if _, hasFindings := obj["findings"]; hasFindings {
+			t.Errorf("stream output must not contain top-level findings; got line: %s", line)
+		}
+	}
+	if progressCount < 1 {
+		t.Errorf("stream: want at least 1 progress event, got %d", progressCount)
+	}
+	if findingCount < 1 {
+		t.Errorf("stream: want at least 1 finding event, got %d", findingCount)
+	}
+	if !gotDone {
+		t.Error("stream: want done event")
+	}
+}
+
 func TestRunCLI_startDryRunDefaultOutputIsHuman(t *testing.T) {
 	repo := initRepo(t)
 	orig, err := os.Getwd()

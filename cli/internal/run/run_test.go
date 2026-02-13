@@ -532,6 +532,69 @@ func TestStart_dryRun_deterministicFindings(t *testing.T) {
 	}
 }
 
+func TestStart_stream_emitsNDJSON(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	var buf bytes.Buffer
+	opts := StartOptions{
+		RepoRoot:      repo,
+		StateDir:      stateDir,
+		WorktreeRoot:  "",
+		Ref:           "HEAD~1",
+		DryRun:        true,
+		Model:         "",
+		OllamaBaseURL: "",
+		StreamOut:     &buf,
+	}
+	if err := Start(ctx, opts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("stream output: want at least 2 lines (progress + done), got %d", len(lines))
+	}
+	var progressCount, findingCount int
+	var gotDone bool
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		var obj map[string]interface{}
+		if err := json.Unmarshal([]byte(line), &obj); err != nil {
+			t.Errorf("line %q: invalid JSON: %v", line, err)
+			continue
+		}
+		typ, _ := obj["type"].(string)
+		switch typ {
+		case "progress":
+			progressCount++
+			if obj["msg"] == nil {
+				t.Error("progress event missing msg")
+			}
+		case "finding":
+			findingCount++
+			if obj["data"] == nil {
+				t.Error("finding event missing data")
+			}
+		case "done":
+			gotDone = true
+		default:
+			t.Errorf("unknown event type: %q", typ)
+		}
+	}
+	if progressCount < 1 {
+		t.Errorf("stream: want at least 1 progress event, got %d", progressCount)
+	}
+	if findingCount < 1 {
+		t.Errorf("stream: want at least 1 finding event (dry-run has hunks), got %d", findingCount)
+	}
+	if !gotDone {
+		t.Error("stream: want done event")
+	}
+}
+
 func TestRun_dryRun_incremental(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

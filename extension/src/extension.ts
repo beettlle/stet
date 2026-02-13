@@ -1,13 +1,14 @@
 import * as vscode from "vscode";
 
-import { spawnStet } from "./cli";
+import { spawnStet, spawnStetStream } from "./cli";
 import { buildCopyForChatBlock } from "./copyForChat";
 import { createFindingsPanel } from "./findingsPanel";
 import { runFinishReview } from "./finishReview";
 import type { TreeItemModel } from "./findingsPanel";
 import { openFinding } from "./openFinding";
 import type { OpenFindingPayload } from "./openFinding";
-import { parseFindingsJSON } from "./parse";
+import type { Finding } from "./contract";
+import { parseStreamEvent } from "./parse";
 
 function getRepoRoot(): string | null {
   const folders = vscode.workspace.workspaceFolders;
@@ -75,6 +76,7 @@ export function activate(context: vscode.ExtensionContext): void {
         return;
       }
       findingsProvider.setScanning(true);
+      const accumulatedFindings: Finding[] = [];
       void vscode.window.withProgress(
         {
           location: vscode.ProgressLocation.Notification,
@@ -82,23 +84,48 @@ export function activate(context: vscode.ExtensionContext): void {
           cancellable: false,
         },
         async () => {
-          const result = await spawnStet(["start", "--dry-run", "--quiet", "--json"], { cwd });
-          findingsProvider.setScanning(false);
+          const result = await spawnStetStream(
+            ["start", "--dry-run", "--quiet", "--json", "--stream"],
+            { cwd },
+            {
+              onLine(line) {
+                try {
+                  const ev = parseStreamEvent(line);
+                  if (ev.type === "progress") {
+                    // Keep scanning; panel already shows scanning state
+                    return;
+                  }
+                  if (ev.type === "finding") {
+                    accumulatedFindings.push(ev.data);
+                    findingsProvider.setFindings([...accumulatedFindings]);
+                    return;
+                  }
+                  if (ev.type === "done") {
+                    findingsProvider.setScanning(false);
+                  }
+                } catch (e) {
+                  findingsProvider.setFindings([]);
+                  findingsProvider.setScanning(false);
+                  const message = e instanceof Error ? e.message : String(e);
+                  void vscode.window.showErrorMessage(`Stet: Failed to parse stream. ${message}`);
+                }
+              },
+              onClose(exitCode, stderr) {
+                findingsProvider.setScanning(false);
+                if (exitCode !== 0) {
+                  findingsProvider.setFindings([]);
+                  showCLIError(stderr, exitCode);
+                  return;
+                }
+                void vscode.window.showInformationMessage(
+                  `Stet: Review complete. ${accumulatedFindings.length} finding(s).`
+                );
+              },
+            }
+          );
           if (result.exitCode !== 0) {
-            findingsProvider.setFindings([]); // clear on CLI failure
+            findingsProvider.setFindings([]);
             showCLIError(result.stderr, result.exitCode);
-            return;
-          }
-          try {
-            const { findings } = parseFindingsJSON(result.stdout);
-            findingsProvider.setFindings(findings);
-            void vscode.window.showInformationMessage(
-              `Stet: Review complete. ${findings.length} finding(s).`
-            );
-          } catch (e) {
-            findingsProvider.setFindings([]); // clear on parse failure
-            const message = e instanceof Error ? e.message : String(e);
-            void vscode.window.showErrorMessage(`Stet: Failed to parse output. ${message}`);
           }
         }
       );

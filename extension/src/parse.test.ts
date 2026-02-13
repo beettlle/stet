@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseFindingsJSON, parseFindingsNDJSON } from "./parse";
+import { parseFindingsJSON, parseFindingsNDJSON, parseStreamEvent } from "./parse";
 
 describe("parseFindingsJSON", () => {
   it("parses valid single-line JSON with empty findings", () => {
@@ -185,5 +185,54 @@ describe("parseFindingsNDJSON", () => {
     expect(() => parseFindingsNDJSON('{"other":[]}\n')).toThrow(
       "Line 1: Missing or invalid 'findings' array"
     );
+  });
+});
+
+describe("parseStreamEvent", () => {
+  it("parses progress event", () => {
+    const ev = parseStreamEvent('{"type":"progress","msg":"2 hunks to review"}');
+    expect(ev).toEqual({ type: "progress", msg: "2 hunks to review" });
+  });
+
+  it("parses finding event", () => {
+    const line = JSON.stringify({
+      type: "finding",
+      data: {
+        id: "f1",
+        file: "src/foo.ts",
+        line: 10,
+        severity: "warning",
+        category: "style",
+        confidence: 1.0,
+        message: "Use const",
+      },
+    });
+    const ev = parseStreamEvent(line);
+    expect(ev.type).toBe("finding");
+    if (ev.type === "finding") {
+      expect(ev.data.file).toBe("src/foo.ts");
+      expect(ev.data.message).toBe("Use const");
+    }
+  });
+
+  it("parses done event", () => {
+    const ev = parseStreamEvent('{"type":"done"}');
+    expect(ev).toEqual({ type: "done" });
+  });
+
+  it("throws on invalid JSON", () => {
+    expect(() => parseStreamEvent("not json")).toThrow("Invalid JSON");
+  });
+
+  it("throws on unknown type", () => {
+    expect(() => parseStreamEvent('{"type":"unknown"}')).toThrow("Unknown stream event type");
+  });
+
+  it("throws when finding data is invalid", () => {
+    const line = JSON.stringify({
+      type: "finding",
+      data: { file: "a.ts", severity: "warning", category: "style", message: "x" },
+    });
+    expect(() => parseStreamEvent(line)).toThrow("Invalid finding");
   });
 });

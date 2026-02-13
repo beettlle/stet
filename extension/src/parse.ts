@@ -5,6 +5,12 @@
 import type { Finding, FindingsResponse, LineRange, Severity, Category } from "./contract";
 import { SEVERITIES, CATEGORIES } from "./contract";
 
+/** Stream event: one line of NDJSON when CLI is run with --stream. */
+export type StreamEvent =
+  | { type: "progress"; msg: string }
+  | { type: "finding"; data: Finding }
+  | { type: "done" };
+
 function isSeverity(s: string): s is Severity {
   return (SEVERITIES as readonly string[]).includes(s);
 }
@@ -110,4 +116,45 @@ export function parseFindingsNDJSON(stdout: string): Finding[] {
     }
   }
   return allFindings;
+}
+
+/**
+ * Parses a single NDJSON stream event line (--stream output).
+ * @param line - One line of stdout (trimmed)
+ * @returns StreamEvent (progress, finding, or done)
+ * @throws Error if JSON is invalid, type is unknown, or finding data is invalid
+ */
+export function parseStreamEvent(line: string): StreamEvent {
+  const trimmed = line.trim();
+  if (trimmed === "") {
+    throw new Error("Empty line");
+  }
+  let data: unknown;
+  try {
+    data = JSON.parse(trimmed);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    throw new Error(`Invalid JSON: ${message}`);
+  }
+  if (data === null || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error("Expected JSON object");
+  }
+  const obj = data as Record<string, unknown>;
+  const type = obj.type;
+  if (type === "progress") {
+    if (typeof obj.msg !== "string") {
+      throw new Error("progress event missing or invalid msg");
+    }
+    return { type: "progress", msg: obj.msg };
+  }
+  if (type === "finding") {
+    if (!validateFinding(obj.data)) {
+      throw new Error("Invalid finding");
+    }
+    return { type: "finding", data: obj.data };
+  }
+  if (type === "done") {
+    return { type: "done" };
+  }
+  throw new Error(`Unknown stream event type: ${String(type)}`);
 }

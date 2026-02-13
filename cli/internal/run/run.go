@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -51,6 +52,21 @@ func generateSessionID() string {
 	return hex.EncodeToString(b)
 }
 
+// writeStreamLine writes one JSON object and a newline to w. Used for NDJSON streaming.
+func writeStreamLine(w io.Writer, obj interface{}) error {
+	data, err := json.Marshal(obj)
+	if err != nil {
+		return err
+	}
+	if _, err := w.Write(data); err != nil {
+		return err
+	}
+	if _, err := w.Write([]byte("\n")); err != nil {
+		return err
+	}
+	return nil
+}
+
 // cannedFindingsForHunks returns one deterministic finding per hunk for dry-run
 // (CI). IDs are stable via hunkid.StableFindingID.
 func cannedFindingsForHunks(hunks []diff.Hunk) []findings.Finding {
@@ -80,6 +96,7 @@ func cannedFindingsForHunks(hunks []diff.Hunk) []findings.Finding {
 // Temperature and NumCtx are passed to Ollama /api/generate options.
 // Verbose, when true, prints progress to stderr (worktree, partition summary, per-hunk).
 // AllowDirty, when true, skips the clean worktree check and proceeds with a warning.
+// StreamOut, when non-nil, receives NDJSON events (progress, finding, done) one per line.
 type StartOptions struct {
 	RepoRoot      string
 	StateDir      string
@@ -95,6 +112,7 @@ type StartOptions struct {
 	Temperature   float64
 	NumCtx        int
 	Verbose       bool
+	StreamOut     io.Writer
 }
 
 // FinishOptions configures Finish.
@@ -109,6 +127,7 @@ type FinishOptions struct {
 // Temperature and NumCtx are passed to Ollama /api/generate options.
 // Verbose, when true, prints progress to stderr (partition summary, per-hunk).
 // RunOptions does not include WorktreeRoot because Run does not create or remove worktrees (only Finish does).
+// StreamOut, when non-nil, receives NDJSON events (progress, finding, done) one per line.
 type RunOptions struct {
 	RepoRoot      string
 	StateDir      string
@@ -121,6 +140,7 @@ type RunOptions struct {
 	Temperature   float64
 	NumCtx        int
 	Verbose       bool
+	StreamOut     io.Writer
 }
 
 // Start creates a worktree at the given ref, writes the session, then runs the
@@ -237,6 +257,10 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 	}
 
 	if len(part.ToReview) == 0 {
+		if opts.StreamOut != nil {
+			_ = writeStreamLine(opts.StreamOut, map[string]string{"type": "progress", "msg": "Nothing to review."})
+			_ = writeStreamLine(opts.StreamOut, map[string]string{"type": "done"})
+		}
 		if opts.Verbose {
 			fmt.Fprintln(os.Stderr, "Nothing to review.")
 		}
@@ -248,8 +272,27 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 	}
 
 	var collected []findings.Finding
+	total := len(part.ToReview)
+	if opts.StreamOut != nil {
+		_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("%d hunks to review", total)})
+	}
+
 	if opts.DryRun {
-		collected = cannedFindingsForHunks(part.ToReview)
+		for i, hunk := range part.ToReview {
+			if opts.StreamOut != nil {
+				_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", i+1, total, hunk.FilePath)})
+			}
+			batch := cannedFindingsForHunks([]diff.Hunk{hunk})
+			batch = findings.FilterAbstention(batch)
+			batch = findings.FilterFPKillList(batch)
+			findings.SetCursorURIs(opts.RepoRoot, batch)
+			for _, f := range batch {
+				if opts.StreamOut != nil {
+					_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "finding", "data": f})
+				}
+				collected = append(collected, f)
+			}
+		}
 	} else {
 		branch, commitMsg, intentErr := git.UserIntent(opts.RepoRoot)
 		if intentErr != nil {
@@ -277,8 +320,10 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		}
 		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: opts.NumCtx}
 		cursorRules, _ := rules.LoadRules(filepath.Join(opts.RepoRoot, ".cursor", "rules"))
-		total := len(part.ToReview)
 		for i, hunk := range part.ToReview {
+			if opts.StreamOut != nil {
+				_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", i+1, total, hunk.FilePath)})
+			}
 			if opts.Verbose {
 				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", i+1, total, hunk.FilePath)
 			}
@@ -286,12 +331,20 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 			if err != nil {
 				return fmt.Errorf("start: review hunk %s: %w", hunk.FilePath, err)
 			}
-			collected = append(collected, list...)
+			batch := findings.FilterAbstention(list)
+			batch = findings.FilterFPKillList(batch)
+			findings.SetCursorURIs(opts.RepoRoot, batch)
+			for _, f := range batch {
+				if opts.StreamOut != nil {
+					_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "finding", "data": f})
+				}
+				collected = append(collected, f)
+			}
 		}
 	}
-	collected = findings.FilterAbstention(collected)
-	collected = findings.FilterFPKillList(collected)
-	findings.SetCursorURIs(opts.RepoRoot, collected)
+	if opts.StreamOut != nil {
+		_ = writeStreamLine(opts.StreamOut, map[string]string{"type": "done"})
+	}
 	s.Findings = collected
 	s.LastReviewedAt = headSHA
 	if err := session.Save(opts.StateDir, &s); err != nil {
@@ -423,6 +476,10 @@ func Run(ctx context.Context, opts RunOptions) error {
 	}
 
 	if len(part.ToReview) == 0 {
+		if opts.StreamOut != nil {
+			_ = writeStreamLine(opts.StreamOut, map[string]string{"type": "progress", "msg": "Nothing to review."})
+			_ = writeStreamLine(opts.StreamOut, map[string]string{"type": "done"})
+		}
 		if opts.Verbose {
 			fmt.Fprintln(os.Stderr, "Nothing to review.")
 		}
@@ -431,8 +488,27 @@ func Run(ctx context.Context, opts RunOptions) error {
 	}
 
 	var newFindings []findings.Finding
+	total := len(part.ToReview)
+	if opts.StreamOut != nil {
+		_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("%d hunks to review", total)})
+	}
+
 	if opts.DryRun {
-		newFindings = cannedFindingsForHunks(part.ToReview)
+		for i, hunk := range part.ToReview {
+			if opts.StreamOut != nil {
+				_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", i+1, total, hunk.FilePath)})
+			}
+			batch := cannedFindingsForHunks([]diff.Hunk{hunk})
+			batch = findings.FilterAbstention(batch)
+			batch = findings.FilterFPKillList(batch)
+			findings.SetCursorURIs(opts.RepoRoot, batch)
+			for _, f := range batch {
+				if opts.StreamOut != nil {
+					_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "finding", "data": f})
+				}
+				newFindings = append(newFindings, f)
+			}
+		}
 	} else {
 		timeout := opts.Timeout
 		if timeout == 0 {
@@ -469,8 +545,10 @@ func Run(ctx context.Context, opts RunOptions) error {
 		}
 		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: opts.NumCtx}
 		cursorRules, _ := rules.LoadRules(filepath.Join(opts.RepoRoot, ".cursor", "rules"))
-		total := len(part.ToReview)
 		for i, hunk := range part.ToReview {
+			if opts.StreamOut != nil {
+				_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", i+1, total, hunk.FilePath)})
+			}
 			if opts.Verbose {
 				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", i+1, total, hunk.FilePath)
 			}
@@ -478,12 +556,20 @@ func Run(ctx context.Context, opts RunOptions) error {
 			if err != nil {
 				return fmt.Errorf("run: review hunk %s: %w", hunk.FilePath, err)
 			}
-			newFindings = append(newFindings, list...)
+			batch := findings.FilterAbstention(list)
+			batch = findings.FilterFPKillList(batch)
+			findings.SetCursorURIs(opts.RepoRoot, batch)
+			for _, f := range batch {
+				if opts.StreamOut != nil {
+					_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "finding", "data": f})
+				}
+				newFindings = append(newFindings, f)
+			}
 		}
 	}
-	newFindings = findings.FilterAbstention(newFindings)
-	newFindings = findings.FilterFPKillList(newFindings)
-	findings.SetCursorURIs(opts.RepoRoot, newFindings)
+	if opts.StreamOut != nil {
+		_ = writeStreamLine(opts.StreamOut, map[string]string{"type": "done"})
+	}
 	s.Findings = append(s.Findings, newFindings...)
 	s.LastReviewedAt = headSHA
 	if err := session.Save(opts.StateDir, &s); err != nil {

@@ -149,6 +149,7 @@ func newStartCmd() *cobra.Command {
 	cmd.Flags().BoolP("quiet", "q", false, "Suppress progress (use for scripts and IDE integration)")
 	cmd.Flags().String("output", "human", "Output format: human (default) or json")
 	cmd.Flags().Bool("json", false, "Emit findings as JSON to stdout (same as --output=json)")
+	cmd.Flags().Bool("stream", false, "Emit progress and findings as NDJSON (one event per line); requires --output=json")
 	cmd.Flags().Bool("allow-dirty", false, "Proceed with uncommitted changes (warns)")
 	return cmd
 }
@@ -167,6 +168,10 @@ func runStart(cmd *cobra.Command, args []string) error {
 	}
 	if output != "human" && output != "json" {
 		return fmt.Errorf("start: invalid output %q; use human or json", output)
+	}
+	stream, _ := cmd.Flags().GetBool("stream")
+	if stream && output != "json" {
+		return fmt.Errorf("start: --stream requires --output=json or --json")
 	}
 	allowDirty, _ := cmd.Flags().GetBool("allow-dirty")
 	cwd, err := os.Getwd()
@@ -197,6 +202,10 @@ func runStart(cmd *cobra.Command, args []string) error {
 		Temperature:   cfg.Temperature,
 		NumCtx:        cfg.NumCtx,
 		Verbose:       !quiet,
+		StreamOut:     nil,
+	}
+	if stream {
+		opts.StreamOut = findingsOut
 	}
 	if err := run.Start(cmd.Context(), opts); err != nil {
 		if errors.Is(err, ollama.ErrUnreachable) {
@@ -221,6 +230,10 @@ func runStart(cmd *cobra.Command, args []string) error {
 		}
 		return err
 	}
+	if stream {
+		// Findings already emitted as NDJSON by run.Start
+		return nil
+	}
 	if output == "json" {
 		if err := writeFindingsJSON(findingsOut, stateDir); err != nil {
 			return fmt.Errorf("start: %w", err)
@@ -243,6 +256,7 @@ func newRunCmd() *cobra.Command {
 	cmd.Flags().BoolP("quiet", "q", false, "Suppress progress (use for scripts and IDE integration)")
 	cmd.Flags().String("output", "human", "Output format: human (default) or json")
 	cmd.Flags().Bool("json", false, "Emit findings as JSON to stdout (same as --output=json)")
+	cmd.Flags().Bool("stream", false, "Emit progress and findings as NDJSON (one event per line); requires --output=json")
 	return cmd
 }
 
@@ -270,6 +284,10 @@ func runRun(cmd *cobra.Command, args []string) error {
 	if output != "human" && output != "json" {
 		return fmt.Errorf("run: invalid output %q; use human or json", output)
 	}
+	stream, _ := cmd.Flags().GetBool("stream")
+	if stream && output != "json" {
+		return fmt.Errorf("run: --stream requires --output=json or --json")
+	}
 	opts := run.RunOptions{
 		RepoRoot:      repoRoot,
 		StateDir:      stateDir,
@@ -282,6 +300,10 @@ func runRun(cmd *cobra.Command, args []string) error {
 		Temperature:   cfg.Temperature,
 		NumCtx:        cfg.NumCtx,
 		Verbose:       !quiet,
+		StreamOut:     nil,
+	}
+	if stream {
+		opts.StreamOut = findingsOut
 	}
 	if err := run.Run(cmd.Context(), opts); err != nil {
 		if errors.Is(err, run.ErrNoSession) {
@@ -294,6 +316,10 @@ func runRun(cmd *cobra.Command, args []string) error {
 			return errExit(2)
 		}
 		return err
+	}
+	if stream {
+		// Findings already emitted as NDJSON by run.Run
+		return nil
 	}
 	if output == "json" {
 		if err := writeFindingsJSON(findingsOut, stateDir); err != nil {

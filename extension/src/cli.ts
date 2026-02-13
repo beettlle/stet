@@ -11,6 +11,11 @@ export interface SpawnResult {
   stderr: string;
 }
 
+export interface SpawnStetStreamCallbacks {
+  onLine?: (line: string) => void;
+  onClose: (exitCode: number, stderr: string) => void;
+}
+
 /**
  * Spawns stet with the given args from cwd (repo root).
  * @param args - CLI args, e.g. ["start", "--dry-run"] or ["run"]
@@ -51,6 +56,61 @@ export function spawnStet(
         stdout: "",
         stderr: err.message,
       });
+    });
+  });
+}
+
+/**
+ * Spawns stet with streaming stdout: calls onLine for each complete line, then onClose when the process exits.
+ * Use for CLI invocations with --stream so the extension can process NDJSON events incrementally.
+ * @param args - CLI args, e.g. ["start", "--dry-run", "--quiet", "--json", "--stream"]
+ * @param options.cwd - Working directory (must be repo root)
+ * @param options.cliPath - Optional path to stet binary (default "stet")
+ * @param callbacks.onLine - Called for each line of stdout (without trailing newline)
+ * @param callbacks.onClose - Called when the process exits with (exitCode, stderr)
+ * @returns Promise that resolves with { exitCode, stderr } when the process closes
+ */
+export function spawnStetStream(
+  args: string[],
+  options: { cwd: string; cliPath?: string },
+  callbacks: SpawnStetStreamCallbacks
+): Promise<{ exitCode: number; stderr: string }> {
+  const { cwd, cliPath = "stet" } = options;
+  const { onLine, onClose } = callbacks;
+  return new Promise((resolve) => {
+    const chunksErr: Buffer[] = [];
+    let stdoutBuffer = "";
+    const proc = spawn(cliPath, args, {
+      cwd,
+      shell: false,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    proc.stdout?.on("data", (chunk: Buffer) => {
+      stdoutBuffer += chunk.toString("utf8");
+      const lines = stdoutBuffer.split("\n");
+      stdoutBuffer = lines.pop() ?? "";
+      for (const line of lines) {
+        onLine?.(line);
+      }
+    });
+    proc.stderr?.on("data", (chunk: Buffer) => chunksErr.push(chunk));
+    proc.on("close", (code: number | null, signal: NodeJS.Signals | null) => {
+      const exitCode =
+        code !== null && code !== undefined
+          ? code
+          : signal === "SIGKILL"
+            ? 137
+            : 1;
+      const stderr = Buffer.concat(chunksErr).toString("utf8");
+      if (stdoutBuffer.trim() !== "") {
+        onLine?.(stdoutBuffer.trimEnd());
+      }
+      onClose(exitCode, stderr);
+      resolve({ exitCode, stderr });
+    });
+    proc.on("error", (err: Error) => {
+      onClose(1, err.message);
+      resolve({ exitCode: 1, stderr: err.message });
     });
   });
 }

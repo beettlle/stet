@@ -12,12 +12,13 @@ This document defines the output and exit-code contract between the Stet CLI and
 
 - **Default:** Progress (worktree path, partition summary, per-hunk lines) is printed to **stderr**. Stdout is **human-readable** (one line per finding: `file:line  severity  message`, then a summary line).
 - **For scripts and the extension:** Use **`--quiet`** to suppress progress on stderr, and **`--output=json`** or **`--json`** to get machine-parseable JSON on stdout. Example: `stet start --dry-run --quiet --json`.
+- **Streaming:** Use **`--stream`** together with **`--output=json`** or **`--json`** to receive NDJSON events (one JSON object per line) so the extension can show progress and findings incrementally. **`--stream`** requires JSON output; without `--json` the CLI returns an error.
 
 ## stdout
 
 **With `--output=json` or `--json`** (required for the extension and any script that parses findings):
 
-On success (exit code 0), the CLI writes exactly one JSON object, followed by a newline:
+**Without `--stream`:** On success (exit code 0), the CLI writes exactly one JSON object, followed by a newline:
 
 ```json
 {"findings": [ ... ]}
@@ -35,6 +36,24 @@ On success (exit code 0), the CLI writes exactly one JSON object, followed by a 
   - **`message`** (string): Description of the finding.
   - **`suggestion`** (string, optional): Suggested fix.
   - **`cursor_uri`** (string, optional): Deep link (e.g. `file://` or `cursor://`). When the CLI sets it (when the model omits it), it uses `file://` with absolute path and line (or range) so the extension can open at location.
+
+**With `--stream`** (and `--output=json`/`--json`): On success, the CLI writes **NDJSON** to stdout: one JSON object per line. Each object has a **`type`** field. No final `{"findings": [...]}` is written when streaming.
+
+| `type`    | Other fields | Description |
+|-----------|--------------|-------------|
+| `progress` | `msg` (string) | Progress message (e.g. "N hunks to review", "Reviewing hunk 1/3: path"). |
+| `finding`  | `data` (object) | One finding; same shape as an element of the `findings` array above. |
+| `done`     | (none)        | End of stream; no more events. |
+
+Example stream (abbreviated):
+
+```json
+{"type":"progress","msg":"2 hunks to review"}
+{"type":"progress","msg":"Reviewing hunk 1/2: cli/main.go"}
+{"type":"finding","data":{"id":"...","file":"cli/main.go","line":10,"severity":"info","category":"maintainability","confidence":1.0,"message":"..."}}
+{"type":"progress","msg":"Reviewing hunk 2/2: pkg/foo.go"}
+{"type":"done"}
+```
 
 Without `--output=json`, stdout is human-readable (one line per finding plus a summary); format may change. Do not parse it programmatically.
 
@@ -55,7 +74,7 @@ On `stet start` failure, the CLI may print one of the following hints to stderr 
 
 | Code | Meaning |
 |------|--------|
-| **0** | Success; with `--output=json`/`--json`, stdout contains the findings JSON. |
+| **0** | Success; with `--output=json`/`--json`, stdout contains the findings JSON (or NDJSON when `--stream`). |
 | **1** | Usage error or other failure (e.g. not a git repo, no session, model not found). |
 | **2** | Ollama unreachable (server not running or not reachable). |
 
@@ -134,6 +153,6 @@ For pipelines or multiple commands (e.g. `stet doctor ; stet start`), `STET_OLLA
 
 ## Usage (extension)
 
-1. Spawn the CLI with **`--quiet --json`** (or `--quiet --output=json`) so stdout is JSON only and stderr has no progress. Example: `stet start --dry-run --quiet --json` or `stet run --quiet --json`, from the repository root.
-2. On exit code 0: read stdout and parse the single JSON object; use `findings` to populate the panel.
+1. Spawn the CLI with **`--quiet --json`** (or `--quiet --output=json`). For incremental panel updates, add **`--stream`** so stdout is NDJSON (one event per line). Example: `stet start --dry-run --quiet --json --stream` or `stet run --quiet --json --stream`, from the repository root.
+2. On exit code 0: if **not** streaming, read stdout and parse the single JSON object; use `findings` to populate the panel. If **streaming**, read stdout line-by-line; for each line parse the JSON object, and on `type: "progress"` show progress, on `type: "finding"` append the `data` finding and refresh the panel, on `type: "done"` stop scanning.
 3. On non-zero exit: read stderr for the error message; use exit code 2 to show a specific “Ollama unreachable” message if desired.
