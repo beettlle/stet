@@ -186,6 +186,7 @@ func newStartCmd() *cobra.Command {
 	cmd.Flags().Bool("allow-dirty", false, "Proceed with uncommitted changes (warns)")
 	cmd.Flags().Int("rag-symbol-max-definitions", 0, "Max symbol definitions to inject (0 = use config); overrides config and env")
 	cmd.Flags().Int("rag-symbol-max-tokens", 0, "Max tokens for symbol-definitions block (0 = use config); overrides config and env")
+	cmd.Flags().String("strictness", "", "Review strictness preset: strict, default, lenient, strict+, default+, lenient+ (overrides config and env)")
 	return cmd
 }
 
@@ -221,7 +222,13 @@ func runStart(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	overrides := ragOverridesFromFlags(cmd)
+	overrides := overridesFromFlags(cmd)
+	if overrides != nil && overrides.Strictness != nil && *overrides.Strictness != "" {
+		if _, _, _, err := findings.ResolveStrictness(*overrides.Strictness); err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+			return errExit(1)
+		}
+	}
 	cfg, err := config.Load(context.Background(), config.LoadOptions{RepoRoot: repoRoot, Overrides: overrides})
 	if err != nil {
 		return err
@@ -309,14 +316,16 @@ func newRunCmd() *cobra.Command {
 	cmd.Flags().Bool("stream", false, "Emit progress and findings as NDJSON (one event per line); requires --output=json")
 	cmd.Flags().Int("rag-symbol-max-definitions", 0, "Max symbol definitions to inject (0 = use config); overrides config and env")
 	cmd.Flags().Int("rag-symbol-max-tokens", 0, "Max tokens for symbol-definitions block (0 = use config); overrides config and env")
+	cmd.Flags().String("strictness", "", "Review strictness preset: strict, default, lenient, strict+, default+, lenient+ (overrides config and env)")
 	return cmd
 }
 
-// ragOverridesFromFlags returns Overrides for RAG options when the corresponding flags were set (start/run both define these flags).
-func ragOverridesFromFlags(cmd *cobra.Command) *config.Overrides {
+// overridesFromFlags returns Overrides for RAG and strictness when the corresponding flags were set (start/run both define these flags).
+func overridesFromFlags(cmd *cobra.Command) *config.Overrides {
 	defChanged := cmd.Flags().Lookup("rag-symbol-max-definitions") != nil && cmd.Flags().Lookup("rag-symbol-max-definitions").Changed
 	tokChanged := cmd.Flags().Lookup("rag-symbol-max-tokens") != nil && cmd.Flags().Lookup("rag-symbol-max-tokens").Changed
-	if !defChanged && !tokChanged {
+	strictnessChanged := cmd.Flags().Lookup("strictness") != nil && cmd.Flags().Lookup("strictness").Changed
+	if !defChanged && !tokChanged && !strictnessChanged {
 		return nil
 	}
 	o := &config.Overrides{}
@@ -327,6 +336,10 @@ func ragOverridesFromFlags(cmd *cobra.Command) *config.Overrides {
 	if tokChanged {
 		v, _ := cmd.Flags().GetInt("rag-symbol-max-tokens")
 		o.RAGSymbolMaxTokens = &v
+	}
+	if strictnessChanged {
+		v, _ := cmd.Flags().GetString("strictness")
+		o.Strictness = &v
 	}
 	return o
 }
@@ -340,7 +353,13 @@ func runRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	overrides := ragOverridesFromFlags(cmd)
+	overrides := overridesFromFlags(cmd)
+	if overrides != nil && overrides.Strictness != nil && *overrides.Strictness != "" {
+		if _, _, _, err := findings.ResolveStrictness(*overrides.Strictness); err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+			return errExit(1)
+		}
+	}
 	cfg, err := config.Load(cmd.Context(), config.LoadOptions{RepoRoot: repoRoot, Overrides: overrides})
 	if err != nil {
 		return err

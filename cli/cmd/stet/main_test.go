@@ -273,6 +273,38 @@ func TestRunCLI_finishWithoutStartReturnsNonZero(t *testing.T) {
 	}
 }
 
+func TestRunCLI_strictnessInvalidExits1(t *testing.T) {
+	// Do not run in parallel: test changes process cwd and stderr.
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = os.Chdir(orig)
+	}()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStderr := os.Stderr
+	os.Stderr = w
+	t.Cleanup(func() { os.Stderr = oldStderr })
+	got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--strictness=aggressive"})
+	_ = w.Close()
+	var stderr bytes.Buffer
+	_, _ = io.Copy(&stderr, r)
+	if got != 1 {
+		t.Errorf("runCLI(start --dry-run --strictness=aggressive) = %d, want 1", got)
+	}
+	if !strings.Contains(stderr.String(), "invalid strictness") {
+		t.Errorf("stderr should contain invalid strictness error; got:\n%s", stderr.String())
+	}
+}
+
 func TestRunCLI_startDryRunEmitsFindingsJSON(t *testing.T) {
 	// Do not run in parallel: test changes cwd and findingsOut.
 	repo := initRepo(t)

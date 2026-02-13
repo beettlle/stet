@@ -122,7 +122,7 @@ For optimizing toward **actionable findings**, see [Review quality and actionabi
 
 The + presets (strict+, default+, lenient+) show more findings by not filtering messages that match the built-in FP kill list.
 
-RAG symbol options can also be set via **`--rag-symbol-max-definitions`** and **`--rag-symbol-max-tokens`** on `stet start` and `stet run`; when set, they override config and env.
+RAG symbol options can also be set via **`--rag-symbol-max-definitions`** and **`--rag-symbol-max-tokens`** on `stet start` and `stet run`; when set, they override config and env. Strictness can also be set via **`--strictness`** on `stet start` and `stet run`; when set, it overrides config and env.
 
 ## Working directory
 
