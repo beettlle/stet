@@ -4,10 +4,12 @@
     "target": "ES2020",
     "outDir": "out",
     "lib": ["ES2020"],
+    "types": ["node", "jest"],
     "sourceMap": true,
     "rootDir": "src",
     "strict": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "exclude": ["src/**/*.test.ts"]
 }
