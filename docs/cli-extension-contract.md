@@ -4,11 +4,18 @@ This document defines the output and exit-code contract between the Stet CLI and
 
 ## Commands that emit findings
 
-- **`stet start [ref]`** — On success, writes findings JSON to stdout.
-- **`stet run`** — On success, writes findings JSON to stdout.
+- **`stet start [ref]`** — On success, writes findings to stdout (format depends on `--output`).
+- **`stet run`** — On success, writes findings to stdout (format depends on `--output`).
 - The **`--dry-run`** flag skips the LLM and emits deterministic findings for CI.
 
+**Output and progress:**
+
+- **Default:** Progress (worktree path, partition summary, per-hunk lines) is printed to **stderr**. Stdout is **human-readable** (one line per finding: `file:line  severity  message`, then a summary line).
+- **For scripts and the extension:** Use **`--quiet`** to suppress progress on stderr, and **`--output=json`** or **`--json`** to get machine-parseable JSON on stdout. Example: `stet start --dry-run --quiet --json`.
+
 ## stdout
+
+**With `--output=json` or `--json`** (required for the extension and any script that parses findings):
 
 On success (exit code 0), the CLI writes exactly one JSON object, followed by a newline:
 
@@ -29,9 +36,11 @@ On success (exit code 0), the CLI writes exactly one JSON object, followed by a 
   - **`suggestion`** (string, optional): Suggested fix.
   - **`cursor_uri`** (string, optional): Deep link (e.g. `file://` or `cursor://`). When the CLI sets it (when the model omits it), it uses `file://` with absolute path and line (or range) so the extension can open at location.
 
+Without `--output=json`, stdout is human-readable (one line per finding plus a summary); format may change. Do not parse it programmatically.
+
 ## stderr
 
-Human-readable error and diagnostic messages. The extension should surface these when the process exits with a non-zero code. For some conditions (e.g. uncommitted changes, or an existing review session), the CLI also prints a one-line **recovery hint** (e.g. `Hint: Run 'stet finish'...`) so the extension or user can suggest the next command.
+Human-readable error and diagnostic messages. When **not** using `--quiet`, progress (worktree path, hunk counts, per-hunk "Reviewing hunk N/M") is also written to stderr. The extension should surface these when the process exits with a non-zero code. For some conditions (e.g. uncommitted changes, or an existing review session), the CLI also prints a one-line **recovery hint** (e.g. `Hint: Run 'stet finish'...`) so the extension or user can suggest the next command.
 
 ### Recovery hints
 
@@ -46,7 +55,7 @@ On `stet start` failure, the CLI may print one of the following hints to stderr 
 
 | Code | Meaning |
 |------|--------|
-| **0** | Success; stdout contains the findings JSON. |
+| **0** | Success; with `--output=json`/`--json`, stdout contains the findings JSON. |
 | **1** | Usage error or other failure (e.g. not a git repo, no session, model not found). |
 | **2** | Ollama unreachable (server not running or not reachable). |
 
@@ -125,6 +134,6 @@ For pipelines or multiple commands (e.g. `stet doctor ; stet start`), `STET_OLLA
 
 ## Usage (extension)
 
-1. Spawn the CLI with the desired subcommand and args (e.g. `stet start --dry-run` or `stet run`), from the repository root.
+1. Spawn the CLI with **`--quiet --json`** (or `--quiet --output=json`) so stdout is JSON only and stderr has no progress. Example: `stet start --dry-run --quiet --json` or `stet run --quiet --json`, from the repository root.
 2. On exit code 0: read stdout and parse the single JSON object; use `findings` to populate the panel.
 3. On non-zero exit: read stderr for the error message; use exit code 2 to show a specific “Ollama unreachable” message if desired.

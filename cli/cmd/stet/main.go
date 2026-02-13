@@ -35,12 +35,11 @@ var findingsOut io.Writer = os.Stdout
 // errHintOut is the writer for recovery hints on start failure. Tests may replace it to capture output.
 var errHintOut io.Writer = os.Stderr
 
-// writeFindingsJSON loads the session from stateDir and writes {"findings": [...]} to w.
-// Findings whose ID is in session.DismissedIDs are excluded so they do not resurface.
-func writeFindingsJSON(w io.Writer, stateDir string) error {
+// activeFindings loads session from stateDir and returns findings not in DismissedIDs.
+func activeFindings(stateDir string) ([]findings.Finding, error) {
 	s, err := session.Load(stateDir)
 	if err != nil {
-		return fmt.Errorf("write findings: load session: %w", err)
+		return nil, fmt.Errorf("load session: %w", err)
 	}
 	dismissed := make(map[string]struct{}, len(s.DismissedIDs))
 	for _, id := range s.DismissedIDs {
@@ -51,6 +50,15 @@ func writeFindingsJSON(w io.Writer, stateDir string) error {
 		if _, ok := dismissed[f.ID]; !ok {
 			active = append(active, f)
 		}
+	}
+	return active, nil
+}
+
+// writeFindingsJSON writes {"findings": [...]} to w. Uses activeFindings so dismissed are excluded.
+func writeFindingsJSON(w io.Writer, stateDir string) error {
+	active, err := activeFindings(stateDir)
+	if err != nil {
+		return fmt.Errorf("write findings: %w", err)
 	}
 	payload := struct {
 		Findings []findings.Finding `json:"findings"`
@@ -64,6 +72,34 @@ func writeFindingsJSON(w io.Writer, stateDir string) error {
 	}
 	if _, err := w.Write([]byte("\n")); err != nil {
 		return fmt.Errorf("write findings: %w", err)
+	}
+	return nil
+}
+
+// writeFindingsHuman writes a human-readable summary to w: one line per finding (file:line  severity  message), then a summary line.
+func writeFindingsHuman(w io.Writer, stateDir string) error {
+	active, err := activeFindings(stateDir)
+	if err != nil {
+		return fmt.Errorf("write findings: %w", err)
+	}
+	for _, f := range active {
+		line := f.Line
+		if f.Range != nil {
+			line = f.Range.Start
+		}
+		if _, err := fmt.Fprintf(w, "%s:%d  %s  %s\n", f.File, line, f.Severity, f.Message); err != nil {
+			return fmt.Errorf("write findings: %w", err)
+		}
+	}
+	n := len(active)
+	if n != 1 {
+		if _, err := fmt.Fprintf(w, "%d finding(s).\n", n); err != nil {
+			return fmt.Errorf("write findings: %w", err)
+		}
+	} else {
+		if _, err := fmt.Fprintln(w, "1 finding."); err != nil {
+			return fmt.Errorf("write findings: %w", err)
+		}
 	}
 	return nil
 }
@@ -110,7 +146,9 @@ func newStartCmd() *cobra.Command {
 		RunE:  runStart,
 	}
 	cmd.Flags().Bool("dry-run", false, "Skip LLM; inject canned findings for CI")
-	cmd.Flags().Bool("verbose", false, "Print progress to stderr")
+	cmd.Flags().BoolP("quiet", "q", false, "Suppress progress (use for scripts and IDE integration)")
+	cmd.Flags().String("output", "human", "Output format: human (default) or json")
+	cmd.Flags().Bool("json", false, "Emit findings as JSON to stdout (same as --output=json)")
 	cmd.Flags().Bool("allow-dirty", false, "Proceed with uncommitted changes (warns)")
 	return cmd
 }
@@ -121,7 +159,15 @@ func runStart(cmd *cobra.Command, args []string) error {
 		ref = args[0]
 	}
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
-	verbose, _ := cmd.Flags().GetBool("verbose")
+	quiet, _ := cmd.Flags().GetBool("quiet")
+	output, _ := cmd.Flags().GetString("output")
+	outputJSON, _ := cmd.Flags().GetBool("json")
+	if outputJSON {
+		output = "json"
+	}
+	if output != "human" && output != "json" {
+		return fmt.Errorf("start: invalid output %q; use human or json", output)
+	}
 	allowDirty, _ := cmd.Flags().GetBool("allow-dirty")
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -150,7 +196,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 		Timeout:       cfg.Timeout,
 		Temperature:   cfg.Temperature,
 		NumCtx:        cfg.NumCtx,
-		Verbose:       verbose,
+		Verbose:       !quiet,
 	}
 	if err := run.Start(cmd.Context(), opts); err != nil {
 		if errors.Is(err, ollama.ErrUnreachable) {
@@ -175,8 +221,14 @@ func runStart(cmd *cobra.Command, args []string) error {
 		}
 		return err
 	}
-	if err := writeFindingsJSON(findingsOut, stateDir); err != nil {
-		return fmt.Errorf("start: %w", err)
+	if output == "json" {
+		if err := writeFindingsJSON(findingsOut, stateDir); err != nil {
+			return fmt.Errorf("start: %w", err)
+		}
+	} else {
+		if err := writeFindingsHuman(findingsOut, stateDir); err != nil {
+			return fmt.Errorf("start: %w", err)
+		}
 	}
 	return nil
 }
@@ -188,7 +240,9 @@ func newRunCmd() *cobra.Command {
 		RunE:  runRun,
 	}
 	cmd.Flags().Bool("dry-run", false, "Skip LLM; inject canned findings for CI")
-	cmd.Flags().Bool("verbose", false, "Print progress to stderr")
+	cmd.Flags().BoolP("quiet", "q", false, "Suppress progress (use for scripts and IDE integration)")
+	cmd.Flags().String("output", "human", "Output format: human (default) or json")
+	cmd.Flags().Bool("json", false, "Emit findings as JSON to stdout (same as --output=json)")
 	return cmd
 }
 
@@ -207,7 +261,15 @@ func runRun(cmd *cobra.Command, args []string) error {
 	}
 	stateDir := cfg.EffectiveStateDir(repoRoot)
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
-	verbose, _ := cmd.Flags().GetBool("verbose")
+	quiet, _ := cmd.Flags().GetBool("quiet")
+	output, _ := cmd.Flags().GetString("output")
+	outputJSON, _ := cmd.Flags().GetBool("json")
+	if outputJSON {
+		output = "json"
+	}
+	if output != "human" && output != "json" {
+		return fmt.Errorf("run: invalid output %q; use human or json", output)
+	}
 	opts := run.RunOptions{
 		RepoRoot:      repoRoot,
 		StateDir:      stateDir,
@@ -219,7 +281,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 		Timeout:       cfg.Timeout,
 		Temperature:   cfg.Temperature,
 		NumCtx:        cfg.NumCtx,
-		Verbose:       verbose,
+		Verbose:       !quiet,
 	}
 	if err := run.Run(cmd.Context(), opts); err != nil {
 		if errors.Is(err, run.ErrNoSession) {
@@ -233,8 +295,14 @@ func runRun(cmd *cobra.Command, args []string) error {
 		}
 		return err
 	}
-	if err := writeFindingsJSON(findingsOut, stateDir); err != nil {
-		return fmt.Errorf("run: %w", err)
+	if output == "json" {
+		if err := writeFindingsJSON(findingsOut, stateDir); err != nil {
+			return fmt.Errorf("run: %w", err)
+		}
+	} else {
+		if err := writeFindingsHuman(findingsOut, stateDir); err != nil {
+			return fmt.Errorf("run: %w", err)
+		}
 	}
 	return nil
 }

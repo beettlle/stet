@@ -82,7 +82,7 @@ export function activate(context: vscode.ExtensionContext): void {
           cancellable: false,
         },
         async () => {
-          const result = await spawnStet(["start", "--dry-run"], { cwd });
+          const result = await spawnStet(["start", "--dry-run", "--quiet", "--json"], { cwd });
           findingsProvider.setScanning(false);
           if (result.exitCode !== 0) {
             findingsProvider.setFindings([]); // clear on CLI failure

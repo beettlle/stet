@@ -181,7 +181,7 @@ func TestRunCLI_startFinishFromGitRepo(t *testing.T) {
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
-	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Errorf("runCLI(start HEAD~1 --dry-run) = %d, want 0", got)
 	}
 	if got := runCLI([]string{"run", "--dry-run"}); got != 0 {
@@ -205,7 +205,7 @@ func TestRunCLI_runWithDryRun(t *testing.T) {
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
-	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
 	if got := runCLI([]string{"run", "--dry-run"}); got != 0 {
@@ -247,8 +247,8 @@ func TestRunCLI_startDryRunEmitsFindingsJSON(t *testing.T) {
 	}
 	var buf bytes.Buffer
 	findingsOut = &buf
-	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
-		t.Fatalf("runCLI(start HEAD~1 --dry-run) = %d, want 0", got)
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
+		t.Fatalf("runCLI(start HEAD~1 --dry-run --json) = %d, want 0", got)
 	}
 	var out struct {
 		Findings []map[string]interface{} `json:"findings"`
@@ -305,6 +305,33 @@ func TestRunCLI_startDryRunEmitsFindingsJSON(t *testing.T) {
 	}
 }
 
+func TestRunCLI_startDryRunDefaultOutputIsHuman(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = os.Chdir(orig)
+		findingsOut = os.Stdout
+	}()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	findingsOut = &buf
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--quiet"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run --quiet) = %d, want 0", got)
+	}
+	out := buf.String()
+	if strings.HasPrefix(strings.TrimSpace(out), `{"findings"`) {
+		t.Errorf("default output should be human-readable, not JSON; got: %s", out)
+	}
+	if !strings.Contains(out, "finding") {
+		t.Errorf("default output should contain summary line; got: %s", out)
+	}
+}
+
 func TestRunCLI_runDryRunEmitsFindingsJSON(t *testing.T) {
 	// Do not run in parallel: test changes cwd and findingsOut.
 	repo := initRepo(t)
@@ -319,13 +346,13 @@ func TestRunCLI_runDryRunEmitsFindingsJSON(t *testing.T) {
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
-	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
-		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run --json) = %d, want 0", got)
 	}
 	var buf bytes.Buffer
 	findingsOut = &buf
-	if got := runCLI([]string{"run", "--dry-run"}); got != 0 {
-		t.Fatalf("runCLI(run --dry-run) = %d, want 0", got)
+	if got := runCLI([]string{"run", "--dry-run", "--json"}); got != 0 {
+		t.Fatalf("runCLI(run --dry-run --json) = %d, want 0", got)
 	}
 	var out struct {
 		Findings []map[string]interface{} `json:"findings"`
@@ -474,7 +501,7 @@ func TestRunCLI_startConcurrentLockPrintsClearMessage(t *testing.T) {
 	oldStderr := os.Stderr
 	os.Stderr = w
 	t.Cleanup(func() { os.Stderr = oldStderr })
-	got := runCLI([]string{"start", "HEAD~1", "--dry-run"})
+	got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"})
 	_ = w.Close()
 	var stderrBuf bytes.Buffer
 	_, _ = io.Copy(&stderrBuf, r)
@@ -553,7 +580,7 @@ func TestRunCLI_startWorktreeExistsPrintsHint(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Create a worktree so second start fails with ErrWorktreeExists.
-	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
 	var buf bytes.Buffer
@@ -609,7 +636,7 @@ func TestRunCLI_statusWithSessionPrintsFields(t *testing.T) {
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
-	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start HEAD~1 --dry-run) = %d, want 0", got)
 	}
 	r, w, err := os.Pipe()
@@ -666,7 +693,7 @@ func TestRunCLI_dismissPersistence(t *testing.T) {
 	var buf bytes.Buffer
 	findingsOut = &buf
 	t.Cleanup(func() { findingsOut = os.Stdout })
-	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
 	var out struct {
@@ -714,7 +741,7 @@ func TestRunCLI_dismissIdempotent(t *testing.T) {
 	var buf bytes.Buffer
 	findingsOut = &buf
 	t.Cleanup(func() { findingsOut = os.Stdout })
-	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
 	var out struct {
@@ -761,7 +788,7 @@ func TestRunCLI_dismissDoesNotWritePromptShadows(t *testing.T) {
 	var buf bytes.Buffer
 	findingsOut = &buf
 	t.Cleanup(func() { findingsOut = os.Stdout })
-	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
 	var out struct {
@@ -808,7 +835,7 @@ func TestRunCLI_dismissAppendsHistory(t *testing.T) {
 	var buf bytes.Buffer
 	findingsOut = &buf
 	t.Cleanup(func() { findingsOut = os.Stdout })
-	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
 	var out struct {
@@ -857,7 +884,7 @@ func TestRunCLI_dismissWithReason(t *testing.T) {
 	var buf bytes.Buffer
 	findingsOut = &buf
 	t.Cleanup(func() { findingsOut = os.Stdout })
-	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
 	var out struct {
@@ -903,7 +930,7 @@ func TestRunCLI_dismissInvalidReasonExits1(t *testing.T) {
 	var buf bytes.Buffer
 	findingsOut = &buf
 	t.Cleanup(func() { findingsOut = os.Stdout })
-	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
 	var out struct {
