@@ -27,6 +27,8 @@ Examples from Stet self-review; keep this list brief and update as patterns emer
 - **Copy-for-Chat implementation:** Suggesting to "break into smaller helper functions" when the function already delegates to `lineForFragment`, `linePartForLabel`, `severityToAdmonition`, `categoryToTitle`. Further splitting is optional style, not a correctness issue.
 - **This file (review-quality.md):** Findings that suggest reclassifying or "verifying" entries in the curated false-positive table (e.g. "The false_positive classification may be incorrect", "Verify that the implementation..."). This document is human-curated for the optimizer; do not report meta-review of the table as actionable.
 - **Dismiss command naming:** Suggesting that function names `newDismissCmd` or `runDismiss` should be "consistent with command usage 'dismiss'" by renaming them to `newApproveCmd` / `runApprove`. The suggestion is reversed: the command is `dismiss` and the functions already match; renaming to Approve would make them inconsistent. Dismiss as wrong_suggestion.
+- **Finish review / package.json:** "Missing 'when' clause for context menu item" for `stet.copyFindingForChat`. The context menu contribution under `view/item/context` already has `when: "view == stetFindings && viewItem == finding"`. Dismiss as false_positive.
+- **Finish review / runFinishReview:** Suggesting that the function should show "visual feedback" or that the doc should "clarify caller responsibility." By design the function only clears the panel; the caller in extension.ts shows "Stet: Review finished." and showCLIError. JSDoc already says "Caller should show success message or call showCLIError." Dismiss as false_positive.
 
 ## Known false positive patterns (curated)
 
@@ -52,6 +54,8 @@ Structured entries for prompt lessons, optimizer feedback, and future filtering.
 | style | Function name 'newDismissCmd' should be consistent with command usage 'dismiss' (suggest renaming to newApproveCmd) | wrong_suggestion | Command is `dismiss`; newDismissCmd is correct. Suggestion would make name inconsistent. |
 | style | Function name 'runDismiss' should be consistent with command usage 'dismiss' (suggest renaming to runApprove) | wrong_suggestion | Command is `dismiss`; runDismiss is correct. Suggestion would make name inconsistent. |
 | documentation | Roadmap: add intro, clarify cognitive complexity, note on circular deps, research topics timeline/priority | false_positive | Optional doc polish; defer or dismiss as out_of_scope if not doing roadmap edits. |
+| design | Missing 'when' clause for context menu item (for a command that already has when on its menu contribution) | false_positive | Context menu entry under view/item/context already has when (e.g. view == stetFindings && viewItem == finding). Model may point at command or wrong line. |
+| maintainability / documentation | runFinishReview (or similar) "only calls provider.clear() without visual feedback" or "doc should clarify caller handles messages" | false_positive | By design the function does not show UI; caller shows success/error. JSDoc already states caller responsibility. |
 
 ## Schema for false positive entries
 
