@@ -705,6 +705,142 @@ func TestStart_withMockOllama(t *testing.T) {
 	}
 }
 
+// TestStart_abstentionFilter_dropsLowConfidence asserts that findings with confidence < 0.8
+// are dropped by the Phase 6.3 abstention filter and do not appear in the session.
+func TestStart_abstentionFilter_dropsLowConfidence(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	lowConfResp := `[{"file":"a.go","line":1,"severity":"warning","category":"style","message":"mock","confidence":0.7}]`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/tags" {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"models": []map[string]interface{}{{"name": "m"}}})
+			return
+		}
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": lowConfResp, "done": true})
+	}))
+	defer srv.Close()
+
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	opts := StartOptions{
+		RepoRoot:      repo,
+		StateDir:      stateDir,
+		WorktreeRoot:  "",
+		Ref:           "HEAD~1",
+		DryRun:        false,
+		Model:         "m",
+		OllamaBaseURL: srv.URL,
+	}
+	if err := Start(ctx, opts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	if len(s.Findings) != 0 {
+		t.Errorf("Findings: abstention filter should drop confidence 0.7; got %d findings", len(s.Findings))
+	}
+}
+
+// TestStart_abstentionFilter_dropsMaintainabilityUnderThreshold asserts that maintainability
+// findings with confidence < 0.9 are dropped and do not appear in the session.
+func TestStart_abstentionFilter_dropsMaintainabilityUnderThreshold(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	maintResp := `[{"file":"a.go","line":1,"severity":"info","category":"maintainability","message":"add comments","confidence":0.85}]`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/tags" {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"models": []map[string]interface{}{{"name": "m"}}})
+			return
+		}
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": maintResp, "done": true})
+	}))
+	defer srv.Close()
+
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	opts := StartOptions{
+		RepoRoot:      repo,
+		StateDir:      stateDir,
+		WorktreeRoot:  "",
+		Ref:           "HEAD~1",
+		DryRun:        false,
+		Model:         "m",
+		OllamaBaseURL: srv.URL,
+	}
+	if err := Start(ctx, opts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	if len(s.Findings) != 0 {
+		t.Errorf("Findings: abstention filter should drop maintainability with confidence 0.85; got %d findings", len(s.Findings))
+	}
+}
+
+// TestStart_abstentionFilter_keepsHighConfidence asserts that findings that pass the
+// abstention filter (e.g. security with confidence 0.9) still appear in the session.
+func TestStart_abstentionFilter_keepsHighConfidence(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	keepResp := `[{"file":"a.go","line":1,"severity":"error","category":"security","message":"injection risk","confidence":0.9}]`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/tags" {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"models": []map[string]interface{}{{"name": "m"}}})
+			return
+		}
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": keepResp, "done": true})
+	}))
+	defer srv.Close()
+
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	opts := StartOptions{
+		RepoRoot:      repo,
+		StateDir:      stateDir,
+		WorktreeRoot:  "",
+		Ref:           "HEAD~1",
+		DryRun:        false,
+		Model:         "m",
+		OllamaBaseURL: srv.URL,
+	}
+	if err := Start(ctx, opts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	if len(s.Findings) != 1 {
+		t.Fatalf("Findings: want 1 (high-confidence security kept), got %d", len(s.Findings))
+	}
+	f := s.Findings[0]
+	if f.Category != "security" || f.Confidence != 0.9 || f.Message != "injection risk" {
+		t.Errorf("finding: category=%q confidence=%g message=%q; want security, 0.9, injection risk", f.Category, f.Confidence, f.Message)
+	}
+}
+
 // TestStart_removesWorktreeOnFailure asserts that when Start fails after creating the
 // worktree (e.g. Ollama generate fails), the worktree is removed and does not pollute the repo.
 func TestStart_removesWorktreeOnFailure(t *testing.T) {

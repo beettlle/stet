@@ -286,6 +286,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 			collected = append(collected, list...)
 		}
 	}
+	collected = findings.FilterAbstention(collected)
 	findings.SetCursorURIs(opts.RepoRoot, collected)
 	s.Findings = collected
 	s.LastReviewedAt = headSHA
@@ -475,6 +476,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 			newFindings = append(newFindings, list...)
 		}
 	}
+	newFindings = findings.FilterAbstention(newFindings)
 	findings.SetCursorURIs(opts.RepoRoot, newFindings)
 	s.Findings = append(s.Findings, newFindings...)
 	s.LastReviewedAt = headSHA
