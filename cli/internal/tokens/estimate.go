@@ -3,7 +3,10 @@
 // model-specific estimators can be added later.
 package tokens
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 // charsPerToken is the divisor for the simple byte-based estimator
 // (roughly 4 bytes per token for typical English/code).
@@ -28,12 +31,19 @@ func Estimate(prompt string) int {
 
 // WarnIfOver returns a non-empty warning string when the total estimated
 // tokens (promptTokens + responseReserve) meet or exceed the warn threshold
-// of the context limit. contextLimit and warnThreshold come from config
+// of the context limit. All token counts (promptTokens, responseReserve) are
+// in tokens. contextLimit and warnThreshold come from config
 // (e.g. context_limit and warn_threshold). If contextLimit <= 0, returns "".
 // The warning describes estimated total, percentage, and limit.
 func WarnIfOver(promptTokens, responseReserve, contextLimit int, warnThreshold float64) string {
 	if contextLimit <= 0 {
 		return ""
+	}
+	if promptTokens < 0 || responseReserve < 0 {
+		return ""
+	}
+	if responseReserve > math.MaxInt-promptTokens {
+		return fmt.Sprintf("token estimate overflow (prompt %d + reserve %d)", promptTokens, responseReserve)
 	}
 	total := promptTokens + responseReserve
 	limit := float64(contextLimit) * warnThreshold

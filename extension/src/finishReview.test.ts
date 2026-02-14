@@ -59,4 +59,22 @@ describe("runFinishReview", () => {
     expect(result.ok).toBe(false);
     expect(result.exitCode).toBe(2);
   });
+
+  it("returns ok true when clear throws (CLI succeeded)", async () => {
+    mockSpawnStet.mockResolvedValue({
+      exitCode: 0,
+      stdout: "",
+      stderr: "",
+    });
+    mockProvider.clear.mockImplementationOnce(() => {
+      throw new Error("Panel clear failed");
+    });
+
+    const result = await runFinishReview("/repo", mockProvider as never);
+
+    expect(mockSpawnStet).toHaveBeenCalledWith(["finish"], { cwd: "/repo" });
+    expect(mockProvider.clear).toHaveBeenCalledOnce();
+    expect(result.ok).toBe(true);
+    expect(result.exitCode).toBe(0);
+  });
 });

@@ -145,18 +145,28 @@ func gitGrepSymbol(ctx context.Context, repoRoot, symbol string) (absPath string
 		}
 		return "", 0, "", err
 	}
-	first := strings.SplitN(strings.TrimSpace(string(out)), "\n", 2)[0]
+	trimmed := strings.TrimSpace(string(out))
+	if trimmed == "" {
+		return "", 0, "", nil
+	}
+	first := strings.SplitN(trimmed, "\n", 2)[0]
 	idx := strings.Index(first, ":")
 	if idx == -1 {
 		return "", 0, "", nil
 	}
 	path := first[:idx]
+	if path == "" || strings.Contains(path, "..") {
+		return "", 0, "", nil
+	}
 	rest := first[idx+1:]
 	idx2 := strings.Index(rest, ":")
 	if idx2 == -1 {
 		return "", 0, "", nil
 	}
-	lineno, _ := strconv.Atoi(rest[:idx2])
+	lineno, errParse := strconv.Atoi(rest[:idx2])
+	if errParse != nil || lineno < 1 {
+		return "", 0, "", nil
+	}
 	lineContent = rest[idx2+1:]
 	absPath = filepath.Join(repoRoot, path)
 	return absPath, lineno, lineContent, nil
@@ -209,6 +219,10 @@ func readSignatureAndDoc(absPath string, lineNum int, declarationLine string) (s
 		}
 	}
 	signature = strings.TrimSpace(sigBuilder.String())
+
+	if lastSigIdx < 0 || lastSigIdx >= len(lines) {
+		lastSigIdx = lineNum - 1
+	}
 
 	// Docstring: preceding # comments
 	var docLines []string

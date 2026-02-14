@@ -3,11 +3,13 @@ FROM mcr.microsoft.com/devcontainers/base:ubuntu-22.04
 USER vscode
 ENV HOME=/home/vscode
 
-# Install Git AI (track AI-generated code in Git)
-RUN curl -sSL https://usegitai.com/install.sh | bash
+# Install Git AI (dev container only; script from usegitai.com)
+RUN curl -sSL -o /tmp/git-ai-install.sh https://usegitai.com/install.sh && \
+    bash /tmp/git-ai-install.sh && rm /tmp/git-ai-install.sh
 
-# Install Cursor CLI
-RUN curl -fsSL https://cursor.com/install | bash
+# Install Cursor CLI (dev container only; script from cursor.com)
+RUN curl -fsSL -o /tmp/cursor-install.sh https://cursor.com/install && \
+    bash /tmp/cursor-install.sh && rm /tmp/cursor-install.sh
 
 # Expose vscode's bin dirs on PATH for all users/shells
 USER root

@@ -138,7 +138,7 @@ To ensure stability across trivial edits (formatting, comments) while maintainin
     -   **Startup Check:** `stet doctor` or automatic check on start.
     -   **Verifies:** Ollama running? Model pulled? Model **runtime settings** (temperature, context size) are applied by Stet when calling the API (Stet passes them in each request; no requirement to configure these in the Modelfile).
     -   **Action:** Suggests `ollama pull qwen2.5-coder:32b` or config fixes if the model is missing.
--   **Review actionability:** A finding is **actionable** if the reported issue is real (not already fixed or by design), the suggestion is correct and safe, and the change is within project scope. The system learns from dismissals and from explicit "not actionable" reasons (see history schema in implementation plan Phase 4.5) so that prompt shadowing and the DSPy optimizer can reduce non-actionable findings.
+-   **Review actionability:** A finding is **actionable** if the reported issue is real (not already fixed or by design), the suggestion is correct and safe, and the change is within project scope. The system learns from dismissals and from explicit "not actionable" reasons (see history schema in implementation plan Phase 4.6) so that prompt shadowing and the DSPy optimizer can reduce non-actionable findings.
 
 ---
 

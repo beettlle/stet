@@ -96,6 +96,35 @@ func TestResolveSymbols_noMatch_returnsNil(t *testing.T) {
 	}
 }
 
+func TestReadSignatureAndDoc_edgeCases(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "tiny.py")
+	if err := os.WriteFile(f, []byte("def foo():\n    pass\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("lineNumBeyondFileLength", func(t *testing.T) {
+		sig, doc := readSignatureAndDoc(f, 999, "fallback")
+		if sig != "fallback" || doc != "" {
+			t.Errorf("lineNum beyond file: got sig=%q doc=%q, want fallback, \"\"", sig, doc)
+		}
+	})
+
+	t.Run("lineNumZero", func(t *testing.T) {
+		sig, doc := readSignatureAndDoc(f, 0, "fallback")
+		if sig != "fallback" || doc != "" {
+			t.Errorf("lineNum 0: got sig=%q doc=%q, want fallback, \"\"", sig, doc)
+		}
+	})
+
+	t.Run("invalidPath", func(t *testing.T) {
+		sig, doc := readSignatureAndDoc(filepath.Join(dir, "nonexistent.py"), 1, "fallback")
+		if sig != "fallback" || doc != "" {
+			t.Errorf("invalid path: got sig=%q doc=%q, want fallback, \"\"", sig, doc)
+		}
+	})
+}
+
 func TestExtractSymbols_deduplicatesAndSkipsKeywords(t *testing.T) {
 	symbols := extractSymbols("def foo(): bar(); class Baz: pass")
 	seen := make(map[string]bool)

@@ -21,6 +21,7 @@ func (e *Err) Error() string {
 }
 
 // Unwrap returns the underlying error for Details or logging.
+// Handles nil receiver (method call on nil *Err is valid in Go).
 func (e *Err) Unwrap() error {
 	if e == nil {
 		return nil
