@@ -46,6 +46,8 @@ type Session struct {
 	RAGSymbolMaxDefinitions *int `json:"rag_symbol_max_definitions,omitempty"`
 	// RAGSymbolMaxTokens from stet start (nil = not set; 0 is valid = no cap).
 	RAGSymbolMaxTokens *int `json:"rag_symbol_max_tokens,omitempty"`
+	// Nitpicky from stet start (nil = not set; run uses config when flag not set).
+	Nitpicky *bool `json:"nitpicky,omitempty"`
 }
 
 // Load reads the session from stateDir/session.json. If the file does not

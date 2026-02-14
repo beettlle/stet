@@ -42,7 +42,7 @@ flowchart TB
   end
 ```
 
-**In one paragraph:** The user (or extension) runs `stet start [ref]`. The CLI validates the repo and ref, creates a read-only worktree at the baseline ref, and saves a session. It computes which hunks to review by diffing `baseline..HEAD` and partitioning into "to-review" vs "already approved" using strict and semantic hunk IDs. Each to-review hunk goes through a pipeline: system prompt plus user intent, Cursor rules, optional expand, user prompt, optional RAG, then Ollama, parse, abstention and FP kill list filters, finding IDs and URIs. Findings are streamed (NDJSON) and stored in the session. Auto-dismiss marks previous findings that lie in re-reviewed hunks but were not re-reported. Later, `stet run` only reviews hunks that are new or changed since `last_reviewed_at`. Finish removes the worktree and writes a git note; status and list read from the session; dismiss adds a finding ID to the dismissed list and optionally records a reason and prompt shadow for future runs.
+**In one paragraph:** The user (or extension) runs `stet start [ref]`. The CLI validates the repo and ref, creates a read-only worktree at the baseline ref, and saves a session. It computes which hunks to review by diffing `baseline..HEAD` and partitioning into "to-review" vs "already approved" using strict and semantic hunk IDs. Each to-review hunk goes through a pipeline: system prompt plus user intent, Cursor rules, optional nitpicky instructions (when `--nitpicky`), optional expand, user prompt, optional RAG, then Ollama, parse, abstention and FP kill list filters (FP kill list skipped when nitpicky), finding IDs and URIs. Findings are streamed (NDJSON) and stored in the session. Auto-dismiss marks previous findings that lie in re-reviewed hunks but were not re-reported. Later, `stet run` only reviews hunks that are new or changed since `last_reviewed_at`. Finish removes the worktree and writes a git note; status and list read from the session; dismiss adds a finding ID to the dismissed list and optionally records a reason and prompt shadow for future runs.
 
 ---
 
@@ -60,7 +60,8 @@ flowchart TB
 | **Finding** | One issue reported by the model: file, line or range, severity, category, confidence, message, optional suggestion. Stored in session; can be dismissed so it does not resurface. |
 | **Dismissed** | Finding IDs the user (or auto-dismiss logic) marked as "won't fix" or false positive. Stored in `session.DismissedIDs`. Output (JSON, human, list, status) shows only "active" findings (not in DismissedIDs). |
 | **Abstention** | Post-LLM filter: drop findings below confidence thresholds (e.g. &lt; 0.8 keep, &lt; 0.9 for maintainability). |
-| **FP kill list** | Post-LLM filter: drop findings whose message matches banned phrases (e.g. "Consider adding comments"). Can be disabled with strictness "+" presets. |
+| **FP kill list** | Post-LLM filter: drop findings whose message matches banned phrases (e.g. "Consider adding comments"). Can be disabled with strictness "+" presets or **`--nitpicky`**. |
+| **Nitpicky mode** | When **`--nitpicky`** is set (or `nitpicky = true` in config / `STET_NITPICKY`), the system prompt is augmented with instructions to report typos, grammar, style, and convention violations; the FP kill list is not applied so those findings surface. Session can persist nitpicky so `stet run` uses it unless overridden. |
 | **Prompt shadows** | Dismissed finding contexts stored and re-injected as negative examples ("do not report similar issues") in later reviews. |
 | **State dir** | Directory for session and history; usually `repo/.review`. |
 
@@ -173,6 +174,10 @@ For each hunk in `part.ToReview`, the following steps run in order. Code lives i
 - **Description-based inference:** Rules are parsed from `.mdc` frontmatter (`globs`, `alwaysApply`, `description`). If a rule has no `globs` and not `alwaysApply` but has a non-empty `description`, glob patterns are inferred locally from the description (keyword table: e.g. "TypeScript", "Go", "frontend" → `*.ts`/`*.tsx`, `*.go`, `frontend/*`) so the rule applies at the right time without an LLM. See `InferGlobsFromDescription` in [cli/internal/rules/rules.go](cli/internal/rules/rules.go).
 - **Append:** `prompt.AppendCursorRules(system, ruleList, hunk.FilePath, maxRuleTokens)`. Filters `ruleList` by file path (alwaysApply or glob match), orders always-apply first, truncates to token budget, appends "## Project review criteria".
 
+### 7.3a Nitpicky mode
+
+- When **`--nitpicky`** is set (or config/env `nitpicky = true`), **Append:** `prompt.AppendNitpickyInstructions(system)` adds a "## Nitpicky mode" section: persona (thorough staff engineer), do not discard style/nitpick findings, and check typos/grammar in comments and identifiers. The FP kill list is not applied so convention/comment/typo findings are kept. See [cli/internal/prompt/prompt.go](cli/internal/prompt/prompt.go).
+
 ### 7.4 Prompt shadows (negative examples)
 
 - **Append:** `prompt.AppendPromptShadows(system, promptShadows)`. Up to 5 recent dismissed-finding contexts (from session `PromptShadows`) are appended as "## Negative examples (do not report)" so the model does not re-report similar issues.
@@ -202,7 +207,7 @@ For each hunk in `part.ToReview`, the following steps run in order. Code lives i
 ### 7.10 Post-filters (order matters)
 
 1. **Abstention:** `findings.FilterAbstention(list, minKeep, minMaint)` in [cli/internal/findings/abstention.go](cli/internal/findings/abstention.go) — drop if `confidence < minKeep`, or if `category == maintainability` and `confidence < minMaint`. Defaults (e.g. 0.8 and 0.9) come from config or strictness preset (strict, default, lenient). The "+" presets (strict+, default+, lenient+) use the same thresholds but do **not** apply the FP kill list.
-2. **FP kill list:** `findings.FilterFPKillList(list)` in [cli/internal/findings/fpkilllist.go](cli/internal/findings/fpkilllist.go) — drop if `Message` matches any built-in banned phrase (case-insensitive). Phrases include "Consider adding comments", "You might want to", etc.
+2. **FP kill list:** `findings.FilterFPKillList(list)` in [cli/internal/findings/fpkilllist.go](cli/internal/findings/fpkilllist.go) — drop if `Message` matches any built-in banned phrase (case-insensitive). Phrases include "Consider adding comments", "You might want to", etc. Skipped when nitpicky mode is enabled.
 
 ### 7.11 Cursor URIs and output
 

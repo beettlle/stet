@@ -41,7 +41,7 @@ func TestReviewHunk_successFirstTry(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "a.go", RawContent: "code", Context: "code"}
 	ctx := context.Background()
 
-	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil)
+	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil, false)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestReviewHunk_retryThenSuccess(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "b.go", RawContent: "x", Context: "x"}
 	ctx := context.Background()
 
-	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil)
+	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil, false)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestReviewHunk_generateFails_returnsError(t *testing.T) {
 	dir := t.TempDir()
 	hunk := diff.Hunk{FilePath: "x.go", RawContent: "code", Context: "code"}
 	ctx := context.Background()
-	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil)
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil, false)
 	if err == nil {
 		t.Fatal("ReviewHunk: want error when generate fails, got nil")
 	}
@@ -117,7 +117,7 @@ func TestReviewHunk_parseFailsTwice_returnsError(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "c.go", RawContent: "y", Context: "y"}
 	ctx := context.Background()
 
-	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil)
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil, false)
 	if err == nil {
 		t.Fatal("ReviewHunk: want error when parse fails twice, got nil")
 	}
@@ -152,7 +152,7 @@ func TestReviewHunk_hunkWithExternalVariable_mockReturnsNoUndefinedFinding(t *te
 	}
 	ctx := context.Background()
 
-	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil)
+	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil, false)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -204,7 +204,7 @@ func TestReviewHunk_injectsUserIntentIntoPrompt(t *testing.T) {
 	userIntent := &prompt.UserIntent{Branch: "main", CommitMsg: commitMsg}
 	ctx := context.Background()
 
-	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, userIntent, nil, "", 0, 0, 0, nil)
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, userIntent, nil, "", 0, 0, 0, nil, false)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -278,7 +278,7 @@ func processData(input string) (int, error) {
 	}
 	ctx := context.Background()
 
-	_, err := ReviewHunk(ctx, client, "m", stateDir, hunk, nil, nil, nil, dir, 32768, 0, 0, nil)
+	_, err := ReviewHunk(ctx, client, "m", stateDir, hunk, nil, nil, nil, dir, 32768, 0, 0, nil, false)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -330,7 +330,7 @@ func TestReviewHunk_injectsCursorRulesIntoSystemPrompt(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, ruleList, "", 0, 0, 0, nil)
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, ruleList, "", 0, 0, 0, nil, false)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -380,7 +380,7 @@ func TestReviewHunk_withRAG_injectsSymbolDefinitions(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "pkg/foo.go", RawContent: "+x := Bar()", Context: "+x := Bar()"}
 	ctx := context.Background()
 
-	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, dir, 0, 5, 0, nil)
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, dir, 0, 5, 0, nil, false)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -389,6 +389,47 @@ func TestReviewHunk_withRAG_injectsSymbolDefinitions(t *testing.T) {
 	}
 	if !strings.Contains(capturedPrompt, "func Bar") {
 		t.Errorf("user prompt must contain symbol signature (func Bar); got:\n%s", capturedPrompt)
+	}
+}
+
+func TestReviewHunk_nitpickyTrue_appendsNitpickySection(t *testing.T) {
+	validResp := `[{"file":"a.go","line":1,"severity":"info","category":"style","message":"typo"}]`
+	var capturedSystem string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		var body struct {
+			System string `json:"system"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		capturedSystem = body.System
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": validResp, "done": true})
+	}))
+	defer srv.Close()
+
+	client := ollama.NewClient(srv.URL, srv.Client())
+	dir := t.TempDir()
+	hunk := diff.Hunk{FilePath: "a.go", RawContent: "code", Context: "code"}
+	ctx := context.Background()
+
+	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil, true)
+	if err != nil {
+		t.Fatalf("ReviewHunk: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("len(list) = %d, want 1", len(list))
+	}
+	if !strings.Contains(capturedSystem, "## Nitpicky mode") {
+		t.Errorf("system prompt must contain ## Nitpicky mode when nitpicky=true; got:\n%s", capturedSystem)
+	}
+	if !strings.Contains(capturedSystem, "Do **not** discard findings") {
+		t.Errorf("system prompt must contain nitpicky instructions; got:\n%s", capturedSystem)
 	}
 }
 

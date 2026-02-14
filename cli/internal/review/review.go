@@ -27,8 +27,9 @@ const maxExpandTokensCap = 4096
 // promptShadows, when non-empty, are appended as negative few-shot examples.
 // On malformed JSON it retries the Generate call once; on second parse failure
 // returns an error. ragMaxDefs and ragMaxTokens control RAG-lite symbol lookup
-// (Sub-phase 6.8); zero ragMaxDefs disables it.
-func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir string, hunk diff.Hunk, generateOpts *ollama.GenerateOptions, userIntent *prompt.UserIntent, ruleList []rules.CursorRule, repoRoot string, contextLimit int, ragMaxDefs, ragMaxTokens int, promptShadows []prompt.Shadow) ([]findings.Finding, error) {
+// (Sub-phase 6.8); zero ragMaxDefs disables it. When nitpicky is true, nitpicky-mode
+// instructions are appended so the model reports style, typos, and convention violations.
+func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir string, hunk diff.Hunk, generateOpts *ollama.GenerateOptions, userIntent *prompt.UserIntent, ruleList []rules.CursorRule, repoRoot string, contextLimit int, ragMaxDefs, ragMaxTokens int, promptShadows []prompt.Shadow, nitpicky bool) ([]findings.Finding, error) {
 	system, err := prompt.SystemPrompt(stateDir)
 	if err != nil {
 		return nil, fmt.Errorf("review: system prompt: %w", err)
@@ -39,6 +40,9 @@ func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir stri
 	system = prompt.AppendCursorRules(system, ruleList, hunk.FilePath, rules.MaxRuleTokens)
 	if len(promptShadows) > 0 {
 		system = prompt.AppendPromptShadows(system, promptShadows)
+	}
+	if nitpicky {
+		system = prompt.AppendNitpickyInstructions(system)
 	}
 	if repoRoot != "" && contextLimit > 0 {
 		maxExpand := contextLimit / 4

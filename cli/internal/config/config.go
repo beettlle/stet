@@ -12,6 +12,7 @@
 //   - STET_OPTIMIZER_SCRIPT (command to run for stet optimize; e.g. python3 scripts/optimize.py).
 //   - STET_RAG_SYMBOL_MAX_DEFINITIONS, STET_RAG_SYMBOL_MAX_TOKENS (RAG-lite symbol lookup; Sub-phase 6.8).
 //   - STET_STRICTNESS (review strictness preset: strict, default, lenient, strict+, default+, lenient+).
+//   - STET_NITPICKY (enable nitpicky mode: 1/true/yes/on = true, 0/false/no/off = false).
 package config
 
 import (
@@ -50,6 +51,8 @@ type Config struct {
 	RAGSymbolMaxTokens int `toml:"rag_symbol_max_tokens"`
 	// Strictness is the review preset: strict, default, lenient, strict+, default+, lenient+ (case-insensitive).
 	Strictness string `toml:"strictness"`
+	// Nitpicky enables convention- and typo-aware review; when true, FP kill list is not applied.
+	Nitpicky bool `toml:"nitpicky"`
 }
 
 // Overrides represents optional CLI flag overrides. Non-nil pointer means
@@ -68,6 +71,7 @@ type Overrides struct {
 	RAGSymbolMaxDefinitions *int
 	RAGSymbolMaxTokens      *int
 	Strictness              *string
+	Nitpicky                *bool
 }
 
 // LoadOptions configures Load. All fields are optional.
@@ -136,6 +140,7 @@ func DefaultConfig() Config {
 		RAGSymbolMaxDefinitions: _defaultRAGSymbolMaxDefs,
 		RAGSymbolMaxTokens:      _defaultRAGSymbolMaxTokens,
 		Strictness:              _defaultStrictness,
+		Nitpicky:                false,
 	}
 }
 
@@ -211,6 +216,7 @@ func mergeFile(cfg *Config, path string) error {
 		RAGSymbolMaxDefinitions *int64  `toml:"rag_symbol_max_definitions"`
 		RAGSymbolMaxTokens      *int64  `toml:"rag_symbol_max_tokens"`
 		Strictness              *string `toml:"strictness"`
+		Nitpicky                *bool   `toml:"nitpicky"`
 	}
 	if _, err := toml.Decode(string(data), &file); err != nil {
 		return erruser.New("Invalid configuration in .review/config.toml.", err)
@@ -280,6 +286,9 @@ func mergeFile(cfg *Config, path string) error {
 		}
 		cfg.Strictness = norm
 	}
+	if file.Nitpicky != nil {
+		cfg.Nitpicky = *file.Nitpicky
+	}
 	return nil
 }
 
@@ -316,6 +325,7 @@ const (
 	envRAGSymbolMaxDefinitions = "STET_RAG_SYMBOL_MAX_DEFINITIONS"
 	envRAGSymbolMaxTokens      = "STET_RAG_SYMBOL_MAX_TOKENS"
 	envStrictness              = "STET_STRICTNESS"
+	envNitpicky                = "STET_NITPICKY"
 )
 
 func applyEnv(cfg *Config, env []string) error {
@@ -426,7 +436,26 @@ func applyEnv(cfg *Config, env []string) error {
 		}
 		cfg.Strictness = norm
 	}
+	if v, ok := vals[envNitpicky]; ok && v != "" {
+		b, err := parseBool(v)
+		if err != nil {
+			return erruser.New("STET_NITPICKY must be 1/true/yes/on or 0/false/no/off.", err)
+		}
+		cfg.Nitpicky = b
+	}
 	return nil
+}
+
+// parseBool parses common boolean env values: 1/true/yes/on = true, 0/false/no/off = false (case-insensitive).
+func parseBool(s string) (bool, error) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "1", "true", "yes", "on":
+		return true, nil
+	case "0", "false", "no", "off":
+		return false, nil
+	default:
+		return false, fmt.Errorf("invalid boolean %q", s)
+	}
 }
 
 func applyOverrides(cfg *Config, o *Overrides) {
@@ -473,5 +502,8 @@ func applyOverrides(cfg *Config, o *Overrides) {
 		if norm, err := validateStrictness(*o.Strictness); err == nil {
 			cfg.Strictness = norm
 		}
+	}
+	if o.Nitpicky != nil {
+		cfg.Nitpicky = *o.Nitpicky
 	}
 }

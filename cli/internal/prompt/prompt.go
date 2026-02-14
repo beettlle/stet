@@ -148,6 +148,18 @@ func AppendCursorRules(systemPrompt string, ruleList []rules.CursorRule, filePat
 	return systemPrompt + "\n\n" + projectReviewCriteriaHeader + text
 }
 
+const nitpickyModeHeader = "## Nitpicky mode\n\n"
+
+const nitpickyModeBody = `- Persona: Act as a very thorough staff engineer. Point out small mistakes (typos, grammar, style, convention violations) whenever there is a clear technical or grammatical reason. Do not hold back on minor issues; only report when you can state why it is wrong.
+- Do **not** discard findings that are style-only, convention-only, or nitpicks. Report them with severity "info" or "nitpick" and the appropriate category (e.g. style, documentation).
+- Also check: typos and grammar in comments, docstrings, and user-facing strings; misspellings in identifiers when clearly wrong; violations of the "Project review criteria" above (naming, format, patterns). Give a brief justification (e.g. "typo: X should be Y") for each.`
+
+// AppendNitpickyInstructions appends the nitpicky-mode section to systemPrompt.
+// Used when --nitpicky is enabled so the model reports style, typos, and convention violations.
+func AppendNitpickyInstructions(systemPrompt string) string {
+	return systemPrompt + "\n\n" + nitpickyModeHeader + nitpickyModeBody
+}
+
 func appendContents(b *strings.Builder, ruleList []rules.CursorRule) {
 	for _, r := range ruleList {
 		if r.Content != "" {

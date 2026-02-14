@@ -18,7 +18,7 @@ var descriptionGlobMap = map[string][]string{
 	"typescript": {"*.ts", "*.tsx"}, "ts": {"*.ts", "*.tsx"},
 	"go": {"*.go"}, "golang": {"*.go"},
 	"python": {"*.py"}, "py": {"*.py"},
-	"react": {"*.tsx", "*.jsx"},
+	"react":      {"*.tsx", "*.jsx"},
 	"javascript": {"*.js", "*.jsx"}, "js": {"*.js", "*.jsx"},
 	"frontend": {"frontend/*"}, "backend": {"backend/*"},
 	"cli": {"cli/*"}, "extension": {"extension/*"},
@@ -42,7 +42,7 @@ type CursorRule struct {
 
 // frontmatter is the YAML structure we parse from .mdc files.
 type frontmatter struct {
-	Globs       interface{} `yaml:"globs"`        // string or []string
+	Globs       interface{} `yaml:"globs"` // string or []string
 	AlwaysApply bool        `yaml:"alwaysApply"`
 	Description string      `yaml:"description"`
 }

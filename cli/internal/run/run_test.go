@@ -1327,6 +1327,56 @@ func TestStart_strictPlus_keepsBannedPhrase(t *testing.T) {
 	}
 }
 
+// TestStart_nitpicky_keepsBannedPhrase asserts that when Nitpicky is true, the FP kill list
+// is not applied, so a finding whose message matches the FP kill list (e.g. "Consider adding comments") is kept.
+func TestStart_nitpicky_keepsBannedPhrase(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	bannedResp := `[{"file":"a.go","line":1,"severity":"info","category":"maintainability","message":"Consider adding comments","confidence":0.9}]`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/tags" {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"models": []map[string]interface{}{{"name": "m"}}})
+			return
+		}
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": bannedResp, "done": true})
+	}))
+	defer srv.Close()
+
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	opts := StartOptions{
+		RepoRoot:                    repo,
+		StateDir:                    stateDir,
+		WorktreeRoot:                "",
+		Ref:                         "HEAD~1",
+		DryRun:                      false,
+		Model:                       "m",
+		OllamaBaseURL:               srv.URL,
+		MinConfidenceKeep:           0.8,
+		MinConfidenceMaintainability: 0.9,
+		Nitpicky:                    true,
+	}
+	if err := Start(ctx, opts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	if len(s.Findings) != 1 {
+		t.Fatalf("Findings: nitpicky should keep 'Consider adding comments' (no FP filter); got %d findings", len(s.Findings))
+	}
+	if s.Findings[0].Message != "Consider adding comments" {
+		t.Errorf("finding message = %q; want Consider adding comments", s.Findings[0].Message)
+	}
+}
+
 // TestStart_removesWorktreeOnFailure asserts that when Start fails after creating the
 // worktree (e.g. Ollama generate fails), the worktree is removed and does not pollute the repo.
 func TestStart_removesWorktreeOnFailure(t *testing.T) {

@@ -13,6 +13,7 @@ import (
 
 func ptrStr(s string) *string { return &s }
 func ptrInt(n int) *int       { return &n }
+func ptrBool(b bool) *bool    { return &b }
 
 func TestDefaultConfig(t *testing.T) {
 	t.Parallel()
@@ -759,6 +760,115 @@ func TestLoad_strictnessNormalizedFromTOML(t *testing.T) {
 	}
 	if cfg.Strictness != "lenient+" {
 		t.Errorf("Strictness = %q, want lenient+ (normalized)", cfg.Strictness)
+	}
+}
+
+func TestLoad_nitpickyDefaultFalse(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ctx := context.Background()
+	cfg, err := Load(ctx, LoadOptions{
+		RepoRoot:         dir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Nitpicky {
+		t.Errorf("Nitpicky = true, want false (default)")
+	}
+}
+
+func TestLoad_nitpickyFromTOML(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	repoDir := filepath.Join(dir, "repo")
+	if err := os.MkdirAll(filepath.Join(repoDir, ".review"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(repoDir, ".review", "config.toml")
+	if err := os.WriteFile(configPath, []byte(`nitpicky = true`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	cfg, err := Load(ctx, LoadOptions{
+		RepoRoot:         repoDir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !cfg.Nitpicky {
+		t.Errorf("Nitpicky = false, want true")
+	}
+}
+
+func TestLoad_nitpickyFromEnv(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ctx := context.Background()
+	for _, envVal := range []string{"1", "true", "yes", "on"} {
+		cfg, err := Load(ctx, LoadOptions{
+			RepoRoot:         dir,
+			GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+			Env:              []string{"STET_NITPICKY=" + envVal},
+		})
+		if err != nil {
+			t.Fatalf("Load(STET_NITPICKY=%s): %v", envVal, err)
+		}
+		if !cfg.Nitpicky {
+			t.Errorf("Nitpicky = false for STET_NITPICKY=%s, want true", envVal)
+		}
+	}
+	for _, envVal := range []string{"0", "false", "no", "off"} {
+		cfg, err := Load(ctx, LoadOptions{
+			RepoRoot:         dir,
+			GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+			Env:              []string{"STET_NITPICKY=" + envVal},
+		})
+		if err != nil {
+			t.Fatalf("Load(STET_NITPICKY=%s): %v", envVal, err)
+		}
+		if cfg.Nitpicky {
+			t.Errorf("Nitpicky = true for STET_NITPICKY=%s, want false", envVal)
+		}
+	}
+}
+
+func TestLoad_nitpickyFromOverrides(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ctx := context.Background()
+	cfg, err := Load(ctx, LoadOptions{
+		RepoRoot:         dir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{},
+		Overrides:        &Overrides{Nitpicky: ptrBool(true)},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !cfg.Nitpicky {
+		t.Errorf("Nitpicky = false, want true (from overrides)")
+	}
+}
+
+func TestLoad_nitpickyInvalidFromEnv(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ctx := context.Background()
+	_, err := Load(ctx, LoadOptions{
+		RepoRoot:         dir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{"STET_NITPICKY=invalid"},
+	})
+	if err == nil {
+		t.Fatal("Load: want error for invalid STET_NITPICKY, got nil")
+	}
+	if !strings.Contains(err.Error(), "STET_NITPICKY") {
+		t.Errorf("Load: want STET_NITPICKY in error, got %v", err)
 	}
 }
 

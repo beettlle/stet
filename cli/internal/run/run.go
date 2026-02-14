@@ -40,7 +40,7 @@ var ErrDirtyWorktree = errors.New("working tree has uncommitted changes; commit 
 
 const (
 	dryRunMessage            = "Dry-run placeholder (CI)"
-	_defaultOllamaTimeout     = 5 * time.Minute
+	_defaultOllamaTimeout    = 5 * time.Minute
 	maxPromptContextStoreLen = 4096
 )
 
@@ -193,13 +193,16 @@ type StartOptions struct {
 	RAGSymbolMaxTokens      int
 	// MinConfidenceKeep and MinConfidenceMaintainability are abstention thresholds (0,0 = use 0.8, 0.9).
 	// ApplyFPKillList nil = apply FP kill list (true); set to false for strict+ presets.
-	MinConfidenceKeep             float64
-	MinConfidenceMaintainability   float64
-	ApplyFPKillList                *bool
+	MinConfidenceKeep            float64
+	MinConfidenceMaintainability float64
+	ApplyFPKillList              *bool
+	// Nitpicky enables convention- and typo-aware review; when true, FP kill list is not applied.
+	Nitpicky bool
 	// Session-persisted options (from stet start flags); when set, stored in session.
 	PersistStrictness              *string
 	PersistRAGSymbolMaxDefinitions *int
 	PersistRAGSymbolMaxTokens      *int
+	PersistNitpicky                *bool
 }
 
 // FinishOptions configures Finish.
@@ -216,23 +219,24 @@ type FinishOptions struct {
 // RunOptions does not include WorktreeRoot because Run does not create or remove worktrees (only Finish does).
 // StreamOut, when non-nil, receives NDJSON events (progress, finding, done) one per line.
 type RunOptions struct {
-	RepoRoot                string
-	StateDir                string
-	DryRun                  bool
-	Model                   string
-	OllamaBaseURL           string
-	ContextLimit            int
-	WarnThreshold           float64
-	Timeout                 time.Duration
-	Temperature             float64
-	NumCtx                  int
-	Verbose                 bool
-	StreamOut               io.Writer
-	RAGSymbolMaxDefinitions int
-	RAGSymbolMaxTokens      int
-	MinConfidenceKeep             float64
-	MinConfidenceMaintainability   float64
-	ApplyFPKillList                *bool
+	RepoRoot                     string
+	StateDir                     string
+	DryRun                       bool
+	Model                        string
+	OllamaBaseURL                string
+	ContextLimit                 int
+	WarnThreshold                float64
+	Timeout                      time.Duration
+	Temperature                  float64
+	NumCtx                       int
+	Verbose                      bool
+	StreamOut                    io.Writer
+	RAGSymbolMaxDefinitions      int
+	RAGSymbolMaxTokens           int
+	MinConfidenceKeep            float64
+	MinConfidenceMaintainability float64
+	ApplyFPKillList              *bool
+	Nitpicky                     bool
 }
 
 // Start creates a worktree at the given ref, writes the session, then runs the
@@ -304,6 +308,9 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 			v := *opts.PersistRAGSymbolMaxTokens
 			s.RAGSymbolMaxTokens = &v
 		}
+		if opts.PersistNitpicky != nil {
+			s.Nitpicky = opts.PersistNitpicky
+		}
 		if err := session.Save(opts.StateDir, &s); err != nil {
 			return err
 		}
@@ -360,6 +367,9 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		v := *opts.PersistRAGSymbolMaxTokens
 		s.RAGSymbolMaxTokens = &v
 	}
+	if opts.PersistNitpicky != nil {
+		s.Nitpicky = opts.PersistNitpicky
+	}
 	if err := session.Save(opts.StateDir, &s); err != nil {
 		return err
 	}
@@ -396,7 +406,9 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		minKeep, minMaint = findings.DefaultMinConfidenceKeep, findings.DefaultMinConfidenceMaintainability
 	}
 	applyFP := true
-	if opts.ApplyFPKillList != nil {
+	if opts.Nitpicky {
+		applyFP = false
+	} else if opts.ApplyFPKillList != nil {
 		applyFP = *opts.ApplyFPKillList
 	}
 
@@ -442,6 +454,9 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 				return err
 			}
 			systemPrompt = prompt.InjectUserIntent(systemPrompt, branch, commitMsg)
+			if opts.Nitpicky {
+				systemPrompt = prompt.AppendNitpickyInstructions(systemPrompt)
+			}
 			maxPromptTokens := 0
 			for _, h := range part.ToReview {
 				userPrompt := prompt.UserPrompt(h)
@@ -464,7 +479,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", i+1, total, hunk.FilePath)
 			}
 			cursorRules := rulesLoader.RulesForFile(hunk.FilePath)
-			list, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, opts.ContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, runPromptShadows(&s))
+			list, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, opts.ContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, runPromptShadows(&s), opts.Nitpicky)
 			if err != nil {
 				return erruser.New("Review failed for "+hunk.FilePath+".", err)
 			}
@@ -598,9 +613,9 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 				FinishedAt:   time.Now().UTC().Format(time.RFC3339),
 			},
 		}
-			if err := history.Append(opts.StateDir, rec, history.DefaultMaxRecords); err != nil {
-				return erruser.New("Could not record review history.", err)
-			}
+		if err := history.Append(opts.StateDir, rec, history.DefaultMaxRecords); err != nil {
+			return erruser.New("Could not record review history.", err)
+		}
 	}
 	notePayload := struct {
 		SessionID       string `json:"session_id"`
@@ -686,7 +701,9 @@ func Run(ctx context.Context, opts RunOptions) error {
 		minKeep, minMaint = findings.DefaultMinConfidenceKeep, findings.DefaultMinConfidenceMaintainability
 	}
 	applyFP := true
-	if opts.ApplyFPKillList != nil {
+	if opts.Nitpicky {
+		applyFP = false
+	} else if opts.ApplyFPKillList != nil {
 		applyFP = *opts.ApplyFPKillList
 	}
 
@@ -740,6 +757,9 @@ func Run(ctx context.Context, opts RunOptions) error {
 				return err
 			}
 			systemPrompt = prompt.InjectUserIntent(systemPrompt, branch, commitMsg)
+			if opts.Nitpicky {
+				systemPrompt = prompt.AppendNitpickyInstructions(systemPrompt)
+			}
 			maxPromptTokens := 0
 			for _, h := range part.ToReview {
 				userPrompt := prompt.UserPrompt(h)
@@ -762,7 +782,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", i+1, total, hunk.FilePath)
 			}
 			cursorRules := rulesLoader.RulesForFile(hunk.FilePath)
-			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, opts.ContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, runPromptShadows(&s))
+			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, opts.ContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, runPromptShadows(&s), opts.Nitpicky)
 			if err != nil {
 				return erruser.New("Review failed for "+hunk.FilePath+".", err)
 			}

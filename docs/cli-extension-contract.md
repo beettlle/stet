@@ -7,6 +7,7 @@ This document defines the output and exit-code contract between the Stet CLI and
 - **`stet start [ref]`** — On success, writes findings to stdout (format depends on `--output`).
 - **`stet run`** — On success, writes findings to stdout (format depends on `--output`).
 - The **`--dry-run`** flag skips the LLM and emits deterministic findings for CI.
+- The **`--nitpicky`** flag enables convention- and typo-aware review: the system prompt is augmented to report style, typos, and grammar, and the FP kill list is not applied. Can be set in config (`nitpicky = true`) or env (`STET_NITPICKY=1`). When set on `stet start`, the value is persisted so `stet run` uses it unless overridden.
 
 **Output and progress:**
 

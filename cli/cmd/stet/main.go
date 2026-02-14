@@ -189,6 +189,7 @@ func newStartCmd() *cobra.Command {
 	cmd.Flags().Int("rag-symbol-max-definitions", 0, "Max symbol definitions to inject (0 = use config); overrides config and env")
 	cmd.Flags().Int("rag-symbol-max-tokens", 0, "Max tokens for symbol-definitions block (0 = use config); overrides config and env")
 	cmd.Flags().String("strictness", "", "Review strictness preset: strict, default, lenient, strict+, default+, lenient+ (overrides config and env)")
+	cmd.Flags().Bool("nitpicky", false, "Enable nitpicky mode: report typos, grammar, style, and convention violations; do not filter those findings")
 	return cmd
 }
 
@@ -240,6 +241,9 @@ func runStart(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(os.Stderr, err.Error())
 		return errExit(1)
 	}
+	if cfg.Nitpicky {
+		applyFP = false
+	}
 	stateDir := cfg.EffectiveStateDir(repoRoot)
 	var persistStrictness *string
 	if overrides != nil && overrides.Strictness != nil && *overrides.Strictness != "" {
@@ -252,6 +256,10 @@ func runStart(cmd *cobra.Command, args []string) error {
 	var persistRAGTokens *int
 	if overrides != nil && overrides.RAGSymbolMaxTokens != nil {
 		persistRAGTokens = overrides.RAGSymbolMaxTokens
+	}
+	var persistNitpicky *bool
+	if overrides != nil && overrides.Nitpicky != nil {
+		persistNitpicky = &cfg.Nitpicky
 	}
 	opts := run.StartOptions{
 		RepoRoot:                       repoRoot,
@@ -274,9 +282,11 @@ func runStart(cmd *cobra.Command, args []string) error {
 		MinConfidenceKeep:              minKeep,
 		MinConfidenceMaintainability:   minMaint,
 		ApplyFPKillList:                &applyFP,
+		Nitpicky:                       cfg.Nitpicky,
 		PersistStrictness:              persistStrictness,
 		PersistRAGSymbolMaxDefinitions: persistRAGDefs,
 		PersistRAGSymbolMaxTokens:      persistRAGTokens,
+		PersistNitpicky:                persistNitpicky,
 	}
 	if stream {
 		opts.StreamOut = findingsOut
@@ -334,15 +344,17 @@ func newRunCmd() *cobra.Command {
 	cmd.Flags().Int("rag-symbol-max-definitions", 0, "Max symbol definitions to inject (0 = use config); overrides config and env")
 	cmd.Flags().Int("rag-symbol-max-tokens", 0, "Max tokens for symbol-definitions block (0 = use config); overrides config and env")
 	cmd.Flags().String("strictness", "", "Review strictness preset: strict, default, lenient, strict+, default+, lenient+ (overrides config and env)")
+	cmd.Flags().Bool("nitpicky", false, "Enable nitpicky mode: report typos, grammar, style, and convention violations; do not filter those findings")
 	return cmd
 }
 
-// overridesFromFlags returns Overrides for RAG and strictness when the corresponding flags were set (start/run both define these flags).
+// overridesFromFlags returns Overrides for RAG, strictness, and nitpicky when the corresponding flags were set (start/run both define these flags).
 func overridesFromFlags(cmd *cobra.Command) *config.Overrides {
 	defChanged := cmd.Flags().Lookup("rag-symbol-max-definitions") != nil && cmd.Flags().Lookup("rag-symbol-max-definitions").Changed
 	tokChanged := cmd.Flags().Lookup("rag-symbol-max-tokens") != nil && cmd.Flags().Lookup("rag-symbol-max-tokens").Changed
 	strictnessChanged := cmd.Flags().Lookup("strictness") != nil && cmd.Flags().Lookup("strictness").Changed
-	if !defChanged && !tokChanged && !strictnessChanged {
+	nitpickyChanged := cmd.Flags().Lookup("nitpicky") != nil && cmd.Flags().Lookup("nitpicky").Changed
+	if !defChanged && !tokChanged && !strictnessChanged && !nitpickyChanged {
 		return nil
 	}
 	o := &config.Overrides{}
@@ -357,6 +369,10 @@ func overridesFromFlags(cmd *cobra.Command) *config.Overrides {
 	if strictnessChanged {
 		v, _ := cmd.Flags().GetString("strictness")
 		o.Strictness = &v
+	}
+	if nitpickyChanged {
+		v, _ := cmd.Flags().GetBool("nitpicky")
+		o.Nitpicky = &v
 	}
 	return o
 }
@@ -405,10 +421,19 @@ func runRun(cmd *cobra.Command, args []string) error {
 	} else if s.RAGSymbolMaxTokens != nil {
 		effectiveRAGTokens = *s.RAGSymbolMaxTokens
 	}
+	effectiveNitpicky := cfg.Nitpicky
+	if overrides != nil && overrides.Nitpicky != nil {
+		effectiveNitpicky = *overrides.Nitpicky
+	} else if s.Nitpicky != nil {
+		effectiveNitpicky = *s.Nitpicky
+	}
 	minKeep, minMaint, applyFP, err := findings.ResolveStrictness(effectiveStrictness)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		return errExit(1)
+	}
+	if effectiveNitpicky {
+		applyFP = false
 	}
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	quiet, _ := cmd.Flags().GetBool("quiet")
@@ -446,6 +471,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 		MinConfidenceKeep:            minKeep,
 		MinConfidenceMaintainability: minMaint,
 		ApplyFPKillList:              &applyFP,
+		Nitpicky:                     effectiveNitpicky,
 	}
 	if stream {
 		opts.StreamOut = findingsOut
