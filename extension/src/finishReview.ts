@@ -19,8 +19,9 @@ export async function runFinishReview(
   if (result.exitCode === 0) {
     try {
       provider.clear();
-    } catch (e) {
-      console.error("Failed to clear findings panel:", e);
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      console.error("Failed to clear findings panel:", err.message, err.stack ?? "");
       // CLI succeeded; panel state may be stale but finish completed
     }
     return { ok: true, stderr: result.stderr, exitCode: 0 };
