@@ -13,7 +13,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"time"
 
 	"stet/cli/internal/diff"
@@ -456,7 +455,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 			}
 		}
 		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: opts.NumCtx}
-		cursorRules, _ := rules.LoadRules(filepath.Join(opts.RepoRoot, ".cursor", "rules"))
+		rulesLoader := rules.NewLoader(opts.RepoRoot)
 		for i, hunk := range part.ToReview {
 			if opts.StreamOut != nil {
 				_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", i+1, total, hunk.FilePath)})
@@ -464,6 +463,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 			if opts.Verbose {
 				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", i+1, total, hunk.FilePath)
 			}
+			cursorRules := rulesLoader.RulesForFile(hunk.FilePath)
 			list, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, opts.ContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, runPromptShadows(&s))
 			if err != nil {
 				return erruser.New("Review failed for "+hunk.FilePath+".", err)
@@ -753,7 +753,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 			}
 		}
 		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: opts.NumCtx}
-		cursorRules, _ := rules.LoadRules(filepath.Join(opts.RepoRoot, ".cursor", "rules"))
+		rulesLoader := rules.NewLoader(opts.RepoRoot)
 		for i, hunk := range part.ToReview {
 			if opts.StreamOut != nil {
 				_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", i+1, total, hunk.FilePath)})
@@ -761,6 +761,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 			if opts.Verbose {
 				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", i+1, total, hunk.FilePath)
 			}
+			cursorRules := rulesLoader.RulesForFile(hunk.FilePath)
 			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, opts.ContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, runPromptShadows(&s))
 			if err != nil {
 				return erruser.New("Review failed for "+hunk.FilePath+".", err)

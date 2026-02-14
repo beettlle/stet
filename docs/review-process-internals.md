@@ -169,7 +169,9 @@ For each hunk in `part.ToReview`, the following steps run in order. Code lives i
 
 ### 7.3 Cursor rules
 
-- **Append:** `prompt.AppendCursorRules(system, ruleList, hunk.FilePath, maxRuleTokens)`. Loads rules from `.cursor/rules/`, filters by file path/glob, orders always-apply first, truncates to token budget, appends "## Project review criteria".
+- **Load (per hunk):** A `rules.Loader` is created once per start/run via `rules.NewLoader(repoRoot)`. For each hunk, `loader.RulesForFile(hunk.FilePath)` returns the merged rule list: rules from the repo root `.cursor/rules/` plus rules from any nested `.cursor/rules/` directory whose path is a prefix of the file (e.g. for `cli/internal/run/run.go`, root and `cli/.cursor/rules/`; not `extension/.cursor/rules/`). Discovery is in [cli/internal/rules/loader.go](cli/internal/rules/loader.go) (`DiscoverRulesDirs`); each physical rules dir is loaded once and cached. Merged order is root first, then nested dirs by relative path (lexicographic).
+- **Description-based inference:** Rules are parsed from `.mdc` frontmatter (`globs`, `alwaysApply`, `description`). If a rule has no `globs` and not `alwaysApply` but has a non-empty `description`, glob patterns are inferred locally from the description (keyword table: e.g. "TypeScript", "Go", "frontend" → `*.ts`/`*.tsx`, `*.go`, `frontend/*`) so the rule applies at the right time without an LLM. See `InferGlobsFromDescription` in [cli/internal/rules/rules.go](cli/internal/rules/rules.go).
+- **Append:** `prompt.AppendCursorRules(system, ruleList, hunk.FilePath, maxRuleTokens)`. Filters `ruleList` by file path (alwaysApply or glob match), orders always-apply first, truncates to token budget, appends "## Project review criteria".
 
 ### 7.4 Prompt shadows (negative examples)
 
@@ -315,6 +317,7 @@ Panel state is driven by the stream (start) and clear (finish); the extension do
 | Partition (ToReview/Approved) | [cli/internal/scope/scope.go](cli/internal/scope/scope.go) | Partition(baseline, head, lastReviewedAt) → ToReview, Approved |
 | Hunk IDs (strict/semantic) | [cli/internal/hunkid/hunkid.go](cli/internal/hunkid/hunkid.go) | StrictHunkID, SemanticHunkID, StableFindingID, comment stripping |
 | Diff run + parse + filter | [cli/internal/diff/diff.go](cli/internal/diff/diff.go), [parse.go](cli/internal/diff/parse.go) | Hunks (git diff, ParseUnifiedDiff, filterByPatterns) |
+| Cursor rules load, infer, filter | [cli/internal/rules/rules.go](cli/internal/rules/rules.go), [loader.go](cli/internal/rules/loader.go) | LoadRules, parseMDC, InferGlobsFromDescription, FilterRules; DiscoverRulesDirs, Loader, RulesForFile |
 | System/user prompt, rules, shadows | [cli/internal/prompt/prompt.go](cli/internal/prompt/prompt.go) | SystemPrompt, InjectUserIntent, AppendCursorRules, AppendPromptShadows, UserPrompt, AppendSymbolDefinitions |
 | Expand (enclosing function) | [cli/internal/expand/expand.go](cli/internal/expand/expand.go) | ExpandHunk for Go files |
 | RAG symbol resolution | [cli/internal/rag/rag.go](cli/internal/rag/rag.go) | ResolveSymbols (per-extension resolvers) |

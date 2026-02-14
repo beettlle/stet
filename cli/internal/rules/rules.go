@@ -5,10 +5,25 @@ package rules
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 )
+
+var descriptionTokenSplit = regexp.MustCompile(`[^a-z0-9]+`)
+
+// descriptionGlobMap maps description keywords to glob patterns (filepath.Match compatible, no **).
+var descriptionGlobMap = map[string][]string{
+	"typescript": {"*.ts", "*.tsx"}, "ts": {"*.ts", "*.tsx"},
+	"go": {"*.go"}, "golang": {"*.go"},
+	"python": {"*.py"}, "py": {"*.py"},
+	"react": {"*.tsx", "*.jsx"},
+	"javascript": {"*.js", "*.jsx"}, "js": {"*.js", "*.jsx"},
+	"frontend": {"frontend/*"}, "backend": {"backend/*"},
+	"cli": {"cli/*"}, "extension": {"extension/*"},
+	"api": {"api/*"},
+}
 
 const (
 	// MaxRuleTokens is the approximate token budget for combined rule content
@@ -16,18 +31,20 @@ const (
 	MaxRuleTokens = 1000
 )
 
-// CursorRule represents a single .mdc rule: frontmatter (globs, alwaysApply)
-// and body content to inject when the rule applies to the file under review.
+// CursorRule represents a single .mdc rule: frontmatter (globs, alwaysApply,
+// description) and body content to inject when the rule applies to the file under review.
 type CursorRule struct {
-	Globs      []string
+	Globs       []string
 	AlwaysApply bool
-	Content    string
+	Description string
+	Content     string
 }
 
 // frontmatter is the YAML structure we parse from .mdc files.
 type frontmatter struct {
 	Globs       interface{} `yaml:"globs"`        // string or []string
 	AlwaysApply bool        `yaml:"alwaysApply"`
+	Description string      `yaml:"description"`
 }
 
 // LoadRules reads all .mdc files from rulesDir and returns parsed rules.
@@ -80,11 +97,16 @@ func parseMDC(content string) (CursorRule, bool) {
 	if len(parts) == 3 {
 		body = strings.TrimSpace(parts[2])
 	}
-	return CursorRule{
+	rule := CursorRule{
 		Globs:       globs,
 		AlwaysApply: fm.AlwaysApply,
+		Description: strings.TrimSpace(fm.Description),
 		Content:     body,
-	}, true
+	}
+	if len(rule.Globs) == 0 && !rule.AlwaysApply && rule.Description != "" {
+		rule.Globs = InferGlobsFromDescription(rule.Description)
+	}
+	return rule, true
 }
 
 func normalizeGlobs(v interface{}) []string {
@@ -112,6 +134,36 @@ func normalizeGlobs(v interface{}) []string {
 	default:
 		return nil
 	}
+}
+
+// InferGlobsFromDescription infers glob patterns from a rule's description when the rule
+// has no explicit globs. Tokenizes the description (lowercase, non-alphanumeric split),
+// matches tokens against a fixed keyword table, and returns the union of matched globs.
+// Returns nil if no keywords match. Patterns are filepath.Match compatible (no **).
+func InferGlobsFromDescription(description string) []string {
+	if description == "" {
+		return nil
+	}
+	tokens := descriptionTokenSplit.Split(strings.ToLower(description), -1)
+	var seen map[string]bool
+	var out []string
+	for _, t := range tokens {
+		if t == "" {
+			continue
+		}
+		if globs, ok := descriptionGlobMap[t]; ok {
+			for _, g := range globs {
+				if !seen[g] {
+					if seen == nil {
+						seen = make(map[string]bool)
+					}
+					seen[g] = true
+					out = append(out, g)
+				}
+			}
+		}
+	}
+	return out
 }
 
 // FilterRules returns rules that apply to targetFile: either AlwaysApply is true
