@@ -172,6 +172,8 @@ func addressedFindingIDs(hunks []diff.Hunk, existingFindings []findings.Finding,
 // Verbose, when true, prints progress to stderr (worktree, partition summary, per-hunk).
 // AllowDirty, when true, skips the clean worktree check and proceeds with a warning.
 // StreamOut, when non-nil, receives NDJSON events (progress, finding, done) one per line.
+// PersistStrictness, PersistRAGSymbolMaxDefinitions, PersistRAGSymbolMaxTokens: when non-nil,
+// the value is stored in the session so stet run uses it when the corresponding flag is not set.
 type StartOptions struct {
 	RepoRoot                string
 	StateDir                string
@@ -195,6 +197,10 @@ type StartOptions struct {
 	MinConfidenceKeep             float64
 	MinConfidenceMaintainability   float64
 	ApplyFPKillList                *bool
+	// Session-persisted options (from stet start flags); when set, stored in session.
+	PersistStrictness              *string
+	PersistRAGSymbolMaxDefinitions *int
+	PersistRAGSymbolMaxTokens      *int
 }
 
 // FinishOptions configures Finish.
@@ -288,6 +294,17 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 			LastReviewedAt: headSHA,
 			DismissedIDs:   nil,
 		}
+		if opts.PersistStrictness != nil {
+			s.Strictness = *opts.PersistStrictness
+		}
+		if opts.PersistRAGSymbolMaxDefinitions != nil {
+			v := *opts.PersistRAGSymbolMaxDefinitions
+			s.RAGSymbolMaxDefinitions = &v
+		}
+		if opts.PersistRAGSymbolMaxTokens != nil {
+			v := *opts.PersistRAGSymbolMaxTokens
+			s.RAGSymbolMaxTokens = &v
+		}
 		if err := session.Save(opts.StateDir, &s); err != nil {
 			return err
 		}
@@ -332,6 +349,17 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		BaselineRef:    sha,
 		LastReviewedAt: "",
 		DismissedIDs:   nil,
+	}
+	if opts.PersistStrictness != nil {
+		s.Strictness = *opts.PersistStrictness
+	}
+	if opts.PersistRAGSymbolMaxDefinitions != nil {
+		v := *opts.PersistRAGSymbolMaxDefinitions
+		s.RAGSymbolMaxDefinitions = &v
+	}
+	if opts.PersistRAGSymbolMaxTokens != nil {
+		v := *opts.PersistRAGSymbolMaxTokens
+		s.RAGSymbolMaxTokens = &v
 	}
 	if err := session.Save(opts.StateDir, &s); err != nil {
 		return err

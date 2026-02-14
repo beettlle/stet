@@ -19,6 +19,66 @@ func TestLoad_missingFile(t *testing.T) {
 	if got.BaselineRef != "" || got.LastReviewedAt != "" || len(got.DismissedIDs) != 0 || len(got.PromptShadows) != 0 || len(got.FindingPromptContext) != 0 || len(got.Findings) != 0 {
 		t.Errorf("Load(missing) = %+v, want zero Session", got)
 	}
+	if got.Strictness != "" || got.RAGSymbolMaxDefinitions != nil || got.RAGSymbolMaxTokens != nil {
+		t.Errorf("Load(missing): Strictness=%q RAGDefs=%v RAGTokens=%v, want zero", got.Strictness, got.RAGSymbolMaxDefinitions, got.RAGSymbolMaxTokens)
+	}
+}
+
+func TestSaveLoad_roundtripStrictnessAndRAG(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ragDefs := 5
+	ragTokens := 1000
+	want := Session{
+		BaselineRef:             "main",
+		LastReviewedAt:          "abc123",
+		Strictness:              "lenient",
+		RAGSymbolMaxDefinitions: &ragDefs,
+		RAGSymbolMaxTokens:      &ragTokens,
+	}
+	if err := Save(dir, &want); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	got, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got.Strictness != want.Strictness {
+		t.Errorf("Strictness = %q, want %q", got.Strictness, want.Strictness)
+	}
+	if got.RAGSymbolMaxDefinitions == nil || *got.RAGSymbolMaxDefinitions != *want.RAGSymbolMaxDefinitions {
+		t.Errorf("RAGSymbolMaxDefinitions = %v, want %d", got.RAGSymbolMaxDefinitions, *want.RAGSymbolMaxDefinitions)
+	}
+	if got.RAGSymbolMaxTokens == nil || *got.RAGSymbolMaxTokens != *want.RAGSymbolMaxTokens {
+		t.Errorf("RAGSymbolMaxTokens = %v, want %d", got.RAGSymbolMaxTokens, *want.RAGSymbolMaxTokens)
+	}
+}
+
+func TestLoad_backwardCompatNoStrictnessOrRAG(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, sessionFilename)
+	// JSON without strictness / rag_symbol_max_definitions / rag_symbol_max_tokens (old session format).
+	data := []byte(`{"baseline_ref":"main","last_reviewed_at":"abc123"}`)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got.Strictness != "" {
+		t.Errorf("Strictness = %q, want empty (backward compat)", got.Strictness)
+	}
+	if got.RAGSymbolMaxDefinitions != nil {
+		t.Errorf("RAGSymbolMaxDefinitions = %v, want nil (backward compat)", got.RAGSymbolMaxDefinitions)
+	}
+	if got.RAGSymbolMaxTokens != nil {
+		t.Errorf("RAGSymbolMaxTokens = %v, want nil (backward compat)", got.RAGSymbolMaxTokens)
+	}
 }
 
 func TestSaveLoad_roundtripWithFindings(t *testing.T) {

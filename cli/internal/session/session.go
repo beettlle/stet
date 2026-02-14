@@ -30,6 +30,8 @@ type PromptShadow struct {
 
 // Session is the persisted state for one review session per repo.
 // Stored at stateDir/session.json.
+// Strictness and RAG options (when set on stet start) are persisted so stet run
+// uses them when the corresponding flags are not set.
 type Session struct {
 	SessionID             string             `json:"session_id,omitempty"`
 	BaselineRef           string             `json:"baseline_ref"`
@@ -38,6 +40,12 @@ type Session struct {
 	PromptShadows         []PromptShadow     `json:"prompt_shadows,omitempty"`
 	FindingPromptContext  map[string]string  `json:"finding_prompt_context,omitempty"`
 	Findings              []findings.Finding `json:"findings,omitempty"`
+	// Strictness is the preset from stet start (empty = not set; run uses config).
+	Strictness string `json:"strictness,omitempty"`
+	// RAGSymbolMaxDefinitions from stet start (nil = not set; 0 is valid = disable).
+	RAGSymbolMaxDefinitions *int `json:"rag_symbol_max_definitions,omitempty"`
+	// RAGSymbolMaxTokens from stet start (nil = not set; 0 is valid = no cap).
+	RAGSymbolMaxTokens *int `json:"rag_symbol_max_tokens,omitempty"`
 }
 
 // Load reads the session from stateDir/session.json. If the file does not

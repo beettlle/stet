@@ -124,6 +124,8 @@ The + presets (strict+, default+, lenient+) show more findings by not filtering 
 
 RAG symbol options can also be set via **`--rag-symbol-max-definitions`** and **`--rag-symbol-max-tokens`** on `stet start` and `stet run`; when set, they override config and env. Strictness can also be set via **`--strictness`** on `stet start` and `stet run`; when set, it overrides config and env.
 
+Strictness and RAG symbol options set on **`stet start`** are stored in the session. **`stet run`** uses those stored values when the corresponding flag is **not** set. Explicit flags on **`stet run`** override for that run only; the next run without flags again uses the session values from start.
+
 ## Working directory
 
 The CLI must be run from the repository root (or from a directory under the repo) so that `git rev-parse --show-toplevel` succeeds. Invoke from repo root (e.g. `cd /path/to/repo && stet start --dry-run`).
@@ -136,7 +138,7 @@ If multiple stet worktrees remain after interrupted runs (e.g. `git worktree lis
 
 State lives under `.review/` (or the path given by `state_dir`). Artifacts:
 
-- **`session.json`** — Session state (baseline ref, last_reviewed_at, findings, dismissed_ids, prompt_shadows).
+- **`session.json`** — Session state (baseline ref, last_reviewed_at, findings, dismissed_ids, prompt_shadows, and optionally strictness and RAG symbol options from `stet start`).
 - **`lock`** — Advisory lock for a single active session.
 - **`config.toml`** — Repo-level config (optional).
 - **`history.jsonl`** — Feedback log for the optimizer and prompt shadowing (see below).

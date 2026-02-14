@@ -150,6 +150,29 @@ func TestStart_refEqualsHEAD_skipsWorktree(t *testing.T) {
 	}
 }
 
+func TestStart_refEqualsHEAD_withPersistStrictness_storesInSession(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	strictness := "strict"
+	opts := StartOptions{
+		RepoRoot: repo, StateDir: stateDir, WorktreeRoot: "", Ref: "HEAD", DryRun: true,
+		Model: "", OllamaBaseURL: "",
+		PersistStrictness: &strictness,
+	}
+	if err := Start(ctx, opts); err != nil {
+		t.Fatalf("Start(HEAD): %v", err)
+	}
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	if s.Strictness != strictness {
+		t.Errorf("session.Strictness = %q, want %q", s.Strictness, strictness)
+	}
+}
+
 func TestStart_negativeRAGOptions_clamped(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -167,6 +190,44 @@ func TestStart_negativeRAGOptions_clamped(t *testing.T) {
 	err := Start(ctx, opts)
 	if err != nil {
 		t.Fatalf("Start with negative RAG options (should clamp to 0): %v", err)
+	}
+}
+
+func TestStart_persistStrictnessAndRAG_storesInSession(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	strictness := "lenient"
+	ragDefs := 5
+	ragTokens := 1000
+	opts := StartOptions{
+		RepoRoot:                   repo,
+		StateDir:                   stateDir,
+		WorktreeRoot:               "",
+		Ref:                        "HEAD~1",
+		DryRun:                     true,
+		Model:                      "",
+		OllamaBaseURL:              "",
+		PersistStrictness:          &strictness,
+		PersistRAGSymbolMaxDefinitions: &ragDefs,
+		PersistRAGSymbolMaxTokens:      &ragTokens,
+	}
+	if err := Start(ctx, opts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	if s.Strictness != strictness {
+		t.Errorf("session.Strictness = %q, want %q", s.Strictness, strictness)
+	}
+	if s.RAGSymbolMaxDefinitions == nil || *s.RAGSymbolMaxDefinitions != ragDefs {
+		t.Errorf("session.RAGSymbolMaxDefinitions = %v, want %d", s.RAGSymbolMaxDefinitions, ragDefs)
+	}
+	if s.RAGSymbolMaxTokens == nil || *s.RAGSymbolMaxTokens != ragTokens {
+		t.Errorf("session.RAGSymbolMaxTokens = %v, want %d", s.RAGSymbolMaxTokens, ragTokens)
 	}
 }
 

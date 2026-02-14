@@ -241,6 +241,18 @@ func runStart(cmd *cobra.Command, args []string) error {
 		return errExit(1)
 	}
 	stateDir := cfg.EffectiveStateDir(repoRoot)
+	var persistStrictness *string
+	if overrides != nil && overrides.Strictness != nil && *overrides.Strictness != "" {
+		persistStrictness = &cfg.Strictness
+	}
+	var persistRAGDefs *int
+	if overrides != nil && overrides.RAGSymbolMaxDefinitions != nil {
+		persistRAGDefs = overrides.RAGSymbolMaxDefinitions
+	}
+	var persistRAGTokens *int
+	if overrides != nil && overrides.RAGSymbolMaxTokens != nil {
+		persistRAGTokens = overrides.RAGSymbolMaxTokens
+	}
 	opts := run.StartOptions{
 		RepoRoot:                   repoRoot,
 		StateDir:                   stateDir,
@@ -262,6 +274,9 @@ func runStart(cmd *cobra.Command, args []string) error {
 		MinConfidenceKeep:          minKeep,
 		MinConfidenceMaintainability: minMaint,
 		ApplyFPKillList:            &applyFP,
+		PersistStrictness:          persistStrictness,
+		PersistRAGSymbolMaxDefinitions: persistRAGDefs,
+		PersistRAGSymbolMaxTokens:      persistRAGTokens,
 	}
 	if stream {
 		opts.StreamOut = findingsOut
@@ -366,12 +381,35 @@ func runRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	minKeep, minMaint, applyFP, err := findings.ResolveStrictness(cfg.Strictness)
+	stateDir := cfg.EffectiveStateDir(repoRoot)
+	s, err := session.Load(stateDir)
+	if err != nil {
+		return err
+	}
+	// Effective options: flag override > session (from start) > config/env/default.
+	effectiveStrictness := cfg.Strictness
+	if overrides != nil && overrides.Strictness != nil && *overrides.Strictness != "" {
+		effectiveStrictness = *overrides.Strictness
+	} else if s.Strictness != "" {
+		effectiveStrictness = s.Strictness
+	}
+	effectiveRAGDefs := cfg.RAGSymbolMaxDefinitions
+	if overrides != nil && overrides.RAGSymbolMaxDefinitions != nil {
+		effectiveRAGDefs = *overrides.RAGSymbolMaxDefinitions
+	} else if s.RAGSymbolMaxDefinitions != nil {
+		effectiveRAGDefs = *s.RAGSymbolMaxDefinitions
+	}
+	effectiveRAGTokens := cfg.RAGSymbolMaxTokens
+	if overrides != nil && overrides.RAGSymbolMaxTokens != nil {
+		effectiveRAGTokens = *overrides.RAGSymbolMaxTokens
+	} else if s.RAGSymbolMaxTokens != nil {
+		effectiveRAGTokens = *s.RAGSymbolMaxTokens
+	}
+	minKeep, minMaint, applyFP, err := findings.ResolveStrictness(effectiveStrictness)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		return errExit(1)
 	}
-	stateDir := cfg.EffectiveStateDir(repoRoot)
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	quiet, _ := cmd.Flags().GetBool("quiet")
 	output, _ := cmd.Flags().GetString("output")
@@ -403,8 +441,8 @@ func runRun(cmd *cobra.Command, args []string) error {
 		NumCtx:                     cfg.NumCtx,
 		Verbose:                    verbose,
 		StreamOut:                  nil,
-		RAGSymbolMaxDefinitions:    cfg.RAGSymbolMaxDefinitions,
-		RAGSymbolMaxTokens:         cfg.RAGSymbolMaxTokens,
+		RAGSymbolMaxDefinitions:    effectiveRAGDefs,
+		RAGSymbolMaxTokens:         effectiveRAGTokens,
 		MinConfidenceKeep:          minKeep,
 		MinConfidenceMaintainability: minMaint,
 		ApplyFPKillList:            &applyFP,

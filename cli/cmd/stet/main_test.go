@@ -305,6 +305,41 @@ func TestRunCLI_strictnessInvalidExits1(t *testing.T) {
 	}
 }
 
+func TestRunCLI_startWithStrictnessThenRunUsesSessionStrictness(t *testing.T) {
+	// Start with --strictness=lenient; run without --strictness should use session strictness.
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	stateDir := filepath.Join(repo, ".review")
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--strictness=lenient"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run --strictness=lenient) = %d, want 0", got)
+	}
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	if s.Strictness != "lenient" {
+		t.Errorf("after start with --strictness=lenient: session.Strictness = %q, want lenient", s.Strictness)
+	}
+	if got := runCLI([]string{"run", "--dry-run"}); got != 0 {
+		t.Fatalf("runCLI(run --dry-run) without strictness flag = %d, want 0 (should use session strictness)", got)
+	}
+	// Session strictness unchanged after run.
+	s2, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session after run: %v", err)
+	}
+	if s2.Strictness != "lenient" {
+		t.Errorf("after run: session.Strictness = %q, want lenient", s2.Strictness)
+	}
+}
+
 func TestRunCLI_startDryRunEmitsFindingsJSON(t *testing.T) {
 	// Do not run in parallel: test changes cwd and findingsOut.
 	repo := initRepo(t)
