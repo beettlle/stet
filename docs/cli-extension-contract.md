@@ -127,6 +127,21 @@ RAG symbol options can also be set via **`--rag-symbol-max-definitions`** and **
 
 Strictness and RAG symbol options set on **`stet start`** are stored in the session. **`stet run`** uses those stored values when the corresponding flag is **not** set. Explicit flags on **`stet run`** override for that run only; the next run without flags again uses the session values from start.
 
+### RAG symbol options (tuning)
+
+For each hunk, stet can look up symbols referenced in the hunk (functions, types, etc.) and inject their definitions (signature + optional docstring) into the prompt as a "## Symbol definitions" block. This gives the model cross-file context and is implemented per language (Go, TypeScript, Python, Swift, Java) in [cli/internal/rag/rag.go](cli/internal/rag/rag.go). The pipeline step is described in [review-process-internals.md](review-process-internals.md) §7.7.
+
+**What each setting does when modified:**
+
+- **`rag_symbol_max_definitions`** (and `--rag-symbol-max-definitions`): Max number of symbol definitions injected per hunk. **0** = RAG disabled (no lookup, smaller/faster prompts). **Increase** (e.g. 15–20) = more context, larger prompts.
+- **`rag_symbol_max_tokens`** (and `--rag-symbol-max-tokens`): If > 0, the entire symbol-definitions block is truncated to this many tokens before appending to the prompt ([prompt.AppendSymbolDefinitions](cli/internal/prompt/prompt.go)); definitions are first limited by count, then the combined text is capped by this. **0** = no cap (only overall context limit applies).
+
+**When and how to tune:**
+
+- **Disable RAG:** Set `rag_symbol_max_definitions` to **0** (or `--rag-symbol-max-definitions=0`) for faster runs, smaller prompts, or to compare impact (e.g. [efficacy-tests.md](efficacy-tests.md) A10: RAG Ablation).
+- **Increase definitions:** If reviews miss cross-file or "what does this symbol do?" context, try raising `rag_symbol_max_definitions` (e.g. 15–20); watch prompt size and context warnings.
+- **Cap symbol block size:** If you hit context-limit or `warn_threshold` issues, set `rag_symbol_max_tokens` to a value (e.g. 500–2000) so the symbol block is bounded and the rest of the prompt (hunk, rules, etc.) fits.
+
 ### Context window detection
 
 Before the review loop (and only when not dry-run), stet calls Ollama **`POST /api/show`** with the configured model name. From the response, it reads the model's context size (e.g. from `model_info` fields like `*.context_length`, or from the `parameters` text). The context used for the run is **`max(configured num_ctx, model context)`**. The same value is used for token warnings and for hunk expansion. If the request fails or no context length is found, stet uses only the configured `num_ctx` and `context_limit`.

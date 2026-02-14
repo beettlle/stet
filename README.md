@@ -118,7 +118,7 @@ Use Stet inside Cursor (or VSCode) to view findings in a panel, jump to location
 - On `stet finish`, Stet records session metadata in a Git note (`refs/notes/stet`) for impact analytics and integration with tools like [git-ai](https://github.com/git-ai-project/git-ai).
 - [Product Requirements Document](docs/PRD.md)
 - [Implementation Plan](docs/implementation-plan.md)
-- [CLI–Extension Contract](docs/cli-extension-contract.md)
+- [CLI–Extension Contract](docs/cli-extension-contract.md) — Configuration and tuning (including RAG and strictness).
 - [Review Process Internals](docs/review-process-internals.md) — For contributors modifying the CLI.
 - [Review Quality](docs/review-quality.md) — Actionable findings and prompt guidance.
 
