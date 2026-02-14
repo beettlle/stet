@@ -6,12 +6,16 @@ LDFLAGS = -ldflags "-X stet/cli/internal/version.Version=$(VERSION)"
 # Tier-1 platforms for release: linux, darwin, windows × amd64, arm64.
 RELEASE_PLATFORMS = linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
 
+# COMMIT is the short (7-char) git hash for dev build traceability; used only for build target.
+COMMIT := $(shell git rev-parse --short=7 HEAD 2>/dev/null || true)
+BUILD_LDFLAGS := -ldflags "-X stet/cli/internal/version.Commit=$(COMMIT)"
+
 .PHONY: build clean test coverage release
 build:
 	mkdir -p bin
-	go build -buildvcs=false -o bin/stet ./cli/cmd/stet
-	GOOS=linux GOARCH=amd64 go build -buildvcs=false -o bin/stet-linux-amd64 ./cli/cmd/stet
-	GOOS=darwin GOARCH=amd64 go build -buildvcs=false -o bin/stet-darwin-amd64 ./cli/cmd/stet
+	go build -buildvcs=false $(BUILD_LDFLAGS) -o bin/stet ./cli/cmd/stet
+	GOOS=linux GOARCH=amd64 go build -buildvcs=false $(BUILD_LDFLAGS) -o bin/stet-linux-amd64 ./cli/cmd/stet
+	GOOS=darwin GOARCH=amd64 go build -buildvcs=false $(BUILD_LDFLAGS) -o bin/stet-darwin-amd64 ./cli/cmd/stet
 
 # Build all release binaries into dist/ and generate checksums.txt.
 # Run: VERSION=v1.0.0 make release

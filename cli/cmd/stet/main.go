@@ -146,7 +146,7 @@ func runCLI(args []string) int {
 	rootCmd := &cobra.Command{
 		Use:     "stet",
 		Short:   "Local-first code review tool",
-		Version: version.Version,
+		Version: version.String(),
 	}
 	rootCmd.AddCommand(newStartCmd())
 	rootCmd.AddCommand(newRunCmd())

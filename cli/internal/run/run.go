@@ -660,7 +660,7 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 		HeadSHA:         headSHA,
 		FindingsCount:   len(s.Findings),
 		DismissalsCount: len(s.DismissedIDs),
-		ToolVersion:     version.Version,
+		ToolVersion:     version.String(),
 		FinishedAt:      time.Now().UTC().Format(time.RFC3339),
 	}
 	noteJSON, err := json.Marshal(notePayload)
