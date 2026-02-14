@@ -77,6 +77,19 @@ func SystemPrompt(stateDir string) (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 
+// SystemPromptSource returns "optimized" if stateDir contains system_prompt_optimized.txt, otherwise "default".
+// Used for trace output only.
+func SystemPromptSource(stateDir string) string {
+	if stateDir == "" {
+		return "default"
+	}
+	path := filepath.Join(stateDir, optimizedPromptFilename)
+	if _, err := os.Stat(path); err == nil {
+		return "optimized"
+	}
+	return "default"
+}
+
 // InjectUserIntent replaces the "## User Intent" section in systemPrompt with
 // the given branch and commitMsg. If both are empty, uses "(Not provided.)".
 // If the section is missing, returns systemPrompt unchanged.

@@ -29,6 +29,7 @@ import (
 	"stet/cli/internal/scope"
 	"stet/cli/internal/session"
 	"stet/cli/internal/tokens"
+	"stet/cli/internal/trace"
 	"stet/cli/internal/version"
 )
 
@@ -203,6 +204,8 @@ type StartOptions struct {
 	PersistRAGSymbolMaxDefinitions *int
 	PersistRAGSymbolMaxTokens      *int
 	PersistNitpicky                *bool
+	// TraceOut, when non-nil, receives internal trace output (partition, hunks, rules, RAG, LLM I/O). Used when --trace is set.
+	TraceOut io.Writer
 }
 
 // FinishOptions configures Finish.
@@ -237,6 +240,8 @@ type RunOptions struct {
 	MinConfidenceMaintainability float64
 	ApplyFPKillList              *bool
 	Nitpicky                     bool
+	// TraceOut, when non-nil, receives internal trace output. Used when --trace is set.
+	TraceOut io.Writer
 }
 
 // Start creates a worktree at the given ref, writes the session, then runs the
@@ -378,6 +383,18 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 	if err != nil {
 		return erruser.New("Could not compute hunks to review.", err)
 	}
+	tr := trace.New(opts.TraceOut)
+	if tr.Enabled() {
+		tr.Section("Partition")
+		tr.Printf("baseline=%s head=%s last_reviewed_at=\n", sha, headSHA)
+		approvedN := 0
+		if part.Approved != nil {
+			approvedN = len(part.Approved)
+		}
+		tr.Printf("ToReview=%d Approved=%d\n", len(part.ToReview), approvedN)
+		tr.Section("AGENTS.md")
+		tr.Printf("AGENTS.md: not used by stet (only .cursor/rules/ used).\n")
+	}
 	if opts.Verbose {
 		approvedN := 0
 		if part.Approved != nil {
@@ -478,14 +495,26 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 			if opts.Verbose {
 				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", i+1, total, hunk.FilePath)
 			}
+			if tr.Enabled() {
+				tr.Section("Hunk " + fmt.Sprintf("%d/%d", i+1, total) + ": " + hunk.FilePath)
+				tr.Printf("strict_id=%s semantic_id=%s\n", hunkid.StrictHunkID(hunk.FilePath, hunk.RawContent), hunkid.SemanticHunkID(hunk.FilePath, hunk.RawContent))
+			}
 			cursorRules := rulesLoader.RulesForFile(hunk.FilePath)
-			list, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, opts.ContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, runPromptShadows(&s), opts.Nitpicky)
+			list, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, opts.ContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, runPromptShadows(&s), opts.Nitpicky, tr)
 			if err != nil {
 				return erruser.New("Review failed for "+hunk.FilePath+".", err)
 			}
 			batch := findings.FilterAbstention(list, minKeep, minMaint)
+			if tr.Enabled() {
+				tr.Section("Post-filters")
+				tr.Printf("Abstention: %d -> %d\n", len(list), len(batch))
+			}
 			if applyFP {
+				beforeFP := len(batch)
 				batch = findings.FilterFPKillList(batch)
+				if tr.Enabled() {
+					tr.Printf("FP kill list: %d -> %d\n", beforeFP, len(batch))
+				}
 			}
 			findings.SetCursorURIs(opts.RepoRoot, batch)
 			hunkCtx := truncateForPromptContext(hunk.RawContent, maxPromptContextStoreLen)
@@ -677,6 +706,18 @@ func Run(ctx context.Context, opts RunOptions) error {
 	if err != nil {
 		return erruser.New("Could not compute hunks to review.", err)
 	}
+	trRun := trace.New(opts.TraceOut)
+	if trRun.Enabled() {
+		trRun.Section("Partition")
+		trRun.Printf("baseline=%s head=%s last_reviewed_at=%s\n", s.BaselineRef, headSHA, s.LastReviewedAt)
+		approvedN := 0
+		if part.Approved != nil {
+			approvedN = len(part.Approved)
+		}
+		trRun.Printf("ToReview=%d Approved=%d\n", len(part.ToReview), approvedN)
+		trRun.Section("AGENTS.md")
+		trRun.Printf("AGENTS.md: not used by stet (only .cursor/rules/ used).\n")
+	}
 	if opts.Verbose {
 		fmt.Fprintf(os.Stderr, "%d hunks to review\n", len(part.ToReview))
 	}
@@ -781,14 +822,26 @@ func Run(ctx context.Context, opts RunOptions) error {
 			if opts.Verbose {
 				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", i+1, total, hunk.FilePath)
 			}
+			if trRun.Enabled() {
+				trRun.Section("Hunk " + fmt.Sprintf("%d/%d", i+1, total) + ": " + hunk.FilePath)
+				trRun.Printf("strict_id=%s semantic_id=%s\n", hunkid.StrictHunkID(hunk.FilePath, hunk.RawContent), hunkid.SemanticHunkID(hunk.FilePath, hunk.RawContent))
+			}
 			cursorRules := rulesLoader.RulesForFile(hunk.FilePath)
-			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, opts.ContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, runPromptShadows(&s), opts.Nitpicky)
+			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, opts.ContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, runPromptShadows(&s), opts.Nitpicky, trRun)
 			if err != nil {
 				return erruser.New("Review failed for "+hunk.FilePath+".", err)
 			}
 			batch := findings.FilterAbstention(list, minKeep, minMaint)
+			if trRun.Enabled() {
+				trRun.Section("Post-filters")
+				trRun.Printf("Abstention: %d -> %d\n", len(list), len(batch))
+			}
 			if applyFP {
+				beforeFP := len(batch)
 				batch = findings.FilterFPKillList(batch)
+				if trRun.Enabled() {
+					trRun.Printf("FP kill list: %d -> %d\n", beforeFP, len(batch))
+				}
 			}
 			findings.SetCursorURIs(opts.RepoRoot, batch)
 			hunkCtx := truncateForPromptContext(hunk.RawContent, maxPromptContextStoreLen)

@@ -41,7 +41,7 @@ func TestReviewHunk_successFirstTry(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "a.go", RawContent: "code", Context: "code"}
 	ctx := context.Background()
 
-	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil, false)
+	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil, false, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestReviewHunk_retryThenSuccess(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "b.go", RawContent: "x", Context: "x"}
 	ctx := context.Background()
 
-	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil, false)
+	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil, false, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestReviewHunk_generateFails_returnsError(t *testing.T) {
 	dir := t.TempDir()
 	hunk := diff.Hunk{FilePath: "x.go", RawContent: "code", Context: "code"}
 	ctx := context.Background()
-	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil, false)
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil, false, nil)
 	if err == nil {
 		t.Fatal("ReviewHunk: want error when generate fails, got nil")
 	}
@@ -117,7 +117,7 @@ func TestReviewHunk_parseFailsTwice_returnsError(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "c.go", RawContent: "y", Context: "y"}
 	ctx := context.Background()
 
-	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil, false)
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil, false, nil)
 	if err == nil {
 		t.Fatal("ReviewHunk: want error when parse fails twice, got nil")
 	}
@@ -152,7 +152,7 @@ func TestReviewHunk_hunkWithExternalVariable_mockReturnsNoUndefinedFinding(t *te
 	}
 	ctx := context.Background()
 
-	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil, false)
+	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil, false, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -204,7 +204,7 @@ func TestReviewHunk_injectsUserIntentIntoPrompt(t *testing.T) {
 	userIntent := &prompt.UserIntent{Branch: "main", CommitMsg: commitMsg}
 	ctx := context.Background()
 
-	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, userIntent, nil, "", 0, 0, 0, nil, false)
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, userIntent, nil, "", 0, 0, 0, nil, false, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -278,7 +278,7 @@ func processData(input string) (int, error) {
 	}
 	ctx := context.Background()
 
-	_, err := ReviewHunk(ctx, client, "m", stateDir, hunk, nil, nil, nil, dir, 32768, 0, 0, nil, false)
+	_, err := ReviewHunk(ctx, client, "m", stateDir, hunk, nil, nil, nil, dir, 32768, 0, 0, nil, false, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -330,7 +330,7 @@ func TestReviewHunk_injectsCursorRulesIntoSystemPrompt(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, ruleList, "", 0, 0, 0, nil, false)
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, ruleList, "", 0, 0, 0, nil, false, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -380,7 +380,7 @@ func TestReviewHunk_withRAG_injectsSymbolDefinitions(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "pkg/foo.go", RawContent: "+x := Bar()", Context: "+x := Bar()"}
 	ctx := context.Background()
 
-	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, dir, 0, 5, 0, nil, false)
+	_, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, dir, 0, 5, 0, nil, false, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -418,7 +418,7 @@ func TestReviewHunk_nitpickyTrue_appendsNitpickySection(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "a.go", RawContent: "code", Context: "code"}
 	ctx := context.Background()
 
-	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil, true)
+	list, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil, true, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}

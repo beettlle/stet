@@ -190,6 +190,7 @@ func newStartCmd() *cobra.Command {
 	cmd.Flags().Int("rag-symbol-max-tokens", 0, "Max tokens for symbol-definitions block (0 = use config); overrides config and env")
 	cmd.Flags().String("strictness", "", "Review strictness preset: strict, default, lenient, strict+, default+, lenient+ (overrides config and env)")
 	cmd.Flags().Bool("nitpicky", false, "Enable nitpicky mode: report typos, grammar, style, and convention violations; do not filter those findings")
+	cmd.Flags().Bool("trace", false, "Print internal steps to stderr (partition, rules, RAG, prompts, LLM I/O)")
 	return cmd
 }
 
@@ -217,6 +218,11 @@ func runStart(cmd *cobra.Command, args []string) error {
 		verbose = false
 	}
 	allowDirty, _ := cmd.Flags().GetBool("allow-dirty")
+	trace, _ := cmd.Flags().GetBool("trace")
+	var traceOut io.Writer
+	if trace {
+		traceOut = os.Stderr
+	}
 	cwd, err := os.Getwd()
 	if err != nil {
 		return erruser.New("Could not determine current directory.", err)
@@ -287,6 +293,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 		PersistRAGSymbolMaxDefinitions: persistRAGDefs,
 		PersistRAGSymbolMaxTokens:      persistRAGTokens,
 		PersistNitpicky:                persistNitpicky,
+		TraceOut:                       traceOut,
 	}
 	if stream {
 		opts.StreamOut = findingsOut
@@ -345,6 +352,7 @@ func newRunCmd() *cobra.Command {
 	cmd.Flags().Int("rag-symbol-max-tokens", 0, "Max tokens for symbol-definitions block (0 = use config); overrides config and env")
 	cmd.Flags().String("strictness", "", "Review strictness preset: strict, default, lenient, strict+, default+, lenient+ (overrides config and env)")
 	cmd.Flags().Bool("nitpicky", false, "Enable nitpicky mode: report typos, grammar, style, and convention violations; do not filter those findings")
+	cmd.Flags().Bool("trace", false, "Print internal steps to stderr (partition, rules, RAG, prompts, LLM I/O)")
 	return cmd
 }
 
@@ -453,6 +461,11 @@ func runRun(cmd *cobra.Command, args []string) error {
 	if stream || output == "json" {
 		verbose = false
 	}
+	trace, _ := cmd.Flags().GetBool("trace")
+	var traceOut io.Writer
+	if trace {
+		traceOut = os.Stderr
+	}
 	opts := run.RunOptions{
 		RepoRoot:                     repoRoot,
 		StateDir:                     stateDir,
@@ -472,6 +485,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 		MinConfidenceMaintainability: minMaint,
 		ApplyFPKillList:              &applyFP,
 		Nitpicky:                     effectiveNitpicky,
+		TraceOut:                     traceOut,
 	}
 	if stream {
 		opts.StreamOut = findingsOut

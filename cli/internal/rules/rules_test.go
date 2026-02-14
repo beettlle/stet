@@ -170,6 +170,9 @@ func TestLoadRules_validMDC_loadsRule(t *testing.T) {
 	if len(rules[0].Globs) != 1 || rules[0].Globs[0] != "*.go" {
 		t.Errorf("Globs = %v", rules[0].Globs)
 	}
+	if rules[0].Source != "test.mdc" {
+		t.Errorf("Source = %q, want test.mdc (rule file name)", rules[0].Source)
+	}
 }
 
 func TestLoadRules_skipNonMDC(t *testing.T) {
@@ -179,6 +182,9 @@ func TestLoadRules_skipNonMDC(t *testing.T) {
 	rules, _ := LoadRules(dir)
 	if len(rules) != 1 {
 		t.Errorf("len(rules) = %d, want 1 (only .mdc)", len(rules))
+	}
+	if rules[0].Source != "rule.mdc" {
+		t.Errorf("Source = %q, want rule.mdc", rules[0].Source)
 	}
 }
 
@@ -192,6 +198,9 @@ func TestLoadRules_invalidFile_skipped(t *testing.T) {
 	}
 	if rules[0].Content != "OK" {
 		t.Errorf("Content = %q", rules[0].Content)
+	}
+	if rules[0].Source != "good.mdc" {
+		t.Errorf("Source = %q, want good.mdc", rules[0].Source)
 	}
 }
 

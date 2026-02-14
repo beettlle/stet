@@ -106,6 +106,30 @@ func TestSystemPrompt_emptyStateDir_returnsDefault(t *testing.T) {
 	}
 }
 
+func TestSystemPromptSource_emptyStateDir_returnsDefault(t *testing.T) {
+	if got := SystemPromptSource(""); got != "default" {
+		t.Errorf("SystemPromptSource(%q) = %q, want default", "", got)
+	}
+}
+
+func TestSystemPromptSource_absentFile_returnsDefault(t *testing.T) {
+	dir := t.TempDir()
+	if got := SystemPromptSource(dir); got != "default" {
+		t.Errorf("SystemPromptSource(%q) with no file = %q, want default", dir, got)
+	}
+}
+
+func TestSystemPromptSource_presentFile_returnsOptimized(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, optimizedPromptFilename)
+	if err := os.WriteFile(path, []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if got := SystemPromptSource(dir); got != "optimized" {
+		t.Errorf("SystemPromptSource(%q) with file = %q, want optimized", dir, got)
+	}
+}
+
 func TestSystemPrompt_fileWithWhitespace_trimmed(t *testing.T) {
 	dir := t.TempDir()
 	custom := "  TRIM_ME  \n"

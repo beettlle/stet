@@ -33,11 +33,13 @@ const (
 
 // CursorRule represents a single .mdc rule: frontmatter (globs, alwaysApply,
 // description) and body content to inject when the rule applies to the file under review.
+// Source is the rule file name (e.g. general-llm-anti-patterns.mdc) for trace and debugging.
 type CursorRule struct {
 	Globs       []string
 	AlwaysApply bool
 	Description string
 	Content     string
+	Source      string
 }
 
 // frontmatter is the YAML structure we parse from .mdc files.
@@ -76,6 +78,7 @@ func LoadRules(rulesDir string) ([]CursorRule, error) {
 		if !ok {
 			continue
 		}
+		rule.Source = e.Name()
 		out = append(out, rule)
 	}
 	return out, nil
