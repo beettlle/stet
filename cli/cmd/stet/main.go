@@ -125,7 +125,7 @@ func writeFindingsWithIDs(w io.Writer, stateDir string) error {
 		if f.Range != nil {
 			line = f.Range.Start
 		}
-		if _, err := fmt.Fprintf(w, "%s  %s:%d  %s  %s\n", f.ID, f.File, line, f.Severity, f.Message); err != nil {
+		if _, err := fmt.Fprintf(w, "%s  %s:%d  %s  %s\n", findings.ShortID(f.ID), f.File, line, f.Severity, f.Message); err != nil {
 			return erruser.New("Could not write findings.", err)
 		}
 	}
@@ -680,7 +680,7 @@ func newDismissCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dismiss <id> [reason]",
 		Short: "Mark a finding as dismissed so it does not resurface",
-		Long: `Mark a finding as dismissed so it does not resurface. Optional reason is recorded for the optimizer.
+		Long: `Mark a finding as dismissed so it does not resurface. The id can be the full finding id or a unique prefix (e.g. first 7 characters). Optional reason is recorded for the optimizer.
 
 Valid reasons:
   false_positive   — Finding is not a real issue
@@ -731,20 +731,24 @@ func runDismiss(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(os.Stderr, run.ErrNoSession.Error())
 		return errExit(1)
 	}
+	fullID, err := findings.ResolveFindingIDByPrefix(s.Findings, id)
+	if err != nil {
+		return err
+	}
 	alreadyDismissed := false
 	for _, d := range s.DismissedIDs {
-		if d == id {
+		if d == fullID {
 			alreadyDismissed = true
 			break
 		}
 	}
 	if !alreadyDismissed {
-		s.DismissedIDs = append(s.DismissedIDs, id)
+		s.DismissedIDs = append(s.DismissedIDs, fullID)
 		if s.FindingPromptContext == nil {
 			s.FindingPromptContext = make(map[string]string)
 		}
-		if ctx := s.FindingPromptContext[id]; ctx != "" {
-			s.PromptShadows = append(s.PromptShadows, session.PromptShadow{FindingID: id, PromptContext: ctx})
+		if ctx := s.FindingPromptContext[fullID]; ctx != "" {
+			s.PromptShadows = append(s.PromptShadows, session.PromptShadow{FindingID: fullID, PromptContext: ctx})
 		}
 		if err := session.Save(stateDir, &s); err != nil {
 			return err
@@ -754,9 +758,9 @@ func runDismiss(cmd *cobra.Command, args []string) error {
 	if diffRef == "" {
 		diffRef = s.BaselineRef
 	}
-	ua := history.UserAction{DismissedIDs: []string{id}}
+	ua := history.UserAction{DismissedIDs: []string{fullID}}
 	if reason != "" {
-		ua.Dismissals = []history.Dismissal{{FindingID: id, Reason: reason}}
+		ua.Dismissals = []history.Dismissal{{FindingID: fullID, Reason: reason}}
 	}
 	rec := history.Record{
 		DiffRef:      diffRef,

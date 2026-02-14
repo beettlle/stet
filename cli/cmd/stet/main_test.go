@@ -848,8 +848,9 @@ func TestRunCLI_statusWithIdsPrintsFindingsWithIds(t *testing.T) {
 	if !strings.Contains(outStr, "---") {
 		t.Errorf("status --ids should contain ---; got:\n%s", outStr)
 	}
-	if !strings.Contains(outStr, wantID) {
-		t.Errorf("status --ids should contain finding ID %q; got:\n%s", wantID, outStr)
+	shortID := findings.ShortID(wantID)
+	if !strings.Contains(outStr, shortID) {
+		t.Errorf("status --ids should contain short finding ID %q; got:\n%s", shortID, outStr)
 	}
 	if !strings.Contains(outStr, wantFile) {
 		t.Errorf("status --ids should contain file %q; got:\n%s", wantFile, outStr)
@@ -927,8 +928,9 @@ func TestRunCLI_listPrintsFindingsWithIds(t *testing.T) {
 	var stdout bytes.Buffer
 	_, _ = io.Copy(&stdout, r)
 	outStr := stdout.String()
-	if !strings.Contains(outStr, wantID) {
-		t.Errorf("list should contain finding ID %q; got:\n%s", wantID, outStr)
+	shortID := findings.ShortID(wantID)
+	if !strings.Contains(outStr, shortID) {
+		t.Errorf("list should contain short finding ID %q; got:\n%s", shortID, outStr)
 	}
 	if !strings.Contains(outStr, wantFile) {
 		t.Errorf("list should contain file %q; got:\n%s", wantFile, outStr)
@@ -1339,6 +1341,100 @@ func TestRunCLI_dismissInvalidReasonExits1(t *testing.T) {
 	id, _ := out.Findings[0]["id"].(string)
 	if got := runCLI([]string{"dismiss", id, "invalid_reason"}); got != 1 {
 		t.Errorf("runCLI(dismiss %q invalid_reason) = %d, want 1", id, got)
+	}
+}
+
+func TestRunCLI_dismissByShortPrefix(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	findingsOut = &buf
+	t.Cleanup(func() { findingsOut = os.Stdout })
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
+	}
+	var out struct {
+		Findings []findings.Finding `json:"findings"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil || len(out.Findings) == 0 {
+		t.Fatalf("need at least one finding; err=%v", err)
+	}
+	fullID := out.Findings[0].ID
+	shortID := findings.ShortID(fullID)
+	if len(shortID) < 4 {
+		t.Skip("short ID too short for prefix resolution minimum")
+	}
+	_, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStdout := os.Stdout
+	os.Stdout = w
+	t.Cleanup(func() { os.Stdout = oldStdout })
+	if got := runCLI([]string{"dismiss", shortID}); got != 0 {
+		t.Fatalf("runCLI(dismiss %q) = %d, want 0", shortID, got)
+	}
+	_ = w.Close()
+	cfg, err := loadConfigForTest(repo)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	s, err := session.Load(cfg.EffectiveStateDir(repo))
+	if err != nil {
+		t.Fatalf("load session: %v", err)
+	}
+	var found bool
+	for _, d := range s.DismissedIDs {
+		if d == fullID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("dismiss by short prefix %q should have added full ID %q to DismissedIDs; got %v", shortID, fullID, s.DismissedIDs)
+	}
+}
+
+func TestRunCLI_dismissNoFindingWithIdExits1(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
+	}
+	if got := runCLI([]string{"dismiss", "0000000"}); got != 1 {
+		t.Errorf("runCLI(dismiss 0000000) = %d, want 1 (no finding with that id)", got)
+	}
+}
+
+func TestRunCLI_dismissIdTooShortExits1(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
+	}
+	if got := runCLI([]string{"dismiss", "abc"}); got != 1 {
+		t.Errorf("runCLI(dismiss abc) = %d, want 1 (id must be at least 4 characters)", got)
 	}
 }
 

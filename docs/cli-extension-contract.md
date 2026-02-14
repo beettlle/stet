@@ -26,7 +26,7 @@ This document defines the output and exit-code contract between the Stet CLI and
 
 - **`findings`**: Array of finding objects. May be empty (e.g. nothing to review).
 - Each element has the following fields (see `cli/internal/findings/finding.go` for the canonical schema):
-  - **`id`** (string, optional): Stable identifier for the finding.
+  - **`id`** (string, optional): Stable identifier for the finding. In JSON output the id is always the full stable identifier. In human-readable output (e.g. `stet list`, `stet status --ids`) the CLI shows an abbreviated form (e.g. first 7 characters). Commands that take a finding id (e.g. `stet dismiss`) accept either the full id or a unique prefix of at least 4 characters.
   - **`file`** (string): Relative file path.
   - **`line`** (number, optional): Line number.
   - **`range`** (object, optional): `{"start": n, "end": m}` for multi-line span.
