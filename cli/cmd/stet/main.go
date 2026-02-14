@@ -773,7 +773,9 @@ Valid reasons:
   false_positive   — Finding is not a real issue
   already_correct  — Code is already correct as-is
   wrong_suggestion — Suggestion is wrong or not applicable
-  out_of_scope     — Out of scope for this review`,
+  out_of_scope     — Out of scope for this review
+
+For guidance on choosing a reason, see docs/review-quality.md.`,
 		RunE: runDismiss,
 	}
 	return cmd

@@ -18,6 +18,25 @@ Industry benchmarks for AI code review tools typically cite false-positive rates
 
 Stet defaults to **precision** (fewer, actionable findings); **recall** can be increased when desired via strict/strict+ presets or nitpicky mode.
 
+## Choosing a dismissal reason
+
+When you run `stet dismiss <id> [reason]`, the optional reason is recorded in `.review/history.jsonl` and used by `stet optimize` and prompt shadowing. Picking a reason helps improve future reviews.
+
+**How to dismiss:** `stet dismiss <id>` or `stet dismiss <id> <reason>`. Reason is optional but recommended. Valid values: `false_positive`, `already_correct`, `wrong_suggestion`, `out_of_scope` (see [cli/internal/history/schema.go](cli/internal/history/schema.go)).
+
+**When to use each reason:**
+
+| Reason               | Use when                                                                                                                                                     |
+|----------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **false_positive**   | The finding is not a real issue: the model misread the code, the suggestion is redundant, or it's a low-signal style nit / optional doc polish.             |
+| **already_correct**  | The code is already correct: the concern is addressed (e.g. guard exists, convention documented and followed), or the finding is about removed lines that are fixed by the change. |
+| **wrong_suggestion** | The suggestion is wrong or not applicable (e.g. suggests a different tool/framework than the project uses, or a change that would make things inconsistent). |
+| **out_of_scope**     | The finding targets the wrong scope: e.g. generated or non-source files (coverage HTML), or meta/curated docs that shouldn't be re-reviewed as actionable.   |
+
+**Quick pick:** If the suggestion would make the codebase worse or inconsistent → `wrong_suggestion`. If the file/context shouldn't be in the review → `out_of_scope`. If the code already does the right thing → `already_correct`. Otherwise (not a real issue / noise) → `false_positive`.
+
+For many concrete examples, see the table [Known false positive patterns (curated)](#known-false-positive-patterns-curated) below.
+
 ## Common false positives (examples)
 
 Examples from Stet self-review; keep this list brief and update as patterns emerge:
