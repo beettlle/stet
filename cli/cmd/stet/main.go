@@ -680,7 +680,14 @@ func newDismissCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dismiss <id> [reason]",
 		Short: "Mark a finding as dismissed so it does not resurface",
-		RunE:  runDismiss,
+		Long: `Mark a finding as dismissed so it does not resurface. Optional reason is recorded for the optimizer.
+
+Valid reasons:
+  false_positive   — Finding is not a real issue
+  already_correct  — Code is already correct as-is
+  wrong_suggestion — Suggestion is wrong or not applicable
+  out_of_scope     — Out of scope for this review`,
+		RunE: runDismiss,
 	}
 	return cmd
 }
