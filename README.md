@@ -7,6 +7,7 @@ Local code review, powered by your machine. No cloud. No API keys. No data leave
 - **Free:** Runs on your machine; no per-seat or per-request fees.
 - **Private:** No code, prompts, or findings sent off your machine.
 - **Review-only:** Focused on review, not auto-fix; you decide what to change.
+- **Sustainable:** Uses your local hardware; no datacenter API calls.
 
 ## About the Name
 
@@ -93,7 +94,7 @@ The default install directory is `~/.local/bin` (Mac/Linux) or `%USERPROFILE%\.l
 | `stet doctor` | Verify Ollama, Git, models |
 | `stet start [ref]` | Start review from baseline |
 | `stet run` | Re-run incremental review |
-| `stet finish` | Persist state, clean up |
+| `stet finish` | Persist state, clean up; writes session note to `refs/notes/stet` for impact analytics |
 | `stet status` | Show session status |
 | `stet list` | List active findings with IDs (for use with dismiss) |
 | `stet dismiss <id> [reason]` | Mark a finding as dismissed; optional reason: `false_positive`, `already_correct`, `wrong_suggestion`, `out_of_scope` |
@@ -112,6 +113,7 @@ Use Stet inside Cursor (or VSCode) to view findings in a panel, jump to location
 
 ## Documentation
 
+- On `stet finish`, Stet records session metadata in a Git note (`refs/notes/stet`) for impact analytics and integration with tools like [git-ai](https://github.com/git-ai-project/git-ai).
 - [Product Requirements Document](docs/PRD.md)
 - [Implementation Plan](docs/implementation-plan.md)
 - [CLI–Extension Contract](docs/cli-extension-contract.md)
