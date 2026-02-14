@@ -664,6 +664,15 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(os.Stdout, "worktree: %s\n", worktreePath)
 	fmt.Fprintf(os.Stdout, "findings: %d\n", len(s.Findings))
 	fmt.Fprintf(os.Stdout, "dismissed: %d\n", len(s.DismissedIDs))
+	if s.Strictness != "" {
+		fmt.Fprintf(os.Stdout, "strictness: %s\n", s.Strictness)
+	}
+	if s.RAGSymbolMaxDefinitions != nil {
+		fmt.Fprintf(os.Stdout, "rag_symbol_max_definitions: %d\n", *s.RAGSymbolMaxDefinitions)
+	}
+	if s.RAGSymbolMaxTokens != nil {
+		fmt.Fprintf(os.Stdout, "rag_symbol_max_tokens: %d\n", *s.RAGSymbolMaxTokens)
+	}
 	showIDs, _ := cmd.Flags().GetBool("ids")
 	if showIDs {
 		active, err := activeFindings(stateDir)

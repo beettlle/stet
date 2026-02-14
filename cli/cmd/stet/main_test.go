@@ -841,6 +841,44 @@ func TestRunCLI_statusWithSessionPrintsFields(t *testing.T) {
 	}
 }
 
+func TestRunCLI_statusWithSessionPrintsSessionOptions(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--strictness=lenient", "--rag-symbol-max-definitions=5", "--rag-symbol-max-tokens=500"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run --strictness=lenient ...) = %d, want 0", got)
+	}
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStdout := os.Stdout
+	os.Stdout = w
+	t.Cleanup(func() { os.Stdout = oldStdout })
+	if got := runCLI([]string{"status"}); got != 0 {
+		t.Fatalf("runCLI(status) = %d, want 0", got)
+	}
+	_ = w.Close()
+	var stdout bytes.Buffer
+	_, _ = io.Copy(&stdout, r)
+	out := stdout.String()
+	if !strings.Contains(out, "strictness: lenient") {
+		t.Errorf("status should show strictness when set at start; got:\n%s", out)
+	}
+	if !strings.Contains(out, "rag_symbol_max_definitions: 5") {
+		t.Errorf("status should show rag_symbol_max_definitions when set at start; got:\n%s", out)
+	}
+	if !strings.Contains(out, "rag_symbol_max_tokens: 500") {
+		t.Errorf("status should show rag_symbol_max_tokens when set at start; got:\n%s", out)
+	}
+}
+
 func TestRunCLI_statusWithIdsPrintsFindingsWithIds(t *testing.T) {
 	repo := initRepo(t)
 	orig, err := os.Getwd()
