@@ -732,6 +732,116 @@ func TestRun_noSession(t *testing.T) {
 	}
 }
 
+func TestRun_forceFullReview_noSession(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	opts := RunOptions{RepoRoot: repo, StateDir: stateDir, DryRun: true, ForceFullReview: true}
+	err := Run(ctx, opts)
+	if err == nil {
+		t.Fatal("Run (ForceFullReview) without start: expected error")
+	}
+	if !errors.Is(err, ErrNoSession) {
+		t.Errorf("Run: got %v, want ErrNoSession", err)
+	}
+}
+
+func TestRun_forceFullReview_partitionsAllHunks(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	startOpts := StartOptions{
+		RepoRoot:      repo,
+		StateDir:      stateDir,
+		WorktreeRoot:  "",
+		Ref:           "HEAD~1",
+		DryRun:        true,
+		Model:         "",
+		OllamaBaseURL: "",
+	}
+	if err := Start(ctx, startOpts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	s0, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	initialCount := len(s0.Findings)
+	// Run once without ForceFullReview so LastReviewedAt = HEAD; second Run would see 0 ToReview.
+	runOpts := RunOptions{RepoRoot: repo, StateDir: stateDir, DryRun: true}
+	if err := Run(ctx, runOpts); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	s1, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	afterFirstRun := len(s1.Findings)
+	// Rerun with ForceFullReview: all hunks go to ToReview, so review loop runs again and appends findings (merge mode).
+	runOpts.ForceFullReview = true
+	if err := Run(ctx, runOpts); err != nil {
+		t.Fatalf("Run(ForceFullReview): %v", err)
+	}
+	s2, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	if len(s2.Findings) <= afterFirstRun {
+		t.Errorf("After ForceFullReview run: findings got %d, want > %d (review loop should have run)", len(s2.Findings), afterFirstRun)
+	}
+	if initialCount == 0 && afterFirstRun == 0 {
+		t.Errorf("Start at HEAD~1 should produce findings; initial=%d afterFirstRun=%d", initialCount, afterFirstRun)
+	}
+}
+
+func TestRun_replaceFindings(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	startOpts := StartOptions{
+		RepoRoot:      repo,
+		StateDir:      stateDir,
+		WorktreeRoot:  "",
+		Ref:           "HEAD~1",
+		DryRun:        true,
+		Model:         "",
+		OllamaBaseURL: "",
+	}
+	if err := Start(ctx, startOpts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	runOpts := RunOptions{RepoRoot: repo, StateDir: stateDir, DryRun: true}
+	if err := Run(ctx, runOpts); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	runOpts.ForceFullReview = true
+	runOpts.ReplaceFindings = true
+	if err := Run(ctx, runOpts); err != nil {
+		t.Fatalf("Run(ReplaceFindings): %v", err)
+	}
+	s1, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	// Replace mode: session findings are only the new run's findings (one per hunk in ToReview).
+	if len(s1.Findings) == 0 {
+		t.Errorf("ReplaceFindings run should produce findings; got 0")
+	}
+	// DismissedIDs should be empty after replace (clean slate).
+	if len(s1.DismissedIDs) != 0 {
+		t.Errorf("DismissedIDs after replace: got %d, want 0", len(s1.DismissedIDs))
+	}
+	// All findings should be dry-run placeholder (from this run only).
+	for i, f := range s1.Findings {
+		if f.Message != dryRunMsg {
+			t.Errorf("finding[%d].Message = %q, want %q", i, f.Message, dryRunMsg)
+		}
+	}
+}
+
 func TestStart_dryRun_noHunks(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

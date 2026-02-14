@@ -567,6 +567,72 @@ func TestRunCLI_runDryRunEmitsFindingsJSON(t *testing.T) {
 	}
 }
 
+func TestRunCLI_rerunNoSessionFails(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStderr := os.Stderr
+	os.Stderr = w
+	t.Cleanup(func() { os.Stderr = oldStderr })
+	got := runCLI([]string{"rerun", "--dry-run"})
+	_ = w.Close()
+	var stderr bytes.Buffer
+	_, _ = io.Copy(&stderr, r)
+	if got != 1 {
+		t.Errorf("runCLI(rerun --dry-run) with no session = %d, want 1", got)
+	}
+	if !strings.Contains(stderr.String(), "active session") {
+		t.Errorf("stderr should contain 'active session'; got %q", stderr.String())
+	}
+}
+
+func TestRunCLI_rerunDryRunRerunsAllHunks(t *testing.T) {
+	// Do not run in parallel: test changes cwd and findingsOut.
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = os.Chdir(orig)
+		findingsOut = os.Stdout
+	}()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	if got := runCLI([]string{"start", "HEAD~2", "--dry-run", "--json"}); got != 0 {
+		t.Fatalf("runCLI(start HEAD~2 --dry-run) = %d, want 0", got)
+	}
+	if got := runCLI([]string{"run", "--dry-run"}); got != 0 {
+		t.Fatalf("runCLI(run --dry-run) = %d, want 0", got)
+	}
+	// After run, LastReviewedAt = HEAD so a second run would see 0 ToReview. Rerun forces full review.
+	var buf bytes.Buffer
+	findingsOut = &buf
+	if got := runCLI([]string{"rerun", "--dry-run", "--json"}); got != 0 {
+		t.Fatalf("runCLI(rerun --dry-run --json) = %d, want 0", got)
+	}
+	var out struct {
+		Findings []map[string]interface{} `json:"findings"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("parse stdout JSON: %v\noutput: %s", err, buf.Bytes())
+	}
+	if out.Findings == nil || len(out.Findings) == 0 {
+		t.Errorf("rerun should emit findings (full re-review); got %d", len(out.Findings))
+	}
+}
+
 func TestRunCLI_startDirtyWorktreePrintsHint(t *testing.T) {
 	// Do not run in parallel: test changes cwd and errHintOut.
 	repo := initRepo(t)

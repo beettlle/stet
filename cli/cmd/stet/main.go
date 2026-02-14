@@ -150,6 +150,7 @@ func runCLI(args []string) int {
 	}
 	rootCmd.AddCommand(newStartCmd())
 	rootCmd.AddCommand(newRunCmd())
+	rootCmd.AddCommand(newRerunCmd())
 	rootCmd.AddCommand(newFinishCmd())
 	rootCmd.AddCommand(newCleanupCmd())
 	rootCmd.AddCommand(newStatusCmd())
@@ -337,12 +338,8 @@ func runStart(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func newRunCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "run",
-		Short: "Run incremental review (only to-review hunks)",
-		RunE:  runRun,
-	}
+// addRunLikeFlags registers the flags shared by run and rerun (dry-run, quiet, output, json, stream, rag-symbol-*, strictness, nitpicky, trace).
+func addRunLikeFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool("dry-run", false, "Skip LLM; inject canned findings for CI")
 	cmd.Flags().BoolP("quiet", "q", false, "Suppress progress (use for scripts and IDE integration)")
 	cmd.Flags().String("output", "human", "Output format: human (default) or json")
@@ -353,6 +350,15 @@ func newRunCmd() *cobra.Command {
 	cmd.Flags().String("strictness", "", "Review strictness preset: strict, default, lenient, strict+, default+, lenient+ (overrides config and env)")
 	cmd.Flags().Bool("nitpicky", false, "Enable nitpicky mode: report typos, grammar, style, and convention violations; do not filter those findings")
 	cmd.Flags().Bool("trace", false, "Print internal steps to stderr (partition, rules, RAG, prompts, LLM I/O)")
+}
+
+func newRunCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "run",
+		Short: "Run incremental review (only to-review hunks)",
+		RunE:  runRun,
+	}
+	addRunLikeFlags(cmd)
 	return cmd
 }
 
@@ -504,6 +510,151 @@ func runRun(cmd *cobra.Command, args []string) error {
 	}
 	if stream {
 		// Findings already emitted as NDJSON by run.Run
+		return nil
+	}
+	if output == "json" {
+		if err := writeFindingsJSON(findingsOut, stateDir); err != nil {
+			return err
+		}
+	} else {
+		if err := writeFindingsHuman(findingsOut, stateDir); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func newRerunCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "rerun",
+		Short: "Re-run full review (all hunks) with current or overridden parameters",
+		RunE:  runRerun,
+	}
+	addRunLikeFlags(cmd)
+	cmd.Flags().Bool("replace", false, "Replace session findings with only this run's results; default is to merge new findings with existing")
+	return cmd
+}
+
+func runRerun(cmd *cobra.Command, args []string) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return erruser.New("Could not determine current directory.", err)
+	}
+	repoRoot, err := git.RepoRoot(cwd)
+	if err != nil {
+		return err
+	}
+	overrides := overridesFromFlags(cmd)
+	if overrides != nil && overrides.Strictness != nil && *overrides.Strictness != "" {
+		if _, _, _, err := findings.ResolveStrictness(*overrides.Strictness); err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+			return errExit(1)
+		}
+	}
+	cfg, err := config.Load(cmd.Context(), config.LoadOptions{RepoRoot: repoRoot, Overrides: overrides})
+	if err != nil {
+		return err
+	}
+	stateDir := cfg.EffectiveStateDir(repoRoot)
+	s, err := session.Load(stateDir)
+	if err != nil {
+		return err
+	}
+	effectiveStrictness := cfg.Strictness
+	if overrides != nil && overrides.Strictness != nil && *overrides.Strictness != "" {
+		effectiveStrictness = *overrides.Strictness
+	} else if s.Strictness != "" {
+		effectiveStrictness = s.Strictness
+	}
+	effectiveRAGDefs := cfg.RAGSymbolMaxDefinitions
+	if overrides != nil && overrides.RAGSymbolMaxDefinitions != nil {
+		effectiveRAGDefs = *overrides.RAGSymbolMaxDefinitions
+	} else if s.RAGSymbolMaxDefinitions != nil {
+		effectiveRAGDefs = *s.RAGSymbolMaxDefinitions
+	}
+	effectiveRAGTokens := cfg.RAGSymbolMaxTokens
+	if overrides != nil && overrides.RAGSymbolMaxTokens != nil {
+		effectiveRAGTokens = *overrides.RAGSymbolMaxTokens
+	} else if s.RAGSymbolMaxTokens != nil {
+		effectiveRAGTokens = *s.RAGSymbolMaxTokens
+	}
+	effectiveNitpicky := cfg.Nitpicky
+	if overrides != nil && overrides.Nitpicky != nil {
+		effectiveNitpicky = *overrides.Nitpicky
+	} else if s.Nitpicky != nil {
+		effectiveNitpicky = *s.Nitpicky
+	}
+	minKeep, minMaint, applyFP, err := findings.ResolveStrictness(effectiveStrictness)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return errExit(1)
+	}
+	if effectiveNitpicky {
+		applyFP = false
+	}
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
+	quiet, _ := cmd.Flags().GetBool("quiet")
+	output, _ := cmd.Flags().GetString("output")
+	outputJSON, _ := cmd.Flags().GetBool("json")
+	if outputJSON {
+		output = "json"
+	}
+	if output != "human" && output != "json" {
+		return errors.New("Invalid output format; use human or json.")
+	}
+	stream, _ := cmd.Flags().GetBool("stream")
+	if stream && output != "json" {
+		return errors.New("--stream requires --output=json or --json.")
+	}
+	verbose := !quiet
+	if stream || output == "json" {
+		verbose = false
+	}
+	trace, _ := cmd.Flags().GetBool("trace")
+	var traceOut io.Writer
+	if trace {
+		traceOut = os.Stderr
+	}
+	replace, _ := cmd.Flags().GetBool("replace")
+	opts := run.RunOptions{
+		RepoRoot:                     repoRoot,
+		StateDir:                     stateDir,
+		DryRun:                       dryRun,
+		Model:                        cfg.Model,
+		OllamaBaseURL:                cfg.OllamaBaseURL,
+		ContextLimit:                 cfg.ContextLimit,
+		WarnThreshold:                cfg.WarnThreshold,
+		Timeout:                      cfg.Timeout,
+		Temperature:                  cfg.Temperature,
+		NumCtx:                       cfg.NumCtx,
+		Verbose:                      verbose,
+		StreamOut:                    nil,
+		RAGSymbolMaxDefinitions:      effectiveRAGDefs,
+		RAGSymbolMaxTokens:           effectiveRAGTokens,
+		MinConfidenceKeep:            minKeep,
+		MinConfidenceMaintainability: minMaint,
+		ApplyFPKillList:              &applyFP,
+		Nitpicky:                     effectiveNitpicky,
+		TraceOut:                     traceOut,
+		ForceFullReview:             true,
+		ReplaceFindings:             replace,
+	}
+	if stream {
+		opts.StreamOut = findingsOut
+	}
+	if err := run.Run(cmd.Context(), opts); err != nil {
+		if errors.Is(err, run.ErrNoSession) {
+			fmt.Fprintln(os.Stderr, err.Error())
+			return errExit(1)
+		}
+		if errors.Is(err, ollama.ErrUnreachable) {
+			fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
+			fmt.Fprintf(os.Stderr, "Details: %v\n", err)
+			return errExit(2)
+		}
+		return err
+	}
+	if stream {
 		return nil
 	}
 	if output == "json" {

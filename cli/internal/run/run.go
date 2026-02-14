@@ -242,6 +242,10 @@ type RunOptions struct {
 	Nitpicky                     bool
 	// TraceOut, when non-nil, receives internal trace output. Used when --trace is set.
 	TraceOut io.Writer
+	// ForceFullReview, when true, passes empty lastReviewedAt to Partition so all hunks are to-review (used by rerun).
+	ForceFullReview bool
+	// ReplaceFindings, when true, replaces session findings with only this run's results; when false, merges (append + auto-dismiss).
+	ReplaceFindings bool
 }
 
 // Start creates a worktree at the given ref, writes the session, then runs the
@@ -702,14 +706,18 @@ func Run(ctx context.Context, opts RunOptions) error {
 		return erruser.New("Could not resolve current commit (HEAD).", err)
 	}
 
-	part, err := scope.Partition(ctx, opts.RepoRoot, s.BaselineRef, headSHA, s.LastReviewedAt, nil)
+	lastReviewedAt := s.LastReviewedAt
+	if opts.ForceFullReview {
+		lastReviewedAt = ""
+	}
+	part, err := scope.Partition(ctx, opts.RepoRoot, s.BaselineRef, headSHA, lastReviewedAt, nil)
 	if err != nil {
 		return erruser.New("Could not compute hunks to review.", err)
 	}
 	trRun := trace.New(opts.TraceOut)
 	if trRun.Enabled() {
 		trRun.Section("Partition")
-		trRun.Printf("baseline=%s head=%s last_reviewed_at=%s\n", s.BaselineRef, headSHA, s.LastReviewedAt)
+		trRun.Printf("baseline=%s head=%s last_reviewed_at=%s\n", s.BaselineRef, headSHA, lastReviewedAt)
 		approvedN := 0
 		if part.Approved != nil {
 			approvedN = len(part.Approved)
@@ -859,46 +867,61 @@ func Run(ctx context.Context, opts RunOptions) error {
 	if opts.StreamOut != nil {
 		_ = writeStreamLine(opts.StreamOut, map[string]string{"type": "done"})
 	}
-	// Auto-dismiss: findings in reviewed hunks that were not re-reported are considered addressed.
-	newFindingIDSet := make(map[string]struct{}, len(newFindings))
-	for _, f := range newFindings {
-		if f.ID != "" {
-			newFindingIDSet[f.ID] = struct{}{}
+
+	if opts.ReplaceFindings {
+		s.Findings = newFindings
+		// Keep only prompt context for the new findings.
+		newContext := make(map[string]string, len(newFindings))
+		for _, f := range newFindings {
+			if f.ID != "" && s.FindingPromptContext[f.ID] != "" {
+				newContext[f.ID] = s.FindingPromptContext[f.ID]
+			}
 		}
-	}
-	addressed := addressedFindingIDs(part.ToReview, s.Findings, newFindingIDSet)
-	dismissedSet := make(map[string]struct{}, len(s.DismissedIDs))
-	for _, id := range s.DismissedIDs {
-		dismissedSet[id] = struct{}{}
-	}
-	for _, id := range addressed {
-		if _, ok := dismissedSet[id]; !ok {
+		s.FindingPromptContext = newContext
+		s.DismissedIDs = nil
+	} else {
+		// Auto-dismiss: findings in reviewed hunks that were not re-reported are considered addressed.
+		newFindingIDSet := make(map[string]struct{}, len(newFindings))
+		for _, f := range newFindings {
+			if f.ID != "" {
+				newFindingIDSet[f.ID] = struct{}{}
+			}
+		}
+		addressed := addressedFindingIDs(part.ToReview, s.Findings, newFindingIDSet)
+		dismissedSet := make(map[string]struct{}, len(s.DismissedIDs))
+		for _, id := range s.DismissedIDs {
 			dismissedSet[id] = struct{}{}
-			s.DismissedIDs = append(s.DismissedIDs, id)
 		}
+		for _, id := range addressed {
+			if _, ok := dismissedSet[id]; !ok {
+				dismissedSet[id] = struct{}{}
+				s.DismissedIDs = append(s.DismissedIDs, id)
+			}
+		}
+		if len(addressed) > 0 {
+			dismissals := make([]history.Dismissal, len(addressed))
+			for i, id := range addressed {
+				dismissals[i] = history.Dismissal{FindingID: id, Reason: history.ReasonAlreadyCorrect}
+			}
+			diffRef := headSHA
+			if diffRef == "" {
+				diffRef = s.BaselineRef
+			}
+			rec := history.Record{
+				DiffRef:      diffRef,
+				ReviewOutput: s.Findings,
+				UserAction: history.UserAction{
+					DismissedIDs: addressed,
+					Dismissals:   dismissals,
+				},
+			}
+			if err := history.Append(opts.StateDir, rec, history.DefaultMaxRecords); err != nil {
+				return erruser.New("Could not record review history.", err)
+			}
+		}
+		s.Findings = append(s.Findings, newFindings...)
 	}
-	if len(addressed) > 0 {
-		dismissals := make([]history.Dismissal, len(addressed))
-		for i, id := range addressed {
-			dismissals[i] = history.Dismissal{FindingID: id, Reason: history.ReasonAlreadyCorrect}
-		}
-		diffRef := headSHA
-		if diffRef == "" {
-			diffRef = s.BaselineRef
-		}
-		rec := history.Record{
-			DiffRef:      diffRef,
-			ReviewOutput: s.Findings,
-			UserAction: history.UserAction{
-				DismissedIDs: addressed,
-				Dismissals:   dismissals,
-			},
-		}
-		if err := history.Append(opts.StateDir, rec, history.DefaultMaxRecords); err != nil {
-			return erruser.New("Could not record review history.", err)
-		}
-	}
-	s.Findings = append(s.Findings, newFindings...)
+
 	s.LastReviewedAt = headSHA
 	if err := session.Save(opts.StateDir, &s); err != nil {
 		return err

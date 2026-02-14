@@ -94,6 +94,7 @@ The default install directory is `~/.local/bin` (Mac/Linux) or `%USERPROFILE%\.l
 | `stet doctor` | Verify Ollama, Git, models |
 | `stet start [ref]` | Start review from baseline |
 | `stet run` | Re-run incremental review |
+| `stet rerun` | Re-run full review (all hunks) with same or overridden parameters; use `--replace` to overwrite previous findings; requires an active session |
 | `stet finish` | Persist state, clean up; writes session note to `refs/notes/stet` for impact analytics |
 | `stet status` | Show session status |
 | `stet list` | List active findings with IDs (for use with dismiss) |
