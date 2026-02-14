@@ -78,7 +78,7 @@ flowchart TB
   - `session.AcquireLock(stateDir)` so only one start/run at a time.
   - `ref` defaults to `"HEAD"`; resolve to SHA via `git.RevParse`.
 - **Early exit:** If `sha == headSHA` (baseline is HEAD), no worktree is created and no Ollama call is made. Session is saved with `LastReviewedAt = headSHA` and the function returns.
-- **Ollama check:** Unless dry-run, `ollama.Client.Check(ctx, model)` is called so a wrong URL or missing model fails before creating the worktree.
+- **Ollama check:** Unless dry-run, `ollama.Client.Check(ctx, model)` is called so a wrong URL or missing model fails before creating the worktree. Then `client.Show(ctx, model)` is called to obtain the model's context length from Ollama `POST /api/show`; effective `num_ctx` and context limit for the run are set to the max of config and model value.
 - **Worktree:** `git.Create(repoRoot, worktreeRoot, ref)`; on any subsequent error in `Start`, a `defer` removes this worktree.
 - **Session:** `session.Save(stateDir, &s)` with `BaselineRef = sha`, `LastReviewedAt = ""`, `DismissedIDs = nil`.
 - **Partition:** `scope.Partition(ctx, repoRoot, sha, headSHA, "", nil)` — first run: empty `lastReviewedAt`, so all current hunks go to ToReview.
@@ -197,7 +197,7 @@ For each hunk in `part.ToReview`, the following steps run in order. Code lives i
 
 ### 7.8 LLM call
 
-- **Ollama:** `client.Generate(ctx, model, system, user, genOpts)`. On malformed JSON response, the generate call is retried once; on second parse failure an error is returned.
+- **Ollama:** `client.Generate(ctx, model, system, user, genOpts)`. The `genOpts.NumCtx` and the `contextLimit` passed to `ReviewHunk` may have been upgraded from config using the model's reported context (see §3.1). On malformed JSON response, the generate call is retried once; on second parse failure an error is returned.
 
 ### 7.9 Parse and assign IDs
 

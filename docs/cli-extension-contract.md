@@ -115,7 +115,7 @@ For optimizing toward **actionable findings**, see [Review quality and actionabi
 | `state_dir` / `STET_STATE_DIR` | (empty → `.review` in repo) | Directory for session, lock, history, optimized prompt. |
 | `worktree_root` / `STET_WORKTREE_ROOT` | (empty → `repo/.review/worktrees`) | Directory for stet worktrees. |
 | `temperature` / `STET_TEMPERATURE` | 0.2 | Sampling temperature (0–2). Passed to Ollama. |
-| `num_ctx` / `STET_NUM_CTX` | 32768 | Model context window size (tokens). Passed to Ollama; 0 = use model default. |
+| `num_ctx` / `STET_NUM_CTX` | 32768 | Model context window size (tokens). Used as a **minimum**; if the Ollama model reports a larger context (via `POST /api/show`), stet uses that value for the run. Passed to Ollama; 0 = use model default. |
 | `optimizer_script` / `STET_OPTIMIZER_SCRIPT` | (none) | Command for `stet optimize` (e.g. `python3 scripts/optimize.py`). |
 | `rag_symbol_max_definitions` / `STET_RAG_SYMBOL_MAX_DEFINITIONS` | 10 | Max symbol definitions to inject (0 = disable). |
 | `rag_symbol_max_tokens` / `STET_RAG_SYMBOL_MAX_TOKENS` | 0 | Max tokens for symbol-definitions block (0 = no cap). |
@@ -126,6 +126,10 @@ The + presets (strict+, default+, lenient+) show more findings by not filtering 
 RAG symbol options can also be set via **`--rag-symbol-max-definitions`** and **`--rag-symbol-max-tokens`** on `stet start` and `stet run`; when set, they override config and env. Strictness can also be set via **`--strictness`** on `stet start` and `stet run`; when set, it overrides config and env.
 
 Strictness and RAG symbol options set on **`stet start`** are stored in the session. **`stet run`** uses those stored values when the corresponding flag is **not** set. Explicit flags on **`stet run`** override for that run only; the next run without flags again uses the session values from start.
+
+### Context window detection
+
+Before the review loop (and only when not dry-run), stet calls Ollama **`POST /api/show`** with the configured model name. From the response, it reads the model's context size (e.g. from `model_info` fields like `*.context_length`, or from the `parameters` text). The context used for the run is **`max(configured num_ctx, model context)`**. The same value is used for token warnings and for hunk expansion. If the request fails or no context length is found, stet uses only the configured `num_ctx` and `context_limit`.
 
 ## Working directory
 

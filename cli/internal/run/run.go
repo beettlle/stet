@@ -436,6 +436,24 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("%d hunks to review", total)})
 	}
 
+	effectiveNumCtx := opts.NumCtx
+	effectiveContextLimit := opts.ContextLimit
+	if ollamaClient != nil {
+		showResult, showErr := ollamaClient.Show(ctx, opts.Model)
+		if showErr == nil && showResult != nil && showResult.ContextLength > 0 {
+			if showResult.ContextLength > effectiveNumCtx {
+				effectiveNumCtx = showResult.ContextLength
+			}
+			if effectiveNumCtx > effectiveContextLimit {
+				effectiveContextLimit = effectiveNumCtx
+			}
+			if tr.Enabled() && effectiveNumCtx > opts.NumCtx {
+				tr.Section("Context")
+				tr.Printf("using model context %d (config num_ctx=%d)\n", effectiveNumCtx, opts.NumCtx)
+			}
+		}
+	}
+
 	if opts.DryRun {
 		for i, hunk := range part.ToReview {
 			if opts.StreamOut != nil {
@@ -465,7 +483,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		}
 		userIntent := &prompt.UserIntent{Branch: branch, CommitMsg: commitMsg}
 		// Token estimation: warn once if any hunk's prompt would exceed context threshold (Phase 3.2).
-		if opts.ContextLimit > 0 && opts.WarnThreshold > 0 {
+		if effectiveContextLimit > 0 && opts.WarnThreshold > 0 {
 			systemPrompt, err := prompt.SystemPrompt(opts.StateDir)
 			if err != nil {
 				return err
@@ -482,11 +500,11 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 					maxPromptTokens = n
 				}
 			}
-			if w := tokens.WarnIfOver(maxPromptTokens, tokens.DefaultResponseReserve, opts.ContextLimit, opts.WarnThreshold); w != "" {
+			if w := tokens.WarnIfOver(maxPromptTokens, tokens.DefaultResponseReserve, effectiveContextLimit, opts.WarnThreshold); w != "" {
 				fmt.Fprintln(os.Stderr, w)
 			}
 		}
-		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: opts.NumCtx}
+		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: effectiveNumCtx}
 		rulesLoader := rules.NewLoader(opts.RepoRoot)
 		for i, hunk := range part.ToReview {
 			if opts.StreamOut != nil {
@@ -500,7 +518,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 				tr.Printf("strict_id=%s semantic_id=%s\n", hunkid.StrictHunkID(hunk.FilePath, hunk.RawContent), hunkid.SemanticHunkID(hunk.FilePath, hunk.RawContent))
 			}
 			cursorRules := rulesLoader.RulesForFile(hunk.FilePath)
-			list, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, opts.ContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, runPromptShadows(&s), opts.Nitpicky, tr)
+			list, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, effectiveContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, runPromptShadows(&s), opts.Nitpicky, tr)
 			if err != nil {
 				return erruser.New("Review failed for "+hunk.FilePath+".", err)
 			}
@@ -786,13 +804,28 @@ func Run(ctx context.Context, opts RunOptions) error {
 		if _, err := client.Check(ctx, opts.Model); err != nil {
 			return err
 		}
+		effectiveNumCtx := opts.NumCtx
+		effectiveContextLimit := opts.ContextLimit
+		showResult, showErr := client.Show(ctx, opts.Model)
+		if showErr == nil && showResult != nil && showResult.ContextLength > 0 {
+			if showResult.ContextLength > effectiveNumCtx {
+				effectiveNumCtx = showResult.ContextLength
+			}
+			if effectiveNumCtx > effectiveContextLimit {
+				effectiveContextLimit = effectiveNumCtx
+			}
+			if trRun.Enabled() && effectiveNumCtx > opts.NumCtx {
+				trRun.Section("Context")
+				trRun.Printf("using model context %d (config num_ctx=%d)\n", effectiveNumCtx, opts.NumCtx)
+			}
+		}
 		branch, commitMsg, intentErr := git.UserIntent(opts.RepoRoot)
 		if intentErr != nil {
 			fmt.Fprintf(os.Stderr, "Warning: could not retrieve Git intent (branch/commit): %v; using placeholder\n", intentErr)
 		}
 		userIntent := &prompt.UserIntent{Branch: branch, CommitMsg: commitMsg}
 		// Token estimation: warn once if any hunk's prompt would exceed context threshold (Phase 3.2).
-		if opts.ContextLimit > 0 && opts.WarnThreshold > 0 {
+		if effectiveContextLimit > 0 && opts.WarnThreshold > 0 {
 			systemPrompt, err := prompt.SystemPrompt(opts.StateDir)
 			if err != nil {
 				return err
@@ -809,11 +842,11 @@ func Run(ctx context.Context, opts RunOptions) error {
 					maxPromptTokens = n
 				}
 			}
-			if w := tokens.WarnIfOver(maxPromptTokens, tokens.DefaultResponseReserve, opts.ContextLimit, opts.WarnThreshold); w != "" {
+			if w := tokens.WarnIfOver(maxPromptTokens, tokens.DefaultResponseReserve, effectiveContextLimit, opts.WarnThreshold); w != "" {
 				fmt.Fprintln(os.Stderr, w)
 			}
 		}
-		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: opts.NumCtx}
+		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: effectiveNumCtx}
 		rulesLoader := rules.NewLoader(opts.RepoRoot)
 		for i, hunk := range part.ToReview {
 			if opts.StreamOut != nil {
@@ -827,7 +860,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 				trRun.Printf("strict_id=%s semantic_id=%s\n", hunkid.StrictHunkID(hunk.FilePath, hunk.RawContent), hunkid.SemanticHunkID(hunk.FilePath, hunk.RawContent))
 			}
 			cursorRules := rulesLoader.RulesForFile(hunk.FilePath)
-			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, opts.ContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, runPromptShadows(&s), opts.Nitpicky, trRun)
+			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, effectiveContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, runPromptShadows(&s), opts.Nitpicky, trRun)
 			if err != nil {
 				return erruser.New("Review failed for "+hunk.FilePath+".", err)
 			}
