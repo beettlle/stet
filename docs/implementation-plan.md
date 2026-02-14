@@ -39,6 +39,7 @@ These are the source of truth for a coding LLM implementing the project.
 | **Phase 6** | Defect-Focused Pipeline: CoT prompts, Git intent, abstention filter, hunk expansion (tree-sitter), FP kill list; then CursorRules, streaming, prompt shadowing, DSPy, docs. |
 | **Phase 7** | User-facing error messages: audit and rewrite so every error shown to the user is human-readable and actionable; no raw command names or exit codes in the primary message. |
 | **Phase 8** | Release readiness: MIT license, installation story, user-first README. |
+| **Phase 9** | Impact reporting: stet stats for volume, quality, cost/energy; extended git note schema; optional git-ai integration. |
 
 ```mermaid
 flowchart LR
@@ -50,6 +51,7 @@ flowchart LR
   P5 --> P6[Phase_6_DefectFocused]
   P6 --> P7[Phase_7_ErrorMessages]
   P7 --> P8[Phase_8_Release]
+  P8 --> P9[Phase_9_ImpactReporting]
 ```
 
 ---
@@ -222,6 +224,73 @@ Phase 6 replaces the generic "RAG-lite" placeholder with the research-backed Def
 
 ---
 
+### Phase 9: Impact Reporting
+
+**Goal:** Enable users to report on Stet usage (volume), review quality (actionability, dismissals), and resource efficiency (local energy, avoided cloud cost). Mirrors git-ai's approach for AI-generated code but for AI-reviewed code.
+
+**Commit–session mapping:** Option A — all commits in `baseline..HEAD` are treated as Stet-reviewed when HEAD has a Stet note (for aggregation across a date/ref range).
+
+**Command:** `stet stats` (not `stet report`).
+
+#### Sub-phase 9.1: Ollama usage capture
+
+| Deliverable | Tests / coverage |
+|-------------|------------------|
+| Extend `cli/internal/ollama/client.go` `generateResponse` to parse `prompt_eval_count`, `eval_count`, `prompt_eval_duration`, `eval_duration` from Ollama `/api/generate` response. Add `Usage` struct; change `Generate` to return `(string, *Usage, error)` or add `GenerateWithUsage`. | Unit test: mock API response with usage fields → parsed correctly. 77% project, no file &lt; 72%. |
+| Wire call sites in `cli/internal/review/review.go` and `cli/internal/run/run.go` to receive and accumulate usage per run. | Integration test: dry-run path unchanged; with real Ollama (optional) accumulation works. 77% project, no file &lt; 72%. |
+
+#### Sub-phase 9.2: Diff scope and character counts
+
+| Deliverable | Tests / coverage |
+|-------------|------------------|
+| Add `CountHunkScope(hunks []diff.Hunk) (linesAdded, linesRemoved, charsAdded, charsDeleted, charsReviewed int)` in `cli/internal/diff` or a new `cli/internal/stats` package. Parse `RawContent`: lines starting with `+` (excl. `+++`), `-` (excl. `---`); chars = `len(line)`; `chars_reviewed` = sum of `len(RawContent)` per hunk. | Unit test: fixture hunk content → expected line and char counts. 77% project, no file &lt; 72%. |
+| In `cli/internal/run/run.go` `Finish`, compute scope via `diff.Hunks(ctx, repoRoot, baselineSHA, headSHA, nil)` and `CountHunkScope`. Store in session or compute at finish. | Integration test: finish after run → note contains scope fields. 77% project, no file &lt; 72%. |
+
+#### Sub-phase 9.3: Extended git note schema
+
+| Deliverable | Tests / coverage |
+|-------------|------------------|
+| Extend the git note payload in `Finish` with: `hunks_reviewed`, `lines_added`, `lines_removed`, `chars_added`, `chars_deleted`, `chars_reviewed`, `model`, `prompt_tokens`, `completion_tokens`, `eval_duration_ns`. All new fields optional (zero when not available). | Integration test: finish → read note, assert new fields present and valid. 77% project, no file &lt; 72%. |
+| Add `STET_CAPTURE_USAGE` env (default `true`). When `false`, do not capture tokens/duration; omit usage fields from note. | Unit test: env false → no usage in note. 77% project, no file &lt; 72%. |
+| Update [cli-extension-contract.md](cli-extension-contract.md) Git note table with new fields. | Doc review. |
+
+#### Sub-phase 9.4: History schema extension (optional)
+
+| Deliverable | Tests / coverage |
+|-------------|------------------|
+| Extend `cli/internal/history/schema.go` `Record` with optional `Usage` (prompt_tokens, completion_tokens, duration_ns, model) and pass from run when available. | Unit test: serialize/deserialize with and without usage. 77% project, no file &lt; 72%. |
+
+#### Sub-phase 9.5: `stet stats volume`
+
+| Deliverable | Tests / coverage |
+|-------------|------------------|
+| New command `stet stats volume [--since=ref] [--until=ref]`. Walk `git log` for ref range (default last 30 days or `main..HEAD`). For each commit, check for `refs/notes/stet`; sum `hunks_reviewed`, `lines_added`, `lines_removed`, etc. Option A: commits in `baseline..HEAD` of a note are Stet-reviewed. Output: sessions count, total hunks/lines/chars reviewed, % commits with Stet note. | Unit test: mock notes; integration test: run on fixture repo with notes. 77% project, no file &lt; 72%. |
+| Output format: human-readable table + optional `--format=json`. | Parse test. 77% project, no file &lt; 72%. |
+
+#### Sub-phase 9.6: `stet stats quality`
+
+| Deliverable | Tests / coverage |
+|-------------|------------------|
+| Read `.review/history.jsonl`; aggregate: total findings, total dismissed, per-reason breakdown. Compute: **Dismissal rate** = dismissed/findings; **Acceptance rate** = (findings - dismissed)/findings; **False positive rate** = dismissals with reason `false_positive` / findings; **Actionability** = already_correct / dismissed; **Clean commit rate** = sessions with 0 findings / total sessions; **Finding density** = findings / (tokens_reviewed/1000) when tokens available. **Category breakdown** from findings. | Unit test: fixture history.jsonl → expected metrics. Implements efficacy test A2. 77% project, no file &lt; 72%. |
+| Document metric definitions in plan appendix. | Doc review. |
+
+#### Sub-phase 9.7: `stet stats energy`
+
+| Deliverable | Tests / coverage |
+|-------------|------------------|
+| `stet stats energy [--watts=30] [--cloud-model=NAME] [--cloud-model=NAME:in_per_million:out_per_million]`. Sum `eval_duration_ns` and `prompt_tokens`/`completion_tokens` from notes (or history). **Local energy:** `(sum_duration_sec / 3600) * (watts / 1000)` = kWh. **Cloud cost avoided:** `(prompt_tokens/1e6 * price_in) + (completion_tokens/1e6 * price_out)`. Built-in presets (e.g. `claude-sonnet`, `gpt-4o-mini`); custom via `NAME:3:15` (per-million). | Unit test: mock note data → correct kWh and cost. 77% project, no file &lt; 72%. |
+| Document caveats: estimate only; model equivalence heuristic; local cost excludes electricity. | Doc review. |
+
+#### Sub-phase 9.8: Optional git-ai integration
+
+| Deliverable | Tests / coverage |
+|-------------|------------------|
+| When `refs/notes/ai` exists (`git rev-parse refs/notes/ai` succeeds), optionally include git-ai metrics in `stet stats` output (e.g. AI-authored lines in same ref range). Parse git-ai note format (attestation + metadata) per Git AI Standard v3.0.0. Feature gated: `--with-git-ai` or auto-detect. | Integration test: skip if no git-ai; optional test with fixture. 77% project, no file &lt; 72%. |
+
+**Phase 9 exit:** Git note contains scope and usage fields; `stet stats volume`, `quality`, `energy` work; metric definitions documented; git-ai integration optional.
+
+---
+
 ## 4. Coverage and quality rules
 
 - **77%** = line coverage for the **entire project**.
@@ -256,6 +325,18 @@ To ensure Phase 5 (Extension UI) and Phase 6 (Defect-Focused logic) integrate sm
 | **`category`** | string | **NEW (Phase 4.5).** Enum: `security`, `correctness`, `performance`, `maintainability`, `best_practice`. |
 
 Optional: `suggestion`, `cursor_uri`. Existing categories (e.g. bug, style) may be retained or mapped to the canonical five for backward compatibility.
+
+---
+
+## Appendix: Impact reporting metric definitions (Phase 9)
+
+Canonical definitions for `stet stats` output:
+
+**Volume:** `hunks_reviewed`, `lines_added`, `lines_removed`, `chars_added`, `chars_deleted`, `chars_reviewed`; % commits reviewed; % hunks reviewed (denominator: all in range).
+
+**Quality:** **Dismissal rate** = dismissed / findings; **Acceptance rate** = (findings - dismissed) / findings; **False positive rate** = dismissals with reason `false_positive` / findings; **Actionability** = already_correct / dismissed; **Clean commit rate** = sessions with 0 findings / total sessions; **Finding density** = findings / (tokens_reviewed/1000) when tokens available; **Category breakdown** from findings.
+
+**Savings:** **Local energy (kWh)** = (sum eval_duration_sec / 3600) × (watts / 1000); **Cloud cost avoided ($)** = (prompt_tokens/1e6 × price_in) + (completion_tokens/1e6 × price_out). Caveats: estimate only; model equivalence heuristic; local cost excludes electricity.
 
 ---
 

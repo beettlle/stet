@@ -50,6 +50,10 @@
 
 "The static analyzer found a 'cognitive complexity' error on line 45. Explain this to the user and refactor the code to fix it."
 
+### Impact Reporting
+
+`stet stats` for volume (Stet-reviewed vs not), quality (actionability, FP rate, clean commits), and cost/energy (local kWh, avoided cloud spend). See implementation plan Phase 9.
+
 ---
 
 ## Phase 9: The "Adaptive" Release (Personalization)

@@ -176,8 +176,22 @@ On **`stet finish`**, the CLI writes a Git note to **`refs/notes/stet`** at the 
 | `dismissals_count` | number | Number of dismissed finding IDs. |
 | `tool_version` | string | Stet CLI version (e.g. `dev` or set at build via `-ldflags`). |
 | `finished_at` | string | When the session finished (RFC3339 UTC). |
+| `hunks_reviewed` | number | (optional) Number of hunks reviewed. Zero when not available. |
+| `lines_added` | number | (optional) Lines added in reviewed diff. Zero when not available. |
+| `lines_removed` | number | (optional) Lines removed in reviewed diff. Zero when not available. |
+| `chars_added` | number | (optional) Characters added. Zero when not available. |
+| `chars_deleted` | number | (optional) Characters deleted. Zero when not available. |
+| `chars_reviewed` | number | (optional) Total characters in hunks reviewed. Zero when not available. |
+| `model` | string | (optional) Model name used. Omitted when not available. |
+| `prompt_tokens` | number | (optional) Prompt token count. Omitted when `STET_CAPTURE_USAGE=false`. |
+| `completion_tokens` | number | (optional) Completion token count. Omitted when `STET_CAPTURE_USAGE=false`. |
+| `eval_duration_ns` | number | (optional) Evaluation duration in nanoseconds. Omitted when `STET_CAPTURE_USAGE=false`. |
 
 You can push or fetch this ref (e.g. `git push origin refs/notes/stet`, `git fetch origin refs/notes/stet:refs/notes/stet`) for integration with git-ai or impact analytics. If you run `stet finish` again at the same HEAD, the existing note is overwritten.
+
+### Impact reporting
+
+Use `stet stats` to aggregate metrics from notes and history. See implementation plan Phase 9.
 
 ## Review quality and actionability
 

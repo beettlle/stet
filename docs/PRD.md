@@ -43,6 +43,7 @@ Start a **new project** rather than fork or extend RoboRev, because scope and de
 - **CLI:** for automation and headless use (start, run, finish, status, dismiss).
 - **git-ai integration:** From v1, record completed review sessions so impact can be quantified (e.g. on "Finish review," attach a Git Note under a dedicated ref such as `refs/notes/stet` with session metadata for correlation with git-ai authorship data).
 - **Actionable findings:** Findings should be actionable: the developer can apply the suggestion or fix the issue without reverting correct behavior. Dismissals and "not actionable" feedback are recorded and used (history, prompt shadowing, optimizer) to reduce false positives and improve future reviews.
+- **Impact reporting:** `stet stats` for volume, quality, and cost/energy (implementation plan Phase 9).
 
 The product targets a **32K token context window** as its design baseline so the tool runs reliably on typical development machines (e.g. MacBook Pro). The configurable context limit defaults to 32768; token budgeting and warnings are based on this target unless the user changes it.
 

@@ -125,6 +125,8 @@ Each automated test is specified so a coding LLM can implement it. Run all comma
 
 **Pass/fail**: Report-only.
 
+The `stet stats quality` command implements this; use it for ongoing tracking.
+
 ---
 
 ### A3: Latency and Throughput

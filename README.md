@@ -100,6 +100,7 @@ The default install directory is `~/.local/bin` (Mac/Linux) or `%USERPROFILE%\.l
 | `stet dismiss <id> [reason]` | Mark a finding as dismissed; optional reason: `false_positive`, `already_correct`, `wrong_suggestion`, `out_of_scope` |
 | `stet cleanup` | Remove orphan stet worktrees |
 | `stet optimize` | Run optional DSPy optimizer (history → optimized prompt) |
+| `stet stats [volume\|quality\|energy]` | Aggregate impact metrics from notes and history |
 | `stet --version` | Print installed version |
 
 ## Useful flags

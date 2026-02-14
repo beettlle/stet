@@ -254,7 +254,7 @@ So "fix and re-run" causes the old finding to disappear from the active list wit
   2. Acquire session lock.
   3. Resolve worktree path with `git.PathForRef(repoRoot, opts.WorktreeRoot, s.BaselineRef)`; if the directory exists, `git.Remove(repoRoot, path)`.
   4. Resolve HEAD and baseline SHAs. If there are findings, append a `history.Record` with `UserAction.DismissedIDs = s.DismissedIDs` and `FinishedAt` to `stateDir/history.jsonl`.
-  5. Write a git note on HEAD (ref `refs/notes/stet`) with a JSON payload: session_id, baseline_sha, head_sha, findings_count, dismissals_count, tool_version, finished_at.
+  5. Write a git note on HEAD (ref `refs/notes/stet`) with a JSON payload: session_id, baseline_sha, head_sha, findings_count, dismissals_count, tool_version, finished_at, plus optional scope and usage fields (hunks_reviewed, lines_added, lines_removed, chars_*, model, prompt_tokens, completion_tokens, eval_duration_ns). See [cli-extension-contract.md](cli-extension-contract.md) for the full schema.
   6. Release lock.
 
 **Note:** The session file is **not** deleted; only the worktree is removed. Baseline, last_reviewed_at, findings, and dismissed state remain on disk for future runs or inspection.
@@ -333,6 +333,7 @@ Panel state is driven by the stream (start) and clear (finish); the extension do
 | Extension commands + stream | [extension/src/extension.ts](extension/src/extension.ts), [cli.ts](extension/src/cli.ts), [parse.ts](extension/src/parse.ts) | startReview (stream), spawnStet, spawnStetStream, parseStreamEvent |
 | Findings panel | [extension/src/findingsPanel.ts](extension/src/findingsPanel.ts) | FindingsTreeDataProvider, setFindings, setScanning |
 | Finish from extension | [extension/src/finishReview.ts](extension/src/finishReview.ts) | runFinishReview, spawnStet finish, provider.clear |
+| Stats / impact reporting | (Phase 9: `cli/internal/stats` or similar) | `stet stats volume`, `quality`, `energy`; aggregate from notes and history |
 
 ---
 
