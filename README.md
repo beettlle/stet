@@ -24,6 +24,19 @@ Local code review, powered by your machine. No cloud. No API keys. No data leave
 2. Install stet (see Installation).
 3. From your repo root: `stet doctor` then `stet start`.
 
+## Example workflow
+
+A typical review cycle on a branch with new commits:
+
+1. **Check environment** — Run `stet doctor` to verify Ollama and the model (optional but recommended once).
+2. **Start the review** — Run `stet start` or `stet start HEAD~3` to review the last 3 commits; wait for the run to complete.
+3. **Inspect findings** — Use `stet status` or `stet list` to see findings and IDs. In the Cursor extension, use the findings panel and “Copy for chat.”
+4. **Triage** — Run `stet dismiss <id>` or `stet dismiss <id> false_positive` for findings you want to ignore; fix code as needed.
+5. **Re-review** — Run `stet run` to re-review only changed hunks. Findings that the model no longer reports (e.g. because you fixed the code) are **automatically dismissed**, so the active list shrinks as issues are fixed—no need to manually dismiss each one.
+6. **Finish** — When done, run `stet finish` to persist state and remove the review worktree.
+
+You can also run start, run, and finish from the Cursor extension.
+
 ## Installation
 
 ### Install Ollama
@@ -82,6 +95,11 @@ The default install directory is `~/.local/bin` (Mac/Linux) or `%USERPROFILE%\.l
 | `stet run` | Re-run incremental review |
 | `stet finish` | Persist state, clean up |
 | `stet status` | Show session status |
+| `stet list` | List active findings with IDs (for use with dismiss) |
+| `stet dismiss <id> [reason]` | Mark a finding as dismissed so it does not resurface |
+| `stet cleanup` | Remove orphan stet worktrees |
+| `stet optimize` | Run optional DSPy optimizer (history → optimized prompt) |
+| `stet --version` | Print installed version |
 
 ## Cursor Extension
 
