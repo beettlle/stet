@@ -33,7 +33,7 @@ These are the source of truth for a coding LLM implementing the project.
 | **Phase 1** | CLI state and worktree: session, worktree create/remove, `stet start` / `stet finish` skeleton, `stet doctor` stub. |
 | **Phase 2** | Diff and hunk identity: diff pipeline, dual-pass hashing, "already reviewed" set; no LLM. |
 | **Phase 3** | Ollama and first full review: client, token estimation, prompt + structured output, wire `stet start` / `stet run`, dry-run. **First dogfood milestone.** |
-| **Phase 4** | CLI completeness: status, approve, edge cases, git note on finish. |
+| **Phase 4** | CLI completeness: status, dismiss, edge cases, git note on finish. |
 | **Phase 4.5** | Schema & contract: confidence and category on Finding; dry-run emits new shape; unblocks Extension UI. |
 | **Phase 5** | Extension: spawn CLI, panel, jump to file:line, copy-for-chat, Finish button. |
 | **Phase 6** | Defect-Focused Pipeline: CoT prompts, Git intent, abstention filter, hunk expansion (tree-sitter), FP kill list; then CursorRules, streaming, prompt shadowing, DSPy, docs. |
@@ -112,7 +112,7 @@ flowchart LR
 
 | Sub-phase | Deliverable | Tests / coverage |
 |-----------|-------------|------------------|
-| **4.1** | `stet status`: report baseline, last_reviewed_at, worktree path, finding count, dismissed count. `stet approve <id>`: add finding ID to approved/dismissed so it does not resurface. **`stet optimize`:** Invoke optional Python optimizer (script or container). Reads `.review/history.jsonl`; runs DSPy optimization; writes `.review/system_prompt_optimized.txt`. Document usage (e.g. run weekly or after enough feedback). Exit codes: 0 = success, non-zero = failure (e.g. missing Python/DSPy, invalid history). No change to core Go binary dependencies. | Unit/integration tests for status output and approve persistence. 77% project, no file &lt; 72%. |
+| **4.1** | `stet status`: report baseline, last_reviewed_at, worktree path, finding count, dismissed count. `stet dismiss <id>`: add finding ID to approved/dismissed so it does not resurface. **`stet optimize`:** Invoke optional Python optimizer (script or container). Reads `.review/history.jsonl`; runs DSPy optimization; writes `.review/system_prompt_optimized.txt`. Document usage (e.g. run weekly or after enough feedback). Exit codes: 0 = success, non-zero = failure (e.g. missing Python/DSPy, invalid history). No change to core Go binary dependencies. | Unit/integration tests for status output and dismiss persistence. 77% project, no file &lt; 72%. |
 | **4.2** | Edge cases: uncommitted changes on start (error or warn + override); baseline not ancestor; empty diff; worktree already exists; concurrent start (lock). Clear user-facing messages per PRD error table. **Recovery hints:** On `stet start` failure for uncommitted changes or worktree already exists, the CLI prints a one-line hint to stderr (e.g. commit/stash or run `stet finish`) before exiting. | Tests for each edge case; assert messages. 77% project, no file &lt; 72%. |
 | **4.3** | Git note on finish: on `stet finish`, write Git Note to `refs/notes/stet` at HEAD (session_id, baseline_sha, head_sha, findings_count, dismissals_count, tool_version, finished_at). Document ref and schema. | Integration test: finish → read note, assert schema. 77% project, no file &lt; 72%. |
 | **4.4** | Prompt shadowing: deferred to Phase 6. Optionally stub: store finding_id in dismissed list only; no prompt_shadows yet. | N/A or minimal tests for dismiss list. |

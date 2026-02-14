@@ -137,7 +137,7 @@ To ensure stability across trivial edits (formatting, comments) while maintainin
 -   **Ollama Health Checks:**
     -   **Startup Check:** `stet doctor` or automatic check on start.
     -   **Verifies:** Ollama running? Model pulled? Model **runtime settings** (temperature, context size) are applied by Stet when calling the API (Stet passes them in each request; no requirement to configure these in the Modelfile).
-    -   **Action:** Suggests `ollama pull qwen2.5-coder:32b` or config fixes if the model is missing.
+    -   **Action:** Suggests `ollama pull <model>` (default qwen3-coder:30b; for lighter hardware, qwen2.5-coder:32b) or config fixes if the model is missing.
 -   **Review actionability:** A finding is **actionable** if the reported issue is real (not already fixed or by design), the suggestion is correct and safe, and the change is within project scope. The system learns from dismissals and from explicit "not actionable" reasons (see history schema in implementation plan Phase 4.6) so that prompt shadowing and the DSPy optimizer can reduce non-actionable findings.
 
 ---
@@ -149,6 +149,22 @@ To ensure stability across trivial edits (formatting, comments) while maintainin
     -   **Symbol Lookup:** If a hunk modifies a function call `ProcessData(x)`, simple grep/ctags-style lookup finds the definition of `ProcessData` in the codebase.
     -   **Injection:** The definition signature (and docstring) is injected into the prompt alongside the hunk.
     -   **Limit:** Bounded to N symbols per hunk to fit context window.
+
+---
+
+## 3h. Review Quality Optimizer (DSPy)
+
+To continuously improve review quality and reduce false positives without manual prompt engineering, Stet will include an **Optimizer** module powered by [DSPy](https://github.com/stanfordnlp/dspy).
+
+-   **Goal:** Automatically tune the system prompt and few-shot examples based on the team's feedback (dismissals vs. approvals).
+-   **Mechanism:**
+    -   **Data Collection:** The tool silently accumulates a dataset of `(Diff, Review, UserAction)` tuples in `.review/history.jsonl`. The format is designed so that a future phase may support periodic upload or export of history for org-wide learning (architecture TBD).
+    -   **Optimization Loop:** A sidecar process (run weekly or on-demand via `stet optimize`) uses DSPy to:
+        1.  Load the history as a training set.
+        2.  Define a metric: maximize acceptance rate, minimize dismissal rate.
+        3.  Compile a new system prompt that effectively "learns" the project's specific style and tolerance for nits.
+-   **Output:** Generates a `system_prompt_optimized.txt` which the main CLI loads if present, replacing the default prompt.
+-   **Integration:** The core tool remains a static Go binary; the Optimizer is a Python script (or container) invoked optionally. This keeps the runtime lightweight while allowing for advanced AI capability.
 
 ---
 
@@ -234,19 +250,8 @@ FinishReview --> RemoveWorktree[Remove worktree]
 | FR-6 | CLI: start, run (incremental), finish, status, dismiss, doctor | All from repo root (main worktree) |
 | FR-7 | Emit structured findings (e.g. JSON/NDJSON): file, line or range, severity, message, finding id | For extension and scripting |
 | FR-8 | Extension: panel listing findings; jump to file:line; copy to chat; "Finish review" button | Minimal surface; no second window. Cursor deep links supported. |
-| FR-9 | When `.cursor/rules/` or `AGENTS.md` exist, optionally discover applicable## 3h. Review Quality Optimizer (DSPy)
-
-To continuously improve review quality and reduce false positives without manual prompt engineering, Stet will include an **Optimizer** module powered by [DSPy](https://github.com/stanfordnlp/dspy).
-
--   **Goal:** Automatically tune the system prompt and few-shot examples based on the team's feedback (dismissals vs. approvals).
--   **Mechanism:**
-    -   **Data Collection:** The tool silently accumulates a dataset of `(Diff, Review, UserAction)` tuples in `.review/history.jsonl`. The format is designed so that a future phase may support periodic upload or export of history for org-wide learning (architecture TBD).
-    -   **Optimization Loop:** A sidecar process (run weekly or on-demand via `stet optimize`) uses DSPy to:
-        1.  Load the history as a training set.
-        2.  Define a metric: maximize acceptance rate, minimize dismissal rate.
-        3.  Compile a new system prompt that effectively "learns" the project's specific style and tolerance for nits.
--   **Output:** Generates a `system_prompt_optimized.txt` which the main CLI loads if present, replacing the default prompt.
--   **Integration:** The core tool remains a static Go binary; the Optimizer is a Python script (or container) invoked optionally. This keeps the runtime lightweight while allowing for advanced AI capability. Estimate prompt (and optional response) token count before calling the model; report to user in CLI and extension; warn when above configurable context threshold. | Avoids silent truncation; configurable context limit and warn ratio. |
+| FR-9 | When `.cursor/rules/` or `AGENTS.md` exist, optionally discover applicable rules and inject as review constraints. | |
+| FR-10 | Estimate prompt (and optional response) token count before calling the model; report to user in CLI and extension; warn when above configurable context threshold. | Avoids silent truncation; configurable context limit and warn ratio. |
 | FR-11 | RAG-Lite Context: Inject definitions of symbols used in the hunk. | Simple lookup for v1 (grep/ctags). |
 | FR-12 | Prompt Shadowing: Save dismissed findings as negative examples for future prompts. | |
 

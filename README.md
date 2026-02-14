@@ -16,7 +16,7 @@ Local code review, powered by your machine. No cloud. No API keys. No data leave
 
 - [Git](https://git-scm.com/)
 - [Ollama](https://ollama.com) — install and run `ollama serve`
-- Suggested model: `ollama pull qwen2.5-coder:32b`
+- Suggested model: `ollama pull qwen2.5-coder:32b` (lighter; config default is qwen3-coder:30b)
 
 ## Quick Start
 
@@ -101,6 +101,11 @@ The default install directory is `~/.local/bin` (Mac/Linux) or `%USERPROFILE%\.l
 | `stet optimize` | Run optional DSPy optimizer (history → optimized prompt) |
 | `stet --version` | Print installed version |
 
+## Useful flags
+
+- **`--nitpicky`** — Report style, typos, and grammar (config: `nitpicky = true` or `STET_NITPICKY=1`).
+- **`--trace`** — Print internal steps to stderr for debugging (`stet start --trace` or `stet run --trace`).
+
 ## Cursor Extension
 
 Use Stet inside Cursor (or VSCode) to view findings in a panel, jump to locations, copy to chat, and run "Finish review." The extension runs the CLI and displays results. Load the `extension` folder as an extension development workspace or install from a VSIX.
@@ -110,6 +115,8 @@ Use Stet inside Cursor (or VSCode) to view findings in a panel, jump to location
 - [Product Requirements Document](docs/PRD.md)
 - [Implementation Plan](docs/implementation-plan.md)
 - [CLI–Extension Contract](docs/cli-extension-contract.md)
+- [Review Process Internals](docs/review-process-internals.md) — For contributors modifying the CLI.
+- [Review Quality](docs/review-quality.md) — Actionable findings and prompt guidance.
 
 ## License
 
