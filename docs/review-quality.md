@@ -12,6 +12,12 @@ A finding is **actionable** when the reported issue is real (not already fixed o
 - Prefer **fewer, high-confidence** findings over volume; avoid speculative or low-signal suggestions.
 - **Diff interpretation:** Any custom or optimized system prompt (e.g. from `stet optimize`) should preserve or replicate the default’s diff-interpretation rule: review the resulting code (the + side) and the change; do not report issues that exist only in the removed lines (-) and are already fixed by the added lines (+). This keeps actionability consistent.
 
+## Expected false-positive rate
+
+Industry benchmarks for AI code review tools typically cite false-positive rates in the **5–15%** range; precision-focused tools often achieve **5–8%**. Stet is designed for precision (actionable findings, abstention, FP kill list, prompt shadowing, optimizer). We aim for the lower end of that range; some false positives remain expected. Use dismiss reasons, the curated tables in this doc, and `stet optimize` to tune and reduce noise over time.
+
+Stet defaults to **precision** (fewer, actionable findings); **recall** can be increased when desired via strict/strict+ presets or nitpicky mode.
+
 ## Common false positives (examples)
 
 Examples from Stet self-review; keep this list brief and update as patterns emerge:
