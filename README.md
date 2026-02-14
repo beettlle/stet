@@ -37,32 +37,41 @@ ollama pull qwen2.5-coder:32b
 
 ### Install stet
 
-**From the repo (clone first):**
+**Option 1 — Install script (Mac/Linux, recommended)**  
+The script downloads the binary from [GitHub Releases](https://github.com/stet/stet/releases) for your OS and architecture, or builds from source if you run it from the repo or set `STET_REPO_URL`.
 
 ```bash
-git clone <repository-url>
+curl -sSL https://raw.githubusercontent.com/stet/stet/main/install.sh | bash
+```
+
+**Option 2 — Windows (PowerShell)**  
+You may need `-ExecutionPolicy Bypass` for the one-liner:
+
+```powershell
+irm https://raw.githubusercontent.com/stet/stet/main/install.ps1 | iex
+```
+
+**Option 3 — From source**  
+Clone the repo and run the install script (which will build and install), or build manually:
+
+```bash
+git clone https://github.com/stet/stet.git
 cd stet
 ./install.sh
 ```
 
-Ensure `~/.local/bin` is in your PATH.
+Or build only: `make build` then copy `bin/stet` to a directory in your PATH.
 
-**Build from source:**
-
-```bash
-make build
-./bin/stet
-```
-
-Or copy `bin/stet` to a directory in your PATH.
-
-**With Go:**
+**Option 4 — Go install**
 
 ```bash
-go install ./cli/cmd/stet
+go install github.com/stet/stet/cli/cmd/stet@latest
 ```
 
-(Use the full module path when the project is published.)
+(Use the repo’s module path once the project is published.)
+
+**PATH**  
+The default install directory is `~/.local/bin` (Mac/Linux) or `%USERPROFILE%\.local\bin` (Windows). Ensure it is in your PATH. For example, add to `~/.bashrc` or `~/.zshrc`: `export PATH="$HOME/.local/bin:$PATH"`.
 
 ## Commands
 

@@ -16,6 +16,7 @@ profile.cov
 
 # Build output
 bin/
+dist/
 
 # Extension (TypeScript)
 extension/out/

@@ -22,6 +22,7 @@ import (
 	"stet/cli/internal/ollama"
 	"stet/cli/internal/run"
 	"stet/cli/internal/session"
+	"stet/cli/internal/version"
 
 	_ "stet/cli/internal/rag/go"     // register Go resolver for RAG symbol lookup
 	_ "stet/cli/internal/rag/java"   // register Java resolver
@@ -145,6 +146,7 @@ func runCLI(args []string) int {
 	rootCmd := &cobra.Command{
 		Use:   "stet",
 		Short: "Local-first code review tool",
+		Version: version.Version,
 	}
 	rootCmd.AddCommand(newStartCmd())
 	rootCmd.AddCommand(newRunCmd())
