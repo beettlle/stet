@@ -40,6 +40,10 @@ func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir stri
 		traceOut.Section("System prompt")
 		traceOut.Printf("source=%s len=%d\n", prompt.SystemPromptSource(stateDir), len(system))
 	}
+	if traceOut != nil && traceOut.Enabled() {
+		traceOut.Section("Model")
+		traceOut.Printf("model=%s\n", model)
+	}
 	if userIntent != nil && (userIntent.Branch != "" || userIntent.CommitMsg != "") {
 		system = prompt.InjectUserIntent(system, userIntent.Branch, userIntent.CommitMsg)
 	}

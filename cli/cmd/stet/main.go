@@ -954,5 +954,6 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		return errExit(1)
 	}
 	fmt.Fprintln(os.Stdout, "Ollama OK")
+	fmt.Fprintf(os.Stdout, "Model: %s\n", cfg.Model)
 	return nil
 }

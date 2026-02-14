@@ -17,7 +17,7 @@ Local code review, powered by your machine. No cloud. No API keys. No data leave
 
 - [Git](https://git-scm.com/)
 - [Ollama](https://ollama.com) — install and run `ollama serve`
-- Suggested model: `ollama pull qwen2.5-coder:32b` (lighter; config default is qwen3-coder:30b)
+- Suggested model: `ollama pull qwen3-coder:30b`. You can use a different model via `.review/config.toml` or `STET_MODEL` (e.g. `qwen2.5-coder:32b` for a lighter option).
 
 ## Quick Start
 
@@ -46,7 +46,7 @@ Install [Ollama](https://ollama.com), then start the server and pull the suggest
 
 ```bash
 ollama serve
-ollama pull qwen2.5-coder:32b
+ollama pull qwen3-coder:30b
 ```
 
 ### Install stet

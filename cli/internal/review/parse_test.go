@@ -58,6 +58,40 @@ func TestParseFindingsResponse_emptyString_returnsError(t *testing.T) {
 	}
 }
 
+func TestParseFindingsResponse_singleObject(t *testing.T) {
+	// Some models return a single finding object instead of an array or {"findings": [...]}.
+	jsonStr := `{"file":".gitignore","line":119,"severity":"info","category":"style","confidence":0.95,"message":"Inconsistent indentation","suggestion":"Use consistent indentation throughout."}`
+	list, err := ParseFindingsResponse(jsonStr)
+	if err != nil {
+		t.Fatalf("ParseFindingsResponse: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("len(list) = %d, want 1", len(list))
+	}
+	f := list[0]
+	if f.File != ".gitignore" || f.Line != 119 || f.Message != "Inconsistent indentation" {
+		t.Errorf("finding: file=%q line=%d message=%q", f.File, f.Line, f.Message)
+	}
+	if f.Severity != findings.SeverityInfo || f.Category != findings.CategoryStyle {
+		t.Errorf("finding: severity=%q category=%q", f.Severity, f.Category)
+	}
+	if f.Suggestion != "Use consistent indentation throughout." {
+		t.Errorf("finding: suggestion=%q", f.Suggestion)
+	}
+}
+
+func TestParseFindingsResponse_singleObject_invalid_returnsEmpty(t *testing.T) {
+	// Single object that fails Validate (e.g. empty message) yields empty slice, no error.
+	jsonStr := `{"file":"a.go","line":1,"severity":"info","category":"style","message":""}`
+	list, err := ParseFindingsResponse(jsonStr)
+	if err != nil {
+		t.Fatalf("ParseFindingsResponse: %v", err)
+	}
+	if len(list) != 0 {
+		t.Errorf("len(list) = %d, want 0 (invalid single object should not be accepted)", len(list))
+	}
+}
+
 func TestAssignFindingIDs_setsIDAndValidates(t *testing.T) {
 	list := []findings.Finding{
 		{File: "a.go", Line: 5, Severity: findings.SeverityWarning, Category: findings.CategoryStyle, Confidence: 1.0, Message: "msg"},

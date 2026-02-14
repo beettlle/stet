@@ -11,10 +11,12 @@ import (
 )
 
 // ParseFindingsResponse unmarshals the LLM response into a slice of findings.
-// The response may be a JSON array of finding objects or a wrapper object
-// with a "findings" key. Each finding must have severity, category, and message.
-// File may be omitted and filled later from the hunk; line and range are optional
-// (file-only findings are valid). IDs are not set; use AssignFindingIDs after parsing.
+// The response may be a JSON array of finding objects, a wrapper object
+// with a "findings" key, or a single finding object (corrective fallback when
+// the model returns one finding as an object instead of an array).
+// Each finding must have severity, category, and message. File may be omitted
+// and filled later from the hunk; line and range are optional (file-only
+// findings are valid). IDs are not set; use AssignFindingIDs after parsing.
 func ParseFindingsResponse(jsonStr string) ([]findings.Finding, error) {
 	jsonStr = trimSpace(jsonStr)
 	if jsonStr == "" {
@@ -30,7 +32,18 @@ func ParseFindingsResponse(jsonStr string) ([]findings.Finding, error) {
 	if err := json.Unmarshal([]byte(jsonStr), &wrapper); err != nil {
 		return nil, fmt.Errorf("parse findings: %w", err)
 	}
-	return wrapper.Findings, nil
+	if len(wrapper.Findings) > 0 {
+		return wrapper.Findings, nil
+	}
+	// Corrective fallback: some models return a single finding object instead of an array or wrapper.
+	var single findings.Finding
+	if err := json.Unmarshal([]byte(jsonStr), &single); err != nil {
+		return wrapper.Findings, nil
+	}
+	if single.Validate() != nil {
+		return wrapper.Findings, nil
+	}
+	return []findings.Finding{single}, nil
 }
 
 func trimSpace(s string) string {
