@@ -8,9 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
 )
@@ -85,108 +83,6 @@ func (c *Client) Check(ctx context.Context, model string) (*CheckResult, error) 
 		ModelPresent: modelPresent,
 		ModelNames:   names,
 	}, nil
-}
-
-// ShowResult is the result of a model show request. ContextLength is the
-// model's context size in tokens (0 if not found or on error).
-type ShowResult struct {
-	ContextLength int
-}
-
-type showRequest struct {
-	Model string `json:"model"`
-}
-
-type showResponse struct {
-	Parameters string                 `json:"parameters"`
-	ModelInfo  map[string]interface{} `json:"model_info"`
-}
-
-// numCtxParamRegex matches "num_ctx 12345" in the parameters text.
-var numCtxParamRegex = regexp.MustCompile(`\bnum_ctx\s+(\d+)\b`)
-
-const maxContextLength = 524288 // cap parsed context to 512k tokens
-
-// Show fetches model details from POST /api/show and returns the model's
-// context length when available. On connection/HTTP error returns an error
-// (caller should use config). On success with no context found, returns
-// ShowResult{ContextLength: 0}, nil.
-func (c *Client) Show(ctx context.Context, model string) (*ShowResult, error) {
-	body := showRequest{Model: model}
-	encoded, err := json.Marshal(body)
-	if err != nil {
-		return nil, fmt.Errorf("ollama show request: %w", err)
-	}
-	url := c.baseURL + "/api/show"
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(encoded))
-	if err != nil {
-		return nil, fmt.Errorf("ollama show request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("ollama show: %w", errors.Join(ErrUnreachable, err))
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		_, _ = io.Copy(io.Discard, resp.Body)
-		return nil, fmt.Errorf("ollama show: %w: HTTP %d", ErrUnreachable, resp.StatusCode)
-	}
-	var show showResponse
-	if err := json.NewDecoder(resp.Body).Decode(&show); err != nil {
-		return nil, fmt.Errorf("ollama show: parse response: %w", err)
-	}
-	ctxLen := parseContextLengthFromShow(show)
-	return &ShowResult{ContextLength: ctxLen}, nil
-}
-
-// parseContextLengthFromShow extracts context length from model_info
-// (*.context_length) or parameters (num_ctx N). Returns 0 if none found.
-// Values are capped at maxContextLength.
-func parseContextLengthFromShow(show showResponse) int {
-	if show.ModelInfo != nil {
-		var maxVal float64
-		for k, v := range show.ModelInfo {
-			if !strings.HasSuffix(k, ".context_length") {
-				continue
-			}
-			switch n := v.(type) {
-			case float64:
-				if n > maxVal {
-					maxVal = n
-				}
-			case int:
-				if float64(n) > maxVal {
-					maxVal = float64(n)
-				}
-			}
-		}
-		if maxVal > 0 {
-			return capContextLength(int(maxVal))
-		}
-	}
-	if show.Parameters != "" {
-		if matches := numCtxParamRegex.FindStringSubmatch(show.Parameters); len(matches) >= 2 {
-			var n int
-			if _, err := fmt.Sscanf(matches[1], "%d", &n); err == nil && n > 0 {
-				return capContextLength(n)
-			}
-		}
-	}
-	return 0
-}
-
-func capContextLength(n int) int {
-	if n <= 0 {
-		return 0
-	}
-	if n > maxContextLength {
-		return maxContextLength
-	}
-	if n > math.MaxInt {
-		return math.MaxInt
-	}
-	return n
 }
 
 // GenerateOptions holds model runtime options sent to Ollama /api/generate.
