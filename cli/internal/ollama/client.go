@@ -102,16 +102,30 @@ type generateRequest struct {
 }
 
 type generateResponse struct {
-	Response string `json:"response"`
-	Done     bool   `json:"done"`
+	Response        string `json:"response"`
+	Done            bool   `json:"done"`
+	Model           string `json:"model"`
+	PromptEvalCount int    `json:"prompt_eval_count"`
+	EvalCount       int    `json:"eval_count"`
+	EvalDuration    int64  `json:"eval_duration"`
+}
+
+// GenerateResult holds the response text and metadata returned by Ollama /api/generate.
+// Metadata fields may be zero when the server does not send them.
+type GenerateResult struct {
+	Response        string
+	Model           string
+	PromptEvalCount int
+	EvalCount       int
+	EvalDuration    int64
 }
 
 // Generate sends a completion request to /api/generate with the given model,
 // system prompt, and user prompt. It uses stream: false and format: "json" so
 // the response is a single JSON string. opts may be nil (Ollama uses server/model
-// defaults). Returns the response text or an error (wrapping ErrUnreachable on
-// connection/HTTP failure).
-func (c *Client) Generate(ctx context.Context, model, systemPrompt, userPrompt string, opts *GenerateOptions) (string, error) {
+// defaults). Returns the result (response text and metadata) or an error
+// (wrapping ErrUnreachable on connection/HTTP failure).
+func (c *Client) Generate(ctx context.Context, model, systemPrompt, userPrompt string, opts *GenerateOptions) (*GenerateResult, error) {
 	body := generateRequest{
 		Model:   model,
 		System:  systemPrompt,
@@ -122,26 +136,32 @@ func (c *Client) Generate(ctx context.Context, model, systemPrompt, userPrompt s
 	}
 	encoded, err := json.Marshal(body)
 	if err != nil {
-		return "", fmt.Errorf("ollama generate request: %w", err)
+		return nil, fmt.Errorf("ollama generate request: %w", err)
 	}
 	url := c.baseURL + "/api/generate"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(encoded))
 	if err != nil {
-		return "", fmt.Errorf("ollama generate request: %w", err)
+		return nil, fmt.Errorf("ollama generate request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("ollama generate: %w", errors.Join(ErrUnreachable, err))
+		return nil, fmt.Errorf("ollama generate: %w", errors.Join(ErrUnreachable, err))
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		_, _ = io.Copy(io.Discard, resp.Body)
-		return "", fmt.Errorf("ollama generate: %w: HTTP %d", ErrUnreachable, resp.StatusCode)
+		return nil, fmt.Errorf("ollama generate: %w: HTTP %d", ErrUnreachable, resp.StatusCode)
 	}
 	var gen generateResponse
 	if err := json.NewDecoder(resp.Body).Decode(&gen); err != nil {
-		return "", fmt.Errorf("ollama generate: parse response: %w", err)
+		return nil, fmt.Errorf("ollama generate: parse response: %w", err)
 	}
-	return gen.Response, nil
+	return &GenerateResult{
+		Response:        gen.Response,
+		Model:           gen.Model,
+		PromptEvalCount: gen.PromptEvalCount,
+		EvalCount:       gen.EvalCount,
+		EvalDuration:    gen.EvalDuration,
+	}, nil
 }

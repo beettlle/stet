@@ -40,10 +40,6 @@ func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir stri
 		traceOut.Section("System prompt")
 		traceOut.Printf("source=%s len=%d\n", prompt.SystemPromptSource(stateDir), len(system))
 	}
-	if traceOut != nil && traceOut.Enabled() {
-		traceOut.Section("Model")
-		traceOut.Printf("model=%s\n", model)
-	}
 	if userIntent != nil && (userIntent.Branch != "" || userIntent.CommitMsg != "") {
 		system = prompt.InjectUserIntent(system, userIntent.Branch, userIntent.CommitMsg)
 	}
@@ -112,7 +108,7 @@ func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir stri
 	user := prompt.UserPrompt(hunk)
 	if traceOut != nil && traceOut.Enabled() {
 		traceOut.Section("User prompt")
-		const previewLen = 500
+		const previewLen = 2000
 		if len(user) <= previewLen {
 			traceOut.Printf("len=%d\n%s\n", len(user), user)
 		} else {
@@ -136,23 +132,33 @@ func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir stri
 	}
 	if traceOut != nil && traceOut.Enabled() {
 		traceOut.Section("LLM request")
-		traceOut.Printf("system_len=%d user_len=%d\n", len(system), len(user))
+		temp, numCtx := 0.0, 0
+		if generateOpts != nil {
+			temp, numCtx = generateOpts.Temperature, generateOpts.NumCtx
+		}
+		traceOut.Printf("model=%s temperature=%g num_ctx=%d system_len=%d user_len=%d\n", model, temp, numCtx, len(system), len(user))
 	}
-	raw, err := client.Generate(ctx, model, system, user, generateOpts)
+	result, err := client.Generate(ctx, model, system, user, generateOpts)
 	if err != nil {
 		return nil, fmt.Errorf("review: generate: %w", err)
 	}
 	if traceOut != nil && traceOut.Enabled() {
 		traceOut.Section("LLM response (raw)")
-		traceOut.Printf("%s\n", raw)
+		traceOut.Printf("model=%s prompt_eval_count=%d eval_count=%d eval_duration=%d\n", result.Model, result.PromptEvalCount, result.EvalCount, result.EvalDuration)
+		traceOut.Printf("%s\n", result.Response)
 	}
-	list, err := ParseFindingsResponse(raw)
+	list, err := ParseFindingsResponse(result.Response)
 	if err != nil {
-		raw2, retryErr := client.Generate(ctx, model, system, user, generateOpts)
+		result2, retryErr := client.Generate(ctx, model, system, user, generateOpts)
 		if retryErr != nil {
 			return nil, fmt.Errorf("review: parse failed then retry generate failed: %w", retryErr)
 		}
-		list, err = ParseFindingsResponse(raw2)
+		if traceOut != nil && traceOut.Enabled() {
+			traceOut.Section("LLM response (raw) retry")
+			traceOut.Printf("model=%s prompt_eval_count=%d eval_count=%d eval_duration=%d\n", result2.Model, result2.PromptEvalCount, result2.EvalCount, result2.EvalDuration)
+			traceOut.Printf("%s\n", result2.Response)
+		}
+		list, err = ParseFindingsResponse(result2.Response)
 		if err != nil {
 			return nil, fmt.Errorf("review: parse failed (after retry): %w", err)
 		}

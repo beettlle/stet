@@ -206,8 +206,11 @@ func TestClient_Generate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Generate: %v", err)
 	}
-	if got != wantResponse {
-		t.Errorf("response = %q, want %q", got, wantResponse)
+	if got == nil {
+		t.Fatal("Generate: want non-nil result, got nil")
+	}
+	if got.Response != wantResponse {
+		t.Errorf("response = %q, want %q", got.Response, wantResponse)
 	}
 }
 
@@ -237,8 +240,11 @@ func TestClient_Generate_withOptions_sendsOptionsInRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Generate: %v", err)
 	}
-	if got != wantResponse {
-		t.Errorf("response = %q, want %q", got, wantResponse)
+	if got == nil {
+		t.Fatal("Generate: want non-nil result, got nil")
+	}
+	if got.Response != wantResponse {
+		t.Errorf("response = %q, want %q", got.Response, wantResponse)
 	}
 	if receivedOpts == nil {
 		t.Fatal("request body options should be non-nil")
@@ -259,11 +265,59 @@ func TestClient_Generate_nonOK_returnsError(t *testing.T) {
 	defer srv.Close()
 	client := NewClient(srv.URL, srv.Client())
 	ctx := context.Background()
-	_, err := client.Generate(ctx, "m", "sys", "user", nil)
+	result, err := client.Generate(ctx, "m", "sys", "user", nil)
 	if err == nil {
 		t.Fatal("Generate: want error, got nil")
 	}
+	if result != nil {
+		t.Error("Generate: want nil result on error")
+	}
 	if !errors.Is(err, ErrUnreachable) {
 		t.Errorf("error should wrap ErrUnreachable: %v", err)
+	}
+}
+
+func TestClient_Generate_returnsResponseMetadata(t *testing.T) {
+	t.Parallel()
+	wantResponse := `[]`
+	wantModel := "qwen3-coder:30b"
+	wantPromptEval := 100
+	wantEval := 42
+	wantEvalDur := int64(500000000)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"response":          wantResponse,
+			"done":              true,
+			"model":             wantModel,
+			"prompt_eval_count": wantPromptEval,
+			"eval_count":        wantEval,
+			"eval_duration":     wantEvalDur,
+		})
+	}))
+	defer srv.Close()
+	client := NewClient(srv.URL, srv.Client())
+	ctx := context.Background()
+	got, err := client.Generate(ctx, "m", "sys", "user", nil)
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	if got == nil {
+		t.Fatal("Generate: want non-nil result, got nil")
+	}
+	if got.Response != wantResponse {
+		t.Errorf("Response = %q, want %q", got.Response, wantResponse)
+	}
+	if got.Model != wantModel {
+		t.Errorf("Model = %q, want %q", got.Model, wantModel)
+	}
+	if got.PromptEvalCount != wantPromptEval {
+		t.Errorf("PromptEvalCount = %d, want %d", got.PromptEvalCount, wantPromptEval)
+	}
+	if got.EvalCount != wantEval {
+		t.Errorf("EvalCount = %d, want %d", got.EvalCount, wantEval)
+	}
+	if got.EvalDuration != wantEvalDur {
+		t.Errorf("EvalDuration = %d, want %d", got.EvalDuration, wantEvalDur)
 	}
 }
