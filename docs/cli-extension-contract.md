@@ -142,6 +142,8 @@ For each hunk, stet can look up symbols referenced in the hunk (functions, types
 - **Increase definitions:** If reviews miss cross-file or "what does this symbol do?" context, try raising `rag_symbol_max_definitions` (e.g. 15–20); watch prompt size and context warnings.
 - **Cap symbol block size:** If you hit context-limit or `warn_threshold` issues, set `rag_symbol_max_tokens` to a value (e.g. 500–2000) so the symbol block is bounded and the rest of the prompt (hunk, rules, etc.) fits.
 
+**Per-hunk adaptive (planned):** A future release may compute the RAG token cap **per hunk** from the effective context limit minus base prompt size and response reserve, so each hunk gets as much symbol context as fits. When implemented, config `rag_symbol_max_tokens` and `rag_symbol_max_definitions` will act as upper bounds or explicit overrides when set; when unset (or 0 for tokens), the per-hunk budget is used. See [implementation-plan.md](implementation-plan.md) Phase 6.11.
+
 ### Context window detection
 
 Before the review loop (and only when not dry-run), stet calls Ollama **`POST /api/show`** with the configured model name. From the response, it reads the model's context size (e.g. from `model_info` fields like `*.context_length`, or from the `parameters` text). The context used for the run is **`max(configured num_ctx, model context)`**. The same value is used for token warnings and for hunk expansion. If the request fails or no context length is found, stet uses only the configured `num_ctx` and `context_limit`.

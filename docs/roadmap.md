@@ -85,6 +85,18 @@
 - A team lead writes: "We use snake_case for database columns but CamelCase for Go structs. Never suggest fmt.Printf in production code."
 - stet injects these rules into the system prompt as "High Priority Constraints."
 
+### 9.3 Feature: Feedback-based RAG and strictness tuning
+
+**Concept:** Use dismissal (and optionally acceptance) history to suggest or apply configuration that improves actionability and reduces false-positive fatigue. Extend the feedback loop beyond prompt optimization to **RAG and strictness**.
+
+**Mechanism:**
+
+- **Input:** `.review/history.jsonl` (dismissals with reasons, findings per run). Optionally tag history records with the run's config (e.g. `rag_symbol_max_definitions`, `rag_symbol_max_tokens`, `strictness`) when available.
+- **Output:** Suggested config changes (e.g. "suggested rag_symbol_max_definitions: 8", "suggested strictness: lenient") or an optional file (e.g. `.review/suggested_config.toml`) that the user can merge. Alternatively extend `stet optimize` to write both `system_prompt_optimized.txt` and suggested config snippets.
+- **Logic:** Correlate dismissal rate (or acceptance rate) with RAG/strictness settings over time; suggest values that associate with higher acceptance or lower false_positive dismissal. No requirement to auto-apply — suggest-only keeps the user in control.
+
+**Scope:** RAG symbol options (`rag_symbol_max_definitions`, `rag_symbol_max_tokens`) and `strictness`. This is a complement to per-hunk adaptive RAG (implementation plan Phase 6.11): 6.11 fits context automatically; feedback-based tuning refines defaults over time from user behavior.
+
 ---
 
 ## Phase 10: The "Deep Context" Release (Graph Awareness)

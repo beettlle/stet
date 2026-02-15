@@ -150,6 +150,7 @@ To ensure stability across trivial edits (formatting, comments) while maintainin
     -   **Symbol Lookup:** If a hunk modifies a function call `ProcessData(x)`, simple grep/ctags-style lookup finds the definition of `ProcessData` in the codebase.
     -   **Injection:** The definition signature (and docstring) is injected into the prompt alongside the hunk.
     -   **Limit:** Bounded to N symbols per hunk to fit context window.
+-   **Future:** Per-hunk adaptive RAG (token budget derived from context limit) and feedback-based tuning of RAG and strictness from dismissal history; see [implementation-plan.md](implementation-plan.md) Phase 6.11 and [roadmap.md](roadmap.md) Phase 9.3.
 
 ---
 

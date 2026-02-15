@@ -193,7 +193,7 @@ For each hunk in `part.ToReview`, the following steps run in order. Code lives i
 
 ### 7.7 Optional RAG (symbol definitions)
 
-- **Package:** [cli/internal/rag/rag.go](cli/internal/rag/rag.go). If `ragMaxDefs > 0`, `rag.ResolveSymbols(ctx, repoRoot, hunk.FilePath, hunk.RawContent, opts)` is called. Dispatches by file extension to a registered resolver (Go, TypeScript/JavaScript, Python, Swift, Java); returns definitions (signature + optional docstring). These are appended to the user prompt as "## Symbol definitions" (truncated to token budget).
+- **Package:** [cli/internal/rag/rag.go](cli/internal/rag/rag.go). If `ragMaxDefs > 0`, `rag.ResolveSymbols(ctx, repoRoot, hunk.FilePath, hunk.RawContent, opts)` is called. Dispatches by file extension to a registered resolver (Go, TypeScript/JavaScript, Python, Swift, Java); returns definitions (signature + optional docstring). These are appended to the user prompt as "## Symbol definitions" (truncated to token budget). A planned enhancement (implementation plan Phase 6.11) computes a per-hunk token budget from the context limit and base prompt size and uses it as the RAG token cap so the symbol-definitions block fits within the model context; config values then act as upper bounds.
 
 ### 7.8 LLM call
 
