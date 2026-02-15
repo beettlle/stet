@@ -43,6 +43,7 @@ var defaultGetFindingsOut = func() io.Writer { return os.Stdout }
 var getFindingsOut = defaultGetFindingsOut
 
 // findingsWriter returns the writer for findings output, or os.Stdout if getFindingsOut() returns nil.
+// It never returns nil; callers may assume a non-nil writer.
 func findingsWriter() io.Writer {
 	w := getFindingsOut()
 	if w == nil {
@@ -540,7 +541,11 @@ func newRerunCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rerun",
 		Short: "Re-run full review (all hunks) with current or overridden parameters",
-		RunE:  runRerun,
+		Long: `Re-run a full review over all hunks (not just incremental). Requires an active session; run stet start first.
+
+Use --replace to replace session findings with only this run's results (default is to merge new findings with existing).
+Other flags (--dry-run, --json, --stream, --rag-symbol-*, --strictness, --nitpicky, --trace) behave like stet run.`,
+		RunE: runRerun,
 	}
 	addRunLikeFlags(cmd)
 	cmd.Flags().Bool("replace", false, "Replace session findings with only this run's results; default is to merge new findings with existing")

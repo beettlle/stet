@@ -745,6 +745,9 @@ func TestRun_forceFullReview_noSession(t *testing.T) {
 	if !errors.Is(err, ErrNoSession) {
 		t.Errorf("Run: got %v, want ErrNoSession", err)
 	}
+	if err != nil && !strings.Contains(err.Error(), "no active session") {
+		t.Errorf("Run: error message should mention no active session; got %q", err.Error())
+	}
 }
 
 func TestRun_forceFullReview_partitionsAllHunks(t *testing.T) {

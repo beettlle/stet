@@ -162,6 +162,7 @@ func parseContextLengthFromShow(show showResponse) int {
 			}
 		}
 		if maxVal > 0 {
+			// Clamp to MaxInt to avoid overflow when converting float64 to int.
 			if maxVal > float64(math.MaxInt) {
 				maxVal = float64(math.MaxInt)
 			}

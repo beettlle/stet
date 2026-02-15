@@ -99,6 +99,8 @@ func rotateIfNeeded(path string, maxRecords int) error {
 // history records can include full review output (findings, prompts), so allow up to 4MB.
 const maxLineSize = 4 * 1024 * 1024
 
+// readLines loads the entire file into memory. Very large history files may consume
+// significant memory. maxLineSize limits single-line size; lines larger than that are rejected.
 func readLines(path string) ([]string, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -107,6 +109,7 @@ func readLines(path string) ([]string, error) {
 	defer f.Close()
 	var lines []string
 	sc := bufio.NewScanner(f)
+	// Start with 64KB buffer; Buffer allows growth up to maxLineSize for large lines.
 	buf := make([]byte, 0, 64*1024)
 	sc.Buffer(buf, maxLineSize)
 	for sc.Scan() {

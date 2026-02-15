@@ -485,6 +485,8 @@ func TestReviewHunk_perHunkAdaptiveRAG_truncatesToFitContext(t *testing.T) {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
 	if !strings.Contains(capturedPrompt, "## Symbol definitions") {
+		// RAG resolver may return no definitions when git grep finds no symbols (e.g. minimal test env).
+		// Skip is acceptable; truncation behavior is exercised when definitions are present.
 		t.Skipf("RAG resolver returned no definitions in this environment (git grep may not find symbols); cannot verify truncation")
 	}
 	idx := strings.Index(capturedPrompt, "## Symbol definitions (for context)\n\n")

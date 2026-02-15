@@ -14,7 +14,7 @@ func TestString(t *testing.T) {
 		want    string
 	}{
 		{"dev with commit", "dev", "abc1234", "dev (abc1234)"},
-		{"dev no commit", "dev", "", "dev"},
+		{"dev no commit", "dev", "", "dev"}, // Explicit coverage: dev without commit returns Version only.
 		{"release ignores commit", "v1.0.0", "abc1234", "v1.0.0"},
 		{"release no commit", "v1.0.0", "", "v1.0.0"},
 	}

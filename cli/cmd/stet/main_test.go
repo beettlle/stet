@@ -347,16 +347,14 @@ func TestRunCLI_startDryRunEmitsFindingsJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	origOut := getFindingsOut
-	defer func() {
-		_ = os.Chdir(orig)
-		getFindingsOut = origOut
-	}()
+	t.Cleanup(func() { _ = os.Chdir(orig) })
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
+	origOut := getFindingsOut
 	getFindingsOut = func() io.Writer { return &buf }
+	t.Cleanup(func() { getFindingsOut = origOut })
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start HEAD~1 --dry-run --json) = %d, want 0", got)
 	}
@@ -422,16 +420,14 @@ func TestRunCLI_startStreamEmitsNDJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	origOut := getFindingsOut
-	defer func() {
-		_ = os.Chdir(orig)
-		getFindingsOut = origOut
-	}()
+	t.Cleanup(func() { _ = os.Chdir(orig) })
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
+	origOut := getFindingsOut
 	getFindingsOut = func() io.Writer { return &buf }
+	t.Cleanup(func() { getFindingsOut = origOut })
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--quiet", "--json", "--stream"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run --quiet --json --stream) = %d, want 0", got)
 	}
@@ -1525,13 +1521,13 @@ func TestRunCLI_dismissByShortPrefix(t *testing.T) {
 	if len(shortID) < 4 {
 		t.Skip("short ID too short for prefix resolution minimum")
 	}
-	_, w, err := os.Pipe()
+	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatalf("pipe: %v", err)
 	}
 	oldStdout := os.Stdout
 	os.Stdout = w
-	t.Cleanup(func() { os.Stdout = oldStdout })
+	t.Cleanup(func() { w.Close(); r.Close(); os.Stdout = oldStdout })
 	if got := runCLI([]string{"dismiss", shortID}); got != 0 {
 		t.Fatalf("runCLI(dismiss %q) = %d, want 0", shortID, got)
 	}

@@ -40,10 +40,13 @@ type Dismissal struct {
 
 // UserAction holds feedback from the user: which findings were dismissed
 // (with optional reasons) and when the session finished.
+// ReplaceFindings, when true, indicates the session findings were replaced
+// by a rerun with --replace (not merged); used for audit trail.
 type UserAction struct {
-	DismissedIDs []string    `json:"dismissed_ids,omitempty"`
-	Dismissals   []Dismissal `json:"dismissals,omitempty"`  // Per-finding reason when present.
-	FinishedAt   string      `json:"finished_at,omitempty"` // ISO8601 or similar.
+	DismissedIDs    []string    `json:"dismissed_ids,omitempty"`
+	Dismissals      []Dismissal `json:"dismissals,omitempty"`       // Per-finding reason when present.
+	FinishedAt      string      `json:"finished_at,omitempty"`      // ISO8601 or similar.
+	ReplaceFindings bool        `json:"replace_findings,omitempty"` // True when rerun --replace replaced session findings.
 }
 
 // Record is one line in .review/history.jsonl.

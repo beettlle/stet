@@ -163,6 +163,7 @@ func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir stri
 	}
 	if traceOut != nil && traceOut.Enabled() {
 		traceOut.Section("RAG")
+		// Traced value matches what is passed to ResolveSymbols and AppendSymbolDefinitions.
 		traceOut.Printf("effective_rag_tokens=%d definitions=%d\n", effectiveRAGTokens, len(defs))
 		for _, d := range defs {
 			traceOut.Printf("  %s %s:%d %s\n", d.Symbol, d.File, d.Line, d.Signature)
@@ -180,6 +181,7 @@ func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir stri
 	if err != nil {
 		return nil, fmt.Errorf("review: generate: %w", err)
 	}
+	// API returns non-nil result on success; defensive check.
 	if result == nil {
 		return nil, fmt.Errorf("review: generate: unexpected nil result")
 	}
@@ -194,6 +196,7 @@ func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir stri
 		if retryErr != nil {
 			return nil, fmt.Errorf("review: parse failed then retry generate failed: %w", retryErr)
 		}
+		// API returns non-nil result on success; defensive check.
 		if result2 == nil {
 			return nil, fmt.Errorf("review: generate retry: unexpected nil result")
 		}

@@ -1,6 +1,9 @@
 // Package run implements the start and finish session flows: worktree creation,
 // session persistence, review pipeline (diff, scope, Ollama or dry-run), and
 // cleanup. Used by the CLI and by tests.
+//
+// Run and applyAutoDismiss mutate session state (including DismissedIDs). Callers
+// must not invoke Run concurrently for the same session/state dir.
 package run
 
 import (
@@ -494,6 +497,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 			if showResult.ContextLength > effectiveNumCtx {
 				effectiveNumCtx = showResult.ContextLength
 			}
+			// Use model's larger context when Show returns a value greater than config.
 			if effectiveNumCtx > effectiveContextLimit {
 				effectiveContextLimit = effectiveNumCtx
 			}
@@ -503,9 +507,9 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 			}
 		}
 	}
-	// effectiveNumCtx is sent to Ollama; effectiveContextLimit is used for token
-	// warning and ReviewHunk RAG budget. Both reflect the model's actual context when
-	// Show succeeds; otherwise config values are used.
+	// effectiveNumCtx is sent to Ollama; effectiveContextLimit is the single source of
+	// truth for token warnings and ReviewHunk RAG budget. Both reflect the model's
+	// actual context when Show succeeds; otherwise config values are used.
 
 	if opts.DryRun {
 		for i, hunk := range part.ToReview {
@@ -839,6 +843,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 			if showResult.ContextLength > effectiveNumCtx {
 				effectiveNumCtx = showResult.ContextLength
 			}
+			// Use model's larger context when Show returns a value greater than config.
 			if effectiveNumCtx > effectiveContextLimit {
 				effectiveContextLimit = effectiveNumCtx
 			}
@@ -847,9 +852,9 @@ func Run(ctx context.Context, opts RunOptions) error {
 				trRun.Printf("using model context %d (config num_ctx=%d)\n", effectiveNumCtx, opts.NumCtx)
 			}
 		}
-		// effectiveNumCtx is sent to Ollama; effectiveContextLimit is used for token
-		// warning and ReviewHunk RAG budget. Both reflect the model's actual context when
-		// Show succeeds; otherwise config values are used.
+		// effectiveNumCtx is sent to Ollama; effectiveContextLimit is the single source of
+		// truth for token warnings and ReviewHunk RAG budget. Both reflect the model's
+		// actual context when Show succeeds; otherwise config values are used.
 		branch, commitMsg, intentErr := git.UserIntent(opts.RepoRoot)
 		if intentErr != nil {
 			fmt.Fprintf(os.Stderr, "Warning: could not retrieve Git intent (branch/commit): %v; using placeholder\n", intentErr)
@@ -936,6 +941,19 @@ func Run(ctx context.Context, opts RunOptions) error {
 		}
 		s.FindingPromptContext = newContext
 		s.DismissedIDs = nil
+		// Record replace run for audit trail.
+		diffRef := headSHA
+		if diffRef == "" {
+			diffRef = s.BaselineRef
+		}
+		rec := history.Record{
+			DiffRef:      diffRef,
+			ReviewOutput: newFindings,
+			UserAction:   history.UserAction{ReplaceFindings: true},
+		}
+		if err := history.Append(opts.StateDir, rec, history.DefaultMaxRecords); err != nil {
+			return erruser.New("Could not record review history.", err)
+		}
 	} else {
 		// Auto-dismiss: findings in reviewed hunks that were not re-reported are considered addressed.
 		newFindingIDSet := make(map[string]struct{}, len(newFindings))

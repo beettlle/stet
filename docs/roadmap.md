@@ -100,7 +100,7 @@ To maximize fix quality, use the largest coherent chunk that fits the model's co
 
 **Commit message and attribution:** When stet applies and commits (fix with `--commit`, or refine):
 
-- **Commit message:** Include the line: `written by <MODEL> after review from stet`, where `<MODEL>` is the fix model name (e.g. `qwen2.5-coder:7b`). User may add a custom subject/body via a flag (e.g. `--message "Fix security finding"`).
+- **Commit message:** Include the line: `written by <MODEL> after review from stet`, where `<MODEL>` is the fix model name (e.g. `qwen2.5-coder:7b`). User may add a custom subject/body via a flag (e.g. `--message "Fix security finding"`). For full git-ai compatibility, see [Git AI Standard](https://github.com/git-ai-project/git-ai/blob/main/specs/git_ai_standard_v3.0.0.md).
 - **git-ai:** When the git-ai CLI is available and the repo uses it, record fix-authored lines in `refs/notes/ai` per [Git AI Standard v3.0.0](https://github.com/git-ai-project/git-ai/blob/main/specs/git_ai_standard_v3.0.0.md): agent `tool=stet`, `model=<fix_model>`, session id derived from session + finding (e.g. `stet-{session_id}-{finding_short_id}`). Integrate with the published git-ai implementation (e.g. invoke its CLI after applying the fix) rather than reimplementing the note format.
 - **Stet note:** Continue writing `refs/notes/stet` on `stet finish` with session/review scope; "reviewed by stet" is expressed there and via the commit message line above, not in the git-ai note.
 

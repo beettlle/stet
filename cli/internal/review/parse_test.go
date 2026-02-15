@@ -46,7 +46,7 @@ func TestParseFindingsResponse_emptyArray(t *testing.T) {
 }
 
 func TestParseFindingsResponse_emptyWrapperObject(t *testing.T) {
-	// LLM returns {"findings":[]} when no issues found; must not fall through to single-object fallback.
+	// Input `{"findings":[]}` is valid; must parse as empty list, not fall through to single-object fallback.
 	list, err := ParseFindingsResponse(`{"findings":[]}`)
 	if err != nil {
 		t.Fatalf("ParseFindingsResponse: %v", err)
@@ -64,6 +64,7 @@ func TestParseFindingsResponse_malformed_returnsError(t *testing.T) {
 }
 
 func TestParseFindingsResponse_emptyString_returnsError(t *testing.T) {
+	// Empty input must return error (not empty slice).
 	_, err := ParseFindingsResponse("")
 	if err == nil {
 		t.Fatal("ParseFindingsResponse: want error for empty, got nil")
