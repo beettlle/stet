@@ -227,8 +227,8 @@ type GenerateResult struct {
 // Generate sends a completion request to /api/generate with the given model,
 // system prompt, and user prompt. It uses stream: false and format: "json" so
 // the response is a single JSON string. opts may be nil (Ollama uses server/model
-// defaults). Returns the result (response text and metadata) or an error
-// (wrapping ErrUnreachable on connection/HTTP failure).
+// defaults). Returns (*GenerateResult, error): on success, result is non-nil; on
+// error, result is nil and err wraps ErrUnreachable on connection/HTTP failure.
 func (c *Client) Generate(ctx context.Context, model, systemPrompt, userPrompt string, opts *GenerateOptions) (*GenerateResult, error) {
 	body := generateRequest{
 		Model:   model,

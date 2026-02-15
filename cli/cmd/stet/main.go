@@ -336,12 +336,13 @@ func runStart(cmd *cobra.Command, args []string) error {
 		// Findings already emitted as NDJSON by run.Start
 		return nil
 	}
+	w := findingsWriter()
 	if output == "json" {
-		if err := writeFindingsJSON(findingsWriter(), stateDir); err != nil {
+		if err := writeFindingsJSON(w, stateDir); err != nil {
 			return err
 		}
 	} else {
-		if err := writeFindingsHuman(findingsWriter(), stateDir); err != nil {
+		if err := writeFindingsHuman(w, stateDir); err != nil {
 			return err
 		}
 	}
@@ -522,12 +523,13 @@ func runRun(cmd *cobra.Command, args []string) error {
 		// Findings already emitted as NDJSON by run.Run
 		return nil
 	}
+	w := findingsWriter()
 	if output == "json" {
-		if err := writeFindingsJSON(findingsWriter(), stateDir); err != nil {
+		if err := writeFindingsJSON(w, stateDir); err != nil {
 			return err
 		}
 	} else {
-		if err := writeFindingsHuman(findingsWriter(), stateDir); err != nil {
+		if err := writeFindingsHuman(w, stateDir); err != nil {
 			return err
 		}
 	}
@@ -667,12 +669,13 @@ func runRerun(cmd *cobra.Command, args []string) error {
 	if stream {
 		return nil
 	}
+	w := findingsWriter()
 	if output == "json" {
-		if err := writeFindingsJSON(findingsWriter(), stateDir); err != nil {
+		if err := writeFindingsJSON(w, stateDir); err != nil {
 			return err
 		}
 	} else {
-		if err := writeFindingsHuman(findingsWriter(), stateDir); err != nil {
+		if err := writeFindingsHuman(w, stateDir); err != nil {
 			return err
 		}
 	}

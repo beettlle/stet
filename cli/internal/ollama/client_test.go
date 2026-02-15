@@ -278,7 +278,7 @@ func TestClient_Generate_nonOK_returnsError(t *testing.T) {
 }
 
 func TestClient_Generate_returnsResponseMetadata(t *testing.T) {
-	t.Parallel()
+	// Do not run in parallel: avoids potential race with httptest.Server.
 	wantResponse := `[]`
 	wantModel := "qwen3-coder:30b"
 	wantPromptEval := 100

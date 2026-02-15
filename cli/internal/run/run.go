@@ -487,6 +487,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 
 	effectiveNumCtx := opts.NumCtx
 	effectiveContextLimit := opts.ContextLimit
+	// Show is called once upfront; model context length is stable for the run.
 	if ollamaClient != nil {
 		showResult, showErr := ollamaClient.Show(ctx, opts.Model)
 		if showErr == nil && showResult != nil && showResult.ContextLength > 0 {
@@ -502,6 +503,9 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 			}
 		}
 	}
+	// effectiveNumCtx is sent to Ollama; effectiveContextLimit is used for token
+	// warning and ReviewHunk RAG budget. Both reflect the model's actual context when
+	// Show succeeds; otherwise config values are used.
 
 	if opts.DryRun {
 		for i, hunk := range part.ToReview {
@@ -600,6 +604,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		_ = writeStreamLine(opts.StreamOut, map[string]string{"type": "done"})
 	}
 	// Auto-dismiss: previous findings in reviewed hunks not in collected are considered addressed.
+	// applyAutoDismiss runs before updating s.Findings; it needs existing findings to compute addressed IDs.
 	collectedIDSet := make(map[string]struct{}, len(collected))
 	for _, f := range collected {
 		if f.ID != "" {
@@ -828,6 +833,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 		}
 		effectiveNumCtx := opts.NumCtx
 		effectiveContextLimit := opts.ContextLimit
+		// Show is called once upfront; model context length is stable for the run.
 		showResult, showErr := client.Show(ctx, opts.Model)
 		if showErr == nil && showResult != nil && showResult.ContextLength > 0 {
 			if showResult.ContextLength > effectiveNumCtx {
@@ -841,6 +847,9 @@ func Run(ctx context.Context, opts RunOptions) error {
 				trRun.Printf("using model context %d (config num_ctx=%d)\n", effectiveNumCtx, opts.NumCtx)
 			}
 		}
+		// effectiveNumCtx is sent to Ollama; effectiveContextLimit is used for token
+		// warning and ReviewHunk RAG budget. Both reflect the model's actual context when
+		// Show succeeds; otherwise config values are used.
 		branch, commitMsg, intentErr := git.UserIntent(opts.RepoRoot)
 		if intentErr != nil {
 			fmt.Fprintf(os.Stderr, "Warning: could not retrieve Git intent (branch/commit): %v; using placeholder\n", intentErr)
@@ -915,6 +924,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 		_ = writeStreamLine(opts.StreamOut, map[string]string{"type": "done"})
 	}
 
+	// Replace: clear state. Merge: auto-dismiss then append; applyAutoDismiss uses existing s.Findings.
 	if opts.ReplaceFindings {
 		s.Findings = newFindings
 		// Keep only prompt context for the new findings.

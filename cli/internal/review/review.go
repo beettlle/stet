@@ -149,6 +149,7 @@ func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir stri
 			traceOut.Printf("len=%d (first %d chars)\n%s\n[truncated]\n", len(user), previewLen, user[:previewLen])
 		}
 	}
+	// Token estimation is intentional per-hunk for accuracy (each hunk may have different expand/RAG).
 	basePromptTokens := tokens.Estimate(system + "\n" + user)
 	effectiveRAGTokens := effectiveRAGTokenCap(contextLimit, basePromptTokens, tokens.DefaultResponseReserve, ragMaxTokens)
 	var defs []rag.Definition
@@ -179,6 +180,9 @@ func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir stri
 	if err != nil {
 		return nil, fmt.Errorf("review: generate: %w", err)
 	}
+	if result == nil {
+		return nil, fmt.Errorf("review: generate: unexpected nil result")
+	}
 	if traceOut != nil && traceOut.Enabled() {
 		traceOut.Section("LLM response (raw)")
 		traceOut.Printf("model=%s prompt_eval_count=%d eval_count=%d eval_duration=%d\n", result.Model, result.PromptEvalCount, result.EvalCount, result.EvalDuration)
@@ -189,6 +193,9 @@ func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir stri
 		result2, retryErr := client.Generate(ctx, model, system, user, generateOpts)
 		if retryErr != nil {
 			return nil, fmt.Errorf("review: parse failed then retry generate failed: %w", retryErr)
+		}
+		if result2 == nil {
+			return nil, fmt.Errorf("review: generate retry: unexpected nil result")
 		}
 		if traceOut != nil && traceOut.Enabled() {
 			traceOut.Section("LLM response (raw) retry")
