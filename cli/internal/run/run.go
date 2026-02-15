@@ -165,6 +165,48 @@ func addressedFindingIDs(hunks []diff.Hunk, existingFindings []findings.Finding,
 	return addressed
 }
 
+// applyAutoDismiss updates s.DismissedIDs for findings in toReview that are not in newFindingIDSet
+// and appends a history record when any are addressed. Caller must save the session after.
+func applyAutoDismiss(s *session.Session, toReview []diff.Hunk, newFindingIDSet map[string]struct{}, headSHA, stateDir string) error {
+	if len(s.Findings) == 0 {
+		return nil
+	}
+	addressed := addressedFindingIDs(toReview, s.Findings, newFindingIDSet)
+	dismissedSet := make(map[string]struct{}, len(s.DismissedIDs))
+	for _, id := range s.DismissedIDs {
+		dismissedSet[id] = struct{}{}
+	}
+	for _, id := range addressed {
+		if _, ok := dismissedSet[id]; !ok {
+			dismissedSet[id] = struct{}{}
+			s.DismissedIDs = append(s.DismissedIDs, id)
+		}
+	}
+	if len(addressed) == 0 {
+		return nil
+	}
+	dismissals := make([]history.Dismissal, len(addressed))
+	for i, id := range addressed {
+		dismissals[i] = history.Dismissal{FindingID: id, Reason: history.ReasonAlreadyCorrect}
+	}
+	diffRef := headSHA
+	if diffRef == "" {
+		diffRef = s.BaselineRef
+	}
+	rec := history.Record{
+		DiffRef:      diffRef,
+		ReviewOutput: s.Findings,
+		UserAction: history.UserAction{
+			DismissedIDs: addressed,
+			Dismissals:   dismissals,
+		},
+	}
+	if err := history.Append(stateDir, rec, history.DefaultMaxRecords); err != nil {
+		return erruser.New("Could not record review history.", err)
+	}
+	return nil
+}
+
 // StartOptions configures Start. All fields are required except Ref (default "HEAD" by caller).
 // DryRun skips the LLM and injects canned findings. Model and OllamaBaseURL are used when DryRun is false.
 // ContextLimit and WarnThreshold are used for token estimation warnings (Phase 3.2); zero values disable the warning.
@@ -537,45 +579,14 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		_ = writeStreamLine(opts.StreamOut, map[string]string{"type": "done"})
 	}
 	// Auto-dismiss: previous findings in reviewed hunks not in collected are considered addressed.
-	if len(s.Findings) > 0 {
-		collectedIDSet := make(map[string]struct{}, len(collected))
-		for _, f := range collected {
-			if f.ID != "" {
-				collectedIDSet[f.ID] = struct{}{}
-			}
+	collectedIDSet := make(map[string]struct{}, len(collected))
+	for _, f := range collected {
+		if f.ID != "" {
+			collectedIDSet[f.ID] = struct{}{}
 		}
-		addressed := addressedFindingIDs(part.ToReview, s.Findings, collectedIDSet)
-		dismissedSet := make(map[string]struct{}, len(s.DismissedIDs))
-		for _, id := range s.DismissedIDs {
-			dismissedSet[id] = struct{}{}
-		}
-		for _, id := range addressed {
-			if _, ok := dismissedSet[id]; !ok {
-				dismissedSet[id] = struct{}{}
-				s.DismissedIDs = append(s.DismissedIDs, id)
-			}
-		}
-		if len(addressed) > 0 {
-			dismissals := make([]history.Dismissal, len(addressed))
-			for i, id := range addressed {
-				dismissals[i] = history.Dismissal{FindingID: id, Reason: history.ReasonAlreadyCorrect}
-			}
-			diffRef := headSHA
-			if diffRef == "" {
-				diffRef = s.BaselineRef
-			}
-			rec := history.Record{
-				DiffRef:      diffRef,
-				ReviewOutput: s.Findings,
-				UserAction: history.UserAction{
-					DismissedIDs: addressed,
-					Dismissals:   dismissals,
-				},
-			}
-			if err := history.Append(opts.StateDir, rec, history.DefaultMaxRecords); err != nil {
-				return erruser.New("Could not record review history.", err)
-			}
-		}
+	}
+	if err := applyAutoDismiss(&s, part.ToReview, collectedIDSet, headSHA, opts.StateDir); err != nil {
+		return err
 	}
 	s.Findings = collected
 	s.FindingPromptContext = findingPromptContext
@@ -887,37 +898,8 @@ func Run(ctx context.Context, opts RunOptions) error {
 				newFindingIDSet[f.ID] = struct{}{}
 			}
 		}
-		addressed := addressedFindingIDs(part.ToReview, s.Findings, newFindingIDSet)
-		dismissedSet := make(map[string]struct{}, len(s.DismissedIDs))
-		for _, id := range s.DismissedIDs {
-			dismissedSet[id] = struct{}{}
-		}
-		for _, id := range addressed {
-			if _, ok := dismissedSet[id]; !ok {
-				dismissedSet[id] = struct{}{}
-				s.DismissedIDs = append(s.DismissedIDs, id)
-			}
-		}
-		if len(addressed) > 0 {
-			dismissals := make([]history.Dismissal, len(addressed))
-			for i, id := range addressed {
-				dismissals[i] = history.Dismissal{FindingID: id, Reason: history.ReasonAlreadyCorrect}
-			}
-			diffRef := headSHA
-			if diffRef == "" {
-				diffRef = s.BaselineRef
-			}
-			rec := history.Record{
-				DiffRef:      diffRef,
-				ReviewOutput: s.Findings,
-				UserAction: history.UserAction{
-					DismissedIDs: addressed,
-					Dismissals:   dismissals,
-				},
-			}
-			if err := history.Append(opts.StateDir, rec, history.DefaultMaxRecords); err != nil {
-				return erruser.New("Could not record review history.", err)
-			}
+		if err := applyAutoDismiss(&s, part.ToReview, newFindingIDSet, headSHA, opts.StateDir); err != nil {
+			return err
 		}
 		s.Findings = append(s.Findings, newFindings...)
 	}

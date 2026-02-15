@@ -38,8 +38,9 @@ func (e errExit) Error() string {
 	return "exit " + strconv.Itoa(int(e))
 }
 
-// findingsOut is the writer for findings JSON on success. Tests may replace it to capture output.
-var findingsOut io.Writer = os.Stdout
+// getFindingsOut returns the writer for findings JSON on success. Tests may replace it to capture output.
+var defaultGetFindingsOut = func() io.Writer { return os.Stdout }
+var getFindingsOut = defaultGetFindingsOut
 
 // errHintOut is the writer for recovery hints on start failure. Tests may replace it to capture output.
 var errHintOut io.Writer = os.Stderr
@@ -297,7 +298,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 		TraceOut:                       traceOut,
 	}
 	if stream {
-		opts.StreamOut = findingsOut
+		opts.StreamOut = getFindingsOut()
 	}
 	if err := run.Start(cmd.Context(), opts); err != nil {
 		if errors.Is(err, ollama.ErrUnreachable) {
@@ -327,11 +328,11 @@ func runStart(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 	if output == "json" {
-		if err := writeFindingsJSON(findingsOut, stateDir); err != nil {
+		if err := writeFindingsJSON(getFindingsOut(), stateDir); err != nil {
 			return err
 		}
 	} else {
-		if err := writeFindingsHuman(findingsOut, stateDir); err != nil {
+		if err := writeFindingsHuman(getFindingsOut(), stateDir); err != nil {
 			return err
 		}
 	}
@@ -494,7 +495,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 		TraceOut:                     traceOut,
 	}
 	if stream {
-		opts.StreamOut = findingsOut
+		opts.StreamOut = getFindingsOut()
 	}
 	if err := run.Run(cmd.Context(), opts); err != nil {
 		if errors.Is(err, run.ErrNoSession) {
@@ -513,11 +514,11 @@ func runRun(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 	if output == "json" {
-		if err := writeFindingsJSON(findingsOut, stateDir); err != nil {
+		if err := writeFindingsJSON(getFindingsOut(), stateDir); err != nil {
 			return err
 		}
 	} else {
-		if err := writeFindingsHuman(findingsOut, stateDir); err != nil {
+		if err := writeFindingsHuman(getFindingsOut(), stateDir); err != nil {
 			return err
 		}
 	}
@@ -640,7 +641,7 @@ func runRerun(cmd *cobra.Command, args []string) error {
 		ReplaceFindings:             replace,
 	}
 	if stream {
-		opts.StreamOut = findingsOut
+		opts.StreamOut = getFindingsOut()
 	}
 	if err := run.Run(cmd.Context(), opts); err != nil {
 		if errors.Is(err, run.ErrNoSession) {
@@ -658,11 +659,11 @@ func runRerun(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 	if output == "json" {
-		if err := writeFindingsJSON(findingsOut, stateDir); err != nil {
+		if err := writeFindingsJSON(getFindingsOut(), stateDir); err != nil {
 			return err
 		}
 	} else {
-		if err := writeFindingsHuman(findingsOut, stateDir); err != nil {
+		if err := writeFindingsHuman(getFindingsOut(), stateDir); err != nil {
 			return err
 		}
 	}

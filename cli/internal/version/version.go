@@ -12,8 +12,8 @@ var Commit = ""
 // String returns the version string for display (e.g. --version, git notes).
 // For dev builds with Commit set, returns "dev (abc1234)"; otherwise returns Version.
 func String() string {
-	if Version != "dev" || Commit == "" {
-		return Version
+	if Version == "dev" && Commit != "" {
+		return "dev (" + Commit + ")"
 	}
-	return Version + " (" + Commit + ")"
+	return Version
 }

@@ -341,7 +341,7 @@ func TestRunCLI_startWithStrictnessThenRunUsesSessionStrictness(t *testing.T) {
 }
 
 func TestRunCLI_startDryRunEmitsFindingsJSON(t *testing.T) {
-	// Do not run in parallel: test changes cwd and findingsOut.
+	// Do not run in parallel: test changes cwd and getFindingsOut.
 	repo := initRepo(t)
 	orig, err := os.Getwd()
 	if err != nil {
@@ -349,13 +349,13 @@ func TestRunCLI_startDryRunEmitsFindingsJSON(t *testing.T) {
 	}
 	defer func() {
 		_ = os.Chdir(orig)
-		findingsOut = os.Stdout
+		getFindingsOut = defaultGetFindingsOut
 	}()
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	findingsOut = &buf
+	getFindingsOut = func() io.Writer { return &buf }
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start HEAD~1 --dry-run --json) = %d, want 0", got)
 	}
@@ -415,7 +415,7 @@ func TestRunCLI_startDryRunEmitsFindingsJSON(t *testing.T) {
 }
 
 func TestRunCLI_startStreamEmitsNDJSON(t *testing.T) {
-	// Do not run in parallel: test changes cwd and findingsOut.
+	// Do not run in parallel: test changes cwd and getFindingsOut.
 	repo := initRepo(t)
 	orig, err := os.Getwd()
 	if err != nil {
@@ -423,13 +423,13 @@ func TestRunCLI_startStreamEmitsNDJSON(t *testing.T) {
 	}
 	defer func() {
 		_ = os.Chdir(orig)
-		findingsOut = os.Stdout
+		getFindingsOut = defaultGetFindingsOut
 	}()
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	findingsOut = &buf
+	getFindingsOut = func() io.Writer { return &buf }
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--quiet", "--json", "--stream"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run --quiet --json --stream) = %d, want 0", got)
 	}
@@ -486,13 +486,13 @@ func TestRunCLI_startDryRunDefaultOutputIsHuman(t *testing.T) {
 	}
 	defer func() {
 		_ = os.Chdir(orig)
-		findingsOut = os.Stdout
+		getFindingsOut = defaultGetFindingsOut
 	}()
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	findingsOut = &buf
+	getFindingsOut = func() io.Writer { return &buf }
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--quiet"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run --quiet) = %d, want 0", got)
 	}
@@ -506,7 +506,7 @@ func TestRunCLI_startDryRunDefaultOutputIsHuman(t *testing.T) {
 }
 
 func TestRunCLI_runDryRunEmitsFindingsJSON(t *testing.T) {
-	// Do not run in parallel: test changes cwd and findingsOut.
+	// Do not run in parallel: test changes cwd and getFindingsOut.
 	repo := initRepo(t)
 	orig, err := os.Getwd()
 	if err != nil {
@@ -514,7 +514,7 @@ func TestRunCLI_runDryRunEmitsFindingsJSON(t *testing.T) {
 	}
 	defer func() {
 		_ = os.Chdir(orig)
-		findingsOut = os.Stdout
+		getFindingsOut = defaultGetFindingsOut
 	}()
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
@@ -523,7 +523,7 @@ func TestRunCLI_runDryRunEmitsFindingsJSON(t *testing.T) {
 		t.Fatalf("runCLI(start --dry-run --json) = %d, want 0", got)
 	}
 	var buf bytes.Buffer
-	findingsOut = &buf
+	getFindingsOut = func() io.Writer { return &buf }
 	if got := runCLI([]string{"run", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(run --dry-run --json) = %d, want 0", got)
 	}
@@ -597,7 +597,7 @@ func TestRunCLI_rerunNoSessionFails(t *testing.T) {
 }
 
 func TestRunCLI_rerunDryRunRerunsAllHunks(t *testing.T) {
-	// Do not run in parallel: test changes cwd and findingsOut.
+	// Do not run in parallel: test changes cwd and getFindingsOut.
 	repo := initRepo(t)
 	orig, err := os.Getwd()
 	if err != nil {
@@ -605,7 +605,7 @@ func TestRunCLI_rerunDryRunRerunsAllHunks(t *testing.T) {
 	}
 	defer func() {
 		_ = os.Chdir(orig)
-		findingsOut = os.Stdout
+		getFindingsOut = defaultGetFindingsOut
 	}()
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
@@ -618,7 +618,7 @@ func TestRunCLI_rerunDryRunRerunsAllHunks(t *testing.T) {
 	}
 	// After run, LastReviewedAt = HEAD so a second run would see 0 ToReview. Rerun forces full review.
 	var buf bytes.Buffer
-	findingsOut = &buf
+	getFindingsOut = func() io.Writer { return &buf }
 	if got := runCLI([]string{"rerun", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(rerun --dry-run --json) = %d, want 0", got)
 	}
@@ -956,8 +956,8 @@ func TestRunCLI_statusWithIdsPrintsFindingsWithIds(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	findingsOut = &buf
-	t.Cleanup(func() { findingsOut = os.Stdout })
+	getFindingsOut = func() io.Writer { return &buf }
+	t.Cleanup(func() { getFindingsOut = defaultGetFindingsOut })
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
@@ -1039,8 +1039,8 @@ func TestRunCLI_listPrintsFindingsWithIds(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	findingsOut = &buf
-	t.Cleanup(func() { findingsOut = os.Stdout })
+	getFindingsOut = func() io.Writer { return &buf }
+	t.Cleanup(func() { getFindingsOut = defaultGetFindingsOut })
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
@@ -1116,8 +1116,8 @@ func TestRunCLI_listEmptyFindings(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	findingsOut = &buf
-	t.Cleanup(func() { findingsOut = os.Stdout })
+	getFindingsOut = func() io.Writer { return &buf }
+	t.Cleanup(func() { getFindingsOut = defaultGetFindingsOut })
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
@@ -1167,7 +1167,7 @@ func TestRunCLI_dismissNoSessionExitsNonZero(t *testing.T) {
 }
 
 func TestRunCLI_dismissPersistence(t *testing.T) {
-	// Do not run in parallel: test changes cwd and findingsOut.
+	// Do not run in parallel: test changes cwd and getFindingsOut.
 	repo := initRepo(t)
 	orig, err := os.Getwd()
 	if err != nil {
@@ -1178,8 +1178,8 @@ func TestRunCLI_dismissPersistence(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	findingsOut = &buf
-	t.Cleanup(func() { findingsOut = os.Stdout })
+	getFindingsOut = func() io.Writer { return &buf }
+	t.Cleanup(func() { getFindingsOut = defaultGetFindingsOut })
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
@@ -1215,7 +1215,7 @@ func TestRunCLI_dismissPersistence(t *testing.T) {
 }
 
 func TestRunCLI_dismissIdempotent(t *testing.T) {
-	// Do not run in parallel: test changes cwd and findingsOut.
+	// Do not run in parallel: test changes cwd and getFindingsOut.
 	repo := initRepo(t)
 	orig, err := os.Getwd()
 	if err != nil {
@@ -1226,8 +1226,8 @@ func TestRunCLI_dismissIdempotent(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	findingsOut = &buf
-	t.Cleanup(func() { findingsOut = os.Stdout })
+	getFindingsOut = func() io.Writer { return &buf }
+	t.Cleanup(func() { getFindingsOut = defaultGetFindingsOut })
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
@@ -1262,7 +1262,7 @@ func TestRunCLI_dismissIdempotent(t *testing.T) {
 }
 
 func TestRunCLI_dismissWritesPromptShadows(t *testing.T) {
-	// Do not run in parallel: test changes cwd and findingsOut.
+	// Do not run in parallel: test changes cwd and getFindingsOut.
 	repo := initRepo(t)
 	orig, err := os.Getwd()
 	if err != nil {
@@ -1273,8 +1273,8 @@ func TestRunCLI_dismissWritesPromptShadows(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	findingsOut = &buf
-	t.Cleanup(func() { findingsOut = os.Stdout })
+	getFindingsOut = func() io.Writer { return &buf }
+	t.Cleanup(func() { getFindingsOut = defaultGetFindingsOut })
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
@@ -1371,8 +1371,8 @@ func TestRunCLI_dismissAppendsHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	findingsOut = &buf
-	t.Cleanup(func() { findingsOut = os.Stdout })
+	getFindingsOut = func() io.Writer { return &buf }
+	t.Cleanup(func() { getFindingsOut = defaultGetFindingsOut })
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
@@ -1420,8 +1420,8 @@ func TestRunCLI_dismissWithReason(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	findingsOut = &buf
-	t.Cleanup(func() { findingsOut = os.Stdout })
+	getFindingsOut = func() io.Writer { return &buf }
+	t.Cleanup(func() { getFindingsOut = defaultGetFindingsOut })
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
@@ -1466,8 +1466,8 @@ func TestRunCLI_dismissInvalidReasonExits1(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	findingsOut = &buf
-	t.Cleanup(func() { findingsOut = os.Stdout })
+	getFindingsOut = func() io.Writer { return &buf }
+	t.Cleanup(func() { getFindingsOut = defaultGetFindingsOut })
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
@@ -1494,8 +1494,8 @@ func TestRunCLI_dismissByShortPrefix(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	findingsOut = &buf
-	t.Cleanup(func() { findingsOut = os.Stdout })
+	getFindingsOut = func() io.Writer { return &buf }
+	t.Cleanup(func() { getFindingsOut = defaultGetFindingsOut })
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
