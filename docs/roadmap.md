@@ -190,3 +190,54 @@ Cross-file impact extends stet's context-aware design to reduce FPs from "spooky
 ### Adoption and rollout
 
 Recommend piloting on one team or repo, collecting dismiss reasons and running `stet optimize` periodically, and documenting when to use default vs. strict vs. nitpicky so rollout aligns with feedback-driven improvement.
+
+---
+
+## Feature: Finding Consolidation (Post-Processing)
+
+**Goal:** Identify findings that represent the same underlying issue (fragmented by methodology) and group them for display, so users see conceptual issues rather than many near-duplicate entries.
+
+### Concept
+
+Findings fragment because stet reviews **per hunk** and assigns IDs from `(file, line, range, message)`. The same logical issue at different call sites (e.g. "Potential nil pointer dereference in StreamOut" at lines 301 and 498) or the same root cause reported in different hunks (e.g. "Duplicate function definition for newRunCmd") produce separate findings. One fix often addresses several of them. Consolidation groups these for display.
+
+### Approach
+
+- **Rule-based heuristics (primary):** No LLM calls. Fully compatible with small/local models (PRD: 32K context, laptop hardware).
+- **Optional LLM validation (hybrid):** Narrow yes/no prompts for borderline groups only; fits small-model constraints for narrow, well-scoped tasks.
+
+### Rule-based heuristics (implement first)
+
+1. **Same file + message stem similarity** — Reuse `messageStem` / `collapseWhitespace` from [cli/internal/hunkid/hunkid.go](cli/internal/hunkid/hunkid.go). Group findings with high similarity (e.g. Jaccard on word stems or Levenshtein below threshold).
+2. **Same file + shared category + overlapping keywords** — Group when category matches and messages share key phrases (e.g. "nil pointer", "StreamOut", "division by zero").
+3. **Same file + nearby lines + similar message stem** — Group findings within N lines (e.g. 20) with similar message stem.
+
+### Optional LLM validation (hybrid)
+
+For candidate groups flagged by heuristics: "Are these N findings the same underlying issue? Answer Yes or No." Narrow task, small token footprint, simple output — suitable for 7B–13B models. Skip if heuristics are confident; use only when user enables (e.g. `stet list --grouped --verify`).
+
+### Integration
+
+- **Read-only in `stet list`** — e.g. `stet list --grouped`; session unchanged; display-only grouping.
+- **Output format:** Canonical description per group, then member findings:
+
+```text
+[Group: Potential nil pointer dereference in StreamOut]
+  ca1b234  cli/cmd/stet/main.go:301  warning  Potential nil pointer dereference in StreamOut assignment
+  3a0ed5c  cli/cmd/stet/main.go:498  warning  Potential nil pointer dereference in StreamOut assignment
+
+[Group: Duplicate function definition for newRunCmd]
+  f0b4f0c  cli/cmd/stet/main.go:356  error  Duplicate function definition for newRunCmd
+  54e82de  cli/cmd/stet/main.go:363  error  Duplicate function definition for newRunCmd
+```
+
+### Dependencies
+
+- [cli/internal/findings](cli/internal/findings) — `Finding` struct, `ShortID`, active findings.
+- [cli/internal/hunkid](cli/internal/hunkid) — `messageStem`, `collapseWhitespace` for similarity.
+- No new Ollama call required for the rule-based path.
+
+### Constraints
+
+- **PRD:** Local/small models, 32K context. Rule-based path uses zero inference.
+- **LLM path:** Only when explicitly enabled; narrow prompts; optional.
