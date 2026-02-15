@@ -16,6 +16,7 @@ build:
 	go build -buildvcs=false $(BUILD_LDFLAGS) -o bin/stet ./cli/cmd/stet
 	GOOS=linux GOARCH=amd64 go build -buildvcs=false $(BUILD_LDFLAGS) -o bin/stet-linux-amd64 ./cli/cmd/stet
 	GOOS=darwin GOARCH=amd64 go build -buildvcs=false $(BUILD_LDFLAGS) -o bin/stet-darwin-amd64 ./cli/cmd/stet
+	GOOS=darwin GOARCH=arm64 go build -buildvcs=false $(BUILD_LDFLAGS) -o bin/stet-darwin-arm64 ./cli/cmd/stet
 
 # Build all release binaries into dist/ and generate checksums.txt.
 # Run: VERSION=v1.0.0 make release
@@ -33,7 +34,7 @@ release:
 	@(cd dist && (sha256sum stet-* 2>/dev/null || shasum -a 256 stet-*) > checksums.txt)
 
 clean:
-	rm -f bin/stet bin/stet-linux-amd64 bin/stet-darwin-amd64 coverage.out
+	rm -f bin/stet bin/stet-linux-amd64 bin/stet-darwin-amd64 bin/stet-darwin-arm64 coverage.out
 	rm -rf dist
 
 test:
