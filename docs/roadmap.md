@@ -56,16 +56,23 @@
 
 **Rationale:** Research (e.g. "How Small is Enough?" arXiv 2508.16499, InferFix, CORE) shows that small code models (7B parameters) achieve competitive fix accuracy when the task is narrow and well-scoped. The fix task—"given this finding (file, line, message, suggestion), produce the corrected code"—is simpler than full review and fits small models well.
 
+**Commands:** Two entry points keep behavior explicit (cf. [roborev](https://www.roborev.io) fix/refine):
+
+- **stet fix** — One-shot: generate fix(es) from active findings. Output patches for human review; optionally apply to working tree and commit once (e.g. `--apply` / `--commit`).
+- **stet refine** — Looping: generate fix → apply and commit → run review → if findings remain, repeat until review passes or a max-iterations cap. Each commit uses the same attribution message (see below).
+
 **Workflow:**
 
 1. User runs `stet start` or `stet run` → gets findings.
 2. User dismisses false positives via `stet dismiss <id>`.
 3. Active findings = session.Findings - DismissedIDs (much smaller, higher precision).
-4. User runs `stet fix [--finding-id ID] [--dry-run]`:
+4. **stet fix:** User runs `stet fix [--finding-id ID] [--dry-run] [--apply] [--commit]`:
    - Load session; filter to active findings (or the specified finding ID).
    - For each finding: extract code context, build fix prompt, call fix model (Ollama), parse response.
-   - Output proposed patches (unified diff or code blocks) for human review.
-5. User reviews each suggestion and applies manually (no auto-apply in v1).
+   - Output proposed patches (unified diff or code blocks). If `--apply`, apply to working tree; if `--commit`, also create a single commit with the attribution message below.
+5. **stet refine:** User runs `stet refine [--finding-id ID] [--max-iterations N]`:
+   - Same fix generation as fix, then apply and commit, then run stet review on the new commit. If there are still active findings, repeat (fix → apply & commit → review) until the review is clean or `--max-iterations` is reached. Each iteration produces one commit with the same attribution message.
+6. User may otherwise review patches from `stet fix` and apply manually (no `--apply`/`--commit`).
 
 **Context extraction: Largest-first, fallback-to-smaller**
 
@@ -91,6 +98,18 @@ To maximize fix quality, use the largest coherent chunk that fits the model's co
 - `fix_temperature` (default: 0.1): Lower than review for more deterministic output.
 - Env: `STET_FIX_MODEL`, `STET_FIX_TEMPERATURE`.
 
+**Commit message and attribution:** When stet applies and commits (fix with `--commit`, or refine):
+
+- **Commit message:** Include the line: `written by <MODEL> after review from stet`, where `<MODEL>` is the fix model name (e.g. `qwen2.5-coder:7b`). User may add a custom subject/body via a flag (e.g. `--message "Fix security finding"`).
+- **git-ai:** When the git-ai CLI is available and the repo uses it, record fix-authored lines in `refs/notes/ai` per [Git AI Standard v3.0.0](https://github.com/git-ai-project/git-ai/blob/main/specs/git_ai_standard_v3.0.0.md): agent `tool=stet`, `model=<fix_model>`, session id derived from session + finding (e.g. `stet-{session_id}-{finding_short_id}`). Integrate with the published git-ai implementation (e.g. invoke its CLI after applying the fix) rather than reimplementing the note format.
+- **Stet note:** Continue writing `refs/notes/stet` on `stet finish` with session/review scope; "reviewed by stet" is expressed there and via the commit message line above, not in the git-ai note.
+
+**stet refine: loop semantics and caps:**
+
+- **Max iterations:** Require a cap (e.g. `--max-iterations 5`; default 3) so the loop always terminates. Exit when the latest review has no active findings or the cap is reached.
+- **One commit per iteration:** Each refine iteration creates one commit (fix → commit → review). Document that history may show multiple commits for one "refine" run; alternatively, a future option could accumulate fixes in the working tree and commit once when the review is clean (single-commit refine).
+- **Quality bar:** "Passes" means stet's review reports no active findings. Tests, linters, and CI are not run by stet; the user or pipeline remains responsible for those.
+
 **Prompt design (for implementers):**
 
 - System: "You are a code fix assistant. Given a code snippet and a code review finding, output ONLY the corrected code. Do not explain."
@@ -104,9 +123,11 @@ To maximize fix quality, use the largest coherent chunk that fits the model's co
 - `cli/internal/session` — load session, get active findings (Findings minus DismissedIDs).
 - `cli/internal/findings.Finding` — File, Line, Range, Message, Suggestion, Category.
 
-**Output:** Proposed patches for human review. No auto-apply. Extension may add "Fix this finding" action later.
+**Output:** For `stet fix` without `--apply`/`--commit`: proposed patches for human review. With `--apply`/`--commit`, or when using `stet refine`, stet may apply and commit as described above. Extension may add "Fix this finding" or "Refine" actions later.
 
 **Industry references:** InferFix (static analyzer + retrieval-augmented prompts), CORE (proposer + ranker LLMs), SonarQube AI CodeFix (finding → fix suggestion), RePair (process-based feedback for small models).
+
+**Comparison:** One-shot fix vs looping refine mirrors [roborev](https://www.roborev.io) (`roborev fix` / `roborev refine`); stet uses its own fix model and session/review data instead of delegating to another agent.
 
 ### Impact Reporting
 
