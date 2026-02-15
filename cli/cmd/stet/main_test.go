@@ -341,7 +341,7 @@ func TestRunCLI_startWithStrictnessThenRunUsesSessionStrictness(t *testing.T) {
 }
 
 func TestRunCLI_startDryRunEmitsFindingsJSON(t *testing.T) {
-	// Do not run in parallel: test changes cwd and getFindingsOut.
+	// Do not run in parallel: test changes cwd and overrides getFindingsOut to capture output.
 	repo := initRepo(t)
 	orig, err := os.Getwd()
 	if err != nil {
@@ -414,7 +414,7 @@ func TestRunCLI_startDryRunEmitsFindingsJSON(t *testing.T) {
 }
 
 func TestRunCLI_startStreamEmitsNDJSON(t *testing.T) {
-	// Do not run in parallel: test changes cwd and getFindingsOut.
+	// Do not run in parallel: test changes cwd and overrides getFindingsOut to capture output.
 	repo := initRepo(t)
 	orig, err := os.Getwd()
 	if err != nil {
@@ -505,7 +505,7 @@ func TestRunCLI_startDryRunDefaultOutputIsHuman(t *testing.T) {
 }
 
 func TestRunCLI_runDryRunEmitsFindingsJSON(t *testing.T) {
-	// Do not run in parallel: test changes cwd and getFindingsOut.
+	// Do not run in parallel: test changes cwd and overrides getFindingsOut to capture output.
 	repo := initRepo(t)
 	orig, err := os.Getwd()
 	if err != nil {
@@ -597,7 +597,7 @@ func TestRunCLI_rerunNoSessionFails(t *testing.T) {
 }
 
 func TestRunCLI_rerunDryRunRerunsAllHunks(t *testing.T) {
-	// Do not run in parallel: test changes cwd and getFindingsOut.
+	// Do not run in parallel: test changes cwd and overrides getFindingsOut to capture output.
 	repo := initRepo(t)
 	orig, err := os.Getwd()
 	if err != nil {
@@ -1171,7 +1171,7 @@ func TestRunCLI_dismissNoSessionExitsNonZero(t *testing.T) {
 }
 
 func TestRunCLI_dismissPersistence(t *testing.T) {
-	// Do not run in parallel: test changes cwd and getFindingsOut.
+	// Do not run in parallel: test changes cwd and overrides getFindingsOut to capture output.
 	repo := initRepo(t)
 	orig, err := os.Getwd()
 	if err != nil {
@@ -1220,7 +1220,7 @@ func TestRunCLI_dismissPersistence(t *testing.T) {
 }
 
 func TestRunCLI_dismissIdempotent(t *testing.T) {
-	// Do not run in parallel: test changes cwd and getFindingsOut.
+	// Do not run in parallel: test changes cwd and overrides getFindingsOut to capture output.
 	repo := initRepo(t)
 	orig, err := os.Getwd()
 	if err != nil {
@@ -1268,7 +1268,7 @@ func TestRunCLI_dismissIdempotent(t *testing.T) {
 }
 
 func TestRunCLI_dismissWritesPromptShadows(t *testing.T) {
-	// Do not run in parallel: test changes cwd and getFindingsOut.
+	// Do not run in parallel: test changes cwd and overrides getFindingsOut to capture output.
 	repo := initRepo(t)
 	orig, err := os.Getwd()
 	if err != nil {

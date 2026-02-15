@@ -207,6 +207,9 @@ func applyAutoDismiss(s *session.Session, toReview []diff.Hunk, newFindingIDSet 
 			Dismissals:   dismissals,
 		},
 	}
+	if stateDir == "" {
+		return erruser.New("Could not record review history: state directory is required.", nil)
+	}
 	if err := history.Append(stateDir, rec, history.DefaultMaxRecords); err != nil {
 		return erruser.New("Could not record review history.", err)
 	}
