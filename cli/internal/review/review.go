@@ -12,10 +12,33 @@ import (
 	"stet/cli/internal/prompt"
 	"stet/cli/internal/rag"
 	"stet/cli/internal/rules"
+	"stet/cli/internal/tokens"
 	"stet/cli/internal/trace"
 )
 
 const maxExpandTokensCap = 4096
+
+// effectiveRAGTokenCap returns the token cap for the RAG block this hunk.
+// When contextLimit <= 0, returns ragMaxTokens unchanged (no adaptive cap).
+// Otherwise: ragBudget = contextLimit - basePromptTokens - responseReserve;
+// when ragMaxTokens == 0 use ragBudget, when ragMaxTokens > 0 use min(ragBudget, ragMaxTokens);
+// result is clamped to >= 0.
+func effectiveRAGTokenCap(contextLimit, basePromptTokens, responseReserve, ragMaxTokens int) int {
+	if contextLimit <= 0 {
+		return ragMaxTokens
+	}
+	ragBudget := contextLimit - basePromptTokens - responseReserve
+	if ragBudget < 0 {
+		ragBudget = 0
+	}
+	var effective int
+	if ragMaxTokens == 0 {
+		effective = ragBudget
+	} else {
+		effective = min(ragBudget, ragMaxTokens)
+	}
+	return max(0, effective)
+}
 
 // ReviewHunk runs the review for a single hunk: loads system prompt, injects user
 // intent if provided, appends Cursor rules that apply to the file (Phase 6.6),
@@ -115,17 +138,20 @@ func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir stri
 			traceOut.Printf("len=%d (first %d chars)\n%s\n[truncated]\n", len(user), previewLen, user[:previewLen])
 		}
 	}
+	basePromptTokens := tokens.Estimate(system + "\n" + user)
+	effectiveRAGTokens := effectiveRAGTokenCap(contextLimit, basePromptTokens, tokens.DefaultResponseReserve, ragMaxTokens)
 	var defs []rag.Definition
-	if repoRoot != "" && ragMaxDefs > 0 {
+	doRAG := repoRoot != "" && ragMaxDefs > 0 && (contextLimit <= 0 || effectiveRAGTokens > 0)
+	if doRAG {
 		var ragErr error
-		defs, ragErr = rag.ResolveSymbols(ctx, repoRoot, hunk.FilePath, hunk.RawContent, rag.ResolveOptions{MaxDefinitions: ragMaxDefs, MaxTokens: ragMaxTokens})
+		defs, ragErr = rag.ResolveSymbols(ctx, repoRoot, hunk.FilePath, hunk.RawContent, rag.ResolveOptions{MaxDefinitions: ragMaxDefs, MaxTokens: effectiveRAGTokens})
 		if ragErr == nil {
-			user = prompt.AppendSymbolDefinitions(user, defs, ragMaxTokens)
+			user = prompt.AppendSymbolDefinitions(user, defs, effectiveRAGTokens)
 		}
 	}
 	if traceOut != nil && traceOut.Enabled() {
 		traceOut.Section("RAG")
-		traceOut.Printf("definitions=%d\n", len(defs))
+		traceOut.Printf("effective_rag_tokens=%d definitions=%d\n", effectiveRAGTokens, len(defs))
 		for _, d := range defs {
 			traceOut.Printf("  %s %s:%d %s\n", d.Symbol, d.File, d.Line, d.Signature)
 		}
