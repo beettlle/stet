@@ -50,6 +50,64 @@
 
 "The static analyzer found a 'cognitive complexity' error on line 45. Explain this to the user and refactor the code to fix it."
 
+### 8.3 Feature: Targeted Fix from Active Findings
+
+**Concept:** After a review run, use active findings (session.Findings minus DismissedIDs) as input to a smaller local LLM that generates targeted code fix suggestions. The user dismisses false positives first; the remaining list is high-signal for fix generation. This composes with the review-only design: fix is a separate, optional step.
+
+**Rationale:** Research (e.g. "How Small is Enough?" arXiv 2508.16499, InferFix, CORE) shows that small code models (7B parameters) achieve competitive fix accuracy when the task is narrow and well-scoped. The fix task—"given this finding (file, line, message, suggestion), produce the corrected code"—is simpler than full review and fits small models well.
+
+**Workflow:**
+
+1. User runs `stet start` or `stet run` → gets findings.
+2. User dismisses false positives via `stet dismiss <id>`.
+3. Active findings = session.Findings - DismissedIDs (much smaller, higher precision).
+4. User runs `stet fix [--finding-id ID] [--dry-run]`:
+   - Load session; filter to active findings (or the specified finding ID).
+   - For each finding: extract code context, build fix prompt, call fix model (Ollama), parse response.
+   - Output proposed patches (unified diff or code blocks) for human review.
+5. User reviews each suggestion and applies manually (no auto-apply in v1).
+
+**Context extraction: Largest-first, fallback-to-smaller**
+
+To maximize fix quality, use the largest coherent chunk that fits the model's context window, then fall back to smaller chunks if needed.
+
+| Chunk level | Description | Use when |
+|-------------|-------------|----------|
+| Enclosing function | Full function/block containing the finding (Go: `expand` package) | Go files; fits budget |
+| N-line window | ±50 lines around finding line | Non-Go or when enclosing too large |
+| Smaller window | ±30, ±20, ±10 lines | Budget still exceeded |
+| Minimal | Finding range ±2–5 lines | Last resort |
+
+**Algorithm:**
+
+1. Compute token budget: `contextLimit - systemPrompt - findingPayload - responseReserve`.
+2. Try largest chunk: for Go, use `expand` to get enclosing function at finding location; for others, try ±50 lines.
+3. Estimate tokens; if over budget, fall back to smaller N-line window (30, 20, 10).
+4. Last resort: minimal range around the finding.
+
+**Config:**
+
+- `fix_model` (default: `qwen2.5-coder:7b`): Model for fix generation. Smaller than review model; runs faster and uses less VRAM.
+- `fix_temperature` (default: 0.1): Lower than review for more deterministic output.
+- Env: `STET_FIX_MODEL`, `STET_FIX_TEMPERATURE`.
+
+**Prompt design (for implementers):**
+
+- System: "You are a code fix assistant. Given a code snippet and a code review finding, output ONLY the corrected code. Do not explain."
+- User: file path, line/range, message, suggestion (if any), category, and code context (the extracted chunk).
+- Output format: code block only (or unified diff) for easy parsing.
+
+**Dependencies to reuse:**
+
+- `cli/internal/expand` — add `ExpandAtLocation(repoRoot, filePath, startLine, endLine, maxTokens)` for finding-based expansion (today `ExpandHunk` works from diff hunks).
+- `cli/internal/ollama.Client` — same `Generate` API; pass fix_model.
+- `cli/internal/session` — load session, get active findings (Findings minus DismissedIDs).
+- `cli/internal/findings.Finding` — File, Line, Range, Message, Suggestion, Category.
+
+**Output:** Proposed patches for human review. No auto-apply. Extension may add "Fix this finding" action later.
+
+**Industry references:** InferFix (static analyzer + retrieval-augmented prompts), CORE (proposer + ranker LLMs), SonarQube AI CodeFix (finding → fix suggestion), RePair (process-based feedback for small models).
+
 ### Impact Reporting
 
 `stet stats` for volume (Stet-reviewed vs not), quality (actionability, FP rate, clean commits), and cost/energy (local kWh, avoided cloud spend). See implementation plan Phase 9.

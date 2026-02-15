@@ -1,6 +1,7 @@
 package review
 
 import (
+	"strings"
 	"testing"
 
 	"stet/cli/internal/findings"
@@ -80,15 +81,18 @@ func TestParseFindingsResponse_singleObject(t *testing.T) {
 	}
 }
 
-func TestParseFindingsResponse_singleObject_invalid_returnsEmpty(t *testing.T) {
-	// Single object that fails Validate (e.g. empty message) yields empty slice, no error.
+func TestParseFindingsResponse_singleObject_invalid_returnsError(t *testing.T) {
+	// Single object that fails Validate (e.g. empty message) returns error.
 	jsonStr := `{"file":"a.go","line":1,"severity":"info","category":"style","message":""}`
 	list, err := ParseFindingsResponse(jsonStr)
-	if err != nil {
-		t.Fatalf("ParseFindingsResponse: %v", err)
+	if err == nil {
+		t.Fatal("ParseFindingsResponse: want error for invalid single object, got nil")
 	}
-	if len(list) != 0 {
-		t.Errorf("len(list) = %d, want 0 (invalid single object should not be accepted)", len(list))
+	if list != nil {
+		t.Errorf("len(list) = %d, want nil on error", len(list))
+	}
+	if !strings.Contains(err.Error(), "validation failed") {
+		t.Errorf("error should mention validation failed: %v", err)
 	}
 }
 

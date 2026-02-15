@@ -168,7 +168,10 @@ func addressedFindingIDs(hunks []diff.Hunk, existingFindings []findings.Finding,
 // applyAutoDismiss updates s.DismissedIDs for findings in toReview that are not in newFindingIDSet
 // and appends a history record when any are addressed. Caller must save the session after.
 func applyAutoDismiss(s *session.Session, toReview []diff.Hunk, newFindingIDSet map[string]struct{}, headSHA, stateDir string) error {
-	if len(s.Findings) == 0 {
+	if stateDir == "" {
+		return erruser.New("Could not record review history: state directory is required.", nil)
+	}
+	if s == nil || len(s.Findings) == 0 {
 		return nil
 	}
 	addressed := addressedFindingIDs(toReview, s.Findings, newFindingIDSet)

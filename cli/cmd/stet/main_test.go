@@ -347,9 +347,10 @@ func TestRunCLI_startDryRunEmitsFindingsJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	origOut := getFindingsOut
 	defer func() {
 		_ = os.Chdir(orig)
-		getFindingsOut = defaultGetFindingsOut
+		getFindingsOut = origOut
 	}()
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
@@ -421,9 +422,10 @@ func TestRunCLI_startStreamEmitsNDJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	origOut := getFindingsOut
 	defer func() {
 		_ = os.Chdir(orig)
-		getFindingsOut = defaultGetFindingsOut
+		getFindingsOut = origOut
 	}()
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
@@ -484,9 +486,10 @@ func TestRunCLI_startDryRunDefaultOutputIsHuman(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	origOut := getFindingsOut
 	defer func() {
 		_ = os.Chdir(orig)
-		getFindingsOut = defaultGetFindingsOut
+		getFindingsOut = origOut
 	}()
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
@@ -512,9 +515,10 @@ func TestRunCLI_runDryRunEmitsFindingsJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	origOut := getFindingsOut
 	defer func() {
 		_ = os.Chdir(orig)
-		getFindingsOut = defaultGetFindingsOut
+		getFindingsOut = origOut
 	}()
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
@@ -603,9 +607,10 @@ func TestRunCLI_rerunDryRunRerunsAllHunks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	origOut := getFindingsOut
 	defer func() {
 		_ = os.Chdir(orig)
-		getFindingsOut = defaultGetFindingsOut
+		getFindingsOut = origOut
 	}()
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
@@ -956,8 +961,9 @@ func TestRunCLI_statusWithIdsPrintsFindingsWithIds(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
+	origOut := getFindingsOut
 	getFindingsOut = func() io.Writer { return &buf }
-	t.Cleanup(func() { getFindingsOut = defaultGetFindingsOut })
+	t.Cleanup(func() { getFindingsOut = origOut })
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
@@ -1039,8 +1045,9 @@ func TestRunCLI_listPrintsFindingsWithIds(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
+	origOut := getFindingsOut
 	getFindingsOut = func() io.Writer { return &buf }
-	t.Cleanup(func() { getFindingsOut = defaultGetFindingsOut })
+	t.Cleanup(func() { getFindingsOut = origOut })
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
@@ -1116,8 +1123,9 @@ func TestRunCLI_listEmptyFindings(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
+	origOut := getFindingsOut
 	getFindingsOut = func() io.Writer { return &buf }
-	t.Cleanup(func() { getFindingsOut = defaultGetFindingsOut })
+	t.Cleanup(func() { getFindingsOut = origOut })
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
@@ -1178,8 +1186,9 @@ func TestRunCLI_dismissPersistence(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
+	origOut := getFindingsOut
 	getFindingsOut = func() io.Writer { return &buf }
-	t.Cleanup(func() { getFindingsOut = defaultGetFindingsOut })
+	t.Cleanup(func() { getFindingsOut = origOut })
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
@@ -1226,8 +1235,9 @@ func TestRunCLI_dismissIdempotent(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
+	origOut := getFindingsOut
 	getFindingsOut = func() io.Writer { return &buf }
-	t.Cleanup(func() { getFindingsOut = defaultGetFindingsOut })
+	t.Cleanup(func() { getFindingsOut = origOut })
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
@@ -1273,8 +1283,9 @@ func TestRunCLI_dismissWritesPromptShadows(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
+	origOut := getFindingsOut
 	getFindingsOut = func() io.Writer { return &buf }
-	t.Cleanup(func() { getFindingsOut = defaultGetFindingsOut })
+	t.Cleanup(func() { getFindingsOut = origOut })
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
@@ -1371,8 +1382,9 @@ func TestRunCLI_dismissAppendsHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
+	origOut := getFindingsOut
 	getFindingsOut = func() io.Writer { return &buf }
-	t.Cleanup(func() { getFindingsOut = defaultGetFindingsOut })
+	t.Cleanup(func() { getFindingsOut = origOut })
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
@@ -1420,8 +1432,9 @@ func TestRunCLI_dismissWithReason(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
+	origOut := getFindingsOut
 	getFindingsOut = func() io.Writer { return &buf }
-	t.Cleanup(func() { getFindingsOut = defaultGetFindingsOut })
+	t.Cleanup(func() { getFindingsOut = origOut })
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
@@ -1466,8 +1479,9 @@ func TestRunCLI_dismissInvalidReasonExits1(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
+	origOut := getFindingsOut
 	getFindingsOut = func() io.Writer { return &buf }
-	t.Cleanup(func() { getFindingsOut = defaultGetFindingsOut })
+	t.Cleanup(func() { getFindingsOut = origOut })
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
@@ -1494,8 +1508,9 @@ func TestRunCLI_dismissByShortPrefix(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
+	origOut := getFindingsOut
 	getFindingsOut = func() io.Writer { return &buf }
-	t.Cleanup(func() { getFindingsOut = defaultGetFindingsOut })
+	t.Cleanup(func() { getFindingsOut = origOut })
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}

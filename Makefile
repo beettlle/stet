@@ -35,6 +35,7 @@ release:
 
 clean:
 	rm -f bin/stet bin/stet-linux-amd64 bin/stet-darwin-amd64 bin/stet-darwin-arm64 coverage.out
+	# dist/ contains release binaries (stet-{os}-{arch}); rm -rf removes all
 	rm -rf dist
 
 test:

@@ -3,6 +3,7 @@ package review
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 
 	"stet/cli/internal/diff"
@@ -27,9 +28,19 @@ func effectiveRAGTokenCap(contextLimit, basePromptTokens, responseReserve, ragMa
 	if contextLimit <= 0 {
 		return ragMaxTokens
 	}
-	ragBudget := contextLimit - basePromptTokens - responseReserve
-	if ragBudget < 0 {
+	// Use int64 to avoid overflow when basePromptTokens + responseReserve is large
+	sum := int64(basePromptTokens) + int64(responseReserve)
+	if sum > int64(contextLimit) || sum < 0 {
+		return 0 // no budget when base + reserve exceeds or overflows
+	}
+	ragBudget64 := int64(contextLimit) - sum
+	var ragBudget int
+	if ragBudget64 <= 0 {
 		ragBudget = 0
+	} else if ragBudget64 > int64(math.MaxInt) {
+		ragBudget = math.MaxInt
+	} else {
+		ragBudget = int(ragBudget64)
 	}
 	var effective int
 	if ragMaxTokens == 0 {

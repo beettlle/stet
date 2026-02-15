@@ -40,8 +40,8 @@ func ParseFindingsResponse(jsonStr string) ([]findings.Finding, error) {
 	if err := json.Unmarshal([]byte(jsonStr), &single); err != nil {
 		return wrapper.Findings, nil
 	}
-	if single.Validate() != nil {
-		return wrapper.Findings, nil
+	if verr := single.Validate(); verr != nil {
+		return nil, fmt.Errorf("parse findings: single object validation failed: %w", verr)
 	}
 	return []findings.Finding{single}, nil
 }

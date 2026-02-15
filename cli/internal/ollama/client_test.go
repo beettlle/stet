@@ -361,6 +361,9 @@ func TestClient_Show_parameters_fallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Show: %v", err)
 	}
+	if got == nil {
+		t.Fatal("Show: want non-nil result, got nil")
+	}
 	if got.ContextLength != 8192 {
 		t.Errorf("ContextLength = %d, want 8192", got.ContextLength)
 	}
@@ -380,6 +383,9 @@ func TestClient_Show_empty_returnsZero(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Show: %v", err)
 	}
+	if got == nil {
+		t.Fatal("Show: want non-nil result, got nil")
+	}
 	if got.ContextLength != 0 {
 		t.Errorf("ContextLength = %d, want 0", got.ContextLength)
 	}
@@ -398,6 +404,9 @@ func TestClient_Show_nonNumeric_contextLength_ignored(t *testing.T) {
 	got, err := client.Show(ctx, "m")
 	if err != nil {
 		t.Fatalf("Show: %v", err)
+	}
+	if got == nil {
+		t.Fatal("Show: want non-nil result, got nil")
 	}
 	if got.ContextLength != 0 {
 		t.Errorf("ContextLength = %d, want 0 (non-numeric ignored)", got.ContextLength)

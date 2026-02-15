@@ -162,6 +162,9 @@ func parseContextLengthFromShow(show showResponse) int {
 			}
 		}
 		if maxVal > 0 {
+			if maxVal > float64(math.MaxInt) {
+				maxVal = float64(math.MaxInt)
+			}
 			return capContextLength(int(maxVal))
 		}
 	}
@@ -182,9 +185,6 @@ func capContextLength(n int) int {
 	}
 	if n > maxContextLength {
 		return maxContextLength
-	}
-	if n > math.MaxInt {
-		return math.MaxInt
 	}
 	return n
 }
