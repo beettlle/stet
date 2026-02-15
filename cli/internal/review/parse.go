@@ -26,19 +26,24 @@ func ParseFindingsResponse(jsonStr string) ([]findings.Finding, error) {
 	if err := json.Unmarshal([]byte(jsonStr), &raw); err == nil {
 		return raw, nil
 	}
-	var wrapper struct {
-		Findings []findings.Finding `json:"findings"`
-	}
-	if err := json.Unmarshal([]byte(jsonStr), &wrapper); err != nil {
+	// Check for "findings" key to distinguish {"findings":[]} from a single finding object.
+	var keyCheck map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(jsonStr), &keyCheck); err != nil {
 		return nil, fmt.Errorf("parse findings: %w", err)
 	}
-	if len(wrapper.Findings) > 0 {
+	if _, hasFindings := keyCheck["findings"]; hasFindings {
+		var wrapper struct {
+			Findings []findings.Finding `json:"findings"`
+		}
+		if err := json.Unmarshal([]byte(jsonStr), &wrapper); err != nil {
+			return nil, fmt.Errorf("parse findings: %w", err)
+		}
 		return wrapper.Findings, nil
 	}
 	// Corrective fallback: some models return a single finding object instead of an array or wrapper.
 	var single findings.Finding
 	if err := json.Unmarshal([]byte(jsonStr), &single); err != nil {
-		return wrapper.Findings, nil
+		return nil, fmt.Errorf("parse findings: %w", err)
 	}
 	if verr := single.Validate(); verr != nil {
 		return nil, fmt.Errorf("parse findings: single object validation failed: %w", verr)

@@ -45,6 +45,17 @@ func TestParseFindingsResponse_emptyArray(t *testing.T) {
 	}
 }
 
+func TestParseFindingsResponse_emptyWrapperObject(t *testing.T) {
+	// LLM returns {"findings":[]} when no issues found; must not fall through to single-object fallback.
+	list, err := ParseFindingsResponse(`{"findings":[]}`)
+	if err != nil {
+		t.Fatalf("ParseFindingsResponse: %v", err)
+	}
+	if len(list) != 0 {
+		t.Errorf("len(list) = %d, want 0", len(list))
+	}
+}
+
 func TestParseFindingsResponse_malformed_returnsError(t *testing.T) {
 	_, err := ParseFindingsResponse("not json")
 	if err == nil {
