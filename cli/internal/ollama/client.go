@@ -297,22 +297,28 @@ type generateRequest struct {
 }
 
 type generateResponse struct {
-	Response        string `json:"response"`
-	Done            bool   `json:"done"`
-	Model           string `json:"model"`
-	PromptEvalCount int    `json:"prompt_eval_count"`
-	EvalCount       int    `json:"eval_count"`
-	EvalDuration    int64  `json:"eval_duration"`
+	Response             string `json:"response"`
+	Done                 bool   `json:"done"`
+	Model                string `json:"model"`
+	PromptEvalCount      int    `json:"prompt_eval_count"`
+	PromptEvalDuration   int64  `json:"prompt_eval_duration"`
+	EvalCount            int    `json:"eval_count"`
+	EvalDuration         int64  `json:"eval_duration"`
+	LoadDuration         int64  `json:"load_duration"`
+	TotalDuration        int64  `json:"total_duration"`
 }
 
 // GenerateResult holds the response text and metadata returned by Ollama /api/generate.
 // Metadata fields may be zero when the server does not send them.
 type GenerateResult struct {
-	Response        string
-	Model           string
-	PromptEvalCount int
-	EvalCount       int
-	EvalDuration    int64
+	Response             string
+	Model                string
+	PromptEvalCount      int
+	PromptEvalDuration   int64
+	EvalCount            int
+	EvalDuration         int64
+	LoadDuration         int64
+	TotalDuration        int64
 }
 
 // Generate sends a completion request to /api/generate with the given model,
@@ -376,11 +382,14 @@ func (c *Client) Generate(ctx context.Context, model, systemPrompt, userPrompt s
 			return nil, fmt.Errorf("ollama generate: parse response: %w", err)
 		}
 		return &GenerateResult{
-			Response:        gen.Response,
-			Model:           gen.Model,
-			PromptEvalCount: gen.PromptEvalCount,
-			EvalCount:       gen.EvalCount,
-			EvalDuration:    gen.EvalDuration,
+			Response:           gen.Response,
+			Model:              gen.Model,
+			PromptEvalCount:    gen.PromptEvalCount,
+			PromptEvalDuration: gen.PromptEvalDuration,
+			EvalCount:          gen.EvalCount,
+			EvalDuration:       gen.EvalDuration,
+			LoadDuration:       gen.LoadDuration,
+			TotalDuration:      gen.TotalDuration,
 		}, nil
 	}
 	if lastErr == nil {

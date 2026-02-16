@@ -99,6 +99,97 @@ func TestRunCLI_doctorModelNotFoundExits1(t *testing.T) {
 	}
 }
 
+func TestRunCLI_benchmarkUnreachableExits2(t *testing.T) {
+	// Do not run in parallel: test sets STET_OLLAMA_BASE_URL.
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	addr := listener.Addr().String()
+	if err := listener.Close(); err != nil {
+		t.Fatalf("close listener: %v", err)
+	}
+	baseURL := "http://" + addr
+	orig := os.Getenv("STET_OLLAMA_BASE_URL")
+	if err := os.Setenv("STET_OLLAMA_BASE_URL", baseURL); err != nil {
+		t.Fatalf("setenv: %v", err)
+	}
+	defer func() {
+		_ = os.Setenv("STET_OLLAMA_BASE_URL", orig)
+	}()
+
+	got := runCLI([]string{"benchmark"})
+	if got != 2 {
+		t.Errorf("runCLI(benchmark) with unreachable Ollama = %d, want 2", got)
+	}
+}
+
+func TestRunCLI_benchmarkWithMockReturnsZero(t *testing.T) {
+	// Do not run in parallel: test sets STET_OLLAMA_BASE_URL and STET_MODEL.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/tags" && r.Method == http.MethodGet {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"models":[{"name":"qwen3-coder:30b"}]}`))
+			return
+		}
+		if r.URL.Path == "/api/generate" && r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"response":             `[]`,
+				"done":                 true,
+				"model":                "qwen3-coder:30b",
+				"prompt_eval_count":    500,
+				"prompt_eval_duration": 250000000,
+				"eval_count":           200,
+				"eval_duration":        4000000000,
+				"load_duration":        0,
+				"total_duration":       4250000000,
+			})
+			return
+		}
+		t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+	}))
+	defer srv.Close()
+	origURL := os.Getenv("STET_OLLAMA_BASE_URL")
+	origModel := os.Getenv("STET_MODEL")
+	if err := os.Setenv("STET_OLLAMA_BASE_URL", srv.URL); err != nil {
+		t.Fatalf("setenv: %v", err)
+	}
+	if err := os.Setenv("STET_MODEL", "qwen3-coder:30b"); err != nil {
+		t.Fatalf("setenv: %v", err)
+	}
+	defer func() {
+		_ = os.Setenv("STET_OLLAMA_BASE_URL", origURL)
+		_ = os.Setenv("STET_MODEL", origModel)
+	}()
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStdout := os.Stdout
+	os.Stdout = w
+	t.Cleanup(func() { os.Stdout = oldStdout })
+	got := runCLI([]string{"benchmark"})
+	_ = w.Close()
+	var stdout bytes.Buffer
+	_, _ = io.Copy(&stdout, r)
+
+	if got != 0 {
+		t.Errorf("runCLI(benchmark) with mock server = %d, want 0", got)
+	}
+	output := stdout.String()
+	if !strings.Contains(output, "Model: qwen3-coder:30b") {
+		t.Errorf("output should contain 'Model: qwen3-coder:30b'; got:\n%s", output)
+	}
+	if !strings.Contains(output, "t/s") {
+		t.Errorf("output should contain 't/s'; got:\n%s", output)
+	}
+	if !strings.Contains(output, "Reference:") {
+		t.Errorf("output should contain 'Reference:'; got:\n%s", output)
+	}
+}
+
 func TestRunCLI_helpExitsZero(t *testing.T) {
 	t.Parallel()
 	if got := runCLI([]string{"--help"}); got != 0 {

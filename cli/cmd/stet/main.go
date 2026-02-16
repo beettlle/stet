@@ -14,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"stet/cli/internal/benchmark"
 	"stet/cli/internal/config"
 	"stet/cli/internal/erruser"
 	"stet/cli/internal/findings"
@@ -169,6 +170,7 @@ func runCLI(args []string) int {
 	rootCmd.AddCommand(newDismissCmd())
 	rootCmd.AddCommand(newOptimizeCmd())
 	rootCmd.AddCommand(newDoctorCmd())
+	rootCmd.AddCommand(newBenchmarkCmd())
 	rootCmd.SilenceUsage = true
 	rootCmd.SilenceErrors = true
 	rootCmd.SetArgs(args)
@@ -1099,6 +1101,77 @@ func runOptimize(cmd *cobra.Command, args []string) error {
 		}
 		return errExit(1)
 	}
+	return nil
+}
+
+func newBenchmarkCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "benchmark",
+		Short: "Measure model throughput (tokens/s) for the configured model",
+		RunE:  runBenchmark,
+	}
+	cmd.Flags().String("model", "", "Override model (default: from config)")
+	cmd.Flags().Bool("warmup", false, "Run warmup call before measuring (load model, discard metrics)")
+	return cmd
+}
+
+func runBenchmark(cmd *cobra.Command, args []string) error {
+	cfg, err := config.Load(cmd.Context(), config.LoadOptions{RepoRoot: ""})
+	if err != nil {
+		return err
+	}
+	model, _ := cmd.Flags().GetString("model")
+	if model == "" {
+		model = cfg.Model
+	}
+	client := ollama.NewClient(cfg.OllamaBaseURL, nil)
+	result, err := client.Check(cmd.Context(), model)
+	if err != nil {
+		if errors.Is(err, ollama.ErrUnreachable) {
+			fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
+			fmt.Fprintf(os.Stderr, "Details: %v\n", err)
+			return errExit(2)
+		}
+		if errors.Is(err, ollama.ErrBadRequest) {
+			fmt.Fprintf(os.Stderr, "Ollama bad request at %s. %v\n", cfg.OllamaBaseURL, err)
+			return errExit(2)
+		}
+		fmt.Fprintln(os.Stderr, err.Error())
+		return errExit(1)
+	}
+	if !result.ModelPresent {
+		fmt.Fprintf(os.Stderr, "Model %q not found. Pull it with: ollama pull %s\n", model, model)
+		return errExit(1)
+	}
+	opts := &ollama.GenerateOptions{
+		Temperature: cfg.Temperature,
+		NumCtx:      cfg.NumCtx,
+	}
+	warmup, _ := cmd.Flags().GetBool("warmup")
+	if warmup {
+		_, _ = benchmark.Run(cmd.Context(), client, model, opts)
+	}
+	br, err := benchmark.Run(cmd.Context(), client, model, opts)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Benchmark failed: %v\n", err)
+		return errExit(1)
+	}
+	fmt.Fprintf(os.Stdout, "Model: %s\n", br.Model)
+	fmt.Fprintf(os.Stdout, "Eval rate:     %6.1f t/s (generation)\n", br.EvalRateTPS)
+	if br.PromptEvalRateTPS > 0 {
+		fmt.Fprintf(os.Stdout, "Prompt eval:   %6.0f t/s (prefill)\n", br.PromptEvalRateTPS)
+	}
+	if br.LoadDurationNs > 0 {
+		fmt.Fprintf(os.Stdout, "Load:          %6.1fs (cold start)\n", float64(br.LoadDurationNs)/1e9)
+	}
+	fmt.Fprintln(os.Stdout, "---")
+	fmt.Fprintf(os.Stdout, "Tokens: %d in, %d out | Total: %.1fs\n", br.PromptEvalCount, br.EvalCount, float64(br.TotalDurationNs)/1e9)
+	if br.EstimatedSecPerTypicalHunk > 0 {
+		fmt.Fprintf(os.Stdout, "Typical stet hunk (~%dk prompt, ~%d out): ~%.1fs estimated\n",
+			benchmark.TypicalPromptTokens/1000, benchmark.TypicalOutputTokens, br.EstimatedSecPerTypicalHunk)
+	}
+	fmt.Fprintln(os.Stdout, "---")
+	fmt.Fprintln(os.Stdout, "Reference: 8B ~35-50 t/s, 30B ~15-25 t/s, 70B ~5-8 t/s (M1 Ultra)")
 	return nil
 }
 

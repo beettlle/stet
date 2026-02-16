@@ -92,6 +92,7 @@ The default install directory is `~/.local/bin` (Mac/Linux) or `%USERPROFILE%\.l
 | Command | Description |
 |---------|-------------|
 | `stet doctor` | Verify Ollama, Git, models |
+| `stet benchmark` | Measure model throughput (tokens/s) for the configured model |
 | `stet start [ref]` | Start review from baseline |
 | `stet run` | Re-run incremental review |
 | `stet rerun` | Re-run full review (all hunks) with same or overridden parameters; use `--replace` to overwrite previous findings; requires an active session |
@@ -108,6 +109,8 @@ The default install directory is `~/.local/bin` (Mac/Linux) or `%USERPROFILE%\.l
 
 - **`--nitpicky`** — Report style, typos, and grammar (config: `nitpicky = true` or `STET_NITPICKY=1`).
 - **`--trace`** — Print internal steps to stderr for debugging (`stet start --trace` or `stet run --trace`).
+- **`stet benchmark --model MODEL`** — Benchmark a specific model instead of the configured one.
+- **`stet benchmark --warmup`** — Run a warmup call before measuring (load model, discard metrics).
 
 ## Cursor Extension
 

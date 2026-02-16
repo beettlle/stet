@@ -290,17 +290,23 @@ func TestClient_Generate_returnsResponseMetadata(t *testing.T) {
 	wantResponse := `[]`
 	wantModel := "qwen3-coder:30b"
 	wantPromptEval := 100
+	wantPromptEvalDur := int64(50000000)
 	wantEval := 42
 	wantEvalDur := int64(500000000)
+	wantLoadDur := int64(1200000000)
+	wantTotalDur := int64(1750000000)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"response":          wantResponse,
-			"done":              true,
-			"model":             wantModel,
-			"prompt_eval_count": wantPromptEval,
-			"eval_count":        wantEval,
-			"eval_duration":     wantEvalDur,
+			"response":               wantResponse,
+			"done":                   true,
+			"model":                  wantModel,
+			"prompt_eval_count":      wantPromptEval,
+			"prompt_eval_duration":   wantPromptEvalDur,
+			"eval_count":             wantEval,
+			"eval_duration":          wantEvalDur,
+			"load_duration":          wantLoadDur,
+			"total_duration":         wantTotalDur,
 		})
 	}))
 	defer srv.Close()
@@ -322,11 +328,20 @@ func TestClient_Generate_returnsResponseMetadata(t *testing.T) {
 	if got.PromptEvalCount != wantPromptEval {
 		t.Errorf("PromptEvalCount = %d, want %d", got.PromptEvalCount, wantPromptEval)
 	}
+	if got.PromptEvalDuration != wantPromptEvalDur {
+		t.Errorf("PromptEvalDuration = %d, want %d", got.PromptEvalDuration, wantPromptEvalDur)
+	}
 	if got.EvalCount != wantEval {
 		t.Errorf("EvalCount = %d, want %d", got.EvalCount, wantEval)
 	}
 	if got.EvalDuration != wantEvalDur {
 		t.Errorf("EvalDuration = %d, want %d", got.EvalDuration, wantEvalDur)
+	}
+	if got.LoadDuration != wantLoadDur {
+		t.Errorf("LoadDuration = %d, want %d", got.LoadDuration, wantLoadDur)
+	}
+	if got.TotalDuration != wantTotalDur {
+		t.Errorf("TotalDuration = %d, want %d", got.TotalDuration, wantTotalDur)
 	}
 }
 
