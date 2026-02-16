@@ -107,7 +107,7 @@ func writeFindingsHuman(w io.Writer, stateDir string) error {
 		if f.Range != nil {
 			line = f.Range.Start
 		}
-		if _, err := fmt.Fprintf(w, "%s:%d  %s  %s\n", f.File, line, f.Severity, f.Message); err != nil {
+		if _, err := fmt.Fprintf(w, "%s:%d  %s  %s\n", f.File, line, strings.ToUpper(string(f.Severity)), f.Message); err != nil {
 			return erruser.New("Could not write findings.", err)
 		}
 	}
@@ -136,7 +136,7 @@ func writeFindingsWithIDs(w io.Writer, stateDir string) error {
 		if f.Range != nil {
 			line = f.Range.Start
 		}
-		if _, err := fmt.Fprintf(w, "%s  %s:%d  %s  %s\n", findings.ShortID(f.ID), f.File, line, f.Severity, f.Message); err != nil {
+		if _, err := fmt.Fprintf(w, "%s  %s:%d  %s  %s\n", findings.ShortID(f.ID), f.File, line, strings.ToUpper(string(f.Severity)), f.Message); err != nil {
 			return erruser.New("Could not write findings.", err)
 		}
 	}
