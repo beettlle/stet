@@ -111,6 +111,9 @@ func (c *Client) Check(ctx context.Context, model string) (*CheckResult, error) 
 			}
 			continue
 		}
+		if resp == nil {
+			return nil, fmt.Errorf("ollama tags: unexpected nil response")
+		}
 		if resp.StatusCode != http.StatusOK {
 			_, _ = io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
@@ -199,6 +202,9 @@ func (c *Client) Show(ctx context.Context, model string) (*ShowResult, error) {
 				return nil, fmt.Errorf("ollama show: %w", ctx.Err())
 			}
 			continue
+		}
+		if resp == nil {
+			return nil, fmt.Errorf("ollama show: unexpected nil response")
 		}
 		if resp.StatusCode != http.StatusOK {
 			_, _ = io.Copy(io.Discard, resp.Body)
@@ -348,6 +354,9 @@ func (c *Client) Generate(ctx context.Context, model, systemPrompt, userPrompt s
 			}
 			continue
 		}
+		if resp == nil {
+			return nil, fmt.Errorf("ollama generate: unexpected nil response")
+		}
 		if resp.StatusCode != http.StatusOK {
 			_, _ = io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
@@ -373,6 +382,9 @@ func (c *Client) Generate(ctx context.Context, model, systemPrompt, userPrompt s
 			EvalCount:       gen.EvalCount,
 			EvalDuration:    gen.EvalDuration,
 		}, nil
+	}
+	if lastErr == nil {
+		lastErr = errors.New("ollama generate: no response after retries")
 	}
 	return nil, lastErr
 }

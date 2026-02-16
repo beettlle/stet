@@ -80,6 +80,7 @@ func TestClient_Check(t *testing.T) {
 			wantUnreachable: false,
 		},
 		{
+			// Package contract: 4xx (including 404) returns ErrBadRequest.
 			name:            "404",
 			status:          http.StatusNotFound,
 			body:            "",
@@ -420,6 +421,7 @@ func TestClient_Show_nonNumeric_contextLength_ignored(t *testing.T) {
 	}
 }
 
+// TestClient_Show_httpError_returnsError verifies 4xx (e.g. 404) returns ErrBadRequest per package contract.
 func TestClient_Show_httpError_returnsError(t *testing.T) {
 	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
