@@ -2,6 +2,7 @@ package rag
 
 import (
 	"context"
+	"errors"
 	"testing"
 )
 
@@ -41,8 +42,8 @@ func TestRegisterResolver_emptyExtension_returnsError(t *testing.T) {
 	if err == nil {
 		t.Fatal("RegisterResolver with empty extension: want error, got nil")
 	}
-	if err.Error() != "rag: empty extension" {
-		t.Errorf("RegisterResolver error = %q, want %q", err.Error(), "rag: empty extension")
+	if !errors.Is(err, ErrEmptyExtension) {
+		t.Errorf("RegisterResolver: want errors.Is(..., ErrEmptyExtension); got %v", err)
 	}
 }
 

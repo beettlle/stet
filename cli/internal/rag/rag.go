@@ -7,7 +7,7 @@ package rag
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"path/filepath"
 	"sync"
 )
@@ -39,11 +39,14 @@ var (
 	registryMu sync.RWMutex
 )
 
+// ErrEmptyExtension is returned by RegisterResolver when ext is empty.
+var ErrEmptyExtension = errors.New("rag: empty extension")
+
 // RegisterResolver registers a resolver for the given file extension (e.g. ".go").
 // Extensions should include the leading dot. Returns an error if ext is empty.
 func RegisterResolver(ext string, r Resolver) error {
 	if ext == "" {
-		return fmt.Errorf("rag: empty extension")
+		return ErrEmptyExtension
 	}
 	registryMu.Lock()
 	defer registryMu.Unlock()
