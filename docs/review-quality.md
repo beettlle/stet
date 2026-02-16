@@ -116,6 +116,22 @@ Deferred items from post–Vitest migration review; consider when touching the e
 
 A batch of self-review findings (RAG config options without CLI flags, int64→int overflow in config, RunOptions RAG validation) were all actionable or optional improvements; none were false positives or hallucinations, so no new entries were added to the curated false-positive tables.
 
+### Stet self-review: filter-hunks-with-dismissed (2025-02)
+
+Findings from `stet list` after implementing dismissed-hunk filtering. All assessed as false positives; document here for processing, then dismiss.
+
+| ID | File:Line | Message | Dismiss reason |
+|----|-----------|---------|----------------|
+| f71766e | run.go:255 | Incorrect logic for checking if a hunk contains a dismissed finding | false_positive |
+| 21d4299 | run.go:834 | forceFullReview parameter passed incorrectly | false_positive |
+| 56bcf82 | run.go:875 | Inconsistent total count in dry run loop | false_positive |
+| 6b8a175 | run.go:948 | Token estimation uses filtered hunks instead of original partition | false_positive |
+| 3de21ea | run.go:961 | Potential nil pointer dereference when toReview is nil | false_positive |
+| f06f433 | run.go:1039 | applyAutoDismiss called with filtered toReview | false_positive |
+| e4e7316 | run_test.go:1021 | Large number of test cases in TestFilterHunksWithDismissedFindings | false_positive |
+
+Rationale: Overlap logic (255) is correct; forceFullReview (834) is passed correctly; total (875) matches filtered slice; token estimation (948) and applyAutoDismiss (1039) intentionally use filtered hunks; range over nil (961) is safe in Go; 8 test cases (1021) are appropriate.
+
 ## Optimizer and actionability
 
 When `stet optimize` runs (Phase 6), the DSPy optimizer loads `.review/history.jsonl`. When history includes "not actionable" reasons (e.g. from the per-finding dismissal reasons in the history schema: `false_positive`, `already_correct`, `wrong_suggestion`, `out_of_scope`), the optimizer should use them to down-weight similar patterns or refine the prompt toward higher actionability. The output is `.review/system_prompt_optimized.txt`, which the CLI uses when present (see [CLI–Extension Contract](cli-extension-contract.md) and implementation plan Phase 3.3). Feedback is recorded in `.review/history.jsonl` with optional reasons; see the "State storage and history" section in the contract doc.
