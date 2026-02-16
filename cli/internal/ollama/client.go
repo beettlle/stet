@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"math/rand"
 	"net/http"
 	"regexp"
 	"strings"
@@ -17,8 +18,17 @@ import (
 
 const _defaultTimeout = 10 * time.Second
 
-// ErrUnreachable indicates the Ollama server could not be reached (connection refused, timeout, or non-2xx).
+const (
+	_maxRetries     = 3
+	_initialBackoff = 1 * time.Second
+	_maxBackoff     = 16 * time.Second
+)
+
+// ErrUnreachable indicates the Ollama server could not be reached (connection refused, timeout, or 5xx).
 var ErrUnreachable = errors.New("ollama server unreachable")
+
+// ErrBadRequest indicates the server responded with 4xx (bad request, not found, etc.). Not retried.
+var ErrBadRequest = errors.New("ollama bad request")
 
 // Client calls the Ollama API. Zero value is not valid; use NewClient.
 type Client struct {
@@ -43,6 +53,34 @@ func NewClient(baseURL string, httpClient *http.Client) *Client {
 	return &Client{baseURL: baseURL, httpClient: httpClient}
 }
 
+// httpStatusError returns the appropriate error for a non-2xx status. 4xx -> ErrBadRequest, 5xx -> ErrUnreachable.
+func httpStatusError(prefix string, statusCode int) error {
+	if statusCode >= 400 && statusCode < 500 {
+		return fmt.Errorf("%s: %w: HTTP %d", prefix, ErrBadRequest, statusCode)
+	}
+	return fmt.Errorf("%s: %w: HTTP %d", prefix, ErrUnreachable, statusCode)
+}
+
+// sleepWithBackoff sleeps for the given attempt (0-based) with exponential backoff and ±15% jitter.
+// Returns false if context was cancelled during sleep.
+func sleepWithBackoff(ctx context.Context, attempt int) bool {
+	base := _initialBackoff * time.Duration(1<<attempt)
+	if base > _maxBackoff {
+		base = _maxBackoff
+	}
+	jitter := time.Duration(float64(base) * (0.15 * (2*rand.Float64() - 1)))
+	d := base + jitter
+	if d < 0 {
+		d = 0
+	}
+	select {
+	case <-time.After(d):
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+
 type tagsResponse struct {
 	Models []struct {
 		Name string `json:"name"`
@@ -50,41 +88,65 @@ type tagsResponse struct {
 }
 
 // Check verifies the server is reachable and whether the given model is present.
-// It GETs /api/tags and parses the response. On connection/HTTP error returns ErrUnreachable (via %w).
+// It GETs /api/tags and parses the response. Retries on connection/5xx errors; 4xx returns ErrBadRequest.
 func (c *Client) Check(ctx context.Context, model string) (*CheckResult, error) {
 	url := c.baseURL + "/api/tags"
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("ollama tags request: %w", err)
-	}
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("ollama tags: %w", errors.Join(ErrUnreachable, err))
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("ollama tags: %w: HTTP %d", ErrUnreachable, resp.StatusCode)
-	}
-	var body tagsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return nil, fmt.Errorf("ollama tags: parse response: %w", err)
-	}
-	names := make([]string, 0, len(body.Models))
-	for _, m := range body.Models {
-		names = append(names, m.Name)
-	}
-	modelPresent := false
-	for _, n := range names {
-		if n == model {
-			modelPresent = true
-			break
+	var lastErr error
+	for attempt := 0; attempt <= _maxRetries; attempt++ {
+		if ctx.Err() != nil {
+			return nil, fmt.Errorf("ollama tags: %w", ctx.Err())
 		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("ollama tags request: %w", err)
+		}
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("ollama tags: %w", errors.Join(ErrUnreachable, err))
+			if !errors.Is(lastErr, ErrUnreachable) || attempt == _maxRetries {
+				return nil, lastErr
+			}
+			if !sleepWithBackoff(ctx, attempt) {
+				return nil, fmt.Errorf("ollama tags: %w", ctx.Err())
+			}
+			continue
+		}
+		if resp.StatusCode != http.StatusOK {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
+			lastErr = httpStatusError("ollama tags", resp.StatusCode)
+			if errors.Is(lastErr, ErrBadRequest) || attempt == _maxRetries {
+				return nil, lastErr
+			}
+			if !sleepWithBackoff(ctx, attempt) {
+				return nil, fmt.Errorf("ollama tags: %w", ctx.Err())
+			}
+			continue
+		}
+		var body tagsResponse
+		err = json.NewDecoder(resp.Body).Decode(&body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("ollama tags: parse response: %w", err)
+		}
+		names := make([]string, 0, len(body.Models))
+		for _, m := range body.Models {
+			names = append(names, m.Name)
+		}
+		modelPresent := false
+		for _, n := range names {
+			if n == model {
+				modelPresent = true
+				break
+			}
+		}
+		return &CheckResult{
+			Reachable:    true,
+			ModelPresent: modelPresent,
+			ModelNames:   names,
+		}, nil
 	}
-	return &CheckResult{
-		Reachable:    true,
-		ModelPresent: modelPresent,
-		ModelNames:   names,
-	}, nil
+	return nil, lastErr
 }
 
 // ShowResult is the result of a model show request. ContextLength is the
@@ -108,9 +170,8 @@ var numCtxParamRegex = regexp.MustCompile(`\bnum_ctx\s+(\d+)\b`)
 const maxContextLength = 524288 // cap parsed context to 512k tokens
 
 // Show fetches model details from POST /api/show and returns the model's
-// context length when available. On connection/HTTP error returns an error
-// (caller should use config). On success with no context found, returns
-// ShowResult{ContextLength: 0}, nil.
+// context length when available. Retries on connection/5xx errors; 4xx returns ErrBadRequest.
+// On success with no context found, returns ShowResult{ContextLength: 0}, nil.
 func (c *Client) Show(ctx context.Context, model string) (*ShowResult, error) {
 	body := showRequest{Model: model}
 	encoded, err := json.Marshal(body)
@@ -118,26 +179,49 @@ func (c *Client) Show(ctx context.Context, model string) (*ShowResult, error) {
 		return nil, fmt.Errorf("ollama show request: %w", err)
 	}
 	url := c.baseURL + "/api/show"
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(encoded))
-	if err != nil {
-		return nil, fmt.Errorf("ollama show request: %w", err)
+	var lastErr error
+	for attempt := 0; attempt <= _maxRetries; attempt++ {
+		if ctx.Err() != nil {
+			return nil, fmt.Errorf("ollama show: %w", ctx.Err())
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(encoded))
+		if err != nil {
+			return nil, fmt.Errorf("ollama show request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("ollama show: %w", errors.Join(ErrUnreachable, err))
+			if !errors.Is(lastErr, ErrUnreachable) || attempt == _maxRetries {
+				return nil, lastErr
+			}
+			if !sleepWithBackoff(ctx, attempt) {
+				return nil, fmt.Errorf("ollama show: %w", ctx.Err())
+			}
+			continue
+		}
+		if resp.StatusCode != http.StatusOK {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
+			lastErr = httpStatusError("ollama show", resp.StatusCode)
+			if errors.Is(lastErr, ErrBadRequest) || attempt == _maxRetries {
+				return nil, lastErr
+			}
+			if !sleepWithBackoff(ctx, attempt) {
+				return nil, fmt.Errorf("ollama show: %w", ctx.Err())
+			}
+			continue
+		}
+		var show showResponse
+		err = json.NewDecoder(resp.Body).Decode(&show)
+		resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("ollama show: parse response: %w", err)
+		}
+		ctxLen := parseContextLengthFromShow(show)
+		return &ShowResult{ContextLength: ctxLen}, nil
 	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("ollama show: %w", errors.Join(ErrUnreachable, err))
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		_, _ = io.Copy(io.Discard, resp.Body)
-		return nil, fmt.Errorf("ollama show: %w: HTTP %d", ErrUnreachable, resp.StatusCode)
-	}
-	var show showResponse
-	if err := json.NewDecoder(resp.Body).Decode(&show); err != nil {
-		return nil, fmt.Errorf("ollama show: parse response: %w", err)
-	}
-	ctxLen := parseContextLengthFromShow(show)
-	return &ShowResult{ContextLength: ctxLen}, nil
+	return nil, lastErr
 }
 
 // parseContextLengthFromShow extracts context length from model_info
@@ -228,8 +312,7 @@ type GenerateResult struct {
 // Generate sends a completion request to /api/generate with the given model,
 // system prompt, and user prompt. It uses stream: false and format: "json" so
 // the response is a single JSON string. opts may be nil (Ollama uses server/model
-// defaults). Returns (*GenerateResult, error): on success, result is non-nil; on
-// error, result is nil and err wraps ErrUnreachable on connection/HTTP failure.
+// defaults). Retries on connection/5xx errors; 4xx returns ErrBadRequest.
 func (c *Client) Generate(ctx context.Context, model, systemPrompt, userPrompt string, opts *GenerateOptions) (*GenerateResult, error) {
 	body := generateRequest{
 		Model:   model,
@@ -244,29 +327,52 @@ func (c *Client) Generate(ctx context.Context, model, systemPrompt, userPrompt s
 		return nil, fmt.Errorf("ollama generate request: %w", err)
 	}
 	url := c.baseURL + "/api/generate"
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(encoded))
-	if err != nil {
-		return nil, fmt.Errorf("ollama generate request: %w", err)
+	var lastErr error
+	for attempt := 0; attempt <= _maxRetries; attempt++ {
+		if ctx.Err() != nil {
+			return nil, fmt.Errorf("ollama generate: %w", ctx.Err())
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(encoded))
+		if err != nil {
+			return nil, fmt.Errorf("ollama generate request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("ollama generate: %w", errors.Join(ErrUnreachable, err))
+			if !errors.Is(lastErr, ErrUnreachable) || attempt == _maxRetries {
+				return nil, lastErr
+			}
+			if !sleepWithBackoff(ctx, attempt) {
+				return nil, fmt.Errorf("ollama generate: %w", ctx.Err())
+			}
+			continue
+		}
+		if resp.StatusCode != http.StatusOK {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
+			lastErr = httpStatusError("ollama generate", resp.StatusCode)
+			if errors.Is(lastErr, ErrBadRequest) || attempt == _maxRetries {
+				return nil, lastErr
+			}
+			if !sleepWithBackoff(ctx, attempt) {
+				return nil, fmt.Errorf("ollama generate: %w", ctx.Err())
+			}
+			continue
+		}
+		var gen generateResponse
+		err = json.NewDecoder(resp.Body).Decode(&gen)
+		resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("ollama generate: parse response: %w", err)
+		}
+		return &GenerateResult{
+			Response:        gen.Response,
+			Model:           gen.Model,
+			PromptEvalCount: gen.PromptEvalCount,
+			EvalCount:       gen.EvalCount,
+			EvalDuration:    gen.EvalDuration,
+		}, nil
 	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("ollama generate: %w", errors.Join(ErrUnreachable, err))
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		_, _ = io.Copy(io.Discard, resp.Body)
-		return nil, fmt.Errorf("ollama generate: %w: HTTP %d", ErrUnreachable, resp.StatusCode)
-	}
-	var gen generateResponse
-	if err := json.NewDecoder(resp.Body).Decode(&gen); err != nil {
-		return nil, fmt.Errorf("ollama generate: parse response: %w", err)
-	}
-	return &GenerateResult{
-		Response:        gen.Response,
-		Model:           gen.Model,
-		PromptEvalCount: gen.PromptEvalCount,
-		EvalCount:       gen.EvalCount,
-		EvalDuration:    gen.EvalDuration,
-	}, nil
+	return nil, lastErr
 }

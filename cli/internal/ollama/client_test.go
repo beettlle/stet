@@ -7,6 +7,9 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"sync"
+	"sync/atomic"
+	"syscall"
 	"testing"
 )
 
@@ -34,6 +37,7 @@ func TestClient_Check(t *testing.T) {
 		wantPresent     bool
 		wantErr         bool
 		wantUnreachable bool
+		wantBadRequest  bool
 	}{
 		{
 			name:            "200_with_model",
@@ -83,7 +87,7 @@ func TestClient_Check(t *testing.T) {
 			wantReachable:   false,
 			wantPresent:     false,
 			wantErr:         true,
-			wantUnreachable: true,
+			wantBadRequest:  true,
 		},
 		{
 			name:            "500",
@@ -118,6 +122,9 @@ func TestClient_Check(t *testing.T) {
 				}
 				if tt.wantUnreachable && !errors.Is(err, ErrUnreachable) {
 					t.Errorf("error should wrap ErrUnreachable: %v", err)
+				}
+				if tt.wantBadRequest && !errors.Is(err, ErrBadRequest) {
+					t.Errorf("error should wrap ErrBadRequest: %v", err)
 				}
 				return
 			}
@@ -428,8 +435,8 @@ func TestClient_Show_httpError_returnsError(t *testing.T) {
 	if got != nil {
 		t.Error("Show: want nil result on error")
 	}
-	if !errors.Is(err, ErrUnreachable) {
-		t.Errorf("error should wrap ErrUnreachable: %v", err)
+	if !errors.Is(err, ErrBadRequest) {
+		t.Errorf("error should wrap ErrBadRequest (404): %v", err)
 	}
 }
 
@@ -467,4 +474,143 @@ func TestClient_Show_capsLargeContext(t *testing.T) {
 	if got.ContextLength != wantCap {
 		t.Errorf("ContextLength = %d, want capped %d", got.ContextLength, wantCap)
 	}
+}
+
+func TestClient_Check_5xxRetryThenSuccess(t *testing.T) {
+	t.Parallel()
+	var attempt atomic.Int32
+	validBody := `{"models":[{"name":"m","modified_at":"2024-01-01T00:00:00Z","size":0,"digest":"","details":{}}]}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := attempt.Add(1)
+		if n <= 2 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(validBody))
+	}))
+	defer srv.Close()
+	client := NewClient(srv.URL, srv.Client())
+	ctx := context.Background()
+	got, err := client.Check(ctx, "m")
+	if err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+	if !got.ModelPresent {
+		t.Error("Check: want ModelPresent after retry")
+	}
+	if attempt.Load() < 3 {
+		t.Errorf("expected at least 3 attempts after 503 retries, got %d", attempt.Load())
+	}
+}
+
+func TestClient_Check_4xxNoRetry(t *testing.T) {
+	t.Parallel()
+	var attempt atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempt.Add(1)
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	defer srv.Close()
+	client := NewClient(srv.URL, srv.Client())
+	ctx := context.Background()
+	_, err := client.Check(ctx, "any")
+	if err == nil {
+		t.Fatal("Check: want error on 400")
+	}
+	if !errors.Is(err, ErrBadRequest) {
+		t.Errorf("error should wrap ErrBadRequest: %v", err)
+	}
+	if n := attempt.Load(); n != 1 {
+		t.Errorf("4xx should not be retried: got %d requests", n)
+	}
+}
+
+func TestClient_Check_parseErrorNoRetry(t *testing.T) {
+	t.Parallel()
+	var attempt atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempt.Add(1)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{`))
+	}))
+	defer srv.Close()
+	client := NewClient(srv.URL, srv.Client())
+	ctx := context.Background()
+	_, err := client.Check(ctx, "any")
+	if err == nil {
+		t.Fatal("Check: want error on invalid JSON")
+	}
+	if n := attempt.Load(); n != 1 {
+		t.Errorf("parse error should not be retried: got %d requests", n)
+	}
+}
+
+func TestClient_Check_contextCancelDuringRetry(t *testing.T) {
+	t.Parallel()
+	var wg sync.WaitGroup
+	wg.Add(1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		wg.Done()
+	}))
+	defer srv.Close()
+	client := NewClient(srv.URL, srv.Client())
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		wg.Wait()
+		cancel()
+	}()
+	_, err := client.Check(ctx, "any")
+	if err == nil {
+		t.Fatal("Check: want error")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("error should be context.Canceled (or wrap it): %v", err)
+	}
+}
+
+func TestClient_Check_connectionRefusedRetry(t *testing.T) {
+	t.Parallel()
+	validBody := `{"models":[{"name":"m","modified_at":"2024-01-01T00:00:00Z","size":0,"digest":"","details":{}}]}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(validBody))
+	}))
+	defer srv.Close()
+	var attempt atomic.Int32
+	failFor := int32(2)
+	transport := &connectionRefusedRoundTripper{
+		base:    http.DefaultTransport,
+		attempt: &attempt,
+		failFor: failFor,
+	}
+	client := NewClient(srv.URL, &http.Client{Transport: transport})
+	ctx := context.Background()
+	got, err := client.Check(ctx, "m")
+	if err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+	if !got.ModelPresent {
+		t.Error("Check: want ModelPresent after retries")
+	}
+	if n := attempt.Load(); n < 3 {
+		t.Errorf("expected at least 3 attempts after connection refused, got %d", n)
+	}
+}
+
+// connectionRefusedRoundTripper fails the first failFor requests with connection refused,
+// then forwards to base. Used to test retry on connection errors.
+type connectionRefusedRoundTripper struct {
+	base    http.RoundTripper
+	attempt *atomic.Int32
+	failFor int32
+}
+
+func (r *connectionRefusedRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	n := r.attempt.Add(1)
+	if n <= r.failFor {
+		return nil, &net.OpError{Op: "dial", Net: "tcp", Err: syscall.Errno(syscall.ECONNREFUSED)}
+	}
+	return r.base.RoundTrip(req)
 }

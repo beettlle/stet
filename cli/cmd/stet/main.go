@@ -316,6 +316,10 @@ func runStart(cmd *cobra.Command, args []string) error {
 			fmt.Fprintf(os.Stderr, "Details: %v\n", err)
 			return errExit(2)
 		}
+		if errors.Is(err, ollama.ErrBadRequest) {
+			fmt.Fprintf(os.Stderr, "Ollama bad request at %s. %v\n", cfg.OllamaBaseURL, err)
+			return errExit(2)
+		}
 		if errors.Is(err, run.ErrDirtyWorktree) {
 			fmt.Fprintf(errHintOut, "Hint: Commit or stash your changes, then run 'stet start %s' again.\n", ref)
 			return err
@@ -518,6 +522,10 @@ func runRun(cmd *cobra.Command, args []string) error {
 			fmt.Fprintf(os.Stderr, "Details: %v\n", err)
 			return errExit(2)
 		}
+		if errors.Is(err, ollama.ErrBadRequest) {
+			fmt.Fprintf(os.Stderr, "Ollama bad request at %s. %v\n", cfg.OllamaBaseURL, err)
+			return errExit(2)
+		}
 		return err
 	}
 	if stream {
@@ -667,6 +675,10 @@ func runRerun(cmd *cobra.Command, args []string) error {
 		if errors.Is(err, ollama.ErrUnreachable) {
 			fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
 			fmt.Fprintf(os.Stderr, "Details: %v\n", err)
+			return errExit(2)
+		}
+		if errors.Is(err, ollama.ErrBadRequest) {
+			fmt.Fprintf(os.Stderr, "Ollama bad request at %s. %v\n", cfg.OllamaBaseURL, err)
 			return errExit(2)
 		}
 		return err
@@ -1113,6 +1125,10 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		if errors.Is(err, ollama.ErrUnreachable) {
 			fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
 			fmt.Fprintf(os.Stderr, "Details: %v\n", err)
+			return errExit(2)
+		}
+		if errors.Is(err, ollama.ErrBadRequest) {
+			fmt.Fprintf(os.Stderr, "Ollama bad request at %s. %v\n", cfg.OllamaBaseURL, err)
 			return errExit(2)
 		}
 		fmt.Fprintln(os.Stderr, err.Error())
