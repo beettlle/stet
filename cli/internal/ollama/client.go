@@ -310,15 +310,19 @@ type generateResponse struct {
 
 // GenerateResult holds the response text and metadata returned by Ollama /api/generate.
 // Metadata fields may be zero when the server does not send them.
+//
+// Duration fields are in nanoseconds (Ollama API convention). Eval rate (tokens/s) =
+// EvalCount / (EvalDuration / 1e9). Prompt eval rate = PromptEvalCount / (PromptEvalDuration / 1e9).
+// LoadDuration is model load time (cold start); TotalDuration is wall-clock.
 type GenerateResult struct {
-	Response             string
-	Model                string
-	PromptEvalCount      int
-	PromptEvalDuration   int64
-	EvalCount            int
-	EvalDuration         int64
-	LoadDuration         int64
-	TotalDuration        int64
+	Response           string
+	Model              string
+	PromptEvalCount    int   // Input tokens processed
+	PromptEvalDuration int64 // Time to process prompt, ns
+	EvalCount          int   // Output tokens generated
+	EvalDuration       int64 // Time to generate output, ns
+	LoadDuration       int64 // Model load time (cold start), ns
+	TotalDuration      int64 // Wall-clock time, ns
 }
 
 // Generate sends a completion request to /api/generate with the given model,
