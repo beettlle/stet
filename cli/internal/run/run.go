@@ -223,6 +223,58 @@ func applyAutoDismiss(s *session.Session, toReview []diff.Hunk, newFindingIDSet 
 	return nil
 }
 
+// dismissedLocation is file + line range (1-based, inclusive) for a dismissed finding.
+type dismissedLocation struct {
+	file                string
+	startLine, endLine int
+}
+
+// filterHunksWithDismissedFindings returns hunks from toReview that do not contain
+// any dismissed finding. When forceFullReview is true, returns toReview unchanged.
+func filterHunksWithDismissedFindings(toReview []diff.Hunk, s *session.Session, forceFullReview bool) (filtered []diff.Hunk, skipped int) {
+	if forceFullReview || s == nil || len(s.DismissedIDs) == 0 {
+		return toReview, 0
+	}
+	findingByID := make(map[string]findings.Finding, len(s.Findings))
+	for _, f := range s.Findings {
+		if f.ID != "" {
+			findingByID[f.ID] = f
+		}
+	}
+	var locs []dismissedLocation
+	for _, id := range s.DismissedIDs {
+		f, ok := findingByID[id]
+		if !ok {
+			continue
+		}
+		start, end := f.Line, f.Line
+		if f.Range != nil {
+			start, end = f.Range.Start, f.Range.End
+		}
+		locs = append(locs, dismissedLocation{file: f.File, startLine: start, endLine: end})
+	}
+	for _, h := range toReview {
+		hStart, hEnd, ok := expand.HunkLineRange(h)
+		if !ok {
+			filtered = append(filtered, h)
+			continue
+		}
+		hasDismissed := false
+		for _, loc := range locs {
+			if loc.file == h.FilePath && loc.startLine <= hEnd && loc.endLine >= hStart {
+				hasDismissed = true
+				break
+			}
+		}
+		if hasDismissed {
+			skipped++
+		} else {
+			filtered = append(filtered, h)
+		}
+	}
+	return filtered, skipped
+}
+
 // StartOptions configures Start. All fields are required except Ref (default "HEAD" by caller).
 // DryRun skips the LLM and injects canned findings. Model and OllamaBaseURL are used when DryRun is false.
 // ContextLimit and WarnThreshold are used for token estimation warnings (Phase 3.2); zero values disable the warning.
@@ -777,11 +829,23 @@ func Run(ctx context.Context, opts RunOptions) error {
 		trRun.Section("AGENTS.md")
 		trRun.Printf("AGENTS.md: not used by stet (only .cursor/rules/ used).\n")
 	}
+	toReview := part.ToReview
+	skippedDismissed := 0
+	if !opts.ForceFullReview && len(s.DismissedIDs) > 0 {
+		toReview, skippedDismissed = filterHunksWithDismissedFindings(part.ToReview, &s, opts.ForceFullReview)
+		if trRun.Enabled() && skippedDismissed > 0 {
+			trRun.Printf("SkippedDismissed=%d\n", skippedDismissed)
+		}
+	}
 	if opts.Verbose {
-		fmt.Fprintf(os.Stderr, "%d hunks to review\n", len(part.ToReview))
+		if skippedDismissed > 0 {
+			fmt.Fprintf(os.Stderr, "%d hunks to review, %d skipped (dismissed)\n", len(toReview), skippedDismissed)
+		} else {
+			fmt.Fprintf(os.Stderr, "%d hunks to review\n", len(toReview))
+		}
 	}
 
-	if len(part.ToReview) == 0 {
+	if len(toReview) == 0 {
 		if opts.StreamOut != nil {
 			tryWriteStreamLine(opts.StreamOut, map[string]string{"type": "progress", "msg": "Nothing to review."})
 			tryWriteStreamLine(opts.StreamOut, map[string]string{"type": "done"})
@@ -808,13 +872,13 @@ func Run(ctx context.Context, opts RunOptions) error {
 	}
 
 	var newFindings []findings.Finding
-	total := len(part.ToReview)
+	total := len(toReview)
 	if opts.StreamOut != nil {
 		tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("%d hunks to review", total)})
 	}
 
 	if opts.DryRun {
-		for i, hunk := range part.ToReview {
+		for i, hunk := range toReview {
 			if opts.StreamOut != nil {
 				tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", i+1, total, hunk.FilePath)})
 			}
@@ -881,7 +945,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 				systemPrompt = prompt.AppendNitpickyInstructions(systemPrompt)
 			}
 			maxPromptTokens := 0
-			for _, h := range part.ToReview {
+			for _, h := range toReview {
 				userPrompt := prompt.UserPrompt(h)
 				n := tokens.Estimate(systemPrompt + "\n" + userPrompt)
 				if n > maxPromptTokens {
@@ -894,7 +958,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 		}
 		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: effectiveNumCtx}
 		rulesLoader := rules.NewLoader(opts.RepoRoot)
-		for i, hunk := range part.ToReview {
+		for i, hunk := range toReview {
 			if opts.StreamOut != nil {
 				tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", i+1, total, hunk.FilePath)})
 			}
@@ -972,7 +1036,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 				newFindingIDSet[f.ID] = struct{}{}
 			}
 		}
-		if err := applyAutoDismiss(&s, part.ToReview, newFindingIDSet, headSHA, opts.StateDir); err != nil {
+		if err := applyAutoDismiss(&s, toReview, newFindingIDSet, headSHA, opts.StateDir); err != nil {
 			return err
 		}
 		s.Findings = append(s.Findings, newFindings...)

@@ -1021,6 +1021,204 @@ func TestAddressedFindingIDs(t *testing.T) {
 	}
 }
 
+func TestFilterHunksWithDismissedFindings(t *testing.T) {
+	t.Parallel()
+	hunkA := diff.Hunk{FilePath: "a.go", RawContent: "@@ -1,3 +1,4 @@\n context\n+added", Context: ""}
+	hunkB := diff.Hunk{FilePath: "b.go", RawContent: "@@ -9,2 +10,2 @@\n old\n+new", Context: ""}
+
+	tests := []struct {
+		name            string
+		toReview        []diff.Hunk
+		s               *session.Session
+		forceFullReview bool
+		wantLen         int
+		wantSkipped     int
+	}{
+		{
+			name:            "forceFullReview true returns all",
+			toReview:        []diff.Hunk{hunkA},
+			s:               &session.Session{DismissedIDs: []string{"f1"}, Findings: []findings.Finding{{ID: "f1", File: "a.go", Line: 2}}},
+			forceFullReview: true,
+			wantLen:         1,
+			wantSkipped:     0,
+		},
+		{
+			name:            "nil session returns all",
+			toReview:        []diff.Hunk{hunkA},
+			s:               nil,
+			forceFullReview: false,
+			wantLen:         1,
+			wantSkipped:     0,
+		},
+		{
+			name:            "empty DismissedIDs returns all",
+			toReview:        []diff.Hunk{hunkA},
+			s:               &session.Session{DismissedIDs: nil, Findings: []findings.Finding{}},
+			forceFullReview: false,
+			wantLen:         1,
+			wantSkipped:     0,
+		},
+		{
+			name:            "finding in hunk dismissed -> hunk excluded",
+			toReview:        []diff.Hunk{hunkA},
+			s:               &session.Session{DismissedIDs: []string{"f1"}, Findings: []findings.Finding{{ID: "f1", File: "a.go", Line: 2}}},
+			forceFullReview: false,
+			wantLen:         0,
+			wantSkipped:     1,
+		},
+		{
+			name:            "finding not in hunk -> hunk kept",
+			toReview:        []diff.Hunk{hunkA},
+			s:               &session.Session{DismissedIDs: []string{"f1"}, Findings: []findings.Finding{{ID: "f1", File: "other.go", Line: 2}}},
+			forceFullReview: false,
+			wantLen:         1,
+			wantSkipped:     0,
+		},
+		{
+			name:  "finding with Range overlapping hunk -> hunk excluded",
+			toReview: []diff.Hunk{hunkA},
+			s: &session.Session{
+				DismissedIDs: []string{"f1"},
+				Findings:     []findings.Finding{{ID: "f1", File: "a.go", Line: 0, Range: &findings.LineRange{Start: 2, End: 3}}},
+			},
+			forceFullReview: false,
+			wantLen:         0,
+			wantSkipped:     1,
+		},
+		{
+			name:            "unresolved DismissedID -> no exclusion",
+			toReview:        []diff.Hunk{hunkA},
+			s:               &session.Session{DismissedIDs: []string{"unknown"}, Findings: []findings.Finding{{ID: "f1", File: "a.go", Line: 2}}},
+			forceFullReview: false,
+			wantLen:         1,
+			wantSkipped:     0,
+		},
+		{
+			name:     "multiple hunks one contains dismissed -> only that excluded",
+			toReview: []diff.Hunk{hunkA, hunkB},
+			s:        &session.Session{DismissedIDs: []string{"f1"}, Findings: []findings.Finding{{ID: "f1", File: "a.go", Line: 2}}},
+			forceFullReview: false,
+			wantLen:         1,
+			wantSkipped:     1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, skipped := filterHunksWithDismissedFindings(tt.toReview, tt.s, tt.forceFullReview)
+			if len(got) != tt.wantLen {
+				t.Errorf("filterHunksWithDismissedFindings() len = %d, want %d", len(got), tt.wantLen)
+			}
+			if skipped != tt.wantSkipped {
+				t.Errorf("filterHunksWithDismissedFindings() skipped = %d, want %d", skipped, tt.wantSkipped)
+			}
+		})
+	}
+}
+
+// TestRun_dismissedHunksNotSentToModel: when a finding is dismissed, hunks containing that
+// finding are not sent to the LLM on subsequent runs. Start produces findings, we dismiss
+// one, add a new commit so the same file has ToReview hunks, then Run. The dismissed hunk
+// is filtered out so we get fewer (or zero) new findings.
+func TestRun_dismissedHunksNotSentToModel(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	startOpts := StartOptions{
+		RepoRoot:      repo,
+		StateDir:      stateDir,
+		WorktreeRoot:  "",
+		Ref:           "HEAD~1",
+		DryRun:        true,
+		Model:         "",
+		OllamaBaseURL: "",
+	}
+	if err := Start(ctx, startOpts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	s0, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	if len(s0.Findings) < 1 {
+		t.Fatalf("need at least one finding after Start; got %d", len(s0.Findings))
+	}
+	// Dismiss the first finding (in f2.txt from initRepo)
+	firstID := s0.Findings[0].ID
+	firstFile := s0.Findings[0].File
+	s0.DismissedIDs = append(s0.DismissedIDs, firstID)
+	if err := session.Save(stateDir, &s0); err != nil {
+		t.Fatalf("Save session: %v", err)
+	}
+	// New commit modifying the same file so its hunk is in ToReview
+	writeFile(t, repo, firstFile, "b\nx\n")
+	runGit(t, repo, "git", "add", firstFile)
+	runGit(t, repo, "git", "commit", "-m", "change for re-review")
+	// Run: the only ToReview hunk contains the dismissed finding -> filtered out -> 0 hunks sent
+	runOpts := RunOptions{RepoRoot: repo, StateDir: stateDir, DryRun: true}
+	if err := Run(ctx, runOpts); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	s1, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session after run: %v", err)
+	}
+	// No new findings should be added (dismissed hunk was not sent to model)
+	if len(s1.Findings) != len(s0.Findings) {
+		t.Errorf("Findings count: got %d, want %d (dismissed hunk should not produce new findings)", len(s1.Findings), len(s0.Findings))
+	}
+}
+
+// TestRun_forceFullReview_skipsDismissedFilter: when ForceFullReview is true, dismissed
+// hunks are still sent to the LLM (filter is bypassed).
+func TestRun_forceFullReview_skipsDismissedFilter(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	startOpts := StartOptions{
+		RepoRoot:      repo,
+		StateDir:      stateDir,
+		WorktreeRoot:  "",
+		Ref:           "HEAD~1",
+		DryRun:        true,
+		Model:         "",
+		OllamaBaseURL: "",
+	}
+	if err := Start(ctx, startOpts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	s0, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	if len(s0.Findings) < 1 {
+		t.Fatalf("need at least one finding after Start; got %d", len(s0.Findings))
+	}
+	firstID := s0.Findings[0].ID
+	firstFile := s0.Findings[0].File
+	s0.DismissedIDs = append(s0.DismissedIDs, firstID)
+	if err := session.Save(stateDir, &s0); err != nil {
+		t.Fatalf("Save session: %v", err)
+	}
+	writeFile(t, repo, firstFile, "b\nx\n")
+	runGit(t, repo, "git", "add", firstFile)
+	runGit(t, repo, "git", "commit", "-m", "change for re-review")
+	// Run with ForceFullReview: filter is skipped, hunk is sent, we get new findings
+	runOpts := RunOptions{RepoRoot: repo, StateDir: stateDir, DryRun: true, ForceFullReview: true}
+	if err := Run(ctx, runOpts); err != nil {
+		t.Fatalf("Run(ForceFullReview): %v", err)
+	}
+	s1, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session after run: %v", err)
+	}
+	// With ForceFullReview, the hunk is sent so we get additional findings (merge mode appends)
+	if len(s1.Findings) <= len(s0.Findings) {
+		t.Errorf("ForceFullReview: findings got %d, want > %d (dismissed filter should be bypassed)", len(s1.Findings), len(s0.Findings))
+	}
+}
+
 // TestRun_autoDismiss_addressedFindingNotRereported: after Start (dry-run) we have one finding per hunk.
 // We add an extra finding to the session at the same file/line as a reviewed hunk but with a different ID.
 // Run again (dry-run) produces canned findings with deterministic IDs; the extra finding's ID is not in
