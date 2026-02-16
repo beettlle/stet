@@ -2,7 +2,7 @@
 
 **Status:** Draft / Research
 
-**Context:** This document outlines the feature roadmap for stet after the core "Defect-Focused" implementation (Phase 6) and "Polish" (Phase 7) are complete.
+**Context:** This document outlines the feature roadmap for stet after the core "Defect-Focused" implementation (Phase 6) and "Polish" (Phase 7) are complete. Roadmap phases below (Ecosystem, Adaptive, Deep Context) are thematic and distinct from implementation plan phases 0–9.
 
 **Objective:** Evolve stet from a "local CLI tool" into a "universal review agent" that integrates with AI IDEs and learns from user behavior.
 
@@ -12,6 +12,22 @@
 - **Human-in-the-loop:** Treat stet output as first-pass review; the human makes the final call. Dismiss reasons and history improve future runs. This aligns with best practice: AI complements, not replaces, human review.
 - **Context-aware review:** Git intent, hunk expansion, RAG-lite, and (roadmap) cross-file impact are core FP-reduction strategies—broader context reduces superficial or irrelevant flags.
 
+### Already implemented (context)
+
+The following exist today; this roadmap only lists work not yet implemented.
+
+- **CLI:** `stet start`, `run`, `rerun`, `finish`, `status`, `list`, `dismiss`, `optimize`, `doctor`, `cleanup`.
+- **Session and findings:** Active findings (Findings minus DismissedIDs), JSON/human output, stable finding IDs.
+- **History:** Append to `.review/history.jsonl` on dismiss (with reasons) and on finish; schema supports optimizer.
+- **RAG-lite:** Symbol definitions injected per language (Go, JS/TS, Python, Swift, Java); config `rag_symbol_max_*`.
+- **Hunk expansion:** `expand.ExpandHunk` for enclosing function (Go) and N-line fallback.
+- **Optimizer:** `stet optimize` writes `system_prompt_optimized.txt`; no suggested config output yet.
+- **Strictness and nitpicky:** Presets and config/env overrides.
+
+### Planned elsewhere
+
+- **Impact reporting** (`stet stats` volume, quality, energy) is specified in [implementation-plan.md](implementation-plan.md) Phase 9 (sub-phases 9.1–9.8). Implement from that document.
+
 ---
 
 ## Phase 8: The "Ecosystem" Release (MCP & Integration)
@@ -20,227 +36,160 @@
 
 ### 8.1 Feature: Stet as an MCP Server
 
-**Concept:** Implement the Model Context Protocol (MCP) interface. This allows stet to run as a background agent that provides review data to other AI tools without manual CLI execution.
-
-**Architecture:**
-
-- **Transport:** Stdio (standard input/output) JSON-RPC.
-- **Capabilities:**
-  - **Resource:** `stet://latest_report` (Read the JSON output of the last review).
-  - **Tool:** `run_review(scope: string)` (Trigger a review on staged, commit, or branch).
-  - **Tool:** `get_findings(min_confidence: float)` (Query specific findings).
-
-**User Story:**
-
-- User in Cursor Chat: "@stet Check my current work for security flaws."
-- System: Cursor calls `stet.run_review()`, receives JSON, and summarizes it in the chat window.
+- **Status:** Not started.
+- **Goal:** Expose stet via the Model Context Protocol so IDEs can trigger reviews and read findings without manual CLI execution.
+- **Entry points:** New binary (e.g. `cmd/stet-mcp/`) or subcommand (e.g. `stet mcp` stdio). If subcommand: register with `rootCmd.AddCommand(newMcpCmd())` in [cli/cmd/stet/main.go](cli/cmd/stet/main.go) (around line 170). Document the chosen entry point.
+- **Inputs:** MCP JSON-RPC over stdio. Tool `run_review(scope: string)` receives scope (e.g. staged, commit, branch). Tool `get_findings(min_confidence: float)` receives optional confidence threshold. State dir from env `STET_STATE_DIR` or default `.review` relative to repo root.
+- **Outputs:** Resource `stet://latest_report` returns last review JSON (session + findings). Tools return JSON per MCP spec (e.g. findings array). Transport: stdio JSON-RPC; specify MCP spec version in docs.
+- **Code to reuse:** [session.Load](cli/internal/session/session.go)(stateDir); pattern for active findings and writing findings JSON in [cli/cmd/stet/main.go](cli/cmd/stet/main.go) (e.g. `activeFindings`, `writeFindingsJSON`). [run](cli/internal/run/run.go) package for triggering review (Start/Run). Repo root from cwd via [git.RepoRoot](cli/internal/git).
+- **Implementation chunks:**
+  1. MCP server skeleton: stdio transport, JSON-RPC request/response dispatch. Unit test with canned stdin/stdout.
+  2. Resource `stet://latest_report`: read session and findings from state dir; return JSON. Test: write fixture session, assert resource content.
+  3. Tool `run_review(scope)`: invoke existing start/run flow (or subprocess of stet CLI). Test: mock or integration with dry-run.
+  4. Tool `get_findings(min_confidence)`: load session, filter findings by confidence (see [findings.Finding](cli/internal/findings/finding.go) `Confidence`), return JSON. Test: fixture session, assert filtering.
+  5. Document MCP capability and IDE integration (Cursor, etc.).
+- **Config and env:** `STET_STATE_DIR` for state directory when running as MCP process. No new config file keys required for minimal version.
+- **Acceptance criteria:** An MCP client can connect via stdio, request `stet://latest_report` and get valid JSON; call `run_review(scope)` and receive review result; call `get_findings(min_confidence)` and receive filtered findings.
+- **Tests:** New and changed code must meet project coverage: 77% project, 72% per file (see [AGENTS.md](../AGENTS.md)).
 
 ### 8.2 Feature: Hybrid Linter Relay
 
-**Concept:** LLMs are excellent at logic but poor at syntax. Static analysis tools (linters) are the opposite. This feature combines them.
+- **Status:** Not started.
+- **Goal:** Run a fast local linter on changed files and inject linter output into the review prompt so the LLM can explain and suggest fixes for syntax/static issues.
+- **Entry points:** No new CLI command. Integrate into the review pipeline. Call sites: where the system or user prompt is built — [cli/internal/review/review.go](cli/internal/review/review.go) (ReviewHunk) and [cli/internal/run/run.go](cli/internal/run/run.go) (where hunks are iterated). Run linter per changed file (or per language) before or at start of review.
+- **Inputs:** Changed files from diff (repo root + list of file paths). Config: linter command per language (e.g. Go → `golangci-lint`, JS/TS → `eslint`), or empty to disable. Repo root from [git.RepoRoot](cli/internal/git).
+- **Outputs:** Linter output (file, line, code, message) injected into the prompt as a "Static analyzer reported: …" block (user or system prompt). No change to [findings.Finding](cli/internal/findings/finding.go) schema unless desired.
+- **Code to reuse:** Diff pipeline for changed files (e.g. [cli/internal/diff](cli/internal/diff)); [cli/internal/prompt](cli/internal/prompt/prompt.go) — add `AppendLinterFindings(systemOrUserPrompt string, linterResults []LinterResult) string` or equivalent. [review.ReviewHunk](cli/internal/review/review.go) and run loop in [run.Run](cli/internal/run/run.go) to run linter and call the new append function.
+- **Implementation chunks:**
+  1. Config for linter commands per language (e.g. `linter_go`, `linter_js` in [config.Config](cli/internal/config/config.go) or env `STET_LINTER_GO`, `STET_LINTER_JS`). Load in config and pass to review path.
+  2. Run linter on changed files (by language from extension); parse stdout into (file, line, code, message). Prefer existing linter output formats (e.g. golangci-lint JSON, eslint JSON). Unit test: parse canned linter output.
+  3. Append linter block to prompt in review path (e.g. new function in prompt package, called from review.go after system prompt load). Integration test: mock linter output, assert prompt contains the block.
+  4. Document prompt shape and config keys.
+- **Config and env:** e.g. `[linter]` section or keys `linter_go`, `linter_js` in [config.Config](cli/internal/config/config.go); or env `STET_LINTER_GO`, `STET_LINTER_JS`. Empty or missing = disabled.
+- **Acceptance criteria:** With linter enabled and a changed file that has a linter error, the review prompt includes a "Static analyzer reported: …" section and the model can reference it in findings or explanations.
+- **Tests:** New and changed code must meet project coverage: 77% project, 72% per file (see [AGENTS.md](../AGENTS.md)).
 
-**Workflow:**
+### 8.3 Feature: Targeted Fix from Active Findings (`stet fix` / `stet refine`)
 
-1. **Pre-Process:** stet runs a fast local linter (e.g., golangci-lint, eslint) on the changed files.
-2. **Ingest:** Capture the linter output (line numbers and error codes).
-3. **Prompt Injection:** Feed these "facts" to the LLM.
-4. **Synthesis:** The LLM explains why the linter error matters and suggests a fix (which linters often fail to do well).
-
-**Prompt Example:**
-
-"The static analyzer found a 'cognitive complexity' error on line 45. Explain this to the user and refactor the code to fix it."
-
-### 8.3 Feature: Targeted Fix from Active Findings
-
-**Concept:** After a review run, use active findings (session.Findings minus DismissedIDs) as input to a smaller local LLM that generates targeted code fix suggestions. The user dismisses false positives first; the remaining list is high-signal for fix generation. This composes with the review-only design: fix is a separate, optional step.
-
-**Rationale:** Research (e.g. "How Small is Enough?" arXiv 2508.16499, InferFix, CORE) shows that small code models (7B parameters) achieve competitive fix accuracy when the task is narrow and well-scoped. The fix task—"given this finding (file, line, message, suggestion), produce the corrected code"—is simpler than full review and fits small models well.
-
-**Commands:** Two entry points keep behavior explicit (cf. [roborev](https://www.roborev.io) fix/refine):
-
-- **stet fix** — One-shot: generate fix(es) from active findings. Output patches for human review; optionally apply to working tree and commit once (e.g. `--apply` / `--commit`).
-- **stet refine** — Looping: generate fix → apply and commit → run review → if findings remain, repeat until review passes or a max-iterations cap. Each commit uses the same attribution message (see below).
-
-**Workflow:**
-
-1. User runs `stet start` or `stet run` → gets findings.
-2. User dismisses false positives via `stet dismiss <id>`.
-3. Active findings = session.Findings - DismissedIDs (much smaller, higher precision).
-4. **stet fix:** User runs `stet fix [--finding-id ID] [--dry-run] [--apply] [--commit]`:
-   - Load session; filter to active findings (or the specified finding ID).
-   - For each finding: extract code context, build fix prompt, call fix model (Ollama), parse response.
-   - Output proposed patches (unified diff or code blocks). If `--apply`, apply to working tree; if `--commit`, also create a single commit with the attribution message below.
-5. **stet refine:** User runs `stet refine [--finding-id ID] [--max-iterations N]`:
-   - Same fix generation as fix, then apply and commit, then run stet review on the new commit. If there are still active findings, repeat (fix → apply & commit → review) until the review is clean or `--max-iterations` is reached. Each iteration produces one commit with the same attribution message.
-6. User may otherwise review patches from `stet fix` and apply manually (no `--apply`/`--commit`).
-
-**Context extraction: Largest-first, fallback-to-smaller**
-
-To maximize fix quality, use the largest coherent chunk that fits the model's context window, then fall back to smaller chunks if needed.
-
-| Chunk level | Description | Use when |
-|-------------|-------------|----------|
-| Enclosing function | Full function/block containing the finding (Go: `expand` package) | Go files; fits budget |
-| N-line window | ±50 lines around finding line | Non-Go or when enclosing too large |
-| Smaller window | ±30, ±20, ±10 lines | Budget still exceeded |
-| Minimal | Finding range ±2–5 lines | Last resort |
-
-**Algorithm:**
-
-1. Compute token budget: `contextLimit - systemPrompt - findingPayload - responseReserve`.
-2. Try largest chunk: for Go, use `expand` to get enclosing function at finding location; for others, try ±50 lines.
-3. Estimate tokens; if over budget, fall back to smaller N-line window (30, 20, 10).
-4. Last resort: minimal range around the finding.
-
-**Config:**
-
-- `fix_model` (default: `qwen2.5-coder:7b`): Model for fix generation. Smaller than review model; runs faster and uses less VRAM.
-- `fix_temperature` (default: 0.1): Lower than review for more deterministic output.
-- Env: `STET_FIX_MODEL`, `STET_FIX_TEMPERATURE`.
-
-**Commit message and attribution:** When stet applies and commits (fix with `--commit`, or refine):
-
-- **Commit message:** Include the line: `written by <MODEL> after review from stet`, where `<MODEL>` is the fix model name (e.g. `qwen2.5-coder:7b`). User may add a custom subject/body via a flag (e.g. `--message "Fix security finding"`). For full git-ai compatibility, see [Git AI Standard](https://github.com/git-ai-project/git-ai/blob/main/specs/git_ai_standard_v3.0.0.md).
-- **git-ai:** When the git-ai CLI is available and the repo uses it, record fix-authored lines in `refs/notes/ai` per [Git AI Standard v3.0.0](https://github.com/git-ai-project/git-ai/blob/main/specs/git_ai_standard_v3.0.0.md): agent `tool=stet`, `model=<fix_model>`, session id derived from session + finding (e.g. `stet-{session_id}-{finding_short_id}`). Integrate with the published git-ai implementation (e.g. invoke its CLI after applying the fix) rather than reimplementing the note format.
-- **Stet note:** Continue writing `refs/notes/stet` on `stet finish` with session/review scope; "reviewed by stet" is expressed there and via the commit message line above, not in the git-ai note.
-
-**stet refine: loop semantics and caps:**
-
-- **Max iterations:** Require a cap (e.g. `--max-iterations 5`; default 3) so the loop always terminates. Exit when the latest review has no active findings or the cap is reached.
-- **One commit per iteration:** Each refine iteration creates one commit (fix → commit → review). Document that history may show multiple commits for one "refine" run; alternatively, a future option could accumulate fixes in the working tree and commit once when the review is clean (single-commit refine).
-- **Quality bar:** "Passes" means stet's review reports no active findings. Tests, linters, and CI are not run by stet; the user or pipeline remains responsible for those.
-
-**Prompt design (for implementers):**
-
-- System: "You are a code fix assistant. Given a code snippet and a code review finding, output ONLY the corrected code. Do not explain."
-- User: file path, line/range, message, suggestion (if any), category, and code context (the extracted chunk).
-- Output format: code block only (or unified diff) for easy parsing.
-
-**Dependencies to reuse:**
-
-- `cli/internal/expand` — add `ExpandAtLocation(repoRoot, filePath, startLine, endLine, maxTokens)` for finding-based expansion (today `ExpandHunk` works from diff hunks).
-- `cli/internal/ollama.Client` — same `Generate` API; pass fix_model.
-- `cli/internal/session` — load session, get active findings (Findings minus DismissedIDs).
-- `cli/internal/findings.Finding` — File, Line, Range, Message, Suggestion, Category.
-
-**Output:** For `stet fix` without `--apply`/`--commit`: proposed patches for human review. With `--apply`/`--commit`, or when using `stet refine`, stet may apply and commit as described above. Extension may add "Fix this finding" or "Refine" actions later.
-
-**Industry references:** InferFix (static analyzer + retrieval-augmented prompts), CORE (proposer + ranker LLMs), SonarQube AI CodeFix (finding → fix suggestion), RePair (process-based feedback for small models).
-
-**Comparison:** One-shot fix vs looping refine mirrors [roborev](https://www.roborev.io) (`roborev fix` / `roborev refine`); stet uses its own fix model and session/review data instead of delegating to another agent.
-
-### Impact Reporting
-
-`stet stats` for volume (Stet-reviewed vs not), quality (actionability, FP rate, clean commits), and cost/energy (local kWh, avoided cloud spend). See implementation plan Phase 9.
+- **Status:** Not started.
+- **Goal:** Use active findings (after user dismisses false positives) as input to a smaller local LLM to generate targeted code fixes; optionally apply and commit, or loop (refine) until review is clean.
+- **Entry points:** New commands `stet fix` and `stet refine`. Register in [cli/cmd/stet/main.go](cli/cmd/stet/main.go) with `rootCmd.AddCommand(newFixCmd())` and `rootCmd.AddCommand(newRefineCmd())` (around line 170).
+- **Inputs:** Session from state dir (active findings = [session.Session](cli/internal/session/session.go) Findings minus DismissedIDs). Optional `--finding-id ID` to limit to one finding. Flags: `--dry-run`, `--apply`, `--commit`, `--max-iterations N` (refine), `--message "..."` (commit message). Repo root from cwd. Config: fix_model, fix_temperature (see Config and env).
+- **Outputs:** Without `--apply`/`--commit`: proposed patches (unified diff or code blocks) to stdout. With `--apply`: apply patches to working tree. With `--commit`: after apply, create one commit per fix (or per refine iteration) with attribution line in body: `written by <MODEL> after review from stet`. Session and refs/notes/stet unchanged by fix; stet finish continues to write notes as today.
+- **Code to reuse:** [session.Load](cli/internal/session/session.go)(stateDir); [findings.Finding](cli/internal/findings/finding.go) (File, Line, Range, Message, Suggestion, Category). [expand.ExpandHunk](cli/internal/expand/expand.go) for hunk-based expansion; **add** `ExpandAtLocation(repoRoot, filePath, startLine, endLine, maxTokens int) (string, error)` in [cli/internal/expand](cli/internal/expand/expand.go) for finding-based context (enclosing function for Go, else N-line window). [ollama.Client](cli/internal/ollama/client.go) `Generate` with fix model. Token estimation in [cli/internal/tokens](cli/internal/tokens) or equivalent. Resolve finding by prefix: [findings.ResolveFindingIDByPrefix](cli/internal/findings/finding.go).
+- **Implementation chunks:**
+  1. Add `expand.ExpandAtLocation(repoRoot, filePath, startLine, endLine, maxTokens)` with same semantics as roadmap table (enclosing function for Go; ±50/30/20/10 lines fallback; minimal ±2–5). Unit tests with fixture files.
+  2. Fix pipeline (new package or under run): load session, filter to active findings or single finding by ID; for each finding compute token budget, extract context (ExpandAtLocation or N-line window), build fix prompt (system: "You are a code fix assistant…"; user: file, line/range, message, suggestion, category, code context); call Ollama with fix model; parse response (code block or unified diff). Unit tests with mock Ollama.
+  3. `stet fix` CLI: flags, call fix pipeline, print patches; with `--apply` apply to worktree; with `--commit` run git commit with attribution line. Integration tests (e.g. dry-run, apply in temp repo).
+  4. `stet refine` CLI: loop — fix → apply & commit → run review (invoke run package); repeat until no active findings or `--max-iterations`. Default `--max-iterations 3`. Tests with dry-run and mock.
+  5. Config and env: add fix_model (default `qwen2.5-coder:7b`), fix_temperature (default 0.1) to [config.Config](cli/internal/config/config.go); env `STET_FIX_MODEL`, `STET_FIX_TEMPERATURE`.
+  6. Optional: when git-ai CLI is available and repo uses it, record fix in `refs/notes/ai` per [Git AI Standard v3.0.0](https://github.com/git-ai-project/git-ai/blob/main/specs/git_ai_standard_v3.0.0.md) (agent tool=stet, model=fix_model, session id e.g. stet-{session_id}-{finding_short_id}).
+- **Context extraction (reference):** Largest-first, fallback-to-smaller. Chunk levels: Enclosing function (Go via expand); ±50 lines; ±30/20/10; minimal ±2–5. Algorithm: token budget = contextLimit - systemPrompt - findingPayload - responseReserve; try largest chunk; if over budget, fall back to smaller N-line windows; last resort minimal range.
+- **Commit message and attribution:** Commit body must include line: `written by <MODEL> after review from stet`. User may add subject/body via `--message`. Refine: one commit per iteration; cap with `--max-iterations`; "passes" means stet review reports no active findings (stet does not run tests/linters/CI).
+- **Prompt design (reference):** System: "You are a code fix assistant. Given a code snippet and a code review finding, output ONLY the corrected code. Do not explain." User: file path, line/range, message, suggestion (if any), category, code context. Output format: code block or unified diff for parsing.
+- **Config and env:** `fix_model` (default `qwen2.5-coder:7b`), `fix_temperature` (default 0.1). Env: `STET_FIX_MODEL`, `STET_FIX_TEMPERATURE`. Add to [config.Config](cli/internal/config/config.go) and Overrides.
+- **Acceptance criteria:** `stet fix` without `--apply`/`--commit` prints patches to stdout. With `--apply` patches are applied to worktree. With `--commit` one commit is created with attribution line. `stet refine` runs fix → commit → review until no active findings or max-iterations; each iteration produces one commit with attribution.
+- **Tests:** New and changed code must meet project coverage: 77% project, 72% per file (see [AGENTS.md](../AGENTS.md)).
 
 ---
 
 ## Phase 9: The "Adaptive" Release (Personalization)
 
-**Goal:** Reduce "False Positive Fatigue" by learning what the user dislikes.
-
-- Continuous learning from dismissals (and later from acceptance patterns) is a core differentiator; metrics (e.g. acceptance vs. dismissal rate by reason) should align with feedback-driven improvement.
+**Goal:** Reduce "False Positive Fatigue" by learning from dismissals and team rules.
 
 ### 9.1 Feature: Dynamic Suppression (The "Shut Up" Button)
 
-**Concept:** If a user repeatedly dismisses specific types of feedback, stet should learn to stop offering it.
+- **Status:** Not started.
+- **Goal:** If the user repeatedly dismisses similar feedback, stet should reduce or stop offering similar findings (via prompt injection or post-process filter).
+- **Entry points:** No new command. Integrate into the review path. Call sites: when building the system prompt or when post-processing findings — [cli/internal/review/review.go](cli/internal/review/review.go) and/or [cli/internal/run/run.go](cli/internal/run/run.go). Prefer Option A (prompt injection) first; Option B (post-process similarity) can follow as an optional chunk.
+- **Inputs:** Last N dismissed findings from `.review/history.jsonl`. Schema: [history.Record](cli/internal/history/schema.go) with UserAction.Dismissals and ReviewOutput; see [history.ReadRecords](cli/internal/history/append.go) (or equivalent) for reading in chronological order. Config: enable/disable, N (e.g. 50).
+- **Outputs:** Fewer findings shown to the user: either the system prompt includes "Do not report issues similar to: [examples]" (Option A) or new findings are filtered by similarity to dismissed (Option B). Config flag to disable suppression.
+- **Code to reuse:** [history](cli/internal/history) — ReadRecords / append order; [history.Dismissal](cli/internal/history/schema.go) and Finding message for building examples. [prompt](cli/internal/prompt/prompt.go) — add `AppendSuppressionExamples(systemPrompt string, examples []string) string`. Wire into review.go after SystemPrompt and before or after other append steps.
+- **Implementation chunks:**
+  1. Read last N history records (e.g. 50) from state dir; extract Dismissals and corresponding finding message (and file:line) for each. Unit test: fixture history.jsonl, assert extracted examples.
+  2. Build short "example" text per dismissal (e.g. message + file:line). Deduplicate or limit total length. Add `AppendSuppressionExamples(systemPrompt, examples)` in prompt package; fixed section header e.g. "Do not report issues similar to:".
+  3. In review path (review.go and/or run.go), call AppendSuppressionExamples when suppression enabled and examples non-empty. Config flag: e.g. `suppression_enabled` (default true or false), `suppression_history_count` (default 50).
+  4. Unit and integration tests: with suppression on and fixture history, assert system prompt contains the section; optionally assert fewer findings in dry-run. Optional later chunk: vector store and post-process similarity filter (similarity > threshold → suppress).
+- **Config and env:** e.g. `suppression_enabled` (bool), `suppression_history_count` (int, default 50) in [config.Config](cli/internal/config/config.go); env `STET_SUPPRESSION_ENABLED`, `STET_SUPPRESSION_HISTORY_COUNT`.
+- **Acceptance criteria:** After dismissing several findings and running review again, the system prompt includes "Do not report issues similar to" with recent examples (when enabled). With suppression disabled, behavior unchanged. No new CLI commands.
+- **Tests:** New and changed code must meet project coverage: 77% project, 72% per file (see [AGENTS.md](../AGENTS.md)).
 
-**Mechanism:**
+### 9.2 Feature: Team Rulebook (`.stet/rules.md`)
 
-- **Storage:** Maintain a lightweight local vector store (or simple JSON history) of "Dismissed Findings" in `.review/history`.
-- **Retrieval:** Before a review, fetch the embeddings of the last 50 dismissed items.
-- **Filter:**
-  - **Option A (Prompt):** Inject "Do not report issues similar to: [Examples]" into the system prompt.
-  - **Option B (Post-Process):** Calculate semantic similarity between new findings and dismissed findings. If similarity > 0.85, auto-suppress.
+- **Status:** Not started.
+- **Goal:** Allow teams to enforce natural-language rules (e.g. naming, no fmt.Printf in production) by injecting them into the system prompt as high-priority constraints.
+- **Entry points:** No new command. Load file when building the system prompt. Call site: same chain as Cursor rules — [cli/internal/review/review.go](cli/internal/review/review.go) loads system prompt then calls [AppendCursorRules](cli/internal/prompt/prompt.go); add a step to load and append rulebook (e.g. before or after Cursor rules). Same integration point in [cli/internal/run/run.go](cli/internal/run/run.go) where system prompt is built.
+- **Inputs:** File at repo root `.stet/rules.md` (or configurable path via config). Encoding: UTF-8. If file is missing or unreadable, skip (no error). Reasonable size limit (e.g. 64 KiB) to avoid huge prompts.
+- **Outputs:** Rules content appended to the system prompt under a fixed section header (e.g. "## High Priority Constraints"). No change to findings schema.
+- **Code to reuse:** [prompt.SystemPrompt](cli/internal/prompt/prompt.go), [prompt.AppendCursorRules](cli/internal/prompt/prompt.go). Review chain in [review.ReviewHunk](cli/internal/review/review.go) (SystemPrompt → InjectUserIntent → AppendCursorRules → …). Add `AppendRulebook(systemPrompt, rulebookPath string) string` in prompt package; if rulebookPath is non-empty and file exists, read and append with header. Repo root from [git.RepoRoot](cli/internal/git).
+- **Implementation chunks:**
+  1. Resolve path: repo root + `.stet/rules.md` or config `rules_file` if present. If config, add optional `rules_file` to [config.Config](cli/internal/config/config.go).
+  2. Read file; validate (exists, size within limit). Return empty string if missing. Add `AppendRulebook(systemPrompt, rulebookPath string) string` in [cli/internal/prompt](cli/internal/prompt/prompt.go).
+  3. Wire in review.go and run.go: after SystemPrompt (and optionally after InjectUserIntent), call AppendRulebook with resolved path.
+  4. Document format (Markdown) and precedence vs Cursor rules (e.g. rulebook = global team; Cursor rules = file-glob specific).
+  5. Unit tests: AppendRulebook with missing file, empty file, and valid content; integration test: run with fixture .stet/rules.md, assert prompt contains section.
+- **Config and env:** Optional `rules_file` in config (path relative to repo or absolute); if unset, use repo root `.stet/rules.md`.
+- **Acceptance criteria:** When `.stet/rules.md` exists at repo root, the system prompt includes "## High Priority Constraints" and the file contents. When file is missing, no error and no section added.
+- **Tests:** New and changed code must meet project coverage: 77% project, 72% per file (see [AGENTS.md](../AGENTS.md)).
 
-### 9.2 Feature: Team "Rulebook" Injection
+### 9.3 Feature: Feedback-based RAG and Strictness Tuning
 
-**Concept:** Allow teams to enforce natural-language standards that aren't covered by `.cursor/rules`.
-
-**Configuration:** Support a `.stet/rules.md` file.
-
-**Usage:**
-
-- A team lead writes: "We use snake_case for database columns but CamelCase for Go structs. Never suggest fmt.Printf in production code."
-- stet injects these rules into the system prompt as "High Priority Constraints."
-
-### 9.3 Feature: Feedback-based RAG and strictness tuning
-
-**Concept:** Use dismissal (and optionally acceptance) history to suggest or apply configuration that improves actionability and reduces false-positive fatigue. Extend the feedback loop beyond prompt optimization to **RAG and strictness**.
-
-**Mechanism:**
-
-- **Input:** `.review/history.jsonl` (dismissals with reasons, findings per run). Optionally tag history records with the run's config (e.g. `rag_symbol_max_definitions`, `rag_symbol_max_tokens`, `strictness`) when available.
-- **Output:** Suggested config changes (e.g. "suggested rag_symbol_max_definitions: 8", "suggested strictness: lenient") or an optional file (e.g. `.review/suggested_config.toml`) that the user can merge. Alternatively extend `stet optimize` to write both `system_prompt_optimized.txt` and suggested config snippets.
-- **Logic:** Correlate dismissal rate (or acceptance rate) with RAG/strictness settings over time; suggest values that associate with higher acceptance or lower false_positive dismissal. No requirement to auto-apply — suggest-only keeps the user in control.
-
-**Scope:** RAG symbol options (`rag_symbol_max_definitions`, `rag_symbol_max_tokens`) and `strictness`. This is a complement to per-hunk adaptive RAG (implementation plan Phase 6.11): 6.11 fits context automatically; feedback-based tuning refines defaults over time from user behavior.
+- **Status:** Not started.
+- **Goal:** Use dismissal (and optionally acceptance) history to suggest configuration changes (RAG symbol limits, strictness) that correlate with better acceptance or lower false-positive dismissal; suggest-only, no auto-apply.
+- **Entry points:** Extend `stet optimize` or add a new command (e.g. `stet suggest-config`). Current optimizer: [cli/cmd/stet/main.go](cli/cmd/stet/main.go) `runOptimize` invokes an external script that writes `system_prompt_optimized.txt`. Either extend the script contract to also write suggested config, or add a Go path that reads history and writes suggested config snippet (e.g. `.review/suggested_config.toml` or stdout).
+- **Inputs:** [.review/history.jsonl](cli/internal/history/schema.go) with [Record](cli/internal/history/schema.go) (ReviewOutput, UserAction.Dismissals, RunConfig). RunConfig (RunConfigSnapshot) already has Strictness, RAGSymbolMaxDefinitions, RAGSymbolMaxTokens. Ensure records are tagged with run config when available (append path may already support RunConfig).
+- **Outputs:** Suggested config snippet: e.g. "suggested rag_symbol_max_definitions: 8", "suggested strictness: lenient", or a file `.review/suggested_config.toml` (or printed to stdout). No auto-apply; user merges manually.
+- **Code to reuse:** [history.ReadRecords](cli/internal/history/append.go) for chronological read; [Record.RunConfig](cli/internal/history/schema.go), [Record.UserAction.Dismissals](cli/internal/history/schema.go). Aggregate by config buckets; compute dismissal rate (e.g. false_positive / total) and acceptance rate; suggest RAG/strictness values that correlate with higher acceptance or lower FP rate. [config](cli/internal/config/config.go) key names for output.
+- **Implementation chunks:**
+  1. Confirm history schema and append path populate RunConfig when available; extend if needed. No new CLI flags required for this chunk.
+  2. Analyzer: read history, group by RunConfig (or bins), compute per-group dismissal rate and acceptance rate; choose suggested values (e.g. config with best acceptance in last N records). Scope: RAG symbol options and strictness only.
+  3. Output: write `.review/suggested_config.toml` or print to stdout (e.g. `stet suggest-config`). Document format.
+  4. If extending `stet optimize`: document that script may write both system_prompt_optimized.txt and suggested_config.toml; CLI does not need to read suggested_config unless adding a merge command later.
+  5. Unit tests: fixture history with varied RunConfig and dismissals, assert suggested values. Integration test optional.
+- **Config and env:** No new config keys; output is suggested config for user to merge.
+- **Acceptance criteria:** After enough history with varied run config, running the suggest path produces suggested rag_symbol_max_definitions, rag_symbol_max_tokens, and/or strictness. User can copy into .review/config.toml. No automatic application.
+- **Tests:** New and changed code must meet project coverage: 77% project, 72% per file (see [AGENTS.md](../AGENTS.md)).
 
 ---
 
 ## Phase 10: The "Deep Context" Release (Graph Awareness)
 
-**Goal:** Solve "Spooky Action at a Distance" bugs.
-
-Cross-file impact extends stet's context-aware design to reduce FPs from "spooky action at a distance" and aligns with industry emphasis on codebase-aware analysis.
+**Goal:** Detect when a change in one file breaks logic in another file that wasn’t touched ("spooky action at a distance").
 
 ### 10.1 Feature: Cross-File Impact Analysis
 
-**Concept:** Detect when a change in File A breaks logic in File B (even if File B wasn't touched).
-
-**Mechanism:**
-
-- **Symbol Tracking:** Use Tree-sitter to index the public symbols in the changed hunks.
-- **Reference Search:** Scan the codebase for usages of those symbols in other files.
-- **Review Generation:**
-  - If `auth.Login()` signature changed, and `auth_test.go` calls it, check if `auth_test.go` was updated.
-  - If not, generate a finding: "You changed Login signature, but auth_test.go is stale. This will likely break the build."
-
----
-
-## Research Topics (for "Spike" Tickets)
-
-| Topic | Goal | Complexity |
-|-------|------|------------|
-| Local Vector Stores | Evaluate sqlite-vss vs chromadb for storing dismissal history locally without heavy dependencies. | Medium |
-| LSP Integration | Can we tap into the user's running Language Server (LSP) instead of running our own Tree-sitter parsing? | High |
-| Review Summarization | Generate a "PR Description" based on the findings (Auto-Draft PR). | Low |
-| Documentation quality | Optional: use commit (and future PR) description to improve intent context; document that clear author-side documentation improves stet accuracy. | Low |
-| Evaluation corpus | Periodic evaluation on a fixed set of hunks (known-good / known-bad) to track precision/recall as prompts and optimizer change. | Medium |
-
-### Adoption and rollout
-
-Recommend piloting on one team or repo, collecting dismiss reasons and running `stet optimize` periodically, and documenting when to use default vs. strict vs. nitpicky so rollout aligns with feedback-driven improvement.
+- **Status:** Not started.
+- **Goal:** Emit findings when a change in File A (e.g. signature of a function) likely breaks File B that uses that symbol but was not updated (e.g. test file not in diff).
+- **Entry points:** No new command. Integrate into the review pipeline as an extra pass or extra findings. Call site: after or alongside per-hunk review in [cli/internal/run/run.go](cli/internal/run/run.go). For changed hunks, extract public symbols, search repo for usages in other files; if a referencing file is not in the diff, emit a finding.
+- **Inputs:** Changed hunks from diff (from existing diff pipeline); repo root. Symbol extraction: public symbols (e.g. function names, type names) in changed hunks — use Tree-sitter or extend existing [rag](cli/internal/rag/rag.go) symbol layer. Reference search: grep/ripgrep or LSP to find usages of those symbols in other files.
+- **Outputs:** Additional [findings.Finding](cli/internal/findings/finding.go) values (e.g. "You changed Login signature; auth_test.go is stale. This will likely break the build.") added to session or streamed with same schema. No new severity/category required; use existing.
+- **Code to reuse:** [diff](cli/internal/diff) for hunks; [rag](cli/internal/rag/rag.go) for symbol definitions (extend for "symbols defined in hunk" and "references in repo" if needed). [findings.Finding](cli/internal/findings/finding.go) for constructing new findings. Optionally Tree-sitter for parsing changed files.
+- **Implementation chunks:**
+  1. Symbol extraction from changed hunks (per language; start with Go). Produce list of (symbol name, file, line). Unit test: fixture hunk, assert extracted symbols.
+  2. Reference search: for each symbol, find references in repo (e.g. grep/ripgrep by symbol name, or LSP). List (file, line) of references; exclude files that are in the diff.
+  3. For each reference (file not in diff): generate one finding (e.g. "You changed X; <file> uses X and was not updated. This will likely break the build."). Merge into review output (append to findings in run.go).
+  4. Config to enable/disable (e.g. `cross_file_impact_enabled`). Default off for initial rollout.
+  5. Unit and integration tests: fixture repo with changed function and untouched caller, assert finding produced when enabled.
+- **Config and env:** e.g. `cross_file_impact_enabled` (bool, default false) in [config.Config](cli/internal/config/config.go); env `STET_CROSS_FILE_IMPACT_ENABLED`.
+- **Acceptance criteria:** When enabled, changing a function signature (or renamed symbol) in a file and not updating another file that references it produces an actionable finding. When disabled, no cross-file findings.
+- **Tests:** New and changed code must meet project coverage: 77% project, 72% per file (see [AGENTS.md](../AGENTS.md)).
 
 ---
 
 ## Feature: Finding Consolidation (Post-Processing)
 
-**Goal:** Identify findings that represent the same underlying issue (fragmented by methodology) and group them for display, so users see conceptual issues rather than many near-duplicate entries.
-
-### Concept
-
-Findings fragment because stet reviews **per hunk** and assigns IDs from `(file, line, range, message)`. The same logical issue at different call sites (e.g. "Potential nil pointer dereference in StreamOut" at lines 301 and 498) or the same root cause reported in different hunks (e.g. "Duplicate function definition for newRunCmd") produce separate findings. One fix often addresses several of them. Consolidation groups these for display.
-
-### Approach
-
-- **Rule-based heuristics (primary):** No LLM calls. Fully compatible with small/local models (PRD: 32K context, laptop hardware).
-- **Optional LLM validation (hybrid):** Narrow yes/no prompts for borderline groups only; fits small-model constraints for narrow, well-scoped tasks.
-
-### Rule-based heuristics (implement first)
-
-1. **Same file + message stem similarity** — Reuse `messageStem` / `collapseWhitespace` from [cli/internal/hunkid/hunkid.go](cli/internal/hunkid/hunkid.go). Group findings with high similarity (e.g. Jaccard on word stems or Levenshtein below threshold).
-2. **Same file + shared category + overlapping keywords** — Group when category matches and messages share key phrases (e.g. "nil pointer", "StreamOut", "division by zero").
-3. **Same file + nearby lines + similar message stem** — Group findings within N lines (e.g. 20) with similar message stem.
-
-### Optional LLM validation (hybrid)
-
-For candidate groups flagged by heuristics: "Are these N findings the same underlying issue? Answer Yes or No." Narrow task, small token footprint, simple output — suitable for 7B–13B models. Skip if heuristics are confident; use only when user enables (e.g. `stet list --grouped --verify`).
-
-### Integration
-
-- **Read-only in `stet list`** — e.g. `stet list --grouped`; session unchanged; display-only grouping.
-- **Output format:** Canonical description per group, then member findings:
+- **Status:** Not started.
+- **Goal:** Group findings that represent the same underlying issue (same file + similar message or category) so users see conceptual groups instead of many near-duplicate lines. Display-only; session unchanged.
+- **Entry points:** `stet list --grouped` and optional `stet list --grouped --verify`. Extend [newListCmd](cli/cmd/stet/main.go) (list command, around line 913); add flags `--grouped` and `--verify`.
+- **Inputs:** Active findings from session (same as current `stet list`): load session, compute active = Findings minus DismissedIDs. Use [findings.Finding](cli/internal/findings/finding.go) (File, Line, Range, Message, Category). With `--verify`, optional LLM call for borderline groups (narrow yes/no prompt).
+- **Outputs:** Display-only; session and findings unchanged. When `--grouped`: print grouped format — for each group a line `[Group: <canonical description>]` then member lines (shortID, file:line, severity, message). Same info as list, reordered and grouped. With `--verify`, optionally merge groups that LLM says are same issue.
+- **Code to reuse:** [hunkid.messageStem](cli/internal/hunkid/hunkid.go), [hunkid.collapseWhitespace](cli/internal/hunkid/hunkid.go) for message normalization. [findings.ShortID](cli/internal/findings/finding.go). New package e.g. `cli/internal/consolidate` for grouping logic (pure functions: GroupFindings(findings) → groups).
+- **Implementation chunks:**
+  1. Grouping logic in `cli/internal/consolidate`: (a) Same file + message stem similarity (use messageStem/collapseWhitespace; Jaccard on word stems or Levenshtein below threshold). (b) Same file + shared category + overlapping keywords. (c) Same file + nearby lines (e.g. within 20) + similar message stem. Return list of groups, each with canonical description (e.g. first finding’s message or merged) and member findings. Unit tests with fixture findings.
+  2. `stet list --grouped`: load active findings, call GroupFindings, print format below. No `--verify` yet. Integration test: session with multiple similar findings, assert output format.
+  3. Optional `--verify`: for borderline groups (e.g. similarity in range 0.6–0.85), call small LLM with prompt "Are these N findings the same underlying issue? Answer Yes or No." Merge groups when Yes. Gate behind `--verify`; default off.
+  4. Document output format and thresholds (config optional: e.g. similarity threshold).
+- **Output format (reference):**
 
 ```text
 [Group: Potential nil pointer dereference in StreamOut]
@@ -252,13 +201,20 @@ For candidate groups flagged by heuristics: "Are these N findings the same under
   54e82de  cli/cmd/stet/main.go:363  error  Duplicate function definition for newRunCmd
 ```
 
-### Dependencies
+- **Config and env:** Optional similarity threshold in config; `--verify` is opt-in flag. No required config for minimal version.
+- **Acceptance criteria:** `stet list --grouped` prints findings grouped by same file + similar message/category; session and dismiss behavior unchanged. `stet list` without `--grouped` unchanged. With `--verify`, borderline groups may be merged after LLM confirmation.
+- **Tests:** New and changed code must meet project coverage: 77% project, 72% per file (see [AGENTS.md](../AGENTS.md)).
 
-- [cli/internal/findings](cli/internal/findings) — `Finding` struct, `ShortID`, active findings.
-- [cli/internal/hunkid](cli/internal/hunkid) — `messageStem`, `collapseWhitespace` for similarity.
-- No new Ollama call required for the rule-based path.
+---
 
-### Constraints
+## Research and spikes
 
-- **PRD:** Local/small models, 32K context. Rule-based path uses zero inference.
-- **LLM path:** Only when explicitly enabled; narrow prompts; optional.
+| Topic | Goal | Complexity |
+|-------|------|------------|
+| Local vector stores | Evaluate sqlite-vss vs chromadb for storing dismissal history locally without heavy dependencies. | Medium |
+| LSP integration | Use running Language Server (LSP) instead of or in addition to Tree-sitter where possible. | High |
+| Review summarization | Generate a "PR Description" from findings (auto-draft PR). | Low |
+| Documentation quality | Use commit (and future PR) description for intent context; document that clear author-side docs improve stet accuracy. | Low |
+| Evaluation corpus | Fixed set of hunks (known-good / known-bad) to track precision/recall as prompts and optimizer change. | Medium |
+
+**Adoption:** Pilot on one team or repo; collect dismiss reasons and run `stet optimize` periodically; document when to use default vs. strict vs. nitpicky so rollout aligns with feedback-driven improvement.
