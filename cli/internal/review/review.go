@@ -19,6 +19,13 @@ import (
 
 const maxExpandTokensCap = 4096
 
+// HunkUsage holds per-hunk token and duration from Ollama (for history/analytics).
+type HunkUsage struct {
+	PromptEvalCount  int   // Prompt tokens for this hunk.
+	EvalCount        int   // Completion tokens for this hunk.
+	EvalDurationNs   int64 // Evaluation duration in nanoseconds (Ollama eval_duration).
+}
+
 // effectiveRAGTokenCap returns the token cap for the RAG block this hunk.
 // When contextLimit <= 0, returns ragMaxTokens unchanged (no adaptive cap).
 // Otherwise: ragBudget = contextLimit - basePromptTokens - responseReserve;
@@ -65,10 +72,10 @@ func effectiveRAGTokenCap(contextLimit, basePromptTokens, responseReserve, ragMa
 // returns an error. ragMaxDefs and ragMaxTokens control RAG-lite symbol lookup
 // (Sub-phase 6.8); zero ragMaxDefs disables it. When nitpicky is true, nitpicky-mode
 // instructions are appended so the model reports style, typos, and convention violations.
-func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir string, hunk diff.Hunk, generateOpts *ollama.GenerateOptions, userIntent *prompt.UserIntent, ruleList []rules.CursorRule, repoRoot string, contextLimit int, ragMaxDefs, ragMaxTokens int, promptShadows []prompt.Shadow, nitpicky bool, traceOut *trace.Tracer) ([]findings.Finding, error) {
+func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir string, hunk diff.Hunk, generateOpts *ollama.GenerateOptions, userIntent *prompt.UserIntent, ruleList []rules.CursorRule, repoRoot string, contextLimit int, ragMaxDefs, ragMaxTokens int, promptShadows []prompt.Shadow, nitpicky bool, traceOut *trace.Tracer) ([]findings.Finding, *HunkUsage, error) {
 	system, err := prompt.SystemPrompt(stateDir)
 	if err != nil {
-		return nil, fmt.Errorf("review: system prompt: %w", err)
+		return nil, nil, fmt.Errorf("review: system prompt: %w", err)
 	}
 	if traceOut != nil && traceOut.Enabled() {
 		traceOut.Section("System prompt")
@@ -179,40 +186,46 @@ func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir stri
 	}
 	result, err := client.Generate(ctx, model, system, user, generateOpts)
 	if err != nil {
-		return nil, fmt.Errorf("review: generate: %w", err)
+		return nil, nil, fmt.Errorf("review: generate: %w", err)
 	}
 	// API returns non-nil result on success; defensive check.
 	if result == nil {
-		return nil, fmt.Errorf("review: generate: unexpected nil result")
+		return nil, nil, fmt.Errorf("review: generate: unexpected nil result")
 	}
 	if traceOut != nil && traceOut.Enabled() {
 		traceOut.Section("LLM response (raw)")
 		traceOut.Printf("model=%s prompt_eval_count=%d eval_count=%d eval_duration=%d\n", result.Model, result.PromptEvalCount, result.EvalCount, result.EvalDuration)
 		traceOut.Printf("%s\n", result.Response)
 	}
+	usage := &HunkUsage{PromptEvalCount: result.PromptEvalCount, EvalCount: result.EvalCount, EvalDurationNs: result.EvalDuration}
 	list, err := ParseFindingsResponse(result.Response)
 	if err != nil {
 		result2, retryErr := client.Generate(ctx, model, system, user, generateOpts)
 		if retryErr != nil {
-			return nil, fmt.Errorf("review: parse failed then retry generate failed: %w", retryErr)
+			return nil, nil, fmt.Errorf("review: parse failed then retry generate failed: %w", retryErr)
 		}
 		// API returns non-nil result on success; defensive check.
 		if result2 == nil {
-			return nil, fmt.Errorf("review: generate retry: unexpected nil result")
+			return nil, nil, fmt.Errorf("review: generate retry: unexpected nil result")
 		}
 		if traceOut != nil && traceOut.Enabled() {
 			traceOut.Section("LLM response (raw) retry")
 			traceOut.Printf("model=%s prompt_eval_count=%d eval_count=%d eval_duration=%d\n", result2.Model, result2.PromptEvalCount, result2.EvalCount, result2.EvalDuration)
 			traceOut.Printf("%s\n", result2.Response)
 		}
+		usage = &HunkUsage{PromptEvalCount: result2.PromptEvalCount, EvalCount: result2.EvalCount, EvalDurationNs: result2.EvalDuration}
 		list, err = ParseFindingsResponse(result2.Response)
 		if err != nil {
-			return nil, fmt.Errorf("review: parse failed (after retry): %w", err)
+			return nil, nil, fmt.Errorf("review: parse failed (after retry): %w", err)
 		}
 	}
 	if traceOut != nil && traceOut.Enabled() {
 		traceOut.Section("Parse")
 		traceOut.Printf("Parsed %d findings\n", len(list))
 	}
-	return AssignFindingIDs(list, hunk.FilePath)
+	list, err = AssignFindingIDs(list, hunk.FilePath)
+	if err != nil {
+		return nil, nil, err
+	}
+	return list, usage, nil
 }

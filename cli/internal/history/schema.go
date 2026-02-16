@@ -33,9 +33,32 @@ func ValidReason(s string) bool {
 }
 
 // Dismissal represents one finding dismissed with an optional reason.
+// PromptContext is the hunk/code that produced the finding; set when user gives a reason and context exists.
 type Dismissal struct {
-	FindingID string `json:"finding_id"`
-	Reason    string `json:"reason,omitempty"` // One of Reason* constants, or empty.
+	FindingID     string `json:"finding_id"`
+	Reason        string `json:"reason,omitempty"`        // One of Reason* constants, or empty.
+	PromptContext string `json:"prompt_context,omitempty"` // Hunk content that produced this finding; for optimizer.
+}
+
+// RunConfigSnapshot holds run config for tuning correlation. Callers populate from config or RunOptions.
+// No import of config in history; use NewRunConfigSnapshot from individual fields.
+type RunConfigSnapshot struct {
+	Model                   string `json:"model,omitempty"`
+	Strictness              string `json:"strictness,omitempty"`
+	RAGSymbolMaxDefinitions int    `json:"rag_symbol_max_definitions,omitempty"`
+	RAGSymbolMaxTokens      int    `json:"rag_symbol_max_tokens,omitempty"`
+	Nitpicky                bool   `json:"nitpicky,omitempty"`
+}
+
+// NewRunConfigSnapshot builds a snapshot from individual fields for history records.
+func NewRunConfigSnapshot(model, strictness string, ragDefs, ragTokens int, nitpicky bool) *RunConfigSnapshot {
+	return &RunConfigSnapshot{
+		Model:                   model,
+		Strictness:              strictness,
+		RAGSymbolMaxDefinitions: ragDefs,
+		RAGSymbolMaxTokens:      ragTokens,
+		Nitpicky:                nitpicky,
+	}
 }
 
 // UserAction holds feedback from the user: which findings were dismissed
@@ -51,7 +74,11 @@ type UserAction struct {
 
 // Record is one line in .review/history.jsonl.
 type Record struct {
-	DiffRef      string             `json:"diff_ref"`      // Ref or SHA for the diff scope.
-	ReviewOutput []findings.Finding `json:"review_output"` // Findings from the review run.
-	UserAction   UserAction         `json:"user_action"`
+	DiffRef           string             `json:"diff_ref"`      // Ref or SHA for the diff scope.
+	ReviewOutput      []findings.Finding `json:"review_output"` // Findings from the review run.
+	UserAction        UserAction         `json:"user_action"`
+	RunConfig         *RunConfigSnapshot `json:"run_config,omitempty"`
+	PromptTokens      *int64             `json:"prompt_tokens,omitempty"`
+	CompletionTokens  *int64             `json:"completion_tokens,omitempty"`
+	EvalDurationNs    *int64             `json:"eval_duration_ns,omitempty"`
 }

@@ -163,7 +163,7 @@ State lives under `.review/` (or the path given by `state_dir`). Artifacts:
 - **`session.json`** — Session state (baseline ref, last_reviewed_at, findings, dismissed_ids, prompt_shadows, and optionally strictness and RAG symbol options from `stet start`).
 - **`lock`** — Advisory lock for a single active session.
 - **`config.toml`** — Repo-level config (optional).
-- **`history.jsonl`** — Feedback log for the optimizer and prompt shadowing (see below).
+- **`history.jsonl`** — Active feedback log for the optimizer and prompt shadowing (see below). Rotated-out lines may be written to **`history.jsonl.<n>.gz`** (e.g. `history.jsonl.1.gz`, `history.jsonl.2.gz`); at most 5 archives are kept.
 - **`system_prompt_optimized.txt`** — Written by `stet optimize`; used as system prompt when present.
 - **`worktrees/`** — Directory for stet worktrees (default `repo/.review/worktrees` or `worktree_root`). Each entry is `stet-<short-sha>`.
 
@@ -173,16 +173,20 @@ The `.review/` directory is in `.gitignore` by default so state does not pollute
 
 Session state (`.review/session.json`) includes **`prompt_shadows`**: on dismiss, the CLI stores `{ "finding_id": "...", "prompt_context": "..." }` for each dismissed finding so it can be used as a negative few-shot in future prompts. The internal **`finding_prompt_context`** map (finding ID → hunk content) is populated during review and used when the user dismisses to record the code context that produced the finding.
 
-The CLI appends to `.review/history.jsonl` on user feedback (on dismiss via `stet dismiss`, on auto-dismiss when re-review no longer reports a finding at that location, and on finish when there are findings). Each line is one JSON object with:
+The CLI appends to `.review/history.jsonl` on user feedback (on dismiss via `stet dismiss`, on auto-dismiss when re-review no longer reports a finding at that location, and on finish when there are findings). **History layout:** The active file is `history.jsonl`. When rotation runs (after the file exceeds the record cap), dropped lines are written to a gzipped archive `history.jsonl.<n>.gz` (e.g. `history.jsonl.1.gz`, `history.jsonl.2.gz`); at most 5 such archives are kept. Scripts that read full history (e.g. the optimizer or `stet stats`) should read **sorted archives first** (by numeric `<n>`, ascending), then the active `history.jsonl`, so that the combined stream is chronological (oldest first). The CLI provides `history.ReadRecords(stateDir)` for this order.
+
+Each line is one JSON object with:
 
 - **`diff_ref`**: Ref or SHA for the reviewed scope (e.g. the HEAD at last review run, i.e. `last_reviewed_at`).
 - **`review_output`**: Array of finding objects (same shape as stdout findings).
 - **`user_action`**: Object with:
   - **`dismissed_ids`** (array of strings): Finding IDs the user dismissed.
-  - **`dismissals`** (optional): Array of `{ "finding_id": "...", "reason": "..." }` for per-finding reasons. Allowed **`reason`** values: `false_positive`, `already_correct`, `wrong_suggestion`, `out_of_scope`.
+  - **`dismissals`** (optional): Array of `{ "finding_id": "...", "reason": "...", "prompt_context": "..." }` for per-finding reasons. **`reason`** values: `false_positive`, `already_correct`, `wrong_suggestion`, `out_of_scope`. **`prompt_context`** (optional): the hunk/code that produced the finding; set when the user supplies a reason and context exists.
   - **`finished_at`** (optional): When the session was finished (e.g. ISO8601).
+- **`run_config`** (optional): Snapshot of run config for tuning correlation: `model`, `strictness`, `rag_symbol_max_definitions`, `rag_symbol_max_tokens`, `nitpicky`.
+- **`prompt_tokens`**, **`completion_tokens`**, **`eval_duration_ns`** (optional): Token and duration for the run that produced the findings; set on finish records when `STET_CAPTURE_USAGE` is enabled (default). Omitted when not captured.
 
-Rotation keeps the last N records (default 1000) to avoid unbounded growth. The schema is suitable for future export/upload for org-wide aggregation. Canonical types: `cli/internal/history/schema.go`.
+Rotation keeps the last N records (default 1000) in the active file to avoid unbounded growth. The schema is suitable for future export/upload for org-wide aggregation. Canonical types: `cli/internal/history/schema.go`.
 
 ## Git note (refs/notes/stet)
 

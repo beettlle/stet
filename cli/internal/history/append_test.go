@@ -209,3 +209,87 @@ func TestAppend_rotateIfNeededReadError(t *testing.T) {
 	}
 }
 
+func TestAppend_rotationWritesGzipArchive(t *testing.T) {
+	dir := t.TempDir()
+	maxRecords := 2
+	for i := 0; i < 3; i++ {
+		rec := Record{DiffRef: string(rune('a' + i)), ReviewOutput: nil, UserAction: UserAction{}}
+		if err := Append(dir, rec, maxRecords); err != nil {
+			t.Fatalf("Append %d: %v", i, err)
+		}
+	}
+	// Dropped line ("a") should be in history.jsonl.1.gz
+	archivePath := filepath.Join(dir, "history.jsonl.1.gz")
+	if _, err := os.Stat(archivePath); err != nil {
+		t.Fatalf("expected archive %s after rotation: %v", archivePath, err)
+	}
+	// Active file has last 2
+	path := filepath.Join(dir, historyFilename)
+	lines, err := readLines(path)
+	if err != nil {
+		t.Fatalf("readLines: %v", err)
+	}
+	if len(lines) != maxRecords {
+		t.Errorf("active file: want %d lines, got %d", maxRecords, len(lines))
+	}
+}
+
+func TestReadRecords_emptyDirReturnsNil(t *testing.T) {
+	dir := t.TempDir()
+	recs, err := ReadRecords(dir)
+	if err != nil {
+		t.Fatalf("ReadRecords: %v", err)
+	}
+	if len(recs) != 0 {
+		t.Errorf("empty dir: want 0 records, got %d", len(recs))
+	}
+}
+
+func TestReadRecords_activeFileOnly(t *testing.T) {
+	dir := t.TempDir()
+	r1 := Record{DiffRef: "r1", ReviewOutput: nil, UserAction: UserAction{}}
+	r2 := Record{DiffRef: "r2", ReviewOutput: nil, UserAction: UserAction{FinishedAt: "2025-01-01T00:00:00Z"}}
+	if err := Append(dir, r1, 0); err != nil {
+		t.Fatalf("Append 1: %v", err)
+	}
+	if err := Append(dir, r2, 0); err != nil {
+		t.Fatalf("Append 2: %v", err)
+	}
+	recs, err := ReadRecords(dir)
+	if err != nil {
+		t.Fatalf("ReadRecords: %v", err)
+	}
+	if len(recs) != 2 {
+		t.Fatalf("want 2 records, got %d", len(recs))
+	}
+	if recs[0].DiffRef != "r1" || recs[1].DiffRef != "r2" {
+		t.Errorf("records: %v", recs)
+	}
+}
+
+func TestReadRecords_archiveThenActive(t *testing.T) {
+	dir := t.TempDir()
+	maxRecords := 1
+	// Append 3: rotation creates archive with first, then second; active has third. With maxRecords=1 each append rotates.
+	if err := Append(dir, Record{DiffRef: "a", ReviewOutput: nil, UserAction: UserAction{}}, maxRecords); err != nil {
+		t.Fatalf("Append a: %v", err)
+	}
+	if err := Append(dir, Record{DiffRef: "b", ReviewOutput: nil, UserAction: UserAction{}}, maxRecords); err != nil {
+		t.Fatalf("Append b: %v", err)
+	}
+	if err := Append(dir, Record{DiffRef: "c", ReviewOutput: nil, UserAction: UserAction{}}, maxRecords); err != nil {
+		t.Fatalf("Append c: %v", err)
+	}
+	recs, err := ReadRecords(dir)
+	if err != nil {
+		t.Fatalf("ReadRecords: %v", err)
+	}
+	// Order: archive 1 (a), archive 2 (b), active (c)
+	if len(recs) != 3 {
+		t.Fatalf("want 3 records, got %d", len(recs))
+	}
+	if recs[0].DiffRef != "a" || recs[1].DiffRef != "b" || recs[2].DiffRef != "c" {
+		t.Errorf("order: got %q, %q, %q", recs[0].DiffRef, recs[1].DiffRef, recs[2].DiffRef)
+	}
+}
+

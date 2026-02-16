@@ -1030,12 +1030,17 @@ func runDismiss(cmd *cobra.Command, args []string) error {
 	}
 	ua := history.UserAction{DismissedIDs: []string{fullID}}
 	if reason != "" {
-		ua.Dismissals = []history.Dismissal{{FindingID: fullID, Reason: reason}}
+		d := history.Dismissal{FindingID: fullID, Reason: reason}
+		if s.FindingPromptContext != nil && s.FindingPromptContext[fullID] != "" {
+			d.PromptContext = s.FindingPromptContext[fullID]
+		}
+		ua.Dismissals = []history.Dismissal{d}
 	}
 	rec := history.Record{
 		DiffRef:      diffRef,
 		ReviewOutput: s.Findings,
 		UserAction:   ua,
+		RunConfig:    history.NewRunConfigSnapshot(cfg.Model, cfg.Strictness, cfg.RAGSymbolMaxDefinitions, cfg.RAGSymbolMaxTokens, cfg.Nitpicky),
 	}
 	if err := history.Append(stateDir, rec, history.DefaultMaxRecords); err != nil {
 		return err

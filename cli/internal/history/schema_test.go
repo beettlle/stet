@@ -108,6 +108,41 @@ func TestRecord_jsonShape_snake_case(t *testing.T) {
 	}
 }
 
+func TestRecord_marshalUnmarshal_withRunConfigAndUsage(t *testing.T) {
+	pt := int64(1000)
+	ct := int64(200)
+	ed := int64(5000000000)
+	rec := Record{
+		DiffRef:          "HEAD",
+		ReviewOutput:     nil,
+		UserAction:       UserAction{},
+		RunConfig:        NewRunConfigSnapshot("model", "default", 10, 0, false),
+		PromptTokens:     &pt,
+		CompletionTokens: &ct,
+		EvalDurationNs:   &ed,
+	}
+	data, err := json.Marshal(rec)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var decoded Record
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if decoded.RunConfig == nil || decoded.RunConfig.Model != "model" || decoded.RunConfig.Strictness != "default" {
+		t.Errorf("run_config: got %+v", decoded.RunConfig)
+	}
+	if decoded.PromptTokens == nil || *decoded.PromptTokens != 1000 {
+		t.Errorf("prompt_tokens: got %v", decoded.PromptTokens)
+	}
+	if decoded.CompletionTokens == nil || *decoded.CompletionTokens != 200 {
+		t.Errorf("completion_tokens: got %v", decoded.CompletionTokens)
+	}
+	if decoded.EvalDurationNs == nil || *decoded.EvalDurationNs != 5000000000 {
+		t.Errorf("eval_duration_ns: got %v", decoded.EvalDurationNs)
+	}
+}
+
 func TestValidReason(t *testing.T) {
 	for _, c := range []struct {
 		s    string

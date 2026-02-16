@@ -16,8 +16,10 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
+	"stet/cli/internal/config"
 	"stet/cli/internal/diff"
 	"stet/cli/internal/erruser"
 	"stet/cli/internal/expand"
@@ -38,6 +40,17 @@ import (
 
 // ErrNoSession indicates there is no active session (e.g. finish without start).
 var ErrNoSession = errors.New("no active session; run stet start first")
+
+// captureUsage returns false when STET_CAPTURE_USAGE is 0/false/no/off (case-insensitive); otherwise true.
+func captureUsage() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("STET_CAPTURE_USAGE")))
+	switch v {
+	case "0", "false", "no", "off":
+		return false
+	default:
+		return true
+	}
+}
 
 // ErrDirtyWorktree indicates the working tree has uncommitted changes.
 var ErrDirtyWorktree = errors.New("working tree has uncommitted changes; commit or stash before starting")
@@ -177,7 +190,8 @@ func addressedFindingIDs(hunks []diff.Hunk, existingFindings []findings.Finding,
 
 // applyAutoDismiss updates s.DismissedIDs for findings in toReview that are not in newFindingIDSet
 // and appends a history record when any are addressed. Caller must save the session after.
-func applyAutoDismiss(s *session.Session, toReview []diff.Hunk, newFindingIDSet map[string]struct{}, headSHA, stateDir string) error {
+// runConfig is attached to the history record when non-nil.
+func applyAutoDismiss(s *session.Session, toReview []diff.Hunk, newFindingIDSet map[string]struct{}, headSHA, stateDir string, runConfig *history.RunConfigSnapshot) error {
 	if stateDir == "" {
 		return erruser.New("Could not record review history: state directory is required.", nil)
 	}
@@ -213,9 +227,7 @@ func applyAutoDismiss(s *session.Session, toReview []diff.Hunk, newFindingIDSet 
 			DismissedIDs: addressed,
 			Dismissals:   dismissals,
 		},
-	}
-	if stateDir == "" {
-		return erruser.New("Could not record review history: state directory is required.", nil)
+		RunConfig: runConfig,
 	}
 	if err := history.Append(stateDir, rec, history.DefaultMaxRecords); err != nil {
 		return erruser.New("Could not record review history.", err)
@@ -545,6 +557,8 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 
 	var collected []findings.Finding
 	findingPromptContext := make(map[string]string)
+	var sumPrompt, sumCompletion int
+	var sumDuration int64
 	total := len(part.ToReview)
 	if opts.StreamOut != nil {
 		tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("%d hunks to review", total)})
@@ -637,9 +651,14 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 				tr.Printf("strict_id=%s semantic_id=%s\n", hunkid.StrictHunkID(hunk.FilePath, hunk.RawContent), hunkid.SemanticHunkID(hunk.FilePath, hunk.RawContent))
 			}
 			cursorRules := rulesLoader.RulesForFile(hunk.FilePath)
-			list, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, effectiveContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, runPromptShadows(&s), opts.Nitpicky, tr)
+			list, usage, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, effectiveContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, runPromptShadows(&s), opts.Nitpicky, tr)
 			if err != nil {
 				return erruser.New("Review failed for "+hunk.FilePath+".", err)
+			}
+			if usage != nil {
+				sumPrompt += usage.PromptEvalCount
+				sumCompletion += usage.EvalCount
+				sumDuration += usage.EvalDurationNs
 			}
 			batch := findings.FilterAbstention(list, minKeep, minMaint)
 			if tr.Enabled() {
@@ -677,12 +696,18 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 			collectedIDSet[f.ID] = struct{}{}
 		}
 	}
-	if err := applyAutoDismiss(&s, part.ToReview, collectedIDSet, headSHA, opts.StateDir); err != nil {
+	runConfig := history.NewRunConfigSnapshot(opts.Model, s.Strictness, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, opts.Nitpicky)
+	if err := applyAutoDismiss(&s, part.ToReview, collectedIDSet, headSHA, opts.StateDir, runConfig); err != nil {
 		return err
 	}
 	s.Findings = collected
 	s.FindingPromptContext = findingPromptContext
 	s.LastReviewedAt = headSHA
+	if captureUsage() {
+		s.LastRunPromptTokens = int64(sumPrompt)
+		s.LastRunCompletionTokens = int64(sumCompletion)
+		s.LastRunEvalDurationNs = sumDuration
+	}
 	if err := session.Save(opts.StateDir, &s); err != nil {
 		return err
 	}
@@ -741,6 +766,10 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 		if diffRef == "" {
 			diffRef = s.BaselineRef
 		}
+		var runConfig *history.RunConfigSnapshot
+		if cfg, err := config.Load(ctx, config.LoadOptions{RepoRoot: opts.RepoRoot}); err == nil {
+			runConfig = history.NewRunConfigSnapshot(cfg.Model, cfg.Strictness, cfg.RAGSymbolMaxDefinitions, cfg.RAGSymbolMaxTokens, cfg.Nitpicky)
+		}
 		rec := history.Record{
 			DiffRef:      diffRef,
 			ReviewOutput: s.Findings,
@@ -748,6 +777,12 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 				DismissedIDs: s.DismissedIDs,
 				FinishedAt:   time.Now().UTC().Format(time.RFC3339),
 			},
+			RunConfig: runConfig,
+		}
+		if s.LastRunPromptTokens > 0 || s.LastRunCompletionTokens > 0 || s.LastRunEvalDurationNs > 0 {
+			rec.PromptTokens = &s.LastRunPromptTokens
+			rec.CompletionTokens = &s.LastRunCompletionTokens
+			rec.EvalDurationNs = &s.LastRunEvalDurationNs
 		}
 		if err := history.Append(opts.StateDir, rec, history.DefaultMaxRecords); err != nil {
 			return erruser.New("Could not record review history.", err)
@@ -857,6 +892,8 @@ func Run(ctx context.Context, opts RunOptions) error {
 		return session.Save(opts.StateDir, &s)
 	}
 
+	var sumPrompt, sumCompletion int
+	var sumDuration int64
 	if s.FindingPromptContext == nil {
 		s.FindingPromptContext = make(map[string]string)
 	}
@@ -970,9 +1007,14 @@ func Run(ctx context.Context, opts RunOptions) error {
 				trRun.Printf("strict_id=%s semantic_id=%s\n", hunkid.StrictHunkID(hunk.FilePath, hunk.RawContent), hunkid.SemanticHunkID(hunk.FilePath, hunk.RawContent))
 			}
 			cursorRules := rulesLoader.RulesForFile(hunk.FilePath)
-			list, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, effectiveContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, runPromptShadows(&s), opts.Nitpicky, trRun)
+			list, usage, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, effectiveContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, runPromptShadows(&s), opts.Nitpicky, trRun)
 			if err != nil {
 				return erruser.New("Review failed for "+hunk.FilePath+".", err)
+			}
+			if usage != nil {
+				sumPrompt += usage.PromptEvalCount
+				sumCompletion += usage.EvalCount
+				sumDuration += usage.EvalDurationNs
 			}
 			batch := findings.FilterAbstention(list, minKeep, minMaint)
 			if trRun.Enabled() {
@@ -1002,6 +1044,11 @@ func Run(ctx context.Context, opts RunOptions) error {
 	if opts.StreamOut != nil {
 		tryWriteStreamLine(opts.StreamOut, map[string]string{"type": "done"})
 	}
+	if captureUsage() {
+		s.LastRunPromptTokens = int64(sumPrompt)
+		s.LastRunCompletionTokens = int64(sumCompletion)
+		s.LastRunEvalDurationNs = sumDuration
+	}
 
 	// Replace: clear state. Merge: auto-dismiss then append; applyAutoDismiss uses existing s.Findings.
 	if opts.ReplaceFindings {
@@ -1020,10 +1067,12 @@ func Run(ctx context.Context, opts RunOptions) error {
 		if diffRef == "" {
 			diffRef = s.BaselineRef
 		}
+		runConfig := history.NewRunConfigSnapshot(opts.Model, s.Strictness, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, opts.Nitpicky)
 		rec := history.Record{
 			DiffRef:      diffRef,
 			ReviewOutput: newFindings,
 			UserAction:   history.UserAction{ReplaceFindings: true},
+			RunConfig:    runConfig,
 		}
 		if err := history.Append(opts.StateDir, rec, history.DefaultMaxRecords); err != nil {
 			return erruser.New("Could not record review history.", err)
@@ -1036,7 +1085,8 @@ func Run(ctx context.Context, opts RunOptions) error {
 				newFindingIDSet[f.ID] = struct{}{}
 			}
 		}
-		if err := applyAutoDismiss(&s, toReview, newFindingIDSet, headSHA, opts.StateDir); err != nil {
+		runConfig := history.NewRunConfigSnapshot(opts.Model, s.Strictness, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, opts.Nitpicky)
+		if err := applyAutoDismiss(&s, toReview, newFindingIDSet, headSHA, opts.StateDir, runConfig); err != nil {
 			return err
 		}
 		s.Findings = append(s.Findings, newFindings...)
