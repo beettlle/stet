@@ -42,7 +42,7 @@ var callIdent = regexp.MustCompile(`\b([a-zA-Z][A-Za-z0-9_]*)\s*\(`)
 type Resolver struct{}
 
 func init() {
-	rag.RegisterResolver(".java", New())
+	rag.MustRegisterResolver(".java", New())
 }
 
 // New returns a new Java symbol resolver.

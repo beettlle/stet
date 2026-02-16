@@ -41,7 +41,7 @@ var callIdent = regexp.MustCompile(`\b([a-z][A-Za-z0-9_]*)\s*\(`)
 type Resolver struct{}
 
 func init() {
-	rag.RegisterResolver(".go", New())
+	rag.MustRegisterResolver(".go", New())
 }
 
 // New returns a new Go symbol resolver.

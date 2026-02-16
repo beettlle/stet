@@ -40,8 +40,8 @@ var callIdent = regexp.MustCompile(`\b(\w+)\s*\(`)
 type Resolver struct{}
 
 func init() {
-	rag.RegisterResolver(".py", New())
-	rag.RegisterResolver(".pyw", New())
+	rag.MustRegisterResolver(".py", New())
+	rag.MustRegisterResolver(".pyw", New())
 }
 
 // New returns a new Python symbol resolver.

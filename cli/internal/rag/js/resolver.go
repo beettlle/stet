@@ -42,11 +42,11 @@ var callIdent = regexp.MustCompile(`\b([a-zA-Z_$][A-Za-z0-9_$]*)\s*\(`)
 type Resolver struct{}
 
 func init() {
-	rag.RegisterResolver(".js", New())
-	rag.RegisterResolver(".mjs", New())
-	rag.RegisterResolver(".cjs", New())
-	rag.RegisterResolver(".ts", New())
-	rag.RegisterResolver(".tsx", New())
+	rag.MustRegisterResolver(".js", New())
+	rag.MustRegisterResolver(".mjs", New())
+	rag.MustRegisterResolver(".cjs", New())
+	rag.MustRegisterResolver(".ts", New())
+	rag.MustRegisterResolver(".tsx", New())
 }
 
 // New returns a new JavaScript/TypeScript symbol resolver.

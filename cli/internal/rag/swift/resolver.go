@@ -43,7 +43,7 @@ var callIdent = regexp.MustCompile(`\b([a-zA-Z][A-Za-z0-9_]*)\s*\(`)
 type Resolver struct{}
 
 func init() {
-	rag.RegisterResolver(".swift", New())
+	rag.MustRegisterResolver(".swift", New())
 }
 
 // New returns a new Swift symbol resolver.

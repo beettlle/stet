@@ -96,6 +96,13 @@ func writeStreamLine(w io.Writer, obj interface{}) error {
 	return nil
 }
 
+// tryWriteStreamLine calls writeStreamLine and logs to stderr on error. Used for best-effort NDJSON streaming.
+func tryWriteStreamLine(w io.Writer, obj interface{}) {
+	if err := writeStreamLine(w, obj); err != nil {
+		fmt.Fprintf(os.Stderr, "stet: stream write: %v\n", err)
+	}
+}
+
 // cannedFindingsForHunks returns one deterministic finding per hunk for dry-run
 // (CI). IDs are stable via hunkid.StableFindingID.
 func cannedFindingsForHunks(hunks []diff.Hunk) []findings.Finding {
@@ -460,8 +467,8 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 
 	if len(part.ToReview) == 0 {
 		if opts.StreamOut != nil {
-			_ = writeStreamLine(opts.StreamOut, map[string]string{"type": "progress", "msg": "Nothing to review."})
-			_ = writeStreamLine(opts.StreamOut, map[string]string{"type": "done"})
+			tryWriteStreamLine(opts.StreamOut, map[string]string{"type": "progress", "msg": "Nothing to review."})
+			tryWriteStreamLine(opts.StreamOut, map[string]string{"type": "done"})
 		}
 		if opts.Verbose {
 			fmt.Fprintln(os.Stderr, "Nothing to review.")
@@ -488,7 +495,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 	findingPromptContext := make(map[string]string)
 	total := len(part.ToReview)
 	if opts.StreamOut != nil {
-		_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("%d hunks to review", total)})
+		tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("%d hunks to review", total)})
 	}
 
 	effectiveNumCtx := opts.NumCtx
@@ -517,7 +524,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 	if opts.DryRun {
 		for i, hunk := range part.ToReview {
 			if opts.StreamOut != nil {
-				_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", i+1, total, hunk.FilePath)})
+				tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", i+1, total, hunk.FilePath)})
 			}
 			batch := cannedFindingsForHunks([]diff.Hunk{hunk})
 			batch = findings.FilterAbstention(batch, minKeep, minMaint)
@@ -531,7 +538,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 					findingPromptContext[f.ID] = ctx
 				}
 				if opts.StreamOut != nil {
-					_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "finding", "data": f})
+					tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "finding", "data": f})
 				}
 				collected = append(collected, f)
 			}
@@ -568,7 +575,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		rulesLoader := rules.NewLoader(opts.RepoRoot)
 		for i, hunk := range part.ToReview {
 			if opts.StreamOut != nil {
-				_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", i+1, total, hunk.FilePath)})
+				tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", i+1, total, hunk.FilePath)})
 			}
 			if opts.Verbose {
 				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", i+1, total, hunk.FilePath)
@@ -601,14 +608,14 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 					findingPromptContext[f.ID] = hunkCtx
 				}
 				if opts.StreamOut != nil {
-					_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "finding", "data": f})
+					tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "finding", "data": f})
 				}
 				collected = append(collected, f)
 			}
 		}
 	}
 	if opts.StreamOut != nil {
-		_ = writeStreamLine(opts.StreamOut, map[string]string{"type": "done"})
+		tryWriteStreamLine(opts.StreamOut, map[string]string{"type": "done"})
 	}
 	// Auto-dismiss: previous findings in reviewed hunks not in collected are considered addressed.
 	// applyAutoDismiss runs before updating s.Findings; it needs existing findings to compute addressed IDs.
@@ -776,8 +783,8 @@ func Run(ctx context.Context, opts RunOptions) error {
 
 	if len(part.ToReview) == 0 {
 		if opts.StreamOut != nil {
-			_ = writeStreamLine(opts.StreamOut, map[string]string{"type": "progress", "msg": "Nothing to review."})
-			_ = writeStreamLine(opts.StreamOut, map[string]string{"type": "done"})
+			tryWriteStreamLine(opts.StreamOut, map[string]string{"type": "progress", "msg": "Nothing to review."})
+			tryWriteStreamLine(opts.StreamOut, map[string]string{"type": "done"})
 		}
 		if opts.Verbose {
 			fmt.Fprintln(os.Stderr, "Nothing to review.")
@@ -803,13 +810,13 @@ func Run(ctx context.Context, opts RunOptions) error {
 	var newFindings []findings.Finding
 	total := len(part.ToReview)
 	if opts.StreamOut != nil {
-		_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("%d hunks to review", total)})
+		tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("%d hunks to review", total)})
 	}
 
 	if opts.DryRun {
 		for i, hunk := range part.ToReview {
 			if opts.StreamOut != nil {
-				_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", i+1, total, hunk.FilePath)})
+				tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", i+1, total, hunk.FilePath)})
 			}
 			batch := cannedFindingsForHunks([]diff.Hunk{hunk})
 			batch = findings.FilterAbstention(batch, minKeep, minMaint)
@@ -823,7 +830,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 					s.FindingPromptContext[f.ID] = hunkCtx
 				}
 				if opts.StreamOut != nil {
-					_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "finding", "data": f})
+					tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "finding", "data": f})
 				}
 				newFindings = append(newFindings, f)
 			}
@@ -889,7 +896,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 		rulesLoader := rules.NewLoader(opts.RepoRoot)
 		for i, hunk := range part.ToReview {
 			if opts.StreamOut != nil {
-				_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", i+1, total, hunk.FilePath)})
+				tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", i+1, total, hunk.FilePath)})
 			}
 			if opts.Verbose {
 				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", i+1, total, hunk.FilePath)
@@ -922,14 +929,14 @@ func Run(ctx context.Context, opts RunOptions) error {
 					s.FindingPromptContext[f.ID] = hunkCtx
 				}
 				if opts.StreamOut != nil {
-					_ = writeStreamLine(opts.StreamOut, map[string]interface{}{"type": "finding", "data": f})
+					tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "finding", "data": f})
 				}
 				newFindings = append(newFindings, f)
 			}
 		}
 	}
 	if opts.StreamOut != nil {
-		_ = writeStreamLine(opts.StreamOut, map[string]string{"type": "done"})
+		tryWriteStreamLine(opts.StreamOut, map[string]string{"type": "done"})
 	}
 
 	// Replace: clear state. Merge: auto-dismiss then append; applyAutoDismiss uses existing s.Findings.

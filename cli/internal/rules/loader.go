@@ -4,6 +4,7 @@ package rules
 
 import (
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -109,8 +110,13 @@ func (l *Loader) RulesForFile(filePath string) []CursorRule {
 	for _, d := range applicable {
 		rules, ok := l.cache[d.AbsDir]
 		if !ok {
-			rules, _ = LoadRules(d.AbsDir)
-			l.cache[d.AbsDir] = rules
+			loaded, err := LoadRules(d.AbsDir)
+			if err != nil {
+				log.Printf("rules: load %s: %v", d.AbsDir, err)
+				loaded = nil
+			}
+			l.cache[d.AbsDir] = loaded
+			rules = loaded
 		}
 		merged = append(merged, rules...)
 	}

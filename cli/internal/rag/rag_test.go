@@ -36,8 +36,18 @@ func TestResolveSymbols_emptyExtension_returnsNil(t *testing.T) {
 	}
 }
 
+func TestRegisterResolver_emptyExtension_returnsError(t *testing.T) {
+	err := RegisterResolver("", mockResolver{})
+	if err == nil {
+		t.Fatal("RegisterResolver with empty extension: want error, got nil")
+	}
+	if err.Error() != "rag: empty extension" {
+		t.Errorf("RegisterResolver error = %q, want %q", err.Error(), "rag: empty extension")
+	}
+}
+
 func TestResolveSymbols_withRegisteredResolver_returnsDefinitions(t *testing.T) {
-	RegisterResolver(".got", mockResolver{})
+	MustRegisterResolver(".got", mockResolver{})
 	defer func() {
 		registryMu.Lock()
 		delete(registry, ".got")

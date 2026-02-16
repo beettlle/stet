@@ -7,6 +7,7 @@ package rag
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"sync"
 )
@@ -39,15 +40,22 @@ var (
 )
 
 // RegisterResolver registers a resolver for the given file extension (e.g. ".go").
-// Extensions should include the leading dot. Panics if ext is empty.
-// Typically called from init() in language-specific packages.
-func RegisterResolver(ext string, r Resolver) {
+// Extensions should include the leading dot. Returns an error if ext is empty.
+func RegisterResolver(ext string, r Resolver) error {
 	if ext == "" {
-		panic("rag: empty extension")
+		return fmt.Errorf("rag: empty extension")
 	}
 	registryMu.Lock()
 	defer registryMu.Unlock()
 	registry[ext] = r
+	return nil
+}
+
+// MustRegisterResolver calls RegisterResolver and panics on error. Use from init() where error return is not possible.
+func MustRegisterResolver(ext string, r Resolver) {
+	if err := RegisterResolver(ext, r); err != nil {
+		panic(err)
+	}
 }
 
 // ResolveSymbols dispatches to the resolver for the given file's extension.
