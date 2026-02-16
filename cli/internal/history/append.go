@@ -43,8 +43,8 @@ func ReadRecords(stateDir string) ([]Record, error) {
 			continue
 		}
 		mid := name[len(prefix) : len(name)-len(suffix)]
-		n, err := strconv.Atoi(mid)
-		if err != nil || n < 1 {
+		n, ok := parseArchiveNumber(mid)
+		if !ok {
 			continue
 		}
 		archives = append(archives, numbered{n: n, path: filepath.Join(stateDir, name)})
@@ -117,6 +117,16 @@ const (
 	DefaultMaxRecords    = 1000
 	maxRotatedArchives   = 5
 )
+
+// parseArchiveNumber parses the N from history.jsonl.N.gz. Returns (0, false) on
+// parse error, overflow (values outside 32-bit range), or n < 1.
+func parseArchiveNumber(mid string) (int, bool) {
+	n64, err := strconv.ParseInt(mid, 10, 32)
+	if err != nil || n64 < 1 {
+		return 0, false
+	}
+	return int(n64), true
+}
 
 // Append writes one record as a single JSON line to stateDir/history.jsonl.
 // Creates stateDir and the file if missing. If maxRecords > 0 and the file
@@ -230,8 +240,8 @@ func nextRotatedArchiveNumber(dir string) (int, error) {
 			continue
 		}
 		mid := e.Name()[len(prefix) : len(e.Name())-len(suffix)]
-		n, err := strconv.Atoi(mid)
-		if err != nil || n < 1 {
+		n, ok := parseArchiveNumber(mid)
+		if !ok {
 			continue
 		}
 		if n > max {
@@ -279,8 +289,8 @@ func pruneRotatedArchives(dir string) error {
 			continue
 		}
 		mid := e.Name()[len(prefix) : len(e.Name())-len(suffix)]
-		n, err := strconv.Atoi(mid)
-		if err != nil || n < 1 {
+		n, ok := parseArchiveNumber(mid)
+		if !ok {
 			continue
 		}
 		archives = append(archives, numberedArchive{n: n, name: e.Name()})

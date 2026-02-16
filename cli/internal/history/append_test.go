@@ -293,3 +293,23 @@ func TestReadRecords_archiveThenActive(t *testing.T) {
 	}
 }
 
+func TestParseArchiveNumber(t *testing.T) {
+	for _, c := range []struct {
+		mid  string
+		want int
+		ok   bool
+	}{
+		{"1", 1, true},
+		{"5", 5, true},
+		{"999999", 999999, true},
+		{"0", 0, false},
+		{"-1", 0, false},
+		{"x", 0, false},
+		{"99999999999999999999", 0, false}, // overflow
+	} {
+		got, ok := parseArchiveNumber(c.mid)
+		if ok != c.ok || got != c.want {
+			t.Errorf("parseArchiveNumber(%q) = (%d, %v), want (%d, %v)", c.mid, got, ok, c.want, c.ok)
+		}
+	}
+}
