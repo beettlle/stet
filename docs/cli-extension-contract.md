@@ -181,7 +181,7 @@ Each line is one JSON object with:
 - **`review_output`**: Array of finding objects (same shape as stdout findings).
 - **`user_action`**: Object with:
   - **`dismissed_ids`** (array of strings): Finding IDs the user dismissed.
-  - **`dismissals`** (optional): Array of `{ "finding_id": "...", "reason": "...", "prompt_context": "..." }` for per-finding reasons. **`reason`** values: `false_positive`, `already_correct`, `wrong_suggestion`, `out_of_scope`. **`prompt_context`** (optional): the hunk/code that produced the finding; set when the user supplies a reason and context exists.
+  - **`dismissals`** (optional): Array of `{ "finding_id": "...", "reason": "...", "prompt_context": "..." }` for per-finding reasons. **`reason`** values: `false_positive`, `already_correct`, `wrong_suggestion`, `out_of_scope`. **`prompt_context`** (optional): the hunk/code that produced the finding; set when the user supplies a reason and context exists—i.e. the CLI has the hunk content in session state from the review run (the `finding_prompt_context` map). Omitted if the user did not run a review in this session or the finding was added by other means.
   - **`finished_at`** (optional): When the session was finished (e.g. ISO8601).
 - **`run_config`** (optional): Snapshot of run config for tuning correlation: `model`, `strictness`, `rag_symbol_max_definitions`, `rag_symbol_max_tokens`, `nitpicky`.
 - **`prompt_tokens`**, **`completion_tokens`**, **`eval_duration_ns`** (optional): Token and duration for the run that produced the findings; set on finish records when `STET_CAPTURE_USAGE` is enabled (default). Omitted when not captured.

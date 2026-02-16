@@ -35,15 +35,19 @@ func ReadRecords(stateDir string) ([]Record, error) {
 	prefix := historyGzPrefix
 	suffix := historyGzSuffix
 	for _, e := range entries {
-		if e.IsDir() || !strings.HasPrefix(e.Name(), prefix) || !strings.HasSuffix(e.Name(), suffix) {
+		name := e.Name()
+		if e.IsDir() || name == "." || name == ".." || strings.Contains(name, string(filepath.Separator)) {
 			continue
 		}
-		mid := e.Name()[len(prefix) : len(e.Name())-len(suffix)]
+		if !strings.HasPrefix(name, prefix) || !strings.HasSuffix(name, suffix) {
+			continue
+		}
+		mid := name[len(prefix) : len(name)-len(suffix)]
 		n, err := strconv.Atoi(mid)
 		if err != nil || n < 1 {
 			continue
 		}
-		archives = append(archives, numbered{n: n, path: filepath.Join(stateDir, e.Name())})
+		archives = append(archives, numbered{n: n, path: filepath.Join(stateDir, name)})
 	}
 	sort.Slice(archives, func(i, j int) bool { return archives[i].n < archives[j].n })
 
@@ -257,12 +261,17 @@ func writeGzippedLines(path string, lines []string) error {
 }
 
 // pruneRotatedArchives removes oldest history.jsonl.N.gz files when count exceeds maxRotatedArchives.
+// Archives are ordered by numeric N (ascending) so the oldest (lowest N) is removed first.
 func pruneRotatedArchives(dir string) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}
-	var archives []string
+	type numberedArchive struct {
+		n    int
+		name string
+	}
+	var archives []numberedArchive
 	prefix := historyGzPrefix
 	suffix := historyGzSuffix
 	for _, e := range entries {
@@ -270,17 +279,18 @@ func pruneRotatedArchives(dir string) error {
 			continue
 		}
 		mid := e.Name()[len(prefix) : len(e.Name())-len(suffix)]
-		if _, err := strconv.Atoi(mid); err != nil {
+		n, err := strconv.Atoi(mid)
+		if err != nil || n < 1 {
 			continue
 		}
-		archives = append(archives, e.Name())
+		archives = append(archives, numberedArchive{n: n, name: e.Name()})
 	}
 	if len(archives) <= maxRotatedArchives {
 		return nil
 	}
-	sort.Strings(archives)
+	sort.Slice(archives, func(i, j int) bool { return archives[i].n < archives[j].n })
 	for i := 0; i < len(archives)-maxRotatedArchives; i++ {
-		if err := os.Remove(filepath.Join(dir, archives[i])); err != nil {
+		if err := os.Remove(filepath.Join(dir, archives[i].name)); err != nil {
 			return err
 		}
 	}

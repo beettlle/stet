@@ -143,6 +143,27 @@ func TestRecord_marshalUnmarshal_withRunConfigAndUsage(t *testing.T) {
 	}
 }
 
+func TestRunConfigSnapshot_marshalUnmarshal(t *testing.T) {
+	cfg := NewRunConfigSnapshot("m", "strict", 5, 100, true)
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var decoded RunConfigSnapshot
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if decoded.Model != cfg.Model || decoded.Strictness != cfg.Strictness {
+		t.Errorf("model/strictness: got %q / %q, want %q / %q", decoded.Model, decoded.Strictness, cfg.Model, cfg.Strictness)
+	}
+	if decoded.RAGSymbolMaxDefinitions != cfg.RAGSymbolMaxDefinitions || decoded.RAGSymbolMaxTokens != cfg.RAGSymbolMaxTokens {
+		t.Errorf("rag: got %d/%d, want %d/%d", decoded.RAGSymbolMaxDefinitions, decoded.RAGSymbolMaxTokens, cfg.RAGSymbolMaxDefinitions, cfg.RAGSymbolMaxTokens)
+	}
+	if decoded.Nitpicky != cfg.Nitpicky {
+		t.Errorf("nitpicky: got %v, want %v", decoded.Nitpicky, cfg.Nitpicky)
+	}
+}
+
 func TestValidReason(t *testing.T) {
 	for _, c := range []struct {
 		s    string
