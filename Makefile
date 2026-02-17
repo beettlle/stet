@@ -35,7 +35,7 @@ release:
 	@(cd dist && (sha256sum stet-* 2>/dev/null || shasum -a 256 stet-*) > checksums.txt)
 
 clean:
-	rm -f bin/stet bin/stet-linux-amd64 bin/stet-linux-arm64 bin/stet-darwin-amd64 bin/stet-darwin-arm64 coverage.out
+	rm -f bin/stet bin/stet-* coverage.out
 	# dist/ contains release binaries (stet-{os}-{arch}); rm -rf removes all
 	rm -rf dist
 
