@@ -11,7 +11,7 @@ This document defines the output and exit-code contract between the Stet CLI and
 
 **Output and progress:**
 
-- **Default:** Progress (worktree path, partition summary, per-hunk lines) is printed to **stderr**. Stdout is **human-readable** (one line per finding: `file:line  severity  message`, then a summary line).
+- **Default:** Progress (worktree path, partition summary, per-hunk lines) is printed to **stderr**. Stdout is **human-readable** (one line per finding: `id  file:line  severity  message`, then a summary line). The id is abbreviated (e.g. first 7 characters) as in `stet list`.
 - **Machine output:** Use **`--output=json`** or **`--json`** for machine-parseable JSON on stdout. When **`--json`** or **`--stream`** is used, progress on stderr is suppressed automatically (so **`--quiet`** is optional). Use **`--quiet`** explicitly to suppress progress when using human-readable output. Example: `stet start --dry-run --json` (no need for `--quiet`).
 - **Streaming:** Use **`--stream`** together with **`--output=json`** or **`--json`** to receive NDJSON events (one JSON object per line) so the extension can show progress and findings incrementally. **`--stream`** requires JSON output; without `--json` the CLI returns an error. Progress on stderr is suppressed when streaming.
 
@@ -56,7 +56,7 @@ Example stream (abbreviated):
 {"type":"done"}
 ```
 
-Without `--output=json`, stdout is human-readable (one line per finding plus a summary); format may change. Do not parse it programmatically.
+Without `--output=json`, stdout is human-readable (one line per finding: `id  file:line  severity  message`, then a summary); format may change. Do not parse it programmatically.
 
 ## stderr
 

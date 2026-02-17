@@ -101,7 +101,7 @@ func writeFindingsJSON(w io.Writer, stateDir string) error {
 	return nil
 }
 
-// writeFindingsHuman writes a human-readable summary to w: one line per finding (file:line  severity  message), then a summary line.
+// writeFindingsHuman writes a human-readable summary to w: one line per finding (id  file:line  severity  message), then a summary line.
 func writeFindingsHuman(w io.Writer, stateDir string) error {
 	active, err := activeFindings(stateDir)
 	if err != nil {
@@ -112,7 +112,7 @@ func writeFindingsHuman(w io.Writer, stateDir string) error {
 		if f.Range != nil {
 			line = f.Range.Start
 		}
-		if _, err := fmt.Fprintf(w, "%s:%d  %s  %s\n", f.File, line, strings.ToUpper(string(f.Severity)), f.Message); err != nil {
+		if _, err := fmt.Fprintf(w, "%s  %s:%d  %s  %s\n", findings.ShortID(f.ID), f.File, line, strings.ToUpper(string(f.Severity)), f.Message); err != nil {
 			return erruser.New("Could not write findings.", err)
 		}
 	}

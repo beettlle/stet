@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -593,6 +594,10 @@ func TestRunCLI_startDryRunDefaultOutputIsHuman(t *testing.T) {
 	}
 	if !strings.Contains(out, "finding") {
 		t.Errorf("default output should contain summary line; got: %s", out)
+	}
+	// Human output should include short finding IDs (same format as stet list)
+	if !regexp.MustCompile(`[a-f0-9]{7}  .+:\d+`).MatchString(out) {
+		t.Errorf("default output should include short finding IDs at start of each line; got: %s", out)
 	}
 }
 
