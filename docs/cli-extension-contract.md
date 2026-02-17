@@ -216,7 +216,7 @@ You can push or fetch this ref (e.g. `git push origin refs/notes/stet`, `git fet
 
 ### Impact reporting
 
-Use `stet stats` to aggregate metrics from notes and history. See implementation plan Phase 9.
+Use **`stet stats volume`** to report review volume over a ref range. It reads **`refs/notes/stet`** and aggregates scope (hunks, lines, chars) and session count. Example: `stet stats volume --since=main --until=HEAD` (defaults) or `stet stats volume --since="30 days ago" --format=json`. Flags: `--since`, `--until`, `--format=human|json`. See implementation plan Phase 9.
 
 ## Review quality and actionability
 

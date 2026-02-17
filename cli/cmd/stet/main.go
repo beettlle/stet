@@ -23,6 +23,7 @@ import (
 	"stet/cli/internal/ollama"
 	"stet/cli/internal/run"
 	"stet/cli/internal/session"
+	"stet/cli/internal/stats"
 	"stet/cli/internal/version"
 
 	_ "stet/cli/internal/rag/go"     // register Go resolver for RAG symbol lookup
@@ -171,6 +172,7 @@ func runCLI(args []string) int {
 	rootCmd.AddCommand(newOptimizeCmd())
 	rootCmd.AddCommand(newDoctorCmd())
 	rootCmd.AddCommand(newBenchmarkCmd())
+	rootCmd.AddCommand(newStatsCmd())
 	rootCmd.SilenceUsage = true
 	rootCmd.SilenceErrors = true
 	rootCmd.SetArgs(args)
@@ -1218,5 +1220,68 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Fprintln(os.Stdout, "Ollama OK")
 	fmt.Fprintf(os.Stdout, "Model: %s\n", cfg.Model)
+	return nil
+}
+
+func newStatsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "stats",
+		Short: "Impact reporting (volume, quality, energy)",
+	}
+	cmd.AddCommand(newStatsVolumeCmd())
+	return cmd
+}
+
+func newStatsVolumeCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "volume",
+		Short: "Report review volume over a ref range",
+		RunE:  runStatsVolume,
+	}
+	cmd.Flags().String("since", "main", "Start of ref range (e.g. main or \"30 days ago\")")
+	cmd.Flags().String("until", "HEAD", "End of ref range")
+	cmd.Flags().String("format", "human", "Output format: human or json")
+	return cmd
+}
+
+func runStatsVolume(cmd *cobra.Command, args []string) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return erruser.New("Could not determine current directory.", err)
+	}
+	repoRoot, err := git.RepoRoot(cwd)
+	if err != nil {
+		return err
+	}
+	since, _ := cmd.Flags().GetString("since")
+	until, _ := cmd.Flags().GetString("until")
+	format, _ := cmd.Flags().GetString("format")
+	if format != "human" && format != "json" {
+		return errors.New("Invalid output format; use human or json.")
+	}
+	res, err := stats.Volume(repoRoot, since, until)
+	if err != nil {
+		return erruser.New("Could not compute volume stats.", err)
+	}
+	if format == "json" {
+		data, err := json.Marshal(res)
+		if err != nil {
+			return erruser.New("Could not write volume stats.", err)
+		}
+		if _, err := os.Stdout.Write(data); err != nil {
+			return erruser.New("Could not write volume stats.", err)
+		}
+		fmt.Fprintln(os.Stdout)
+		return nil
+	}
+	fmt.Fprintf(os.Stdout, "Sessions: %d\n", res.SessionsCount)
+	fmt.Fprintf(os.Stdout, "Commits in range: %d\n", res.CommitsInRange)
+	fmt.Fprintf(os.Stdout, "Commits with Stet note: %d (%.1f%%)\n", res.CommitsWithNote, res.PercentCommitsWithNote)
+	fmt.Fprintf(os.Stdout, "Hunks reviewed: %d\n", res.TotalHunksReviewed)
+	fmt.Fprintf(os.Stdout, "Lines added: %d\n", res.TotalLinesAdded)
+	fmt.Fprintf(os.Stdout, "Lines removed: %d\n", res.TotalLinesRemoved)
+	fmt.Fprintf(os.Stdout, "Chars added: %d\n", res.TotalCharsAdded)
+	fmt.Fprintf(os.Stdout, "Chars deleted: %d\n", res.TotalCharsDeleted)
+	fmt.Fprintf(os.Stdout, "Chars reviewed: %d\n", res.TotalCharsReviewed)
 	return nil
 }

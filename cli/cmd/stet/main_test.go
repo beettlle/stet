@@ -1932,3 +1932,70 @@ func TestRunCLI_cleanupRemovesOnlyOrphanWhenSessionExists(t *testing.T) {
 	// Finish to clean up for next tests (optional; t.TempDir is cleaned anyway).
 	_ = runCLI([]string{"finish"})
 }
+
+func TestRunCLI_statsVolumeFromNonRepoExits1(t *testing.T) {
+	dir := t.TempDir()
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	got := runCLI([]string{"stats", "volume", "--format=json"})
+	if got != 1 {
+		t.Errorf("runCLI(stats volume) from non-repo = %d, want 1", got)
+	}
+}
+
+func TestRunCLI_statsVolumeJSONInRepoWithNote(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
+	}
+	if got := runCLI([]string{"finish"}); got != 0 {
+		t.Fatalf("runCLI(finish) = %d, want 0", got)
+	}
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	os.Stdout = w
+	t.Cleanup(func() { os.Stdout = oldStdout })
+	got := runCLI([]string{"stats", "volume", "--format=json", "--since=HEAD~1", "--until=HEAD"})
+	_ = w.Close()
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	if got != 0 {
+		t.Fatalf("runCLI(stats volume --format=json) = %d, want 0\nstderr/out: %s", got, buf.String())
+	}
+	var out struct {
+		SessionsCount          int     `json:"sessions_count"`
+		CommitsInRange         int     `json:"commits_in_range"`
+		CommitsWithNote        int     `json:"commits_with_note"`
+		PercentCommitsWithNote float64 `json:"percent_commits_with_note"`
+		TotalHunksReviewed     int     `json:"total_hunks_reviewed"`
+	}
+	if err := json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &out); err != nil {
+		t.Fatalf("parse stats volume JSON: %v\noutput: %s", err, buf.Bytes())
+	}
+	if out.CommitsInRange < 1 {
+		t.Errorf("commits_in_range: got %d, want >= 1", out.CommitsInRange)
+	}
+	if out.SessionsCount < 1 || out.CommitsWithNote < 1 {
+		t.Errorf("sessions_count=%d commits_with_note=%d, want >= 1 after finish", out.SessionsCount, out.CommitsWithNote)
+	}
+	if out.CommitsInRange > 0 && out.PercentCommitsWithNote < 0 {
+		t.Errorf("percent_commits_with_note: got %f", out.PercentCommitsWithNote)
+	}
+}
