@@ -72,6 +72,15 @@ type UserAction struct {
 	ReplaceFindings bool        `json:"replace_findings,omitempty"` // True when rerun --replace replaced session findings.
 }
 
+// Usage holds optional token counts, duration, and model from a review run (Phase 9.4).
+// Populated when STET_CAPTURE_USAGE is true and the session has usage data.
+type Usage struct {
+	PromptTokens     *int64 `json:"prompt_tokens,omitempty"`
+	CompletionTokens *int64 `json:"completion_tokens,omitempty"`
+	EvalDurationNs   *int64 `json:"eval_duration_ns,omitempty"`
+	Model            string `json:"model,omitempty"`
+}
+
 // Record is one line in .review/history.jsonl.
 type Record struct {
 	DiffRef           string             `json:"diff_ref"`      // Ref or SHA for the diff scope.
@@ -81,4 +90,5 @@ type Record struct {
 	PromptTokens      *int64             `json:"prompt_tokens,omitempty"`
 	CompletionTokens  *int64             `json:"completion_tokens,omitempty"`
 	EvalDurationNs    *int64             `json:"eval_duration_ns,omitempty"`
+	Usage             *Usage             `json:"usage,omitempty"`
 }

@@ -789,6 +789,18 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 			rec.PromptTokens = &s.LastRunPromptTokens
 			rec.CompletionTokens = &s.LastRunCompletionTokens
 			rec.EvalDurationNs = &s.LastRunEvalDurationNs
+			if captureUsage() {
+				modelForUsage := ""
+				if runConfig != nil {
+					modelForUsage = runConfig.Model
+				}
+				rec.Usage = &history.Usage{
+					PromptTokens:     &s.LastRunPromptTokens,
+					CompletionTokens: &s.LastRunCompletionTokens,
+					EvalDurationNs:   &s.LastRunEvalDurationNs,
+					Model:            modelForUsage,
+				}
+			}
 		}
 		if err := history.Append(opts.StateDir, rec, history.DefaultMaxRecords); err != nil {
 			return erruser.New("Could not record review history.", err)
