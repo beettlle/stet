@@ -184,6 +184,7 @@ func TestVolume_withGitAI_populatesGitAI(t *testing.T) {
 	t.Parallel()
 	repo := initRepo(t)
 	headSHA := runOut(t, repo, "git", "rev-parse", "HEAD")
+	head1SHA := runOut(t, repo, "git", "rev-parse", "HEAD~1")
 	note := `src/main.go
   abcd1234abcd1234 1-5
 ---
@@ -191,7 +192,7 @@ func TestVolume_withGitAI_populatesGitAI(t *testing.T) {
 	if err := git.AddNote(repo, git.NotesRefAI, headSHA, note); err != nil {
 		t.Fatalf("AddNote git-ai: %v", err)
 	}
-	res, err := Volume(repo, "HEAD~1", "HEAD")
+	res, err := Volume(repo, head1SHA, headSHA)
 	if err != nil {
 		t.Fatalf("Volume: %v", err)
 	}
