@@ -308,6 +308,16 @@ type generateResponse struct {
 	TotalDuration        int64  `json:"total_duration"`
 }
 
+// Usage holds token counts and durations from Ollama /api/generate for a single
+// completion. Used for impact reporting (Phase 9) and history. Durations are in
+// nanoseconds (Ollama API convention).
+type Usage struct {
+	PromptEvalCount    int   // Input tokens processed
+	EvalCount          int   // Output tokens generated
+	PromptEvalDuration int64 // Time to process prompt, ns
+	EvalDuration       int64 // Time to generate output, ns
+}
+
 // GenerateResult holds the response text and metadata returned by Ollama /api/generate.
 // Metadata fields may be zero when the server does not send them.
 //
@@ -317,7 +327,8 @@ type generateResponse struct {
 type GenerateResult struct {
 	Response           string
 	Model              string
-	PromptEvalCount    int   // Input tokens processed
+	Usage              Usage // Token counts and eval durations from /api/generate
+	PromptEvalCount    int   // Input tokens processed (mirrors Usage for backward compatibility)
 	PromptEvalDuration int64 // Time to process prompt, ns
 	EvalCount          int   // Output tokens generated
 	EvalDuration       int64 // Time to generate output, ns
@@ -385,9 +396,16 @@ func (c *Client) Generate(ctx context.Context, model, systemPrompt, userPrompt s
 		if err != nil {
 			return nil, fmt.Errorf("ollama generate: parse response: %w", err)
 		}
+		u := Usage{
+			PromptEvalCount:    gen.PromptEvalCount,
+			EvalCount:          gen.EvalCount,
+			PromptEvalDuration: gen.PromptEvalDuration,
+			EvalDuration:       gen.EvalDuration,
+		}
 		return &GenerateResult{
 			Response:           gen.Response,
 			Model:              gen.Model,
+			Usage:              u,
 			PromptEvalCount:    gen.PromptEvalCount,
 			PromptEvalDuration: gen.PromptEvalDuration,
 			EvalCount:          gen.EvalCount,

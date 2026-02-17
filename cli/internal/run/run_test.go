@@ -1356,6 +1356,67 @@ func TestStart_withMockOllama(t *testing.T) {
 	}
 }
 
+// TestStart_capturesOllamaUsage_whenNotDryRun asserts that when Start runs with
+// DryRun false and the mock Ollama returns usage fields, the session stores
+// LastRunPromptTokens, LastRunCompletionTokens, and LastRunEvalDurationNs (Phase 9.1).
+func TestStart_capturesOllamaUsage_whenNotDryRun(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	validResp := `[{"file":"a.go","line":1,"severity":"warning","category":"style","message":"mock finding"}]`
+	wantPromptTokens := 100
+	wantCompletionTokens := 42
+	wantEvalDurationNs := int64(500_000_000)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/tags" {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"models": []map[string]interface{}{{"name": "m"}}})
+			return
+		}
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"response":             validResp,
+			"done":                 true,
+			"prompt_eval_count":    wantPromptTokens,
+			"eval_count":           wantCompletionTokens,
+			"prompt_eval_duration": int64(50_000_000),
+			"eval_duration":        wantEvalDurationNs,
+		})
+	}))
+	defer srv.Close()
+
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	opts := StartOptions{
+		RepoRoot:      repo,
+		StateDir:      stateDir,
+		WorktreeRoot:  "",
+		Ref:           "HEAD~1",
+		DryRun:        false,
+		Model:         "m",
+		OllamaBaseURL: srv.URL,
+	}
+	if err := Start(ctx, opts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	if s.LastRunPromptTokens != int64(wantPromptTokens) {
+		t.Errorf("LastRunPromptTokens = %d, want %d", s.LastRunPromptTokens, wantPromptTokens)
+	}
+	if s.LastRunCompletionTokens != int64(wantCompletionTokens) {
+		t.Errorf("LastRunCompletionTokens = %d, want %d", s.LastRunCompletionTokens, wantCompletionTokens)
+	}
+	if s.LastRunEvalDurationNs != wantEvalDurationNs {
+		t.Errorf("LastRunEvalDurationNs = %d, want %d", s.LastRunEvalDurationNs, wantEvalDurationNs)
+	}
+}
+
 // TestStart_abstentionFilter_dropsLowConfidence asserts that findings with confidence < 0.8
 // are dropped by the Phase 6.3 abstention filter and do not appear in the session.
 func TestStart_abstentionFilter_dropsLowConfidence(t *testing.T) {

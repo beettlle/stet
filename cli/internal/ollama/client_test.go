@@ -343,6 +343,19 @@ func TestClient_Generate_returnsResponseMetadata(t *testing.T) {
 	if got.TotalDuration != wantTotalDur {
 		t.Errorf("TotalDuration = %d, want %d", got.TotalDuration, wantTotalDur)
 	}
+	// Usage struct must be populated from API response (Phase 9.1).
+	if got.Usage.PromptEvalCount != wantPromptEval {
+		t.Errorf("Usage.PromptEvalCount = %d, want %d", got.Usage.PromptEvalCount, wantPromptEval)
+	}
+	if got.Usage.EvalCount != wantEval {
+		t.Errorf("Usage.EvalCount = %d, want %d", got.Usage.EvalCount, wantEval)
+	}
+	if got.Usage.PromptEvalDuration != wantPromptEvalDur {
+		t.Errorf("Usage.PromptEvalDuration = %d, want %d", got.Usage.PromptEvalDuration, wantPromptEvalDur)
+	}
+	if got.Usage.EvalDuration != wantEvalDur {
+		t.Errorf("Usage.EvalDuration = %d, want %d", got.Usage.EvalDuration, wantEvalDur)
+	}
 }
 
 func TestClient_Show_modelInfo_returnsContextLength(t *testing.T) {
