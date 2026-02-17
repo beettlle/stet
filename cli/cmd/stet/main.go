@@ -6,15 +6,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"stet/cli/internal/benchmark"
+	"stet/cli/internal/commitmsg"
 	"stet/cli/internal/config"
 	"stet/cli/internal/erruser"
 	"stet/cli/internal/findings"
@@ -170,6 +173,7 @@ func runCLI(args []string) int {
 	rootCmd.AddCommand(newListCmd())
 	rootCmd.AddCommand(newDismissCmd())
 	rootCmd.AddCommand(newOptimizeCmd())
+	rootCmd.AddCommand(newCommitMsgCmd())
 	rootCmd.AddCommand(newDoctorCmd())
 	rootCmd.AddCommand(newBenchmarkCmd())
 	rootCmd.AddCommand(newStatsCmd())
@@ -1050,6 +1054,197 @@ func runDismiss(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	return nil
+}
+
+func newCommitMsgCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "commitmsg",
+		Short: "Generate a conventional git commit message from uncommitted changes using the local LLM",
+		Long:  "Prints a suggested commit message to stdout. By default the message covers all uncommitted changes. Use --commit to commit with that message (stages all changes first unless --staged-only), or --commit-and-review to commit then run review (stet start if no session, else stet run). Use --staged-only to use only staged changes for the message and to commit only what is already staged.",
+		RunE:  runCommitMsg,
+	}
+	cmd.Flags().Bool("staged-only", false, "Use only staged changes for the message (default: staged + unstaged)")
+	cmd.Flags().Bool("commit", false, "Commit staged changes with the generated message")
+	cmd.Flags().Bool("commit-and-review", false, "Commit with the message, then run review (start session if none, else run)")
+	return cmd
+}
+
+func runCommitMsg(cmd *cobra.Command, args []string) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return erruser.New("Could not determine current directory.", err)
+	}
+	repoRoot, err := git.RepoRoot(cwd)
+	if err != nil {
+		return err
+	}
+	cfg, err := config.Load(cmd.Context(), config.LoadOptions{RepoRoot: repoRoot})
+	if err != nil {
+		return err
+	}
+	stagedOnly, _ := cmd.Flags().GetBool("staged-only")
+	doCommit, _ := cmd.Flags().GetBool("commit")
+	commitAndReview, _ := cmd.Flags().GetBool("commit-and-review")
+	diff, err := git.UncommittedDiff(cmd.Context(), repoRoot, stagedOnly)
+	if err != nil {
+		return err
+	}
+	if diff == "" {
+		if stagedOnly {
+			return erruser.New("No staged changes to summarize. Stage changes with git add.", nil)
+		}
+		return erruser.New("No uncommitted changes to summarize.", nil)
+	}
+	timeout := cfg.Timeout
+	if timeout <= 0 {
+		timeout = 60 * time.Second
+	}
+	client := ollama.NewClient(cfg.OllamaBaseURL, &http.Client{Timeout: timeout})
+	if _, err := client.Check(cmd.Context(), cfg.Model); err != nil {
+		if errors.Is(err, ollama.ErrUnreachable) {
+			fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
+			fmt.Fprintf(os.Stderr, "Details: %v\n", err)
+			return errExit(2)
+		}
+		if errors.Is(err, ollama.ErrBadRequest) {
+			fmt.Fprintf(os.Stderr, "Ollama bad request at %s. %v\n", cfg.OllamaBaseURL, err)
+			return errExit(2)
+		}
+		return err
+	}
+	opts := &ollama.GenerateOptions{
+		Temperature: 0.2,
+		NumCtx:      cfg.NumCtx,
+	}
+	if opts.NumCtx <= 0 {
+		opts.NumCtx = 32768
+	}
+	msg, err := commitmsg.Suggest(cmd.Context(), client, cfg.Model, diff, opts)
+	if err != nil {
+		if errors.Is(err, ollama.ErrUnreachable) {
+			fmt.Fprintf(os.Stderr, "Ollama unreachable. Details: %v\n", err)
+			return errExit(2)
+		}
+		if errors.Is(err, ollama.ErrBadRequest) {
+			fmt.Fprintf(os.Stderr, "Ollama bad request. %v\n", err)
+			return errExit(2)
+		}
+		return err
+	}
+	if msg == "" {
+		return erruser.New("Model produced an empty commit message.", nil)
+	}
+	if !doCommit && !commitAndReview {
+		fmt.Println(msg)
+		return nil
+	}
+	if !stagedOnly {
+		addCmd := exec.CommandContext(cmd.Context(), "git", "add", "-A")
+		addCmd.Dir = repoRoot
+		addCmd.Env = git.MinimalEnv()
+		if err := addCmd.Run(); err != nil {
+			return erruser.New("Could not stage changes (git add -A).", err)
+		}
+	}
+	commitCmd := exec.CommandContext(cmd.Context(), "git", "commit", "-F", "-")
+	commitCmd.Dir = repoRoot
+	commitCmd.Stdin = strings.NewReader(msg)
+	commitCmd.Env = git.MinimalEnv()
+	if err := commitCmd.Run(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() != 0 {
+			return erruser.New("Git commit failed.", err)
+		}
+		return err
+	}
+	if !commitAndReview {
+		return nil
+	}
+	stateDir := cfg.EffectiveStateDir(repoRoot)
+	s, err := session.Load(stateDir)
+	if err != nil {
+		return err
+	}
+	minKeep, minMaint, applyFP, err := findings.ResolveStrictness(cfg.Strictness)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return errExit(1)
+	}
+	if cfg.Nitpicky {
+		applyFP = false
+	}
+	runOpts := run.RunOptions{
+		RepoRoot:                     repoRoot,
+		StateDir:                     stateDir,
+		DryRun:                       false,
+		Model:                        cfg.Model,
+		OllamaBaseURL:                cfg.OllamaBaseURL,
+		ContextLimit:                 cfg.ContextLimit,
+		WarnThreshold:                cfg.WarnThreshold,
+		Timeout:                      cfg.Timeout,
+		Temperature:                  cfg.Temperature,
+		NumCtx:                       cfg.NumCtx,
+		Verbose:                      true,
+		StreamOut:                    nil,
+		RAGSymbolMaxDefinitions:      cfg.RAGSymbolMaxDefinitions,
+		RAGSymbolMaxTokens:            cfg.RAGSymbolMaxTokens,
+		MinConfidenceKeep:            minKeep,
+		MinConfidenceMaintainability: minMaint,
+		ApplyFPKillList:              &applyFP,
+		Nitpicky:                     cfg.Nitpicky,
+	}
+	if s.BaselineRef == "" {
+		startOpts := run.StartOptions{
+			RepoRoot:                       repoRoot,
+			StateDir:                       stateDir,
+			WorktreeRoot:                   cfg.WorktreeRoot,
+			Ref:                            "HEAD~1",
+			DryRun:                         false,
+			AllowDirty:                     true,
+			Model:                          cfg.Model,
+			OllamaBaseURL:                  cfg.OllamaBaseURL,
+			ContextLimit:                   cfg.ContextLimit,
+			WarnThreshold:                  cfg.WarnThreshold,
+			Timeout:                        cfg.Timeout,
+			Temperature:                    cfg.Temperature,
+			NumCtx:                         cfg.NumCtx,
+			Verbose:                        true,
+			StreamOut:                      nil,
+			RAGSymbolMaxDefinitions:        cfg.RAGSymbolMaxDefinitions,
+			RAGSymbolMaxTokens:             cfg.RAGSymbolMaxTokens,
+			MinConfidenceKeep:              minKeep,
+			MinConfidenceMaintainability:   minMaint,
+			ApplyFPKillList:                &applyFP,
+			Nitpicky:                       cfg.Nitpicky,
+		}
+		if err := run.Start(cmd.Context(), startOpts); err != nil {
+			if errors.Is(err, ollama.ErrUnreachable) {
+				fmt.Fprintf(os.Stderr, "Ollama unreachable. Details: %v\n", err)
+				return errExit(2)
+			}
+			if errors.Is(err, run.ErrDirtyWorktree) {
+				return err
+			}
+			if errors.Is(err, git.ErrWorktreeExists) {
+				return errors.New("worktree already exists; run stet finish first")
+			}
+			if errors.Is(err, session.ErrLocked) {
+				return errors.New("finish or cleanup current review first")
+			}
+			return err
+		}
+	}
+	if err := run.Run(cmd.Context(), runOpts); err != nil {
+		if errors.Is(err, run.ErrNoSession) {
+			return err
+		}
+		if errors.Is(err, ollama.ErrUnreachable) {
+			fmt.Fprintf(os.Stderr, "Ollama unreachable. Details: %v\n", err)
+			return errExit(2)
+		}
+		return err
+	}
+	w := findingsWriter()
+	return writeFindingsHuman(w, stateDir)
 }
 
 func newOptimizeCmd() *cobra.Command {

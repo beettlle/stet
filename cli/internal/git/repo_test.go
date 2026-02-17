@@ -1,9 +1,11 @@
 package git
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -223,5 +225,51 @@ func TestRefExists_invalidArgs(t *testing.T) {
 	}
 	if _, err := RefExists(repo, ""); err == nil {
 		t.Error("RefExists(empty ref): expected error")
+	}
+}
+
+func TestUncommittedDiff_empty(t *testing.T) {
+	t.Parallel()
+	repo := initRepo(t)
+	diff, err := UncommittedDiff(context.Background(), repo, false)
+	if err != nil {
+		t.Fatalf("UncommittedDiff: %v", err)
+	}
+	if diff != "" {
+		t.Errorf("UncommittedDiff(clean): want empty, got %q", diff)
+	}
+}
+
+func TestUncommittedDiff_stagedOnly_withStaged(t *testing.T) {
+	t.Parallel()
+	repo := initRepo(t)
+	writeFile(t, repo, "new.txt", "staged content\n")
+	run(t, repo, "git", "add", "new.txt")
+	diff, err := UncommittedDiff(context.Background(), repo, true)
+	if err != nil {
+		t.Fatalf("UncommittedDiff: %v", err)
+	}
+	if diff == "" {
+		t.Error("UncommittedDiff(stagedOnly, with staged): want non-empty")
+	}
+	if !strings.Contains(diff, "new.txt") {
+		t.Errorf("UncommittedDiff: want diff to mention new.txt, got %q", diff)
+	}
+}
+
+func TestUncommittedDiff_HEAD_withUnstaged(t *testing.T) {
+	t.Parallel()
+	repo := initRepo(t)
+	// initRepo creates and commits f1.txt, f2.txt, f3.txt; modify a tracked file
+	writeFile(t, repo, "f1.txt", "modified unstaged\n")
+	diff, err := UncommittedDiff(context.Background(), repo, false)
+	if err != nil {
+		t.Fatalf("UncommittedDiff: %v", err)
+	}
+	if diff == "" {
+		t.Error("UncommittedDiff(HEAD, with unstaged): want non-empty")
+	}
+	if !strings.Contains(diff, "f1.txt") {
+		t.Errorf("UncommittedDiff: want diff to mention f1.txt, got %q", diff)
 	}
 }

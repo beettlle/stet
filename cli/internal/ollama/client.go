@@ -341,12 +341,23 @@ type GenerateResult struct {
 // the response is a single JSON string. opts may be nil (Ollama uses server/model
 // defaults). Retries on connection/5xx errors; 4xx returns ErrBadRequest.
 func (c *Client) Generate(ctx context.Context, model, systemPrompt, userPrompt string, opts *GenerateOptions) (*GenerateResult, error) {
+	return c.generateWithFormat(ctx, model, systemPrompt, userPrompt, "json", opts)
+}
+
+// GeneratePlain sends a completion request to /api/generate with the given model,
+// system prompt, and user prompt. It uses stream: false and no JSON format so the
+// response is plain text (e.g. for commit messages). opts may be nil.
+func (c *Client) GeneratePlain(ctx context.Context, model, systemPrompt, userPrompt string, opts *GenerateOptions) (*GenerateResult, error) {
+	return c.generateWithFormat(ctx, model, systemPrompt, userPrompt, "", opts)
+}
+
+func (c *Client) generateWithFormat(ctx context.Context, model, systemPrompt, userPrompt, format string, opts *GenerateOptions) (*GenerateResult, error) {
 	body := generateRequest{
 		Model:   model,
 		System:  systemPrompt,
 		Prompt:  userPrompt,
 		Stream:  false,
-		Format:  "json",
+		Format:  format,
 		Options: opts,
 	}
 	encoded, err := json.Marshal(body)

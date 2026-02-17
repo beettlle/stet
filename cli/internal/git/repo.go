@@ -2,6 +2,7 @@
 package git
 
 import (
+	"context"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -98,4 +99,25 @@ func UserIntent(repoRoot string) (branch, commitMsg string, err error) {
 	commitMsg = strings.TrimSpace(string(out))
 
 	return branch, commitMsg, nil
+}
+
+// UncommittedDiff returns the unified diff of uncommitted changes at repoRoot.
+// If stagedOnly is true, returns only staged changes (git diff --cached).
+// Otherwise returns staged plus unstaged (git diff HEAD). Uses --no-color.
+// Returns empty string and nil error when there are no changes.
+func UncommittedDiff(ctx context.Context, repoRoot string, stagedOnly bool) (string, error) {
+	args := []string{"diff", "--no-color"}
+	if stagedOnly {
+		args = append(args, "--cached")
+	} else {
+		args = append(args, "HEAD")
+	}
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Dir = repoRoot
+	cmd.Env = minimalEnv()
+	out, err := cmd.Output()
+	if err != nil {
+		return "", erruser.New("Could not get uncommitted diff.", err)
+	}
+	return strings.TrimSpace(string(out)), nil
 }
