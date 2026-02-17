@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -162,7 +163,7 @@ func TestVolume_resultJSONRoundtrip(t *testing.T) {
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
-	if decoded.CommitsInRange != res.CommitsInRange || decoded.SessionsCount != res.SessionsCount {
-		t.Errorf("roundtrip: got %+v, want %+v", decoded, res)
+	if !reflect.DeepEqual(decoded, *res) {
+		t.Errorf("roundtrip: decoded %+v != original %+v", decoded, *res)
 	}
 }
