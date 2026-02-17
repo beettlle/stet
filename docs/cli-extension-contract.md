@@ -220,6 +220,8 @@ Use **`stet stats volume`** to report review volume over a ref range. It reads *
 
 Use **`stet stats quality`** to report review quality from **`.review/history.jsonl`**. It aggregates total findings, total dismissed, and per-reason breakdown, and outputs: dismissal rate, acceptance rate, false positive rate, actionability, clean commit rate, finding density (when token data is available), and category breakdown. Example: `stet stats quality` or `stet stats quality --format=json`. Metric definitions are in the implementation plan Phase 9 appendix ("Impact reporting metric definitions").
 
+Use **`stet stats energy`** to report local energy (kWh) and cloud cost avoided ($) from **`refs/notes/stet`**. It aggregates `eval_duration_ns`, `prompt_tokens`, and `completion_tokens`. Flags: `--watts=30`, `--cloud-model=NAME` (preset: `claude-sonnet`, `gpt-4o-mini`) or `--cloud-model=NAME:in_per_million:out_per_million` (custom), `--since`, `--until`, `--format`. Example: `stet stats energy --cloud-model=gpt-4o-mini` or `stet stats energy --cloud-model=my-model:1:2 --format=json`. Caveats: estimates only; model equivalence heuristic; local cost excludes electricity.
+
 ## Review quality and actionability
 
 A finding is **actionable** when the reported issue is real (not already fixed or by design), the suggestion is correct and safe, and the change is within project scope. The default system prompt instructs the model to report only actionable issues and to prefer fewer, high-confidence findings. For the full definition, prompt guidelines, and optional lessons (e.g. common false positives), see [docs/review-quality.md](review-quality.md).

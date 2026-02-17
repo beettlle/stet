@@ -16,6 +16,7 @@ import (
 
 	"stet/cli/internal/config"
 	"stet/cli/internal/findings"
+	"stet/cli/internal/git"
 	"stet/cli/internal/history"
 	"stet/cli/internal/session"
 )
@@ -2066,5 +2067,81 @@ func TestRunCLI_statsQualityJSONInRepo(t *testing.T) {
 	}
 	if out.DismissalsByReason == nil {
 		t.Error("dismissals_by_reason: want non-nil map")
+	}
+}
+
+func TestRunCLI_statsEnergyFromNonRepoExits1(t *testing.T) {
+	dir := t.TempDir()
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	got := runCLI([]string{"stats", "energy", "--format=json"})
+	if got != 1 {
+		t.Errorf("runCLI(stats energy) from non-repo = %d, want 1", got)
+	}
+}
+
+func TestRunCLI_statsEnergyJSONInRepo(t *testing.T) {
+	repo := initRepo(t)
+	headSHA := runGitOut(t, repo, "git", "rev-parse", "HEAD")
+	note := `{"session_id":"s1","baseline_sha":"` + runGitOut(t, repo, "git", "rev-parse", "HEAD~2") + `","head_sha":"` + headSHA + `","findings_count":0,"dismissals_count":0,"tool_version":"test","finished_at":"2025-01-01T00:00:00Z","eval_duration_ns":3600000000000,"prompt_tokens":1000000,"completion_tokens":100000}`
+	if err := git.AddNote(repo, git.NotesRefStet, headSHA, note); err != nil {
+		t.Fatalf("AddNote: %v", err)
+	}
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	os.Stdout = w
+	t.Cleanup(func() { os.Stdout = oldStdout })
+	got := runCLI([]string{"stats", "energy", "--format=json", "--since=HEAD~1", "--until=HEAD", "--cloud-model=gpt-4o-mini"})
+	_ = w.Close()
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	if got != 0 {
+		t.Fatalf("runCLI(stats energy --format=json) = %d, want 0\nstderr/out: %s", got, buf.String())
+	}
+	var out struct {
+		SessionsCount         int                `json:"sessions_count"`
+		TotalEvalDurationNs   int64              `json:"total_eval_duration_ns"`
+		TotalPromptTokens     int64              `json:"total_prompt_tokens"`
+		TotalCompletionTokens int64              `json:"total_completion_tokens"`
+		LocalEnergyKWh        float64            `json:"local_energy_kwh"`
+		CloudCostAvoided      map[string]float64 `json:"cloud_cost_avoided"`
+	}
+	if err := json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &out); err != nil {
+		t.Fatalf("parse stats energy JSON: %v\noutput: %s", err, buf.Bytes())
+	}
+	if out.SessionsCount != 1 {
+		t.Errorf("sessions_count: got %d, want 1", out.SessionsCount)
+	}
+	if out.TotalEvalDurationNs != 3600000000000 {
+		t.Errorf("total_eval_duration_ns: got %d, want 3600000000000", out.TotalEvalDurationNs)
+	}
+	if out.TotalPromptTokens != 1000000 || out.TotalCompletionTokens != 100000 {
+		t.Errorf("tokens: got prompt=%d completion=%d, want 1000000, 100000", out.TotalPromptTokens, out.TotalCompletionTokens)
+	}
+	if out.LocalEnergyKWh < 0.029 || out.LocalEnergyKWh > 0.031 {
+		t.Errorf("local_energy_kwh: got %.4f, want ~0.03 (1h at 30W)", out.LocalEnergyKWh)
+	}
+	if out.CloudCostAvoided == nil {
+		t.Fatal("cloud_cost_avoided: want non-nil map")
+	}
+	if cost := out.CloudCostAvoided["gpt-4o-mini"]; cost < 0.20 || cost > 0.22 {
+		t.Errorf("cloud_cost_avoided[gpt-4o-mini]: got %.4f, want ~0.21", cost)
 	}
 }

@@ -1230,6 +1230,7 @@ func newStatsCmd() *cobra.Command {
 	}
 	cmd.AddCommand(newStatsVolumeCmd())
 	cmd.AddCommand(newStatsQualityCmd())
+	cmd.AddCommand(newStatsEnergyCmd())
 	return cmd
 }
 
@@ -1343,5 +1344,77 @@ func runStatsQuality(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Fprintf(os.Stdout, "Dismissals by reason: %v\n", res.DismissalsByReason)
 	fmt.Fprintf(os.Stdout, "Category breakdown: %v\n", res.CategoryBreakdown)
+	return nil
+}
+
+func newStatsEnergyCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "energy",
+		Short: "Report local energy and cloud cost avoided from notes",
+		Long: `Aggregates eval_duration_ns, prompt_tokens, and completion_tokens from refs/notes/stet.
+Computes local energy (kWh) and cloud cost avoided ($). Estimates only; model equivalence
+is heuristic; local cost excludes electricity.`,
+		RunE: runStatsEnergy,
+	}
+	cmd.Flags().Int("watts", 30, "Assumed power draw (W) for local energy calculation")
+	cmd.Flags().StringSlice("cloud-model", nil, "Cloud model for cost estimate: NAME (preset) or NAME:in_per_million:out_per_million (repeatable)")
+	cmd.Flags().String("since", "main", "Start of ref range (e.g. main or \"30 days ago\")")
+	cmd.Flags().String("until", "HEAD", "End of ref range")
+	cmd.Flags().String("format", "human", "Output format: human or json")
+	return cmd
+}
+
+func runStatsEnergy(cmd *cobra.Command, args []string) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return erruser.New("Could not determine current directory.", err)
+	}
+	repoRoot, err := git.RepoRoot(cwd)
+	if err != nil {
+		return err
+	}
+	watts, _ := cmd.Flags().GetInt("watts")
+	if watts < 0 {
+		watts = 0
+	}
+	cloudModelStrs, _ := cmd.Flags().GetStringSlice("cloud-model")
+	var cloudModels []stats.CloudModel
+	for _, s := range cloudModelStrs {
+		m, err := stats.ParseCloudModel(s)
+		if err != nil {
+			return err
+		}
+		cloudModels = append(cloudModels, m)
+	}
+	since, _ := cmd.Flags().GetString("since")
+	until, _ := cmd.Flags().GetString("until")
+	format, _ := cmd.Flags().GetString("format")
+	if format != "human" && format != "json" {
+		return errors.New("Invalid output format; use human or json.")
+	}
+	res, err := stats.Energy(repoRoot, since, until, watts, cloudModels)
+	if err != nil {
+		return erruser.New("Could not compute energy stats.", err)
+	}
+	if format == "json" {
+		data, err := json.Marshal(res)
+		if err != nil {
+			return erruser.New("Could not write energy stats.", err)
+		}
+		if _, err := os.Stdout.Write(data); err != nil {
+			return erruser.New("Could not write energy stats.", err)
+		}
+		fmt.Fprintln(os.Stdout)
+		return nil
+	}
+	fmt.Fprintf(os.Stdout, "Sessions: %d\n", res.SessionsCount)
+	fmt.Fprintf(os.Stdout, "Total eval duration: %.1f s\n", float64(res.TotalEvalDurationNs)/1e9)
+	fmt.Fprintf(os.Stdout, "Total prompt tokens: %d\n", res.TotalPromptTokens)
+	fmt.Fprintf(os.Stdout, "Total completion tokens: %d\n", res.TotalCompletionTokens)
+	fmt.Fprintf(os.Stdout, "Local energy: %.4f kWh\n", res.LocalEnergyKWh)
+	for name, cost := range res.CloudCostAvoided {
+		fmt.Fprintf(os.Stdout, "Cloud cost avoided (%s): $%.2f\n", name, cost)
+	}
+	fmt.Fprintln(os.Stdout, "Estimates only; model equivalence heuristic; local cost excludes electricity.")
 	return nil
 }
