@@ -508,13 +508,18 @@ func TestFinish_writesGitNote(t *testing.T) {
 	if _, ok := note["finished_at"].(string); !ok {
 		t.Errorf("finished_at: want string, got %T", note["finished_at"])
 	}
-	// Scope fields: HEAD~1..HEAD has at least one hunk (last commit adds f2.txt).
+	// Scope fields: CountHunkScope is unit-tested in internal/diff; this test ensures Finish writes scope to the note. We assert presence and sanity (hunks_reviewed >= 1, chars_reviewed > 0 when hunks present, others non-negative). HEAD~1..HEAD has at least one hunk (last commit adds f2.txt).
 	if hr, ok := note["hunks_reviewed"].(float64); !ok || hr < 1 {
 		t.Errorf("hunks_reviewed: want number >= 1, got %T %v", note["hunks_reviewed"], note["hunks_reviewed"])
 	}
 	for _, key := range []string{"lines_added", "lines_removed", "chars_added", "chars_deleted", "chars_reviewed"} {
 		if v, ok := note[key].(float64); !ok || v < 0 {
 			t.Errorf("%s: want non-negative number, got %T %v", key, note[key], note[key])
+		}
+	}
+	if hr, ok := note["hunks_reviewed"].(float64); ok && hr >= 1 {
+		if cr, ok := note["chars_reviewed"].(float64); !ok || cr <= 0 {
+			t.Errorf("chars_reviewed: want > 0 when hunks_reviewed >= 1, got %v", note["chars_reviewed"])
 		}
 	}
 }

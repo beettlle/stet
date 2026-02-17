@@ -100,7 +100,8 @@ func Hunks(ctx context.Context, repoRoot, baselineRef, headRef string, opts *Opt
 // CountHunkScope returns line and character counts across hunks by parsing
 // RawContent. Lines starting with "+" (except "+++") count as added; lines
 // starting with "-" (except "---") count as removed. chars_reviewed is the sum
-// of len(RawContent) for all hunks.
+// of len(RawContent) for all hunks. Character counts for added/removed lines
+// use len(line) only (newlines are not included).
 func CountHunkScope(hunks []Hunk) (linesAdded, linesRemoved, charsAdded, charsDeleted, charsReviewed int) {
 	for _, h := range hunks {
 		charsReviewed += len(h.RawContent)

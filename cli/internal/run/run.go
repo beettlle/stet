@@ -757,6 +757,7 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 	if err != nil {
 		return erruser.New("Could not resolve baseline commit.", err)
 	}
+	// Scope fields default to zero when diff.Hunks fails; only assign when hErr == nil. All five CountHunkScope return values are used in notePayload below.
 	var hunksReviewed, linesAdded, linesRemoved, charsAdded, charsDeleted, charsReviewed int
 	if hunks, hErr := diff.Hunks(ctx, opts.RepoRoot, baselineSHA, headSHA, nil); hErr == nil {
 		hunksReviewed = len(hunks)
@@ -801,6 +802,7 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 		DismissalsCount int    `json:"dismissals_count"`
 		ToolVersion     string `json:"tool_version"`
 		FinishedAt      string `json:"finished_at"`
+		// Scope (zero when diff.Hunks failed)
 		HunksReviewed  int    `json:"hunks_reviewed"`
 		LinesAdded      int    `json:"lines_added"`
 		LinesRemoved    int    `json:"lines_removed"`
@@ -815,6 +817,7 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 		DismissalsCount: len(s.DismissedIDs),
 		ToolVersion:     version.String(),
 		FinishedAt:      time.Now().UTC().Format(time.RFC3339),
+		// Scope (zero when diff.Hunks failed)
 		HunksReviewed:  hunksReviewed,
 		LinesAdded:      linesAdded,
 		LinesRemoved:    linesRemoved,

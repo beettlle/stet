@@ -200,15 +200,18 @@ func TestHunks_customExcludePatternsEmpty(t *testing.T) {
 
 func TestCountHunkScope_fixture(t *testing.T) {
 	t.Parallel()
-	raw := "@@ -1,3 +1,4 @@\n context\n+added\n-removed\n"
+	const addedLine = "+added"
+	const removedLine = "-removed"
+	raw := "@@ -1,3 +1,4 @@\n context\n" + addedLine + "\n" + removedLine + "\n"
 	hunks := []Hunk{{FilePath: "a.go", RawContent: raw, Context: raw}}
 	la, lr, ca, cd, cr := CountHunkScope(hunks)
 	if la != 1 || lr != 1 {
 		t.Errorf("lines: got added=%d removed=%d, want 1, 1", la, lr)
 	}
-	// +added = 6 chars, -removed = 8 chars
-	if ca != 6 || cd != 8 {
-		t.Errorf("chars: got added=%d deleted=%d, want 6, 8", ca, cd)
+	wantCharsAdded := len(addedLine)
+	wantCharsDeleted := len(removedLine)
+	if ca != wantCharsAdded || cd != wantCharsDeleted {
+		t.Errorf("chars: got added=%d deleted=%d, want %d, %d", ca, cd, wantCharsAdded, wantCharsDeleted)
 	}
 	if cr != len(raw) {
 		t.Errorf("chars_reviewed: got %d, want %d", cr, len(raw))
@@ -242,17 +245,19 @@ func TestCountHunkScope_headersOnly(t *testing.T) {
 
 func TestCountHunkScope_multipleHunks(t *testing.T) {
 	t.Parallel()
+	const firstLine = "+first"
+	const secondLine = "+second"
 	hunks := []Hunk{
-		{FilePath: "a.go", RawContent: "@@ -1,1 +1,2 @@\n+first\n", Context: ""},
-		{FilePath: "b.go", RawContent: "@@ -1,1 +1,2 @@\n+second\n", Context: ""},
+		{FilePath: "a.go", RawContent: "@@ -1,1 +1,2 @@\n" + firstLine + "\n", Context: ""},
+		{FilePath: "b.go", RawContent: "@@ -1,1 +1,2 @@\n" + secondLine + "\n", Context: ""},
 	}
 	la, lr, ca, cd, cr := CountHunkScope(hunks)
 	if la != 2 || lr != 0 {
 		t.Errorf("lines: got added=%d removed=%d, want 2, 0", la, lr)
 	}
-	// +first = 6, +second = 7
-	if ca != 6+7 || cd != 0 {
-		t.Errorf("chars: got added=%d deleted=%d, want 13, 0", ca, cd)
+	wantCharsAdded := len(firstLine) + len(secondLine)
+	if ca != wantCharsAdded || cd != 0 {
+		t.Errorf("chars: got added=%d deleted=%d, want %d, 0", ca, cd, wantCharsAdded)
 	}
 	wantCR := len(hunks[0].RawContent) + len(hunks[1].RawContent)
 	if cr != wantCR {
