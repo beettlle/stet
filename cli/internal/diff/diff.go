@@ -97,6 +97,37 @@ func Hunks(ctx context.Context, repoRoot, baselineRef, headRef string, opts *Opt
 	return filtered, nil
 }
 
+// CountHunkScope returns line and character counts across hunks by parsing
+// RawContent. Lines starting with "+" (except "+++") count as added; lines
+// starting with "-" (except "---") count as removed. chars_reviewed is the sum
+// of len(RawContent) for all hunks.
+func CountHunkScope(hunks []Hunk) (linesAdded, linesRemoved, charsAdded, charsDeleted, charsReviewed int) {
+	for _, h := range hunks {
+		charsReviewed += len(h.RawContent)
+		for _, line := range strings.Split(h.RawContent, "\n") {
+			if line == "" {
+				continue
+			}
+			if strings.HasPrefix(line, "+++") {
+				continue
+			}
+			if strings.HasPrefix(line, "+") {
+				linesAdded++
+				charsAdded += len(line)
+				continue
+			}
+			if strings.HasPrefix(line, "---") {
+				continue
+			}
+			if strings.HasPrefix(line, "-") {
+				linesRemoved++
+				charsDeleted += len(line)
+			}
+		}
+	}
+	return linesAdded, linesRemoved, charsAdded, charsDeleted, charsReviewed
+}
+
 func runGitDiff(ctx context.Context, repoRoot, baseline, head string) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", "diff", "--no-color", "--no-ext-diff", baseline+".."+head)
 	cmd.Dir = repoRoot

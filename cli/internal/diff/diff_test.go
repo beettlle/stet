@@ -197,3 +197,65 @@ func TestHunks_customExcludePatternsEmpty(t *testing.T) {
 		t.Fatalf("len(hunks) = %d, want 1 when ExcludePatterns is empty", len(hunks))
 	}
 }
+
+func TestCountHunkScope_fixture(t *testing.T) {
+	t.Parallel()
+	raw := "@@ -1,3 +1,4 @@\n context\n+added\n-removed\n"
+	hunks := []Hunk{{FilePath: "a.go", RawContent: raw, Context: raw}}
+	la, lr, ca, cd, cr := CountHunkScope(hunks)
+	if la != 1 || lr != 1 {
+		t.Errorf("lines: got added=%d removed=%d, want 1, 1", la, lr)
+	}
+	// +added = 6 chars, -removed = 8 chars
+	if ca != 6 || cd != 8 {
+		t.Errorf("chars: got added=%d deleted=%d, want 6, 8", ca, cd)
+	}
+	if cr != len(raw) {
+		t.Errorf("chars_reviewed: got %d, want %d", cr, len(raw))
+	}
+}
+
+func TestCountHunkScope_emptyHunks(t *testing.T) {
+	t.Parallel()
+	la, lr, ca, cd, cr := CountHunkScope(nil)
+	if la != 0 || lr != 0 || ca != 0 || cd != 0 || cr != 0 {
+		t.Errorf("empty hunks: got la=%d lr=%d ca=%d cd=%d cr=%d, want all 0", la, lr, ca, cd, cr)
+	}
+	la, lr, ca, cd, cr = CountHunkScope([]Hunk{})
+	if la != 0 || lr != 0 || ca != 0 || cd != 0 || cr != 0 {
+		t.Errorf("zero hunks: got la=%d lr=%d ca=%d cd=%d cr=%d, want all 0", la, lr, ca, cd, cr)
+	}
+}
+
+func TestCountHunkScope_headersOnly(t *testing.T) {
+	t.Parallel()
+	raw := "--- a/old.go\n+++ b/new.go\n"
+	hunks := []Hunk{{FilePath: "new.go", RawContent: raw, Context: raw}}
+	la, lr, ca, cd, cr := CountHunkScope(hunks)
+	if la != 0 || lr != 0 || ca != 0 || cd != 0 {
+		t.Errorf("headers only: got added=%d removed=%d charsAdded=%d charsDeleted=%d, want all 0", la, lr, ca, cd)
+	}
+	if cr != len(raw) {
+		t.Errorf("chars_reviewed: got %d, want %d", cr, len(raw))
+	}
+}
+
+func TestCountHunkScope_multipleHunks(t *testing.T) {
+	t.Parallel()
+	hunks := []Hunk{
+		{FilePath: "a.go", RawContent: "@@ -1,1 +1,2 @@\n+first\n", Context: ""},
+		{FilePath: "b.go", RawContent: "@@ -1,1 +1,2 @@\n+second\n", Context: ""},
+	}
+	la, lr, ca, cd, cr := CountHunkScope(hunks)
+	if la != 2 || lr != 0 {
+		t.Errorf("lines: got added=%d removed=%d, want 2, 0", la, lr)
+	}
+	// +first = 6, +second = 7
+	if ca != 6+7 || cd != 0 {
+		t.Errorf("chars: got added=%d deleted=%d, want 13, 0", ca, cd)
+	}
+	wantCR := len(hunks[0].RawContent) + len(hunks[1].RawContent)
+	if cr != wantCR {
+		t.Errorf("chars_reviewed: got %d, want %d", cr, wantCR)
+	}
+}

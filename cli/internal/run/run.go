@@ -757,6 +757,11 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 	if err != nil {
 		return erruser.New("Could not resolve baseline commit.", err)
 	}
+	var hunksReviewed, linesAdded, linesRemoved, charsAdded, charsDeleted, charsReviewed int
+	if hunks, hErr := diff.Hunks(ctx, opts.RepoRoot, baselineSHA, headSHA, nil); hErr == nil {
+		hunksReviewed = len(hunks)
+		linesAdded, linesRemoved, charsAdded, charsDeleted, charsReviewed = diff.CountHunkScope(hunks)
+	}
 	sessionID := s.SessionID
 	if sessionID == "" {
 		sessionID = generateSessionID()
@@ -796,6 +801,12 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 		DismissalsCount int    `json:"dismissals_count"`
 		ToolVersion     string `json:"tool_version"`
 		FinishedAt      string `json:"finished_at"`
+		HunksReviewed  int    `json:"hunks_reviewed"`
+		LinesAdded      int    `json:"lines_added"`
+		LinesRemoved    int    `json:"lines_removed"`
+		CharsAdded      int    `json:"chars_added"`
+		CharsDeleted    int    `json:"chars_deleted"`
+		CharsReviewed   int    `json:"chars_reviewed"`
 	}{
 		SessionID:       sessionID,
 		BaselineSHA:     baselineSHA,
@@ -804,6 +815,12 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 		DismissalsCount: len(s.DismissedIDs),
 		ToolVersion:     version.String(),
 		FinishedAt:      time.Now().UTC().Format(time.RFC3339),
+		HunksReviewed:  hunksReviewed,
+		LinesAdded:      linesAdded,
+		LinesRemoved:    linesRemoved,
+		CharsAdded:      charsAdded,
+		CharsDeleted:    charsDeleted,
+		CharsReviewed:   charsReviewed,
 	}
 	noteJSON, err := json.Marshal(notePayload)
 	if err != nil {

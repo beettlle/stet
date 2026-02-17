@@ -484,7 +484,8 @@ func TestFinish_writesGitNote(t *testing.T) {
 	if err := json.Unmarshal([]byte(noteBody), &note); err != nil {
 		t.Fatalf("parse note JSON: %v", err)
 	}
-	for _, key := range []string{"session_id", "baseline_sha", "head_sha", "findings_count", "dismissals_count", "tool_version", "finished_at"} {
+	for _, key := range []string{"session_id", "baseline_sha", "head_sha", "findings_count", "dismissals_count", "tool_version", "finished_at",
+		"hunks_reviewed", "lines_added", "lines_removed", "chars_added", "chars_deleted", "chars_reviewed"} {
 		if _, ok := note[key]; !ok {
 			t.Errorf("note missing key %q", key)
 		}
@@ -506,6 +507,15 @@ func TestFinish_writesGitNote(t *testing.T) {
 	}
 	if _, ok := note["finished_at"].(string); !ok {
 		t.Errorf("finished_at: want string, got %T", note["finished_at"])
+	}
+	// Scope fields: HEAD~1..HEAD has at least one hunk (last commit adds f2.txt).
+	if hr, ok := note["hunks_reviewed"].(float64); !ok || hr < 1 {
+		t.Errorf("hunks_reviewed: want number >= 1, got %T %v", note["hunks_reviewed"], note["hunks_reviewed"])
+	}
+	for _, key := range []string{"lines_added", "lines_removed", "chars_added", "chars_deleted", "chars_reviewed"} {
+		if v, ok := note[key].(float64); !ok || v < 0 {
+			t.Errorf("%s: want non-negative number, got %T %v", key, note[key], note[key])
+		}
 	}
 }
 
