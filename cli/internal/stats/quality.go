@@ -64,13 +64,13 @@ func Quality(stateDir string) (*QualityResult, error) {
 		var prompt, completion int64
 		if rec.PromptTokens != nil {
 			prompt = *rec.PromptTokens
-		} else if rec.Usage != nil && rec.Usage.PromptTokens != nil {
-			prompt = *rec.Usage.PromptTokens
+		} else if rec.UsageData != nil && rec.UsageData.PromptTokens != nil {
+			prompt = *rec.UsageData.PromptTokens
 		}
 		if rec.CompletionTokens != nil {
 			completion = *rec.CompletionTokens
-		} else if rec.Usage != nil && rec.Usage.CompletionTokens != nil {
-			completion = *rec.Usage.CompletionTokens
+		} else if rec.UsageData != nil && rec.UsageData.CompletionTokens != nil {
+			completion = *rec.UsageData.CompletionTokens
 		}
 		tokensReviewed += prompt + completion
 	}

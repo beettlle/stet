@@ -122,8 +122,8 @@ func TestRecord_marshalUnmarshal_withoutUsage(t *testing.T) {
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if decoded.Usage != nil {
-		t.Errorf("Usage: got %+v, want nil", decoded.Usage)
+	if decoded.UsageData != nil {
+		t.Errorf("UsageData: got %+v, want nil", decoded.UsageData)
 	}
 	if decoded.PromptTokens != nil || decoded.CompletionTokens != nil || decoded.EvalDurationNs != nil {
 		t.Errorf("top-level usage fields should be nil; got %v %v %v", decoded.PromptTokens, decoded.CompletionTokens, decoded.EvalDurationNs)
@@ -138,7 +138,7 @@ func TestRecord_marshalUnmarshal_withUsage(t *testing.T) {
 		DiffRef:      "HEAD",
 		ReviewOutput: nil,
 		UserAction:   UserAction{},
-		Usage: &Usage{
+		UsageData: &Usage{
 			PromptTokens:     &pt,
 			CompletionTokens: &ct,
 			EvalDurationNs:   &ed,
@@ -153,20 +153,20 @@ func TestRecord_marshalUnmarshal_withUsage(t *testing.T) {
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if decoded.Usage == nil {
-		t.Fatal("Usage: got nil, want non-nil")
+	if decoded.UsageData == nil {
+		t.Fatal("UsageData: got nil, want non-nil")
 	}
-	if decoded.Usage.PromptTokens == nil || *decoded.Usage.PromptTokens != 1000 {
-		t.Errorf("Usage.PromptTokens: got %v, want 1000", decoded.Usage.PromptTokens)
+	if decoded.UsageData.PromptTokens == nil || *decoded.UsageData.PromptTokens != 1000 {
+		t.Errorf("UsageData.PromptTokens: got %v, want 1000", decoded.UsageData.PromptTokens)
 	}
-	if decoded.Usage.CompletionTokens == nil || *decoded.Usage.CompletionTokens != 200 {
-		t.Errorf("Usage.CompletionTokens: got %v, want 200", decoded.Usage.CompletionTokens)
+	if decoded.UsageData.CompletionTokens == nil || *decoded.UsageData.CompletionTokens != 200 {
+		t.Errorf("UsageData.CompletionTokens: got %v, want 200", decoded.UsageData.CompletionTokens)
 	}
-	if decoded.Usage.EvalDurationNs == nil || *decoded.Usage.EvalDurationNs != 5000000000 {
-		t.Errorf("Usage.EvalDurationNs: got %v, want 5000000000", decoded.Usage.EvalDurationNs)
+	if decoded.UsageData.EvalDurationNs == nil || *decoded.UsageData.EvalDurationNs != 5000000000 {
+		t.Errorf("UsageData.EvalDurationNs: got %v, want 5000000000", decoded.UsageData.EvalDurationNs)
 	}
-	if decoded.Usage.Model != "qwen2.5-coder:32b" {
-		t.Errorf("Usage.Model: got %q, want qwen2.5-coder:32b", decoded.Usage.Model)
+	if decoded.UsageData.Model != "qwen2.5-coder:32b" {
+		t.Errorf("UsageData.Model: got %q, want qwen2.5-coder:32b", decoded.UsageData.Model)
 	}
 }
 

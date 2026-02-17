@@ -208,8 +208,8 @@ func TestCountHunkScope_fixture(t *testing.T) {
 	if la != 1 || lr != 1 {
 		t.Errorf("lines: got added=%d removed=%d, want 1, 1", la, lr)
 	}
-	wantCharsAdded := len(addedLine)
-	wantCharsDeleted := len(removedLine)
+	wantCharsAdded := len(addedLine) - 1   // exclude '+' prefix
+	wantCharsDeleted := len(removedLine) - 1 // exclude '-' prefix
 	if ca != wantCharsAdded || cd != wantCharsDeleted {
 		t.Errorf("chars: got added=%d deleted=%d, want %d, %d", ca, cd, wantCharsAdded, wantCharsDeleted)
 	}
@@ -255,7 +255,7 @@ func TestCountHunkScope_multipleHunks(t *testing.T) {
 	if la != 2 || lr != 0 {
 		t.Errorf("lines: got added=%d removed=%d, want 2, 0", la, lr)
 	}
-	wantCharsAdded := len(firstLine) + len(secondLine)
+	wantCharsAdded := len(firstLine) - 1 + len(secondLine) - 1 // exclude '+' prefixes
 	if ca != wantCharsAdded || cd != 0 {
 		t.Errorf("chars: got added=%d deleted=%d, want %d, 0", ca, cd, wantCharsAdded)
 	}

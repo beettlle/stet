@@ -90,5 +90,5 @@ type Record struct {
 	PromptTokens      *int64             `json:"prompt_tokens,omitempty"`
 	CompletionTokens  *int64             `json:"completion_tokens,omitempty"`
 	EvalDurationNs    *int64             `json:"eval_duration_ns,omitempty"`
-	Usage             *Usage             `json:"usage,omitempty"`
+	UsageData         *Usage             `json:"usage,omitempty"`
 }

@@ -114,7 +114,7 @@ func CountHunkScope(hunks []Hunk) (linesAdded, linesRemoved, charsAdded, charsDe
 			}
 			if strings.HasPrefix(line, "+") {
 				linesAdded++
-				charsAdded += len(line)
+				charsAdded += len(line) - 1
 				continue
 			}
 			if strings.HasPrefix(line, "---") {
@@ -122,7 +122,7 @@ func CountHunkScope(hunks []Hunk) (linesAdded, linesRemoved, charsAdded, charsDe
 			}
 			if strings.HasPrefix(line, "-") {
 				linesRemoved++
-				charsDeleted += len(line)
+				charsDeleted += len(line) - 1
 			}
 		}
 	}
