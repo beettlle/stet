@@ -87,6 +87,12 @@ func TestNotesRefStet_value(t *testing.T) {
 	}
 }
 
+func TestNotesRefAI_value(t *testing.T) {
+	if NotesRefAI != "refs/notes/ai" {
+		t.Errorf("NotesRefAI = %q, want refs/notes/ai", NotesRefAI)
+	}
+}
+
 // TestAddNote_JSON_roundtrip verifies that a JSON payload matching the
 // finish-note schema can be written and read (no escaping issues).
 func TestAddNote_JSON_roundtrip(t *testing.T) {

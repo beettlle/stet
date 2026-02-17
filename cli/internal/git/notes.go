@@ -10,6 +10,9 @@ import (
 // NotesRefStet is the ref used for stet session notes (written on finish).
 const NotesRefStet = "refs/notes/stet"
 
+// NotesRefAI is the ref used by git-ai for AI authorship logs (Git AI Standard v3.0.0).
+const NotesRefAI = "refs/notes/ai"
+
 // AddNote writes a note to the given commit under notesRef. Overwrites any
 // existing note at that commit (uses -f). repoRoot is the git repository root.
 func AddNote(repoRoot, notesRef, commitRef, body string) error {

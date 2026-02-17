@@ -20,17 +20,19 @@ type StetNote struct {
 }
 
 // VolumeResult holds aggregated volume metrics over a ref range.
+// GitAI is populated only when git-ai is detected in the repo (refs/notes/ai exists).
 type VolumeResult struct {
-	SessionsCount          int     `json:"sessions_count"`
-	CommitsInRange         int     `json:"commits_in_range"`
-	CommitsWithNote        int     `json:"commits_with_note"`
-	TotalHunksReviewed     int     `json:"total_hunks_reviewed"`
-	TotalLinesAdded        int     `json:"total_lines_added"`
-	TotalLinesRemoved      int     `json:"total_lines_removed"`
-	TotalCharsAdded        int     `json:"total_chars_added"`
-	TotalCharsDeleted      int     `json:"total_chars_deleted"`
-	TotalCharsReviewed     int     `json:"total_chars_reviewed"`
-	PercentCommitsWithNote float64 `json:"percent_commits_with_note"`
+	SessionsCount          int          `json:"sessions_count"`
+	CommitsInRange         int          `json:"commits_in_range"`
+	CommitsWithNote        int          `json:"commits_with_note"`
+	TotalHunksReviewed     int          `json:"total_hunks_reviewed"`
+	TotalLinesAdded        int          `json:"total_lines_added"`
+	TotalLinesRemoved      int          `json:"total_lines_removed"`
+	TotalCharsAdded        int          `json:"total_chars_added"`
+	TotalCharsDeleted      int          `json:"total_chars_deleted"`
+	TotalCharsReviewed     int          `json:"total_chars_reviewed"`
+	PercentCommitsWithNote float64      `json:"percent_commits_with_note"`
+	GitAI                  *GitAIResult `json:"git_ai,omitempty"`
 }
 
 // Volume walks the ref range since..until, reads stet notes at each commit,
@@ -66,6 +68,12 @@ func Volume(repoRoot, sinceRef, untilRef string) (*VolumeResult, error) {
 	}
 	if res.CommitsInRange > 0 {
 		res.PercentCommitsWithNote = 100 * float64(res.CommitsWithNote) / float64(res.CommitsInRange)
+	}
+	if inUse, err := GitAIInUse(repoRoot); err == nil && inUse {
+		gitAI, err := GitAIMetrics(repoRoot, sinceRef, untilRef)
+		if err == nil {
+			res.GitAI = gitAI
+		}
 	}
 	return res, nil
 }

@@ -177,3 +177,51 @@ func TestUserIntent_detachedHEAD(t *testing.T) {
 		t.Errorf("UserIntent commitMsg = %q, want c1 (HEAD~1)", commitMsg)
 	}
 }
+
+func TestRefExists_refDoesNotExist(t *testing.T) {
+	t.Parallel()
+	repo := initRepo(t)
+	ok, err := RefExists(repo, NotesRefAI)
+	if err != nil {
+		t.Fatalf("RefExists: %v", err)
+	}
+	if ok {
+		t.Error("RefExists(refs/notes/ai) with no git-ai: want false, got true")
+	}
+}
+
+func TestRefExists_refExists(t *testing.T) {
+	t.Parallel()
+	repo := initRepo(t)
+	headSHA := runOut(t, repo, "git", "rev-parse", "HEAD")
+	if err := AddNote(repo, NotesRefAI, headSHA, "test note"); err != nil {
+		t.Fatalf("AddNote to create refs/notes/ai: %v", err)
+	}
+	ok, err := RefExists(repo, NotesRefAI)
+	if err != nil {
+		t.Fatalf("RefExists: %v", err)
+	}
+	if !ok {
+		t.Error("RefExists(refs/notes/ai) after adding note: want true, got false")
+	}
+}
+
+func TestRefExists_invalidRepo(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	_, err := RefExists(dir, "refs/notes/ai")
+	if err == nil {
+		t.Fatal("RefExists(non-repo): expected error")
+	}
+}
+
+func TestRefExists_invalidArgs(t *testing.T) {
+	t.Parallel()
+	repo := initRepo(t)
+	if _, err := RefExists("", NotesRefAI); err == nil {
+		t.Error("RefExists(empty repo): expected error")
+	}
+	if _, err := RefExists(repo, ""); err == nil {
+		t.Error("RefExists(empty ref): expected error")
+	}
+}

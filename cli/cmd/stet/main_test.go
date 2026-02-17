@@ -2001,6 +2001,102 @@ func TestRunCLI_statsVolumeJSONInRepoWithNote(t *testing.T) {
 	}
 }
 
+func TestRunCLI_statsVolumeJSONWithGitAI(t *testing.T) {
+	repo := initRepo(t)
+	headSHA := runGitOut(t, repo, "git", "rev-parse", "HEAD")
+	note := `src/main.go
+  abcd1234abcd1234 1-5
+---
+{"schema_version":"authorship/3.0.0","base_commit_sha":"` + headSHA + `","prompts":{"abcd1234abcd1234":{"agent_id":{"tool":"cursor","id":"x","model":"y"},"messages":[],"total_additions":5,"total_deletions":0,"accepted_lines":5,"overriden_lines":0}}}`
+	if err := git.AddNote(repo, git.NotesRefAI, headSHA, note); err != nil {
+		t.Fatalf("AddNote git-ai: %v", err)
+	}
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	os.Stdout = w
+	t.Cleanup(func() { os.Stdout = oldStdout })
+	got := runCLI([]string{"stats", "volume", "--format=json", "--since=HEAD~1", "--until=HEAD"})
+	_ = w.Close()
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	if got != 0 {
+		t.Fatalf("runCLI(stats volume --format=json) = %d, want 0\nstderr/out: %s", got, buf.String())
+	}
+	var out struct {
+		GitAI *struct {
+			CommitsWithAINote   int `json:"commits_with_ai_note"`
+			TotalAIAuthoredLines int `json:"total_ai_authored_lines"`
+		} `json:"git_ai"`
+	}
+	if err := json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &out); err != nil {
+		t.Fatalf("parse stats volume JSON: %v\noutput: %s", err, buf.Bytes())
+	}
+	if out.GitAI == nil {
+		t.Fatal("git_ai: want non-nil when git-ai notes exist")
+	}
+	if out.GitAI.CommitsWithAINote != 1 {
+		t.Errorf("git_ai.commits_with_ai_note: got %d, want 1", out.GitAI.CommitsWithAINote)
+	}
+	if out.GitAI.TotalAIAuthoredLines != 5 {
+		t.Errorf("git_ai.total_ai_authored_lines: got %d, want 5", out.GitAI.TotalAIAuthoredLines)
+	}
+}
+
+func TestRunCLI_statsVolumeHumanWithGitAI(t *testing.T) {
+	repo := initRepo(t)
+	headSHA := runGitOut(t, repo, "git", "rev-parse", "HEAD")
+	note := `src/x.go
+  aaaa1111aaaa1111 1-3
+---
+{"schema_version":"authorship/3.0.0","base_commit_sha":"` + headSHA + `","prompts":{"aaaa1111aaaa1111":{"agent_id":{"tool":"cursor","id":"x","model":"y"},"messages":[],"total_additions":3,"total_deletions":0,"accepted_lines":3,"overriden_lines":0}}}`
+	if err := git.AddNote(repo, git.NotesRefAI, headSHA, note); err != nil {
+		t.Fatalf("AddNote git-ai: %v", err)
+	}
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	os.Stdout = w
+	t.Cleanup(func() { os.Stdout = oldStdout })
+	got := runCLI([]string{"stats", "volume", "--since=HEAD~1", "--until=HEAD"})
+	_ = w.Close()
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	if got != 0 {
+		t.Fatalf("runCLI(stats volume) = %d, want 0\nstderr/out: %s", got, buf.String())
+	}
+	out := buf.String()
+	if !strings.Contains(out, "Git AI (refs/notes/ai)") {
+		t.Errorf("human output should contain 'Git AI (refs/notes/ai)'; got:\n%s", out)
+	}
+	if !strings.Contains(out, "Commits with AI note: 1") {
+		t.Errorf("human output should contain 'Commits with AI note: 1'; got:\n%s", out)
+	}
+	if !strings.Contains(out, "Total AI-authored lines: 3") {
+		t.Errorf("human output should contain 'Total AI-authored lines: 3'; got:\n%s", out)
+	}
+}
+
 func TestRunCLI_statsQualityFromNonRepoExits1(t *testing.T) {
 	dir := t.TempDir()
 	orig, err := os.Getwd()

@@ -38,6 +38,30 @@ func IsClean(repoRoot string) (bool, error) {
 	return len(strings.TrimSpace(string(out))) == 0, nil
 }
 
+// RefExists reports whether the given ref exists in the repository at repoRoot.
+// Runs "git rev-parse ref"; returns true if the ref exists (exit 0), false if it
+// does not exist (exit 128 in a valid repo), or an error for other failures
+// (e.g. repoRoot is not a git repository).
+func RefExists(repoRoot, ref string) (bool, error) {
+	if repoRoot == "" || ref == "" {
+		return false, erruser.New("RefExists: repo root and ref required", nil)
+	}
+	cmd := exec.Command("git", "rev-parse", ref)
+	cmd.Dir = repoRoot
+	cmd.Env = minimalEnv()
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		return true, nil
+	}
+	if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 128 {
+		if strings.Contains(string(out), "not a git repository") {
+			return false, erruser.New("This directory is not inside a Git repository.", err)
+		}
+		return false, nil
+	}
+	return false, erruser.New("Could not check if ref exists.", err)
+}
+
 // RevParse resolves ref to a full SHA in the repository at repoRoot.
 // Returns the 40-character commit SHA, or error if ref is invalid.
 func RevParse(repoRoot, ref string) (string, error) {

@@ -1285,6 +1285,11 @@ func runStatsVolume(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(os.Stdout, "Chars added: %d\n", res.TotalCharsAdded)
 	fmt.Fprintf(os.Stdout, "Chars deleted: %d\n", res.TotalCharsDeleted)
 	fmt.Fprintf(os.Stdout, "Chars reviewed: %d\n", res.TotalCharsReviewed)
+	if res.GitAI != nil {
+		fmt.Fprintf(os.Stdout, "Git AI (refs/notes/ai):\n")
+		fmt.Fprintf(os.Stdout, "Commits with AI note: %d\n", res.GitAI.CommitsWithAINote)
+		fmt.Fprintf(os.Stdout, "Total AI-authored lines: %d\n", res.GitAI.TotalAIAuthoredLines)
+	}
 	return nil
 }
 
