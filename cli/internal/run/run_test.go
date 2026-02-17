@@ -1432,6 +1432,164 @@ func TestStart_capturesOllamaUsage_whenNotDryRun(t *testing.T) {
 	}
 }
 
+// TestFinish_writesUsageFields_whenCaptureUsageTrue asserts that when the session has
+// usage data and STET_CAPTURE_USAGE is true (default), Finish writes model, prompt_tokens,
+// completion_tokens, and eval_duration_ns to the git note (Phase 9.3).
+func TestFinish_writesUsageFields_whenCaptureUsageTrue(t *testing.T) {
+	ctx := context.Background()
+	oldVal := os.Getenv("STET_CAPTURE_USAGE")
+	os.Setenv("STET_CAPTURE_USAGE", "true")
+	defer func() {
+		if oldVal == "" {
+			os.Unsetenv("STET_CAPTURE_USAGE")
+		} else {
+			os.Setenv("STET_CAPTURE_USAGE", oldVal)
+		}
+	}()
+
+	validResp := `[{"file":"a.go","line":1,"severity":"warning","category":"style","message":"mock finding"}]`
+	wantPromptTokens := 100
+	wantCompletionTokens := 42
+	wantEvalDurationNs := int64(500_000_000)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/tags" {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"models": []map[string]interface{}{{"name": "m"}}})
+			return
+		}
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"response":             validResp,
+			"done":                 true,
+			"prompt_eval_count":    wantPromptTokens,
+			"eval_count":           wantCompletionTokens,
+			"prompt_eval_duration": int64(50_000_000),
+			"eval_duration":        wantEvalDurationNs,
+		})
+	}))
+	defer srv.Close()
+
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	startOpts := StartOptions{
+		RepoRoot:      repo,
+		StateDir:      stateDir,
+		WorktreeRoot:  "",
+		Ref:           "HEAD~1",
+		DryRun:        false,
+		Model:         "m",
+		OllamaBaseURL: srv.URL,
+	}
+	if err := Start(ctx, startOpts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	finishOpts := FinishOptions{RepoRoot: repo, StateDir: stateDir, WorktreeRoot: ""}
+	if err := Finish(ctx, finishOpts); err != nil {
+		t.Fatalf("Finish: %v", err)
+	}
+	headSHA := runOut(t, repo, "git", "rev-parse", "HEAD")
+	noteBody, err := git.GetNote(repo, git.NotesRefStet, headSHA)
+	if err != nil {
+		t.Fatalf("GetNote after Finish: %v", err)
+	}
+	var note map[string]interface{}
+	if err := json.Unmarshal([]byte(noteBody), &note); err != nil {
+		t.Fatalf("parse note JSON: %v", err)
+	}
+	if _, ok := note["model"]; !ok {
+		t.Error("note missing model (expected when STET_CAPTURE_USAGE true)")
+	}
+	for _, key := range []string{"prompt_tokens", "completion_tokens", "eval_duration_ns"} {
+		if _, ok := note[key]; !ok {
+			t.Errorf("note missing %q (expected when STET_CAPTURE_USAGE true)", key)
+		}
+	}
+	if pt, ok := note["prompt_tokens"].(float64); ok && int(pt) != wantPromptTokens {
+		t.Errorf("prompt_tokens = %v, want %d", pt, wantPromptTokens)
+	}
+	if ct, ok := note["completion_tokens"].(float64); ok && int(ct) != wantCompletionTokens {
+		t.Errorf("completion_tokens = %v, want %d", ct, wantCompletionTokens)
+	}
+	if ed, ok := note["eval_duration_ns"].(float64); ok && int64(ed) != wantEvalDurationNs {
+		t.Errorf("eval_duration_ns = %v, want %d", ed, wantEvalDurationNs)
+	}
+}
+
+// TestFinish_omitsUsageFields_whenCaptureUsageFalse asserts that when STET_CAPTURE_USAGE
+// is false, Finish does not write prompt_tokens, completion_tokens, or eval_duration_ns
+// to the git note (Phase 9.3).
+func TestFinish_omitsUsageFields_whenCaptureUsageFalse(t *testing.T) {
+	ctx := context.Background()
+	validResp := `[{"file":"a.go","line":1,"severity":"warning","category":"style","message":"mock finding"}]`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/tags" {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"models": []map[string]interface{}{{"name": "m"}}})
+			return
+		}
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"response":          validResp,
+			"done":              true,
+			"prompt_eval_count": 50,
+			"eval_count":        20,
+			"eval_duration":     int64(100_000_000),
+		})
+	}))
+	defer srv.Close()
+
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	startOpts := StartOptions{
+		RepoRoot:      repo,
+		StateDir:      stateDir,
+		WorktreeRoot:  "",
+		Ref:           "HEAD~1",
+		DryRun:        false,
+		Model:         "m",
+		OllamaBaseURL: srv.URL,
+	}
+	if err := Start(ctx, startOpts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	oldVal := os.Getenv("STET_CAPTURE_USAGE")
+	os.Setenv("STET_CAPTURE_USAGE", "false")
+	defer func() {
+		if oldVal == "" {
+			os.Unsetenv("STET_CAPTURE_USAGE")
+		} else {
+			os.Setenv("STET_CAPTURE_USAGE", oldVal)
+		}
+	}()
+
+	finishOpts := FinishOptions{RepoRoot: repo, StateDir: stateDir, WorktreeRoot: ""}
+	if err := Finish(ctx, finishOpts); err != nil {
+		t.Fatalf("Finish: %v", err)
+	}
+	headSHA := runOut(t, repo, "git", "rev-parse", "HEAD")
+	noteBody, err := git.GetNote(repo, git.NotesRefStet, headSHA)
+	if err != nil {
+		t.Fatalf("GetNote after Finish: %v", err)
+	}
+	var note map[string]interface{}
+	if err := json.Unmarshal([]byte(noteBody), &note); err != nil {
+		t.Fatalf("parse note JSON: %v", err)
+	}
+	for _, key := range []string{"prompt_tokens", "completion_tokens", "eval_duration_ns"} {
+		if _, ok := note[key]; ok {
+			t.Errorf("note must not contain %q when STET_CAPTURE_USAGE=false", key)
+		}
+	}
+}
+
 // TestStart_abstentionFilter_dropsLowConfidence asserts that findings with confidence < 0.8
 // are dropped by the Phase 6.3 abstention filter and do not appear in the session.
 func TestStart_abstentionFilter_dropsLowConfidence(t *testing.T) {

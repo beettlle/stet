@@ -794,6 +794,12 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 			return erruser.New("Could not record review history.", err)
 		}
 	}
+	var noteModel string
+	if captureUsage() {
+		if cfg, err := config.Load(ctx, config.LoadOptions{RepoRoot: opts.RepoRoot}); err == nil {
+			noteModel = cfg.Model
+		}
+	}
 	notePayload := struct {
 		SessionID       string `json:"session_id"`
 		BaselineSHA     string `json:"baseline_sha"`
@@ -803,12 +809,17 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 		ToolVersion     string `json:"tool_version"`
 		FinishedAt      string `json:"finished_at"`
 		// Scope (zero when diff.Hunks failed)
-		HunksReviewed  int    `json:"hunks_reviewed"`
-		LinesAdded      int    `json:"lines_added"`
-		LinesRemoved    int    `json:"lines_removed"`
-		CharsAdded      int    `json:"chars_added"`
-		CharsDeleted    int    `json:"chars_deleted"`
-		CharsReviewed   int    `json:"chars_reviewed"`
+		HunksReviewed  int   `json:"hunks_reviewed"`
+		LinesAdded     int   `json:"lines_added"`
+		LinesRemoved   int   `json:"lines_removed"`
+		CharsAdded     int   `json:"chars_added"`
+		CharsDeleted   int   `json:"chars_deleted"`
+		CharsReviewed  int   `json:"chars_reviewed"`
+		// Usage (omitted when STET_CAPTURE_USAGE=false)
+		Model            *string `json:"model,omitempty"`
+		PromptTokens     *int64  `json:"prompt_tokens,omitempty"`
+		CompletionTokens *int64  `json:"completion_tokens,omitempty"`
+		EvalDurationNs   *int64 `json:"eval_duration_ns,omitempty"`
 	}{
 		SessionID:       sessionID,
 		BaselineSHA:     baselineSHA,
@@ -817,13 +828,20 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 		DismissalsCount: len(s.DismissedIDs),
 		ToolVersion:     version.String(),
 		FinishedAt:      time.Now().UTC().Format(time.RFC3339),
-		// Scope (zero when diff.Hunks failed)
-		HunksReviewed:  hunksReviewed,
+		HunksReviewed:   hunksReviewed,
 		LinesAdded:      linesAdded,
 		LinesRemoved:    linesRemoved,
 		CharsAdded:      charsAdded,
 		CharsDeleted:    charsDeleted,
 		CharsReviewed:   charsReviewed,
+	}
+	if captureUsage() {
+		if noteModel != "" {
+			notePayload.Model = &noteModel
+		}
+		notePayload.PromptTokens = &s.LastRunPromptTokens
+		notePayload.CompletionTokens = &s.LastRunCompletionTokens
+		notePayload.EvalDurationNs = &s.LastRunEvalDurationNs
 	}
 	noteJSON, err := json.Marshal(notePayload)
 	if err != nil {

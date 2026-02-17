@@ -190,7 +190,7 @@ Rotation keeps the last N records (default 1000) in the active file to avoid unb
 
 ## Git note (refs/notes/stet)
 
-On **`stet finish`**, the CLI writes a Git note to **`refs/notes/stet`** at the commit that is current **HEAD**. The note body is a single JSON object with:
+On **`stet finish`**, the CLI writes a Git note to **`refs/notes/stet`** at the commit that is current **HEAD**. The environment variable **`STET_CAPTURE_USAGE`** (default `true`) controls whether usage fields (model, prompt_tokens, completion_tokens, eval_duration_ns) are captured and written to the note; when set to `false`, those fields are omitted. The note body is a single JSON object with:
 
 | Field | Type | Description |
 |-------|------|-------------|
