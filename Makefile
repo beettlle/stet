@@ -15,6 +15,7 @@ build:
 	mkdir -p bin
 	go build -buildvcs=false $(BUILD_LDFLAGS) -o bin/stet ./cli/cmd/stet
 	GOOS=linux GOARCH=amd64 go build -buildvcs=false $(BUILD_LDFLAGS) -o bin/stet-linux-amd64 ./cli/cmd/stet
+	GOOS=linux GOARCH=arm64 go build -buildvcs=false $(BUILD_LDFLAGS) -o bin/stet-linux-arm64 ./cli/cmd/stet
 	GOOS=darwin GOARCH=amd64 go build -buildvcs=false $(BUILD_LDFLAGS) -o bin/stet-darwin-amd64 ./cli/cmd/stet
 	GOOS=darwin GOARCH=arm64 go build -buildvcs=false $(BUILD_LDFLAGS) -o bin/stet-darwin-arm64 ./cli/cmd/stet
 
@@ -34,7 +35,7 @@ release:
 	@(cd dist && (sha256sum stet-* 2>/dev/null || shasum -a 256 stet-*) > checksums.txt)
 
 clean:
-	rm -f bin/stet bin/stet-linux-amd64 bin/stet-darwin-amd64 bin/stet-darwin-arm64 coverage.out
+	rm -f bin/stet bin/stet-linux-amd64 bin/stet-linux-arm64 bin/stet-darwin-amd64 bin/stet-darwin-arm64 coverage.out
 	# dist/ contains release binaries (stet-{os}-{arch}); rm -rf removes all
 	rm -rf dist
 
