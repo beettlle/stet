@@ -218,6 +218,8 @@ You can push or fetch this ref (e.g. `git push origin refs/notes/stet`, `git fet
 
 Use **`stet stats volume`** to report review volume over a ref range. It reads **`refs/notes/stet`** and aggregates scope (hunks, lines, chars) and session count. Example: `stet stats volume --since=main --until=HEAD` (defaults) or `stet stats volume --since="30 days ago" --format=json`. Flags: `--since`, `--until`, `--format=human|json`. See implementation plan Phase 9.
 
+Use **`stet stats quality`** to report review quality from **`.review/history.jsonl`**. It aggregates total findings, total dismissed, and per-reason breakdown, and outputs: dismissal rate, acceptance rate, false positive rate, actionability, clean commit rate, finding density (when token data is available), and category breakdown. Example: `stet stats quality` or `stet stats quality --format=json`. Metric definitions are in the implementation plan Phase 9 appendix ("Impact reporting metric definitions").
+
 ## Review quality and actionability
 
 A finding is **actionable** when the reported issue is real (not already fixed or by design), the suggestion is correct and safe, and the change is within project scope. The default system prompt instructs the model to report only actionable issues and to prefer fewer, high-confidence findings. For the full definition, prompt guidelines, and optional lessons (e.g. common false positives), see [docs/review-quality.md](review-quality.md).

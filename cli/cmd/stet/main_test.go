@@ -1999,3 +1999,72 @@ func TestRunCLI_statsVolumeJSONInRepoWithNote(t *testing.T) {
 		t.Errorf("percent_commits_with_note: got %f", out.PercentCommitsWithNote)
 	}
 }
+
+func TestRunCLI_statsQualityFromNonRepoExits1(t *testing.T) {
+	dir := t.TempDir()
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	got := runCLI([]string{"stats", "quality", "--format=json"})
+	if got != 1 {
+		t.Errorf("runCLI(stats quality) from non-repo = %d, want 1", got)
+	}
+}
+
+func TestRunCLI_statsQualityJSONInRepo(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	// Run start --dry-run + finish so history.jsonl has at least one record.
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
+	}
+	if got := runCLI([]string{"finish"}); got != 0 {
+		t.Fatalf("runCLI(finish) = %d, want 0", got)
+	}
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	os.Stdout = w
+	t.Cleanup(func() { os.Stdout = oldStdout })
+	got := runCLI([]string{"stats", "quality", "--format=json"})
+	_ = w.Close()
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	if got != 0 {
+		t.Fatalf("runCLI(stats quality --format=json) = %d, want 0\nstderr/out: %s", got, buf.String())
+	}
+	var out struct {
+		SessionsCount      int                `json:"sessions_count"`
+		TotalFindings      int                `json:"total_findings"`
+		TotalDismissed     int                `json:"total_dismissed"`
+		DismissalRate      float64            `json:"dismissal_rate"`
+		CategoryBreakdown  map[string]int     `json:"category_breakdown"`
+		DismissalsByReason map[string]int     `json:"dismissals_by_reason"`
+	}
+	if err := json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &out); err != nil {
+		t.Fatalf("parse stats quality JSON: %v\noutput: %s", err, buf.Bytes())
+	}
+	if out.SessionsCount < 1 {
+		t.Errorf("sessions_count: got %d, want >= 1 after finish", out.SessionsCount)
+	}
+	if out.CategoryBreakdown == nil {
+		t.Error("category_breakdown: want non-nil map")
+	}
+	if out.DismissalsByReason == nil {
+		t.Error("dismissals_by_reason: want non-nil map")
+	}
+}

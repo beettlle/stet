@@ -1229,6 +1229,7 @@ func newStatsCmd() *cobra.Command {
 		Short: "Impact reporting (volume, quality, energy)",
 	}
 	cmd.AddCommand(newStatsVolumeCmd())
+	cmd.AddCommand(newStatsQualityCmd())
 	return cmd
 }
 
@@ -1283,5 +1284,64 @@ func runStatsVolume(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(os.Stdout, "Chars added: %d\n", res.TotalCharsAdded)
 	fmt.Fprintf(os.Stdout, "Chars deleted: %d\n", res.TotalCharsDeleted)
 	fmt.Fprintf(os.Stdout, "Chars reviewed: %d\n", res.TotalCharsReviewed)
+	return nil
+}
+
+func newStatsQualityCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "quality",
+		Short: "Report review quality from history (dismissal rate, actionability, category breakdown)",
+		RunE:  runStatsQuality,
+	}
+	cmd.Flags().String("format", "human", "Output format: human or json")
+	return cmd
+}
+
+func runStatsQuality(cmd *cobra.Command, args []string) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return erruser.New("Could not determine current directory.", err)
+	}
+	repoRoot, err := git.RepoRoot(cwd)
+	if err != nil {
+		return err
+	}
+	cfg, err := config.Load(context.Background(), config.LoadOptions{RepoRoot: repoRoot})
+	if err != nil {
+		return err
+	}
+	stateDir := cfg.EffectiveStateDir(repoRoot)
+	format, _ := cmd.Flags().GetString("format")
+	if format != "human" && format != "json" {
+		return errors.New("Invalid output format; use human or json.")
+	}
+	res, err := stats.Quality(stateDir)
+	if err != nil {
+		return erruser.New("Could not compute quality stats.", err)
+	}
+	if format == "json" {
+		data, err := json.Marshal(res)
+		if err != nil {
+			return erruser.New("Could not write quality stats.", err)
+		}
+		if _, err := os.Stdout.Write(data); err != nil {
+			return erruser.New("Could not write quality stats.", err)
+		}
+		fmt.Fprintln(os.Stdout)
+		return nil
+	}
+	fmt.Fprintf(os.Stdout, "Sessions: %d\n", res.SessionsCount)
+	fmt.Fprintf(os.Stdout, "Total findings: %d\n", res.TotalFindings)
+	fmt.Fprintf(os.Stdout, "Total dismissed: %d\n", res.TotalDismissed)
+	fmt.Fprintf(os.Stdout, "Dismissal rate: %.2f\n", res.DismissalRate)
+	fmt.Fprintf(os.Stdout, "Acceptance rate: %.2f\n", res.AcceptanceRate)
+	fmt.Fprintf(os.Stdout, "False positive rate: %.2f\n", res.FalsePositiveRate)
+	fmt.Fprintf(os.Stdout, "Actionability: %.2f\n", res.Actionability)
+	fmt.Fprintf(os.Stdout, "Clean commit rate: %.2f\n", res.CleanCommitRate)
+	if res.FindingDensity != 0 {
+		fmt.Fprintf(os.Stdout, "Finding density (per 1k tokens): %.2f\n", res.FindingDensity)
+	}
+	fmt.Fprintf(os.Stdout, "Dismissals by reason: %v\n", res.DismissalsByReason)
+	fmt.Fprintf(os.Stdout, "Category breakdown: %v\n", res.CategoryBreakdown)
 	return nil
 }
