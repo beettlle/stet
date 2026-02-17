@@ -30,6 +30,51 @@ The following exist today; this roadmap only lists work not yet implemented.
 
 ---
 
+## Phase 7.5: Multi-Backend LLM Architecture (Ollama + OpenCode)
+
+**Goal:** Support multiple LLM backends via a pluggable interface. Initially two backends: **Ollama** (direct API, existing) and **OpenCode** (via server API). Using OpenCode gives access to 75+ providers (OpenAI, Anthropic, OpenRouter, etc.) as OpenCode adds them, without stet maintaining integrations.
+
+### 7.5.1 Feature: LLM Backend Interface and Ollama Adapter
+
+- **Status:** Not started.
+- **Goal:** Define an `LLMClient` interface and refactor the review path to use it. Wrap the existing Ollama client behind this interface.
+- **Entry points:** New package `cli/internal/llm` with interface; [cli/internal/ollama](cli/internal/ollama/client.go) implements it; [cli/internal/review/review.go](cli/internal/review/review.go) and [cli/internal/run/run.go](cli/internal/run/run.go) accept the interface.
+- **Interface:** `Generate(ctx, model, systemPrompt, userPrompt string, opts) (*GenerateResult, error)`, `Check(ctx, model) (*CheckResult, error)`, optional `Show(ctx, model) (*ShowResult, error)` for context length. `GenerateResult` includes response text and `Usage` (prompt/completion tokens, durations).
+- **Code to reuse:** [ollama.Client](cli/internal/ollama/client.go) with `Check`, `Show`, `Generate`; [review.ReviewHunk](cli/internal/review/review.go) (line 75) and run loop in [run.Run](cli/internal/run/run.go) (line 654) call `client.Generate`.
+- **Implementation chunks:**
+  1. Define `LLMClient` interface and shared types (`GenerateResult`, `Usage`, `CheckResult`) in `cli/internal/llm`.
+  2. Create `ollama.Adapter` (or make `ollama.Client` implement the interface) wrapping existing logic.
+  3. Refactor `ReviewHunk` and run package to accept `llm.Client` interface instead of `*ollama.Client`.
+  4. Add config `backend` (`ollama` | `opencode`) and backend selection factory.
+- **Config and env:** `backend` (default `ollama`), `ollama_base_url` (unchanged). Env: `STET_BACKEND`, `STET_OLLAMA_BASE_URL`.
+- **Acceptance criteria:** With `backend=ollama`, behavior unchanged. Dry-run and full review path work as today.
+- **Tests:** Unit tests for adapter; integration tests with mock Ollama unchanged.
+
+### 7.5.2 Feature: OpenCode Backend
+
+- **Status:** Not started.
+- **Goal:** Implement the `LLMClient` interface using the OpenCode server API. Users run `opencode serve` and configure stet to use it; stet gets access to all providers OpenCode supports (75+ via Models.dev).
+- **Entry points:** New package `cli/internal/llm/opencode`; implement `LLMClient` using [github.com/sst/opencode-sdk-go](https://github.com/anomalyco/opencode-sdk-go).
+- **Flow:** Create session via `Session.New`; for each hunk call `Session.Prompt` with system + user prompt; extract text from response `parts` (TextPart); parse JSON with existing `ParseFindingsResponse`. Map `AssistantMessage.Tokens` (Input, Output, Reasoning) to stet `Usage`.
+- **Code to reuse:** [opencode-sdk-go](https://github.com/anomalyco/opencode-sdk-go) (`Session.New`, `Session.Prompt`); [review.ParseFindingsResponse](cli/internal/review/review.go) for JSON parsing.
+- **Implementation chunks:**
+  1. OpenCode client adapter: configure SDK (base URL, basic auth via `OPENCODE_SERVER_PASSWORD`).
+  2. `Check`: `GET /global/health` for server reachability; optionally verify model via `/config/providers`.
+  3. `Generate`: create session, send message with `system` and `parts` (TextPart for user prompt), extract text from response parts, map tokens to Usage.
+  4. Handle session lifecycle (create per run or per hunk; document that `opencode serve` should run from repo root for project context).
+  5. Error mapping: connection/server errors → `ErrUnreachable` equivalent for `stet doctor` and exit code 2.
+- **Config and env:** `opencode_base_url` (default `http://localhost:4096`), `opencode_password` (optional, for `OPENCODE_SERVER_PASSWORD`). Env: `STET_OPENCODE_BASE_URL`, `STET_OPENCODE_PASSWORD`. Model uses OpenCode model ID (e.g. `anthropic/claude-sonnet-4`, `ollama/qwen3-coder:30b`).
+- **Acceptance criteria:** With `backend=opencode` and `opencode serve` running (with providers configured), `stet start` and `stet run` complete using OpenCode's selected model. `stet doctor` checks OpenCode server health when backend is opencode.
+- **Tests:** Unit tests with mock HTTP server simulating OpenCode API; optional integration test with real `opencode serve`.
+- **Documentation:** User must run `opencode serve` from repo root; configure providers in OpenCode (`/connect`, `opencode.json`).
+
+### Dependencies
+
+- **Go:** opencode-sdk-go requires Go 1.22+ (stet already targets this).
+- **OpenCode:** User must have OpenCode installed and run `opencode serve` when using the opencode backend.
+
+---
+
 ## Phase 8: The "Ecosystem" Release (MCP & Integration)
 
 **Goal:** Transform stet from a standalone tool into a service that AI Editors (Cursor, Windsurf, Claude) can consume directly.
