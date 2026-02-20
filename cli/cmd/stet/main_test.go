@@ -2246,3 +2246,39 @@ func TestRunCLI_statsEnergyJSONInRepo(t *testing.T) {
 		t.Errorf("cloud_cost_avoided[gpt-4o-mini]: got %.4f, want ~0.21", cost)
 	}
 }
+
+func TestParseContextPreset(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		in      string
+		want    int
+		wantErr bool
+	}{
+		{"4k", "4k", 4096, false},
+		{"8k", "8k", 8192, false},
+		{"16k", "16k", 16384, false},
+		{"32k", "32k", 32768, false},
+		{"64k", "64k", 65536, false},
+		{"128k", "128k", 131072, false},
+		{"256k", "256k", 262144, false},
+		{"32k uppercase", "32K", 32768, false},
+		{"4k mixed", "4K", 4096, false},
+		{"invalid 1k", "1k", 0, true},
+		{"invalid 33k", "33k", 0, true},
+		{"invalid no k", "32", 0, true},
+		{"empty", "", 0, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseContextPreset(tt.in)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseContextPreset(%q) err = %v, wantErr %v", tt.in, err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && got != tt.want {
+				t.Errorf("parseContextPreset(%q) = %d, want %d", tt.in, got, tt.want)
+			}
+		})
+	}
+}

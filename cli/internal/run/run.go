@@ -326,6 +326,8 @@ type StartOptions struct {
 	PersistRAGSymbolMaxDefinitions *int
 	PersistRAGSymbolMaxTokens      *int
 	PersistNitpicky                *bool
+	PersistContextLimit            *int
+	PersistNumCtx                  *int
 	// TraceOut, when non-nil, receives internal trace output (partition, hunks, rules, RAG, LLM I/O). Used when --trace is set.
 	TraceOut io.Writer
 }
@@ -442,6 +444,14 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		if opts.PersistNitpicky != nil {
 			s.Nitpicky = opts.PersistNitpicky
 		}
+		if opts.PersistContextLimit != nil {
+			v := *opts.PersistContextLimit
+			s.ContextLimit = &v
+		}
+		if opts.PersistNumCtx != nil {
+			v := *opts.PersistNumCtx
+			s.NumCtx = &v
+		}
 		if err := session.Save(opts.StateDir, &s); err != nil {
 			return err
 		}
@@ -500,6 +510,14 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 	}
 	if opts.PersistNitpicky != nil {
 		s.Nitpicky = opts.PersistNitpicky
+	}
+	if opts.PersistContextLimit != nil {
+		v := *opts.PersistContextLimit
+		s.ContextLimit = &v
+	}
+	if opts.PersistNumCtx != nil {
+		v := *opts.PersistNumCtx
+		s.NumCtx = &v
 	}
 	if err := session.Save(opts.StateDir, &s); err != nil {
 		return err
@@ -566,26 +584,8 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 
 	effectiveNumCtx := opts.NumCtx
 	effectiveContextLimit := opts.ContextLimit
-	// Show is called once upfront; model context length is stable for the run.
-	if ollamaClient != nil {
-		showResult, showErr := ollamaClient.Show(ctx, opts.Model)
-		if showErr == nil && showResult != nil && showResult.ContextLength > 0 {
-			if showResult.ContextLength > effectiveNumCtx {
-				effectiveNumCtx = showResult.ContextLength
-			}
-			// Use model's larger context when Show returns a value greater than config.
-			if effectiveNumCtx > effectiveContextLimit {
-				effectiveContextLimit = effectiveNumCtx
-			}
-			if tr.Enabled() && effectiveNumCtx > opts.NumCtx {
-				tr.Section("Context")
-				tr.Printf("using model context %d (config num_ctx=%d)\n", effectiveNumCtx, opts.NumCtx)
-			}
-		}
-	}
 	// effectiveNumCtx is sent to Ollama; effectiveContextLimit is the single source of
-	// truth for token warnings and ReviewHunk RAG budget. Both reflect the model's
-	// actual context when Show succeeds; otherwise config values are used.
+	// truth for token warnings and ReviewHunk RAG budget (config/flag/session only; no bump from Ollama Show).
 
 	if opts.DryRun {
 		for i, hunk := range part.ToReview {
@@ -1000,24 +1000,8 @@ func Run(ctx context.Context, opts RunOptions) error {
 		}
 		effectiveNumCtx := opts.NumCtx
 		effectiveContextLimit := opts.ContextLimit
-		// Show is called once upfront; model context length is stable for the run.
-		showResult, showErr := client.Show(ctx, opts.Model)
-		if showErr == nil && showResult != nil && showResult.ContextLength > 0 {
-			if showResult.ContextLength > effectiveNumCtx {
-				effectiveNumCtx = showResult.ContextLength
-			}
-			// Use model's larger context when Show returns a value greater than config.
-			if effectiveNumCtx > effectiveContextLimit {
-				effectiveContextLimit = effectiveNumCtx
-			}
-			if trRun.Enabled() && effectiveNumCtx > opts.NumCtx {
-				trRun.Section("Context")
-				trRun.Printf("using model context %d (config num_ctx=%d)\n", effectiveNumCtx, opts.NumCtx)
-			}
-		}
 		// effectiveNumCtx is sent to Ollama; effectiveContextLimit is the single source of
-		// truth for token warnings and ReviewHunk RAG budget. Both reflect the model's
-		// actual context when Show succeeds; otherwise config values are used.
+		// truth for token warnings and ReviewHunk RAG budget (config/flag/session only; no bump from Ollama Show).
 		branch, commitMsg, intentErr := git.UserIntent(opts.RepoRoot)
 		if intentErr != nil {
 			fmt.Fprintf(os.Stderr, "Warning: could not retrieve Git intent (branch/commit): %v; using placeholder\n", intentErr)

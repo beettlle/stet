@@ -231,6 +231,39 @@ func TestStart_persistStrictnessAndRAG_storesInSession(t *testing.T) {
 	}
 }
 
+func TestStart_refEqualsHEAD_withPersistContext_storesInSession(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	contextLimit := 8192
+	numCtx := 8192
+	opts := StartOptions{
+		RepoRoot:            repo,
+		StateDir:            stateDir,
+		WorktreeRoot:        "",
+		Ref:                 "HEAD",
+		DryRun:              true,
+		Model:               "",
+		OllamaBaseURL:       "",
+		PersistContextLimit: &contextLimit,
+		PersistNumCtx:       &numCtx,
+	}
+	if err := Start(ctx, opts); err != nil {
+		t.Fatalf("Start(HEAD): %v", err)
+	}
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	if s.ContextLimit == nil || *s.ContextLimit != contextLimit {
+		t.Errorf("session.ContextLimit = %v, want %d", s.ContextLimit, contextLimit)
+	}
+	if s.NumCtx == nil || *s.NumCtx != numCtx {
+		t.Errorf("session.NumCtx = %v, want %d", s.NumCtx, numCtx)
+	}
+}
+
 func TestStart_requiresCleanWorktree(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

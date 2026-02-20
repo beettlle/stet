@@ -48,6 +48,9 @@ type Session struct {
 	RAGSymbolMaxTokens *int `json:"rag_symbol_max_tokens,omitempty"`
 	// Nitpicky from stet start (nil = not set; run uses config when flag not set).
 	Nitpicky *bool `json:"nitpicky,omitempty"`
+	// ContextLimit and NumCtx from stet start (nil = not set; run uses config when flag not set).
+	ContextLimit *int `json:"context_limit,omitempty"`
+	NumCtx       *int `json:"num_ctx,omitempty"`
 	// Last-run usage (set at end of Run when STET_CAPTURE_USAGE is true). Used for history record on Finish.
 	LastRunPromptTokens     int64 `json:"last_run_prompt_tokens,omitempty"`
 	LastRunCompletionTokens int64 `json:"last_run_completion_tokens,omitempty"`

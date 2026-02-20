@@ -115,7 +115,7 @@ For optimizing toward **actionable findings**, see [Review quality and actionabi
 | `state_dir` / `STET_STATE_DIR` | (empty → `.review` in repo) | Directory for session, lock, history, optimized prompt. |
 | `worktree_root` / `STET_WORKTREE_ROOT` | (empty → `repo/.review/worktrees`) | Directory for stet worktrees. |
 | `temperature` / `STET_TEMPERATURE` | 0.2 | Sampling temperature (0–2). Passed to Ollama. |
-| `num_ctx` / `STET_NUM_CTX` | 32768 | Model context window size (tokens). Used as a **minimum**; if the Ollama model reports a larger context (via `POST /api/show`), stet uses that value for the run. Passed to Ollama; 0 = use model default. |
+| `num_ctx` / `STET_NUM_CTX` | 32768 | Model context window size (tokens). Stet uses only configured (and env/flag/session) values; it does not bump context from Ollama. Passed to Ollama; 0 = use model default. |
 | `optimizer_script` / `STET_OPTIMIZER_SCRIPT` | (none) | Command for `stet optimize` (e.g. `python3 scripts/optimize.py`). |
 | `rag_symbol_max_definitions` / `STET_RAG_SYMBOL_MAX_DEFINITIONS` | 10 | Max symbol definitions to inject (0 = disable). |
 | `rag_symbol_max_tokens` / `STET_RAG_SYMBOL_MAX_TOKENS` | 0 | Max tokens for symbol-definitions block (0 = no cap). |
@@ -126,6 +126,8 @@ The + presets (strict+, default+, lenient+) show more findings by not filtering 
 RAG symbol options can also be set via **`--rag-symbol-max-definitions`** and **`--rag-symbol-max-tokens`** on `stet start` and `stet run`; when set, they override config and env. Strictness can also be set via **`--strictness`** on `stet start` and `stet run`; when set, it overrides config and env.
 
 Strictness and RAG symbol options set on **`stet start`** are stored in the session. **`stet run`** uses those stored values when the corresponding flag is **not** set. Explicit flags on **`stet run`** override for that run only; the next run without flags again uses the session values from start.
+
+Context window can be set via **`--context`** (preset: 4k, 8k, 16k, 32k, 64k, 128k, 256k) or **`--num-ctx`** (exact tokens). Both set `context_limit` and `num_ctx`; if both flags are given, **`--num-ctx`** wins. Values set on **`stet start`** are stored in the session and used by **`stet run`** until **`stet finish`**. **`stet commitmsg`** also accepts **`--context`** and **`--num-ctx`** (for the message suggestion and for the review when **`--commit-and-review`** is used).
 
 ### RAG symbol options (tuning)
 
@@ -144,9 +146,9 @@ For each hunk, stet can look up symbols referenced in the hunk (functions, types
 
 **Per-hunk adaptive (planned):** A future release may compute the RAG token cap **per hunk** from the effective context limit minus base prompt size and response reserve, so each hunk gets as much symbol context as fits. When implemented, config `rag_symbol_max_tokens` and `rag_symbol_max_definitions` will act as upper bounds or explicit overrides when set; when unset (or 0 for tokens), the per-hunk budget is used. See [implementation-plan.md](implementation-plan.md) Phase 6.11.
 
-### Context window detection
+### Context window
 
-Before the review loop (and only when not dry-run), stet calls Ollama **`POST /api/show`** with the configured model name. From the response, it reads the model's context size (e.g. from `model_info` fields like `*.context_length`, or from the `parameters` text). The context used for the run is **`max(configured num_ctx, model context)`**. The same value is used for token warnings and for hunk expansion. If the request fails or no context length is found, stet uses only the configured `num_ctx` and `context_limit`.
+Stet does not bump context from Ollama. Effective context is config/env, overridden by **`--context`** or **`--num-ctx`** on the command line; on **`stet run`** and **`stet rerun`**, session values from **`stet start`** are used when those flags are not set. The same value is used for token warnings and for hunk expansion.
 
 ## Working directory
 
@@ -160,7 +162,7 @@ If multiple stet worktrees remain after interrupted runs (e.g. `git worktree lis
 
 State lives under `.review/` (or the path given by `state_dir`). Artifacts:
 
-- **`session.json`** — Session state (baseline ref, last_reviewed_at, findings, dismissed_ids, prompt_shadows, and optionally strictness and RAG symbol options from `stet start`).
+- **`session.json`** — Session state (baseline ref, last_reviewed_at, findings, dismissed_ids, prompt_shadows, and optionally strictness, RAG symbol options, and context_limit/num_ctx from `stet start`).
 - **`lock`** — Advisory lock for a single active session.
 - **`config.toml`** — Repo-level config (optional).
 - **`history.jsonl`** — Active feedback log for the optimizer and prompt shadowing (see below). Rotated-out lines may be written to **`history.jsonl.<n>.gz`** (e.g. `history.jsonl.1.gz`, `history.jsonl.2.gz`); at most 5 archives are kept.

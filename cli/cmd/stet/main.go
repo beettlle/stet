@@ -210,6 +210,8 @@ func newStartCmd() *cobra.Command {
 	cmd.Flags().Int("rag-symbol-max-tokens", 0, "Max tokens for symbol-definitions block (0 = use config); overrides config and env")
 	cmd.Flags().String("strictness", "", "Review strictness preset: strict, default, lenient, strict+, default+, lenient+ (overrides config and env)")
 	cmd.Flags().Bool("nitpicky", false, "Enable nitpicky mode: report typos, grammar, style, and convention violations; do not filter those findings")
+	cmd.Flags().String("context", "", "Context window preset: 4k, 8k, 16k, 32k, 64k, 128k, 256k (sets both context_limit and num_ctx)")
+	cmd.Flags().Int("num-ctx", 0, "Context window size in tokens (0 = use config); overrides config and --context; sets both context_limit and num_ctx")
 	cmd.Flags().Bool("trace", false, "Print internal steps to stderr (partition, rules, RAG, prompts, LLM I/O)")
 	return cmd
 }
@@ -251,7 +253,11 @@ func runStart(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	overrides := overridesFromFlags(cmd)
+	overrides, err := overridesFromFlags(cmd)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return errExit(1)
+	}
 	if overrides != nil && overrides.Strictness != nil && *overrides.Strictness != "" {
 		if _, _, _, err := findings.ResolveStrictness(*overrides.Strictness); err != nil {
 			fmt.Fprintln(os.Stderr, err.Error())
@@ -287,6 +293,12 @@ func runStart(cmd *cobra.Command, args []string) error {
 	if overrides != nil && overrides.Nitpicky != nil {
 		persistNitpicky = &cfg.Nitpicky
 	}
+	var persistContextLimit *int
+	var persistNumCtx *int
+	if overrides != nil && (overrides.ContextLimit != nil || overrides.NumCtx != nil) {
+		persistContextLimit = &cfg.ContextLimit
+		persistNumCtx = &cfg.NumCtx
+	}
 	opts := run.StartOptions{
 		RepoRoot:                       repoRoot,
 		StateDir:                       stateDir,
@@ -313,6 +325,8 @@ func runStart(cmd *cobra.Command, args []string) error {
 		PersistRAGSymbolMaxDefinitions: persistRAGDefs,
 		PersistRAGSymbolMaxTokens:      persistRAGTokens,
 		PersistNitpicky:                persistNitpicky,
+		PersistContextLimit:            persistContextLimit,
+		PersistNumCtx:                  persistNumCtx,
 		TraceOut:                       traceOut,
 	}
 	if stream {
@@ -362,7 +376,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// addRunLikeFlags registers the flags shared by run and rerun (dry-run, quiet, output, json, stream, rag-symbol-*, strictness, nitpicky, trace).
+// addRunLikeFlags registers the flags shared by run and rerun (dry-run, quiet, output, json, stream, rag-symbol-*, strictness, nitpicky, context, num-ctx, trace).
 func addRunLikeFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool("dry-run", false, "Skip LLM; inject canned findings for CI")
 	cmd.Flags().BoolP("quiet", "q", false, "Suppress progress (use for scripts and IDE integration)")
@@ -373,6 +387,8 @@ func addRunLikeFlags(cmd *cobra.Command) {
 	cmd.Flags().Int("rag-symbol-max-tokens", 0, "Max tokens for symbol-definitions block (0 = use config); overrides config and env")
 	cmd.Flags().String("strictness", "", "Review strictness preset: strict, default, lenient, strict+, default+, lenient+ (overrides config and env)")
 	cmd.Flags().Bool("nitpicky", false, "Enable nitpicky mode: report typos, grammar, style, and convention violations; do not filter those findings")
+	cmd.Flags().String("context", "", "Context window preset: 4k, 8k, 16k, 32k, 64k, 128k, 256k (sets both context_limit and num_ctx)")
+	cmd.Flags().Int("num-ctx", 0, "Context window size in tokens (0 = use config); overrides config and --context; sets both context_limit and num_ctx")
 	cmd.Flags().Bool("trace", false, "Print internal steps to stderr (partition, rules, RAG, prompts, LLM I/O)")
 }
 
@@ -386,14 +402,38 @@ func newRunCmd() *cobra.Command {
 	return cmd
 }
 
-// overridesFromFlags returns Overrides for RAG, strictness, and nitpicky when the corresponding flags were set (start/run both define these flags).
-func overridesFromFlags(cmd *cobra.Command) *config.Overrides {
+// parseContextPreset maps preset strings (4k, 8k, ..., 256k) to token counts. Case-insensitive. Returns error for invalid values.
+func parseContextPreset(s string) (int, error) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "4k":
+		return 4096, nil
+	case "8k":
+		return 8192, nil
+	case "16k":
+		return 16384, nil
+	case "32k":
+		return 32768, nil
+	case "64k":
+		return 65536, nil
+	case "128k":
+		return 131072, nil
+	case "256k":
+		return 262144, nil
+	default:
+		return 0, erruser.New("invalid --context: must be one of 4k, 8k, 16k, 32k, 64k, 128k, 256k", nil)
+	}
+}
+
+// overridesFromFlags returns Overrides for RAG, strictness, nitpicky, and context when the corresponding flags were set (start/run both define these flags).
+func overridesFromFlags(cmd *cobra.Command) (*config.Overrides, error) {
 	defChanged := cmd.Flags().Lookup("rag-symbol-max-definitions") != nil && cmd.Flags().Lookup("rag-symbol-max-definitions").Changed
 	tokChanged := cmd.Flags().Lookup("rag-symbol-max-tokens") != nil && cmd.Flags().Lookup("rag-symbol-max-tokens").Changed
 	strictnessChanged := cmd.Flags().Lookup("strictness") != nil && cmd.Flags().Lookup("strictness").Changed
 	nitpickyChanged := cmd.Flags().Lookup("nitpicky") != nil && cmd.Flags().Lookup("nitpicky").Changed
-	if !defChanged && !tokChanged && !strictnessChanged && !nitpickyChanged {
-		return nil
+	contextChanged := cmd.Flags().Lookup("context") != nil && cmd.Flags().Lookup("context").Changed
+	numCtxChanged := cmd.Flags().Lookup("num-ctx") != nil && cmd.Flags().Lookup("num-ctx").Changed
+	if !defChanged && !tokChanged && !strictnessChanged && !nitpickyChanged && !contextChanged && !numCtxChanged {
+		return nil, nil
 	}
 	o := &config.Overrides{}
 	if defChanged {
@@ -412,7 +452,23 @@ func overridesFromFlags(cmd *cobra.Command) *config.Overrides {
 		v, _ := cmd.Flags().GetBool("nitpicky")
 		o.Nitpicky = &v
 	}
-	return o
+	if numCtxChanged {
+		v, _ := cmd.Flags().GetInt("num-ctx")
+		if v < 0 {
+			return nil, erruser.New("--num-ctx must be 0 or positive", nil)
+		}
+		o.NumCtx = &v
+		o.ContextLimit = &v
+	} else if contextChanged {
+		v, _ := cmd.Flags().GetString("context")
+		n, err := parseContextPreset(v)
+		if err != nil {
+			return nil, err
+		}
+		o.ContextLimit = &n
+		o.NumCtx = &n
+	}
+	return o, nil
 }
 
 func runRun(cmd *cobra.Command, args []string) error {
@@ -424,7 +480,11 @@ func runRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	overrides := overridesFromFlags(cmd)
+	overrides, err := overridesFromFlags(cmd)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return errExit(1)
+	}
 	if overrides != nil && overrides.Strictness != nil && *overrides.Strictness != "" {
 		if _, _, _, err := findings.ResolveStrictness(*overrides.Strictness); err != nil {
 			fmt.Fprintln(os.Stderr, err.Error())
@@ -465,6 +525,18 @@ func runRun(cmd *cobra.Command, args []string) error {
 	} else if s.Nitpicky != nil {
 		effectiveNitpicky = *s.Nitpicky
 	}
+	effectiveContextLimit := cfg.ContextLimit
+	if overrides != nil && overrides.ContextLimit != nil {
+		effectiveContextLimit = *overrides.ContextLimit
+	} else if s.ContextLimit != nil {
+		effectiveContextLimit = *s.ContextLimit
+	}
+	effectiveNumCtx := cfg.NumCtx
+	if overrides != nil && overrides.NumCtx != nil {
+		effectiveNumCtx = *overrides.NumCtx
+	} else if s.NumCtx != nil {
+		effectiveNumCtx = *s.NumCtx
+	}
 	minKeep, minMaint, applyFP, err := findings.ResolveStrictness(effectiveStrictness)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
@@ -502,11 +574,11 @@ func runRun(cmd *cobra.Command, args []string) error {
 		DryRun:                       dryRun,
 		Model:                        cfg.Model,
 		OllamaBaseURL:                cfg.OllamaBaseURL,
-		ContextLimit:                 cfg.ContextLimit,
+		ContextLimit:                 effectiveContextLimit,
 		WarnThreshold:                cfg.WarnThreshold,
 		Timeout:                      cfg.Timeout,
 		Temperature:                  cfg.Temperature,
-		NumCtx:                       cfg.NumCtx,
+		NumCtx:                       effectiveNumCtx,
 		Verbose:                      verbose,
 		StreamOut:                    nil,
 		RAGSymbolMaxDefinitions:      effectiveRAGDefs,
@@ -577,7 +649,11 @@ func runRerun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	overrides := overridesFromFlags(cmd)
+	overrides, err := overridesFromFlags(cmd)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return errExit(1)
+	}
 	if overrides != nil && overrides.Strictness != nil && *overrides.Strictness != "" {
 		if _, _, _, err := findings.ResolveStrictness(*overrides.Strictness); err != nil {
 			fmt.Fprintln(os.Stderr, err.Error())
@@ -617,6 +693,18 @@ func runRerun(cmd *cobra.Command, args []string) error {
 	} else if s.Nitpicky != nil {
 		effectiveNitpicky = *s.Nitpicky
 	}
+	effectiveContextLimit := cfg.ContextLimit
+	if overrides != nil && overrides.ContextLimit != nil {
+		effectiveContextLimit = *overrides.ContextLimit
+	} else if s.ContextLimit != nil {
+		effectiveContextLimit = *s.ContextLimit
+	}
+	effectiveNumCtx := cfg.NumCtx
+	if overrides != nil && overrides.NumCtx != nil {
+		effectiveNumCtx = *overrides.NumCtx
+	} else if s.NumCtx != nil {
+		effectiveNumCtx = *s.NumCtx
+	}
 	minKeep, minMaint, applyFP, err := findings.ResolveStrictness(effectiveStrictness)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
@@ -655,11 +743,11 @@ func runRerun(cmd *cobra.Command, args []string) error {
 		DryRun:                       dryRun,
 		Model:                        cfg.Model,
 		OllamaBaseURL:                cfg.OllamaBaseURL,
-		ContextLimit:                 cfg.ContextLimit,
+		ContextLimit:                 effectiveContextLimit,
 		WarnThreshold:                cfg.WarnThreshold,
 		Timeout:                      cfg.Timeout,
 		Temperature:                  cfg.Temperature,
-		NumCtx:                       cfg.NumCtx,
+		NumCtx:                       effectiveNumCtx,
 		Verbose:                      verbose,
 		StreamOut:                    nil,
 		RAGSymbolMaxDefinitions:      effectiveRAGDefs,
@@ -1066,6 +1154,8 @@ func newCommitMsgCmd() *cobra.Command {
 	cmd.Flags().Bool("staged-only", false, "Use only staged changes for the message (default: staged + unstaged)")
 	cmd.Flags().Bool("commit", false, "Commit staged changes with the generated message")
 	cmd.Flags().Bool("commit-and-review", false, "Commit with the message, then run review (start session if none, else run)")
+	cmd.Flags().String("context", "", "Context window preset: 4k, 8k, 16k, 32k, 64k, 128k, 256k (sets both context_limit and num_ctx; used for suggest and for review when --commit-and-review)")
+	cmd.Flags().Int("num-ctx", 0, "Context window size in tokens (0 = use config); overrides config and --context; sets both context_limit and num_ctx")
 	return cmd
 }
 
@@ -1078,7 +1168,12 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	cfg, err := config.Load(cmd.Context(), config.LoadOptions{RepoRoot: repoRoot})
+	overrides, err := overridesFromFlags(cmd)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return errExit(1)
+	}
+	cfg, err := config.Load(cmd.Context(), config.LoadOptions{RepoRoot: repoRoot, Overrides: overrides})
 	if err != nil {
 		return err
 	}
@@ -1172,17 +1267,29 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 	if cfg.Nitpicky {
 		applyFP = false
 	}
+	effectiveContextLimit := cfg.ContextLimit
+	if overrides != nil && overrides.ContextLimit != nil {
+		effectiveContextLimit = *overrides.ContextLimit
+	} else if s.ContextLimit != nil {
+		effectiveContextLimit = *s.ContextLimit
+	}
+	effectiveNumCtx := cfg.NumCtx
+	if overrides != nil && overrides.NumCtx != nil {
+		effectiveNumCtx = *overrides.NumCtx
+	} else if s.NumCtx != nil {
+		effectiveNumCtx = *s.NumCtx
+	}
 	runOpts := run.RunOptions{
 		RepoRoot:                     repoRoot,
 		StateDir:                     stateDir,
 		DryRun:                       false,
 		Model:                        cfg.Model,
 		OllamaBaseURL:                cfg.OllamaBaseURL,
-		ContextLimit:                 cfg.ContextLimit,
+		ContextLimit:                 effectiveContextLimit,
 		WarnThreshold:                cfg.WarnThreshold,
 		Timeout:                      cfg.Timeout,
 		Temperature:                  cfg.Temperature,
-		NumCtx:                       cfg.NumCtx,
+		NumCtx:                       effectiveNumCtx,
 		Verbose:                      true,
 		StreamOut:                    nil,
 		RAGSymbolMaxDefinitions:      cfg.RAGSymbolMaxDefinitions,
@@ -1191,6 +1298,11 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 		MinConfidenceMaintainability: minMaint,
 		ApplyFPKillList:              &applyFP,
 		Nitpicky:                     cfg.Nitpicky,
+	}
+	var persistContextLimit, persistNumCtx *int
+	if overrides != nil && (overrides.ContextLimit != nil || overrides.NumCtx != nil) {
+		persistContextLimit = &cfg.ContextLimit
+		persistNumCtx = &cfg.NumCtx
 	}
 	if s.BaselineRef == "" {
 		startOpts := run.StartOptions{
@@ -1202,11 +1314,11 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 			AllowDirty:                     true,
 			Model:                          cfg.Model,
 			OllamaBaseURL:                  cfg.OllamaBaseURL,
-			ContextLimit:                   cfg.ContextLimit,
+			ContextLimit:                   effectiveContextLimit,
 			WarnThreshold:                  cfg.WarnThreshold,
 			Timeout:                        cfg.Timeout,
-			Temperature:                    cfg.Temperature,
-			NumCtx:                         cfg.NumCtx,
+			Temperature:                   cfg.Temperature,
+			NumCtx:                         effectiveNumCtx,
 			Verbose:                        true,
 			StreamOut:                      nil,
 			RAGSymbolMaxDefinitions:        cfg.RAGSymbolMaxDefinitions,
@@ -1215,6 +1327,8 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 			MinConfidenceMaintainability:   minMaint,
 			ApplyFPKillList:                &applyFP,
 			Nitpicky:                       cfg.Nitpicky,
+			PersistContextLimit:            persistContextLimit,
+			PersistNumCtx:                  persistNumCtx,
 		}
 		if err := run.Start(cmd.Context(), startOpts); err != nil {
 			if errors.Is(err, ollama.ErrUnreachable) {
