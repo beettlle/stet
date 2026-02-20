@@ -453,7 +453,10 @@ func overridesFromFlags(cmd *cobra.Command) (*config.Overrides, error) {
 		o.Nitpicky = &v
 	}
 	if numCtxChanged {
-		v, _ := cmd.Flags().GetInt("num-ctx")
+		v, err := cmd.Flags().GetInt("num-ctx")
+		if err != nil {
+			return nil, erruser.New("--num-ctx: invalid value", err)
+		}
 		if v < 0 {
 			return nil, erruser.New("--num-ctx must be 0 or positive", nil)
 		}
