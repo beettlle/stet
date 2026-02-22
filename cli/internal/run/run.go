@@ -59,6 +59,8 @@ const (
 	dryRunMessage            = "Dry-run placeholder (CI)"
 	_defaultOllamaTimeout    = 5 * time.Minute
 	maxPromptContextStoreLen = 4096
+	// prepareBufferSize caps how many hunks are prepared ahead; keeps the LLM fed while bounding memory.
+	prepareBufferSize = 3
 )
 
 // truncateForPromptContext truncates s to maxLen and appends "\n[truncated]" if truncated.
@@ -67,6 +69,108 @@ func truncateForPromptContext(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen] + "\n[truncated]"
+}
+
+// preparedPrompt holds a ready-to-send prompt for one hunk, or an error from preparation.
+type preparedPrompt struct {
+	System string
+	User   string
+	Hunk   diff.Hunk
+	Index  int
+	Err    error
+}
+
+// reviewPipelineOpts holds inputs for runReviewPipeline.
+type reviewPipelineOpts struct {
+	Client                   *ollama.Client
+	Model                    string
+	Hunks                    []diff.Hunk
+	GenOpts                  *ollama.GenerateOptions
+	SystemBase                string
+	RepoRoot                  string
+	EffectiveContextLimit     int
+	RAGSymbolMaxDefinitions   int
+	RAGSymbolMaxTokens        int
+	RulesLoader               *rules.Loader
+	MinKeep, MinMaint         float64
+	ApplyFP                   bool
+	StreamOut                 io.Writer
+	Verbose                   bool
+	TraceOut                  *trace.Tracer
+	PromptShadows             []prompt.Shadow
+}
+
+// runReviewPipeline runs the review loop with a prepare goroutine: hunks are
+// prepared (prompt build, expand, RAG) into a bounded channel while the main
+// loop sends one Generate at a time and post-processes each response.
+func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected []findings.Finding, findingPromptContext map[string]string, sumPrompt, sumCompletion int, sumDuration int64, err error) {
+	findingPromptContext = make(map[string]string)
+	total := len(opts.Hunks)
+	readyCh := make(chan preparedPrompt, prepareBufferSize)
+	go func() {
+		defer close(readyCh)
+		for i, hunk := range opts.Hunks {
+			cursorRules := opts.RulesLoader.RulesForFile(hunk.FilePath)
+			system, user, prepErr := review.PrepareHunkPrompt(ctx, opts.SystemBase, hunk, cursorRules, opts.RepoRoot, opts.EffectiveContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, opts.TraceOut)
+			if prepErr != nil {
+				readyCh <- preparedPrompt{Index: i, Hunk: hunk, Err: prepErr}
+				return
+			}
+			readyCh <- preparedPrompt{System: system, User: user, Hunk: hunk, Index: i}
+		}
+	}()
+	for prep := range readyCh {
+		if prep.Err != nil {
+			return nil, nil, 0, 0, 0, erruser.New("Review failed for "+prep.Hunk.FilePath+".", prep.Err)
+		}
+		if opts.StreamOut != nil {
+			tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", prep.Index+1, total, prep.Hunk.FilePath)})
+		}
+		if opts.Verbose {
+			fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", prep.Index+1, total, prep.Hunk.FilePath)
+		}
+		if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+			opts.TraceOut.Section("Hunk " + fmt.Sprintf("%d/%d", prep.Index+1, total) + ": " + prep.Hunk.FilePath)
+			opts.TraceOut.Printf("strict_id=%s semantic_id=%s\n", hunkid.StrictHunkID(prep.Hunk.FilePath, prep.Hunk.RawContent), hunkid.SemanticHunkID(prep.Hunk.FilePath, prep.Hunk.RawContent))
+		}
+		result, genErr := opts.Client.Generate(ctx, opts.Model, prep.System, prep.User, opts.GenOpts)
+		if genErr != nil {
+			return nil, nil, 0, 0, 0, erruser.New("Review failed for "+prep.Hunk.FilePath+".", genErr)
+		}
+		list, usage, processErr := review.ProcessReviewResponse(ctx, result, prep.Hunk, opts.Client, opts.Model, prep.System, prep.User, opts.GenOpts, opts.TraceOut)
+		if processErr != nil {
+			return nil, nil, 0, 0, 0, erruser.New("Review failed for "+prep.Hunk.FilePath+".", processErr)
+		}
+		if usage != nil {
+			sumPrompt += usage.PromptEvalCount
+			sumCompletion += usage.EvalCount
+			sumDuration += usage.EvalDurationNs
+		}
+		batch := findings.FilterAbstention(list, opts.MinKeep, opts.MinMaint)
+		if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+			opts.TraceOut.Section("Post-filters")
+			opts.TraceOut.Printf("Abstention: %d -> %d\n", len(list), len(batch))
+		}
+		if opts.ApplyFP {
+			beforeFP := len(batch)
+			batch = findings.FilterFPKillList(batch)
+			if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+				opts.TraceOut.Printf("FP kill list: %d -> %d\n", beforeFP, len(batch))
+			}
+		}
+		findings.SetCursorURIs(opts.RepoRoot, batch)
+		hunkCtx := truncateForPromptContext(prep.Hunk.RawContent, maxPromptContextStoreLen)
+		for _, f := range batch {
+			if f.ID != "" {
+				findingPromptContext[f.ID] = hunkCtx
+			}
+			if opts.StreamOut != nil {
+				tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "finding", "data": f})
+			}
+			collected = append(collected, f)
+		}
+	}
+	return collected, findingPromptContext, sumPrompt, sumCompletion, sumDuration, nil
 }
 
 // runPromptShadows converts the session's PromptShadows to []prompt.Shadow for injection.
@@ -614,7 +718,6 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		if intentErr != nil {
 			fmt.Fprintf(os.Stderr, "Warning: could not retrieve Git intent (branch/commit): %v; using placeholder\n", intentErr)
 		}
-		userIntent := &prompt.UserIntent{Branch: branch, CommitMsg: commitMsg}
 		// Token estimation: warn once if any hunk's prompt would exceed context threshold (Phase 3.2).
 		if effectiveContextLimit > 0 && opts.WarnThreshold > 0 {
 			systemPrompt, err := prompt.SystemPrompt(opts.StateDir)
@@ -637,52 +740,37 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 				fmt.Fprintln(os.Stderr, w)
 			}
 		}
+		systemBase, err := prompt.SystemPrompt(opts.StateDir)
+		if err != nil {
+			return err
+		}
+		systemBase = prompt.InjectUserIntent(systemBase, branch, commitMsg)
+		systemBase = prompt.AppendPromptShadows(systemBase, runPromptShadows(&s))
+		if opts.Nitpicky {
+			systemBase = prompt.AppendNitpickyInstructions(systemBase)
+		}
 		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: effectiveNumCtx}
 		rulesLoader := rules.NewLoader(opts.RepoRoot)
-		for i, hunk := range part.ToReview {
-			if opts.StreamOut != nil {
-				tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", i+1, total, hunk.FilePath)})
-			}
-			if opts.Verbose {
-				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", i+1, total, hunk.FilePath)
-			}
-			if tr.Enabled() {
-				tr.Section("Hunk " + fmt.Sprintf("%d/%d", i+1, total) + ": " + hunk.FilePath)
-				tr.Printf("strict_id=%s semantic_id=%s\n", hunkid.StrictHunkID(hunk.FilePath, hunk.RawContent), hunkid.SemanticHunkID(hunk.FilePath, hunk.RawContent))
-			}
-			cursorRules := rulesLoader.RulesForFile(hunk.FilePath)
-			list, usage, err := review.ReviewHunk(ctx, ollamaClient, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, effectiveContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, runPromptShadows(&s), opts.Nitpicky, tr)
-			if err != nil {
-				return erruser.New("Review failed for "+hunk.FilePath+".", err)
-			}
-			if usage != nil {
-				sumPrompt += usage.PromptEvalCount
-				sumCompletion += usage.EvalCount
-				sumDuration += usage.EvalDurationNs
-			}
-			batch := findings.FilterAbstention(list, minKeep, minMaint)
-			if tr.Enabled() {
-				tr.Section("Post-filters")
-				tr.Printf("Abstention: %d -> %d\n", len(list), len(batch))
-			}
-			if applyFP {
-				beforeFP := len(batch)
-				batch = findings.FilterFPKillList(batch)
-				if tr.Enabled() {
-					tr.Printf("FP kill list: %d -> %d\n", beforeFP, len(batch))
-				}
-			}
-			findings.SetCursorURIs(opts.RepoRoot, batch)
-			hunkCtx := truncateForPromptContext(hunk.RawContent, maxPromptContextStoreLen)
-			for _, f := range batch {
-				if f.ID != "" {
-					findingPromptContext[f.ID] = hunkCtx
-				}
-				if opts.StreamOut != nil {
-					tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "finding", "data": f})
-				}
-				collected = append(collected, f)
-			}
+		collected, findingPromptContext, sumPrompt, sumCompletion, sumDuration, err = runReviewPipeline(ctx, reviewPipelineOpts{
+			Client:                 ollamaClient,
+			Model:                  opts.Model,
+			Hunks:                  part.ToReview,
+			GenOpts:                genOpts,
+			SystemBase:             systemBase,
+			RepoRoot:               opts.RepoRoot,
+			EffectiveContextLimit:  effectiveContextLimit,
+			RAGSymbolMaxDefinitions: opts.RAGSymbolMaxDefinitions,
+			RAGSymbolMaxTokens:     opts.RAGSymbolMaxTokens,
+			RulesLoader:            rulesLoader,
+			MinKeep:                minKeep,
+			MinMaint:               minMaint,
+			ApplyFP:                applyFP,
+			StreamOut:              opts.StreamOut,
+			Verbose:                opts.Verbose,
+			TraceOut:               tr,
+		})
+		if err != nil {
+			return err
 		}
 	}
 	if opts.StreamOut != nil {
@@ -1006,7 +1094,6 @@ func Run(ctx context.Context, opts RunOptions) error {
 		if intentErr != nil {
 			fmt.Fprintf(os.Stderr, "Warning: could not retrieve Git intent (branch/commit): %v; using placeholder\n", intentErr)
 		}
-		userIntent := &prompt.UserIntent{Branch: branch, CommitMsg: commitMsg}
 		// Token estimation: warn once if any hunk's prompt would exceed context threshold (Phase 3.2).
 		if effectiveContextLimit > 0 && opts.WarnThreshold > 0 {
 			systemPrompt, err := prompt.SystemPrompt(opts.StateDir)
@@ -1029,52 +1116,41 @@ func Run(ctx context.Context, opts RunOptions) error {
 				fmt.Fprintln(os.Stderr, w)
 			}
 		}
+		systemBase, err := prompt.SystemPrompt(opts.StateDir)
+		if err != nil {
+			return err
+		}
+		systemBase = prompt.InjectUserIntent(systemBase, branch, commitMsg)
+		systemBase = prompt.AppendPromptShadows(systemBase, runPromptShadows(&s))
+		if opts.Nitpicky {
+			systemBase = prompt.AppendNitpickyInstructions(systemBase)
+		}
 		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: effectiveNumCtx}
 		rulesLoader := rules.NewLoader(opts.RepoRoot)
-		for i, hunk := range toReview {
-			if opts.StreamOut != nil {
-				tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", i+1, total, hunk.FilePath)})
-			}
-			if opts.Verbose {
-				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", i+1, total, hunk.FilePath)
-			}
-			if trRun.Enabled() {
-				trRun.Section("Hunk " + fmt.Sprintf("%d/%d", i+1, total) + ": " + hunk.FilePath)
-				trRun.Printf("strict_id=%s semantic_id=%s\n", hunkid.StrictHunkID(hunk.FilePath, hunk.RawContent), hunkid.SemanticHunkID(hunk.FilePath, hunk.RawContent))
-			}
-			cursorRules := rulesLoader.RulesForFile(hunk.FilePath)
-			list, usage, err := review.ReviewHunk(ctx, client, opts.Model, opts.StateDir, hunk, genOpts, userIntent, cursorRules, opts.RepoRoot, effectiveContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, runPromptShadows(&s), opts.Nitpicky, trRun)
-			if err != nil {
-				return erruser.New("Review failed for "+hunk.FilePath+".", err)
-			}
-			if usage != nil {
-				sumPrompt += usage.PromptEvalCount
-				sumCompletion += usage.EvalCount
-				sumDuration += usage.EvalDurationNs
-			}
-			batch := findings.FilterAbstention(list, minKeep, minMaint)
-			if trRun.Enabled() {
-				trRun.Section("Post-filters")
-				trRun.Printf("Abstention: %d -> %d\n", len(list), len(batch))
-			}
-			if applyFP {
-				beforeFP := len(batch)
-				batch = findings.FilterFPKillList(batch)
-				if trRun.Enabled() {
-					trRun.Printf("FP kill list: %d -> %d\n", beforeFP, len(batch))
-				}
-			}
-			findings.SetCursorURIs(opts.RepoRoot, batch)
-			hunkCtx := truncateForPromptContext(hunk.RawContent, maxPromptContextStoreLen)
-			for _, f := range batch {
-				if f.ID != "" {
-					s.FindingPromptContext[f.ID] = hunkCtx
-				}
-				if opts.StreamOut != nil {
-					tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "finding", "data": f})
-				}
-				newFindings = append(newFindings, f)
-			}
+		var pipelineContext map[string]string
+		newFindings, pipelineContext, sumPrompt, sumCompletion, sumDuration, err = runReviewPipeline(ctx, reviewPipelineOpts{
+			Client:                 client,
+			Model:                  opts.Model,
+			Hunks:                  toReview,
+			GenOpts:                genOpts,
+			SystemBase:             systemBase,
+			RepoRoot:               opts.RepoRoot,
+			EffectiveContextLimit:  effectiveContextLimit,
+			RAGSymbolMaxDefinitions: opts.RAGSymbolMaxDefinitions,
+			RAGSymbolMaxTokens:     opts.RAGSymbolMaxTokens,
+			RulesLoader:            rulesLoader,
+			MinKeep:                minKeep,
+			MinMaint:               minMaint,
+			ApplyFP:                applyFP,
+			StreamOut:              opts.StreamOut,
+			Verbose:                opts.Verbose,
+			TraceOut:               trRun,
+		})
+		if err != nil {
+			return err
+		}
+		for id, ctx := range pipelineContext {
+			s.FindingPromptContext[id] = ctx
 		}
 	}
 	if opts.StreamOut != nil {

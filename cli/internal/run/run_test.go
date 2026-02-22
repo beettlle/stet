@@ -2152,3 +2152,68 @@ func TestRun_tokenWarningWhenOverThreshold(t *testing.T) {
 		t.Errorf("stderr should contain token warning (exceeds); got: %q", stderr)
 	}
 }
+
+// TestRun_pipeline_multipleHunks_ordersFindingsAndOneGeneratePerHunk asserts that
+// the review pipeline sends one Generate per hunk and returns findings in hunk order.
+func TestRun_pipeline_multipleHunks_ordersFindingsAndOneGeneratePerHunk(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	var generateCalls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/tags" {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"models": []map[string]interface{}{{"name": "m"}}})
+			return
+		}
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		generateCalls++
+		msg := "pipeline-hunk-" + string(rune('0'+generateCalls))
+		if generateCalls > 9 {
+			msg = "pipeline-hunk-" + string(rune('0'+generateCalls/10)) + string(rune('0'+generateCalls%10))
+		}
+		resp := `[{"file":"a.go","line":1,"severity":"info","category":"style","message":"` + msg + `"}]`
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": resp, "done": true})
+	}))
+	defer srv.Close()
+
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	writeFile(t, repo, "f3.txt", "c\n")
+	writeFile(t, repo, "f4.txt", "d\n")
+	runGit(t, repo, "git", "add", "f3.txt", "f4.txt")
+	runGit(t, repo, "git", "commit", "-m", "c3")
+	// Start with mock: pipeline runs during Start and reviews 2 hunks (f3, f4).
+	opts := StartOptions{
+		RepoRoot:      repo,
+		StateDir:      stateDir,
+		WorktreeRoot:  "",
+		Ref:           "HEAD~1",
+		DryRun:        false,
+		Model:         "m",
+		OllamaBaseURL: srv.URL,
+	}
+	if err := Start(ctx, opts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	wantHunks := 2
+	if generateCalls != wantHunks {
+		t.Errorf("generate calls = %d, want %d (one per hunk)", generateCalls, wantHunks)
+	}
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	if len(s.Findings) < wantHunks {
+		t.Errorf("Findings: want at least %d, got %d", wantHunks, len(s.Findings))
+	}
+	for i := 0; i < wantHunks && i < len(s.Findings); i++ {
+		wantMsg := "pipeline-hunk-" + string(rune('0'+i+1))
+		if !strings.Contains(s.Findings[i].Message, wantMsg) {
+			t.Errorf("Findings[%d].Message = %q, want to contain %q (order)", i, s.Findings[i].Message, wantMsg)
+		}
+	}
+}
