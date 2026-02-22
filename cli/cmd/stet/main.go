@@ -47,6 +47,8 @@ func (e errExit) Error() string {
 var defaultGetFindingsOut = func() io.Writer { return os.Stdout }
 var getFindingsOut = defaultGetFindingsOut
 
+const hintBaselineRefResolution = "Hint: If you used HEAD~N, the repo may be shallow; try the commit SHA (e.g. stet start <sha>)."
+
 // findingsWriter returns the writer for findings output, or os.Stdout if getFindingsOut() returns nil.
 // It never returns nil; callers may assume a non-nil writer.
 func findingsWriter() io.Writer {
@@ -190,7 +192,7 @@ func runCLI(args []string) int {
 			fmt.Fprintf(os.Stderr, "Details: %v\n", u)
 		}
 		if strings.Contains(err.Error(), "Could not resolve baseline ref") {
-			fmt.Fprintln(os.Stderr, "Hint: If you used HEAD~N, the repo may be shallow; try the commit SHA (e.g. stet start <sha>).")
+			fmt.Fprintln(os.Stderr, hintBaselineRefResolution)
 		}
 		return 1
 	}

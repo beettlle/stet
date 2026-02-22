@@ -20,8 +20,14 @@ func TestRepoRoot_fromRoot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gotNorm, _ := filepath.EvalSymlinks(got)
-	wantNorm, _ := filepath.EvalSymlinks(absRepo)
+	gotNorm, err := filepath.EvalSymlinks(got)
+	if err != nil {
+		t.Fatalf("EvalSymlinks(got): %v", err)
+	}
+	wantNorm, err := filepath.EvalSymlinks(absRepo)
+	if err != nil {
+		t.Fatalf("EvalSymlinks(absRepo): %v", err)
+	}
 	if gotNorm != wantNorm {
 		t.Errorf("RepoRoot(%q) = %q, want %q", repo, got, absRepo)
 	}
@@ -42,8 +48,14 @@ func TestRepoRoot_fromSubdir(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gotNorm, _ := filepath.EvalSymlinks(got)
-	wantNorm, _ := filepath.EvalSymlinks(absRepo)
+	gotNorm, err := filepath.EvalSymlinks(got)
+	if err != nil {
+		t.Fatalf("EvalSymlinks(got): %v", err)
+	}
+	wantNorm, err := filepath.EvalSymlinks(absRepo)
+	if err != nil {
+		t.Fatalf("EvalSymlinks(absRepo): %v", err)
+	}
 	if gotNorm != wantNorm {
 		t.Errorf("RepoRoot(subdir) = %q, want %q", got, absRepo)
 	}
