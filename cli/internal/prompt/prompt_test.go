@@ -206,6 +206,38 @@ func TestUserPrompt_emptyContext_usesRawContent(t *testing.T) {
 	}
 }
 
+func TestUserPromptSearchReplace(t *testing.T) {
+	hunk := diff.Hunk{
+		FilePath: "a.go",
+		RawContent: "" +
+			"@@ -1,3 +1,4 @@\n" +
+			" context\n" +
+			"-removed\n" +
+			"+added\n" +
+			" context2",
+		Context: "",
+	}
+	got := UserPromptSearchReplace(hunk)
+	if !strings.Contains(got, "File: a.go") {
+		t.Errorf("UserPromptSearchReplace should contain file path; got %q", got)
+	}
+	if !strings.Contains(got, "<<<<<<< SEARCH") {
+		t.Errorf("UserPromptSearchReplace should contain SEARCH marker; got %q", got)
+	}
+	if !strings.Contains(got, "=======") {
+		t.Errorf("UserPromptSearchReplace should contain separator; got %q", got)
+	}
+	if !strings.Contains(got, ">>>>>>> REPLACE") {
+		t.Errorf("UserPromptSearchReplace should contain REPLACE marker; got %q", got)
+	}
+	if !strings.Contains(got, "removed") {
+		t.Errorf("SEARCH block should contain removed line; got %q", got)
+	}
+	if !strings.Contains(got, "added") {
+		t.Errorf("REPLACE block should contain added line; got %q", got)
+	}
+}
+
 func TestInjectUserIntent_replacesPlaceholder(t *testing.T) {
 	got := InjectUserIntent(DefaultSystemPrompt, "main", "fix")
 	if !strings.Contains(got, "Branch: main") {

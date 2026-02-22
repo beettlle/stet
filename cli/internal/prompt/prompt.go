@@ -282,3 +282,48 @@ func UserPrompt(hunk diff.Hunk) string {
 	}
 	return "File: " + hunk.FilePath + "\n\n" + content
 }
+
+const searchReplaceFormatNote = "\n\n## Input format\nThe user content is in search-replace format: SEARCH = old code, REPLACE = new code. Review the change and the resulting code (REPLACE) for defects.\n"
+
+// AppendSearchReplaceFormatNote appends a short note to the system prompt when
+// the user prompt will be in search-replace format (--search-replace flag).
+func AppendSearchReplaceFormatNote(system string) string {
+	return system + searchReplaceFormatNote
+}
+
+// UserPromptSearchReplace builds the user prompt in search-replace (merge-conflict)
+// style: SEARCH block = old code (context + removed lines), REPLACE block = new
+// code (context + added lines). Used when --search-replace is set for testing
+// token usage and finding quality.
+func UserPromptSearchReplace(hunk diff.Hunk) string {
+	content := hunk.Context
+	if content == "" {
+		content = hunk.RawContent
+	}
+	lines := strings.Split(content, "\n")
+	var oldBlock, newBlock []string
+	for _, line := range lines {
+		if len(line) == 0 {
+			oldBlock = append(oldBlock, "")
+			newBlock = append(newBlock, "")
+			continue
+		}
+		first := line[0]
+		rest := line[1:]
+		if first == ' ' || first == '-' {
+			oldBlock = append(oldBlock, rest)
+		}
+		if first == ' ' || first == '+' {
+			if strings.HasPrefix(line, "+++") {
+				continue
+			}
+			newBlock = append(newBlock, rest)
+		}
+	}
+	oldStr := strings.Join(oldBlock, "\n")
+	newStr := strings.Join(newBlock, "\n")
+	if hunk.FilePath == "" {
+		return "<<<<<<< SEARCH\n" + oldStr + "\n=======\n" + newStr + "\n>>>>>>> REPLACE"
+	}
+	return "File: " + hunk.FilePath + "\n\n<<<<<<< SEARCH\n" + oldStr + "\n=======\n" + newStr + "\n>>>>>>> REPLACE"
+}

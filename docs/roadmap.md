@@ -256,6 +256,8 @@ The following exist today; this roadmap only lists work not yet implemented.
 
 | Topic | Goal | Complexity |
 |-------|------|------------|
+| **AST-preserving minification (non-Go)** | Go is implemented (in-repo, per-line whitespace reduction). Extend to JS/TS, Python, Java, C#, Swift, etc.: either in-repo via Go parsers (if available) or external tools (e.g. Node for JS/TS, Python for Python, Uncrustify for C-family). Same token-saving behavior as Go when reviewing those languages. | Medium–High |
+| **Search-replace diff format** | `--search-replace` is an experimental flag to compare search-replace vs unified diff for token usage and finding quality. Once we have data, decide whether to make it default or remove. | Low |
 | Local vector stores | Evaluate sqlite-vss vs chromadb for storing dismissal history locally without heavy dependencies. | Medium |
 | LSP integration | Use running Language Server (LSP) instead of or in addition to Tree-sitter where possible. | High |
 | Review summarization | Generate a "PR Description" from findings (auto-draft PR). | Low |

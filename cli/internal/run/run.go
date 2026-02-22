@@ -106,6 +106,7 @@ type reviewPipelineOpts struct {
 	Verbose                  bool
 	TraceOut                 *trace.Tracer
 	PromptShadows            []prompt.Shadow
+	UseSearchReplaceFormat   bool
 }
 
 // runReviewPipeline runs the review loop with parallel preparers: workers pull
@@ -141,7 +142,7 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 				}
 				hunk := opts.Hunks[i]
 				cursorRules := opts.RulesByFile[hunk.FilePath]
-				system, user, prepErr := review.PrepareHunkPrompt(ctx, opts.SystemBase, hunk, cursorRules, opts.RepoRoot, opts.EffectiveContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, opts.TraceOut)
+				system, user, prepErr := review.PrepareHunkPrompt(ctx, opts.SystemBase, hunk, cursorRules, opts.RepoRoot, opts.EffectiveContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, opts.UseSearchReplaceFormat, opts.TraceOut)
 				if prepErr != nil {
 					readyCh <- preparedPrompt{Index: i, Hunk: hunk, Err: prepErr}
 					continue
@@ -487,6 +488,8 @@ type StartOptions struct {
 	PersistNumCtx                  *int
 	// TraceOut, when non-nil, receives internal trace output (partition, hunks, rules, RAG, LLM I/O). Used when --trace is set.
 	TraceOut io.Writer
+	// UseSearchReplaceFormat, when true, sends the hunk in search-replace (merge-conflict) style for testing token usage and finding quality.
+	UseSearchReplaceFormat bool
 }
 
 // FinishOptions configures Finish.
@@ -523,6 +526,8 @@ type RunOptions struct {
 	Nitpicky                     bool
 	// TraceOut, when non-nil, receives internal trace output. Used when --trace is set.
 	TraceOut io.Writer
+	// UseSearchReplaceFormat, when true, sends the hunk in search-replace style for testing.
+	UseSearchReplaceFormat bool
 	// ForceFullReview, when true, passes empty lastReviewedAt to Partition so all hunks are to-review (used by rerun).
 	ForceFullReview bool
 	// ReplaceFindings, when true, replaces session findings with only this run's results; when false, merges (append + auto-dismiss).
@@ -835,6 +840,7 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 			StreamOut:               opts.StreamOut,
 			Verbose:                 opts.Verbose,
 			TraceOut:                tr,
+			UseSearchReplaceFormat:  opts.UseSearchReplaceFormat,
 		})
 		if err != nil {
 			return RunStats{}, err
@@ -1221,6 +1227,7 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 			StreamOut:               opts.StreamOut,
 			Verbose:                 opts.Verbose,
 			TraceOut:                trRun,
+			UseSearchReplaceFormat:  opts.UseSearchReplaceFormat,
 		})
 		if err != nil {
 			return RunStats{}, err

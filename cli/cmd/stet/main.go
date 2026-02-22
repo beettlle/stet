@@ -234,6 +234,7 @@ func newStartCmd() *cobra.Command {
 	cmd.Flags().String("context", "", "Context window preset: 4k, 8k, 16k, 32k, 64k, 128k, 256k (sets both context_limit and num_ctx)")
 	cmd.Flags().Int("num-ctx", 0, "Context window size in tokens (0 = use config); overrides config and --context; sets both context_limit and num_ctx")
 	cmd.Flags().Bool("trace", false, "Print internal steps to stderr (partition, rules, RAG, prompts, LLM I/O)")
+	cmd.Flags().Bool("search-replace", false, "Use search-replace style diff in the prompt (experimental; compare token usage and finding quality)")
 	return cmd
 }
 
@@ -349,6 +350,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 		PersistContextLimit:            persistContextLimit,
 		PersistNumCtx:                  persistNumCtx,
 		TraceOut:                       traceOut,
+		UseSearchReplaceFormat:         getSearchReplaceFlag(cmd),
 	}
 	if stream {
 		opts.StreamOut = findingsWriter()
@@ -412,6 +414,7 @@ func addRunLikeFlags(cmd *cobra.Command) {
 	cmd.Flags().String("context", "", "Context window preset: 4k, 8k, 16k, 32k, 64k, 128k, 256k (sets both context_limit and num_ctx)")
 	cmd.Flags().Int("num-ctx", 0, "Context window size in tokens (0 = use config); overrides config and --context; sets both context_limit and num_ctx")
 	cmd.Flags().Bool("trace", false, "Print internal steps to stderr (partition, rules, RAG, prompts, LLM I/O)")
+	cmd.Flags().Bool("search-replace", false, "Use search-replace style diff in the prompt (experimental; compare token usage and finding quality)")
 }
 
 func newRunCmd() *cobra.Command {
@@ -613,6 +616,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 		ApplyFPKillList:              &applyFP,
 		Nitpicky:                     effectiveNitpicky,
 		TraceOut:                     traceOut,
+		UseSearchReplaceFormat:       getSearchReplaceFlag(cmd),
 	}
 	if stream {
 		opts.StreamOut = findingsWriter()
@@ -783,6 +787,7 @@ func runRerun(cmd *cobra.Command, args []string) error {
 		ApplyFPKillList:              &applyFP,
 		Nitpicky:                     effectiveNitpicky,
 		TraceOut:                     traceOut,
+		UseSearchReplaceFormat:       getSearchReplaceFlag(cmd),
 		ForceFullReview:             true,
 		ReplaceFindings:             replace,
 	}
@@ -820,6 +825,11 @@ func runRerun(cmd *cobra.Command, args []string) error {
 		}
 	}
 	return nil
+}
+
+func getSearchReplaceFlag(cmd *cobra.Command) bool {
+	v, _ := cmd.Flags().GetBool("search-replace")
+	return v
 }
 
 func newFinishCmd() *cobra.Command {

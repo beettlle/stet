@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"path/filepath"
 	"strings"
 
 	"stet/cli/internal/diff"
 	"stet/cli/internal/expand"
 	"stet/cli/internal/findings"
+	"stet/cli/internal/minify"
 	"stet/cli/internal/ollama"
 	"stet/cli/internal/prompt"
 	"stet/cli/internal/rag"
@@ -61,10 +63,14 @@ func effectiveRAGTokenCap(contextLimit, basePromptTokens, responseReserve, ragMa
 // PrepareHunkPrompt builds the system and user prompts for a single hunk from a
 // pre-built systemBase (SystemPrompt + InjectUserIntent + AppendPromptShadows +
 // AppendNitpickyInstructions). It appends Cursor rules for the hunk's file,
-// expands the hunk, builds the user prompt, and runs RAG when enabled.
+// expands the hunk, optionally minifies (Go), builds the user prompt (unified or
+// search-replace when useSearchReplaceFormat), and runs RAG when enabled.
 // Used by the pipeline to prepare the next hunk while the LLM is busy.
-func PrepareHunkPrompt(ctx context.Context, systemBase string, hunk diff.Hunk, ruleList []rules.CursorRule, repoRoot string, contextLimit int, ragMaxDefs, ragMaxTokens int, traceOut *trace.Tracer) (system, user string, err error) {
+func PrepareHunkPrompt(ctx context.Context, systemBase string, hunk diff.Hunk, ruleList []rules.CursorRule, repoRoot string, contextLimit int, ragMaxDefs, ragMaxTokens int, useSearchReplaceFormat bool, traceOut *trace.Tracer) (system, user string, err error) {
 	system = prompt.AppendCursorRules(systemBase, ruleList, hunk.FilePath, rules.MaxRuleTokens)
+	if useSearchReplaceFormat {
+		system = prompt.AppendSearchReplaceFormatNote(system)
+	}
 	if traceOut != nil && traceOut.Enabled() {
 		traceOut.Section("Cursor rules")
 		matched := rules.FilterRules(ruleList, hunk.FilePath)
@@ -100,7 +106,19 @@ func PrepareHunkPrompt(ctx context.Context, systemBase string, hunk diff.Hunk, r
 			traceOut.Printf("Expand: not applied\n")
 		}
 	}
-	user = prompt.UserPrompt(hunk)
+	if filepath.Ext(hunk.FilePath) == ".go" {
+		minified := minify.MinifyGoHunkContent(hunk.RawContent)
+		if strings.Contains(hunk.Context, "## Diff hunk") {
+			hunk.Context = strings.TrimSuffix(hunk.Context, hunk.RawContent) + minified
+		} else {
+			hunk.Context = minified
+		}
+	}
+	if useSearchReplaceFormat {
+		user = prompt.UserPromptSearchReplace(hunk)
+	} else {
+		user = prompt.UserPrompt(hunk)
+	}
 	if traceOut != nil && traceOut.Enabled() {
 		traceOut.Section("User prompt")
 		const previewLen = 2000
@@ -191,7 +209,7 @@ func ProcessReviewResponse(ctx context.Context, result *ollama.GenerateResult, h
 // returns an error. ragMaxDefs and ragMaxTokens control RAG-lite symbol lookup
 // (Sub-phase 6.8); zero ragMaxDefs disables it. When nitpicky is true, nitpicky-mode
 // instructions are appended so the model reports style, typos, and convention violations.
-func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir string, hunk diff.Hunk, generateOpts *ollama.GenerateOptions, userIntent *prompt.UserIntent, ruleList []rules.CursorRule, repoRoot string, contextLimit int, ragMaxDefs, ragMaxTokens int, promptShadows []prompt.Shadow, nitpicky bool, traceOut *trace.Tracer) ([]findings.Finding, *HunkUsage, error) {
+func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir string, hunk diff.Hunk, generateOpts *ollama.GenerateOptions, userIntent *prompt.UserIntent, ruleList []rules.CursorRule, repoRoot string, contextLimit int, ragMaxDefs, ragMaxTokens int, promptShadows []prompt.Shadow, nitpicky bool, useSearchReplaceFormat bool, traceOut *trace.Tracer) ([]findings.Finding, *HunkUsage, error) {
 	systemBase, err := prompt.SystemPrompt(stateDir)
 	if err != nil {
 		return nil, nil, fmt.Errorf("review: system prompt: %w", err)
@@ -229,7 +247,7 @@ func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir stri
 			traceOut.Printf("Nitpicky: disabled\n")
 		}
 	}
-	system, user, err := PrepareHunkPrompt(ctx, systemBase, hunk, ruleList, repoRoot, contextLimit, ragMaxDefs, ragMaxTokens, traceOut)
+	system, user, err := PrepareHunkPrompt(ctx, systemBase, hunk, ruleList, repoRoot, contextLimit, ragMaxDefs, ragMaxTokens, useSearchReplaceFormat, traceOut)
 	if err != nil {
 		return nil, nil, err
 	}
