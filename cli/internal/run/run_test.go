@@ -2154,11 +2154,13 @@ func TestRun_tokenWarningWhenOverThreshold(t *testing.T) {
 }
 
 // TestRun_pipeline_multipleHunks_ordersFindingsAndOneGeneratePerHunk asserts that
-// the review pipeline sends one Generate per hunk and returns findings in hunk order.
+// the review pipeline sends one Generate per hunk, returns findings in hunk order,
+// and sends a short keep_alive on the last request so the model is unloaded.
 func TestRun_pipeline_multipleHunks_ordersFindingsAndOneGeneratePerHunk(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	var generateCalls int
+	var keepAlivePerRequest []interface{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/tags" {
 			w.WriteHeader(http.StatusOK)
@@ -2169,6 +2171,11 @@ func TestRun_pipeline_multipleHunks_ordersFindingsAndOneGeneratePerHunk(t *testi
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
+		var body struct {
+			KeepAlive interface{} `json:"keep_alive"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		keepAlivePerRequest = append(keepAlivePerRequest, body.KeepAlive)
 		generateCalls++
 		msg := "pipeline-hunk-" + string(rune('0'+generateCalls))
 		if generateCalls > 9 {
@@ -2214,6 +2221,16 @@ func TestRun_pipeline_multipleHunks_ordersFindingsAndOneGeneratePerHunk(t *testi
 		wantMsg := "pipeline-hunk-" + string(rune('0'+i+1))
 		if !strings.Contains(s.Findings[i].Message, wantMsg) {
 			t.Errorf("Findings[%d].Message = %q, want to contain %q (order)", i, s.Findings[i].Message, wantMsg)
+		}
+	}
+	if len(keepAlivePerRequest) != wantHunks {
+		t.Errorf("keep_alive recorded for %d requests, want %d", len(keepAlivePerRequest), wantHunks)
+	} else if wantHunks > 0 {
+		last := keepAlivePerRequest[wantHunks-1]
+		if last == nil {
+			t.Error("last /api/generate request should send keep_alive (short value to unload model)")
+		} else if n, ok := last.(float64); !ok || n != 0 {
+			t.Errorf("last request keep_alive = %v (type %T), want 0 for good stewardship", last, last)
 		}
 	}
 }
