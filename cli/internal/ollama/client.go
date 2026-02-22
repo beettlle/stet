@@ -282,18 +282,21 @@ func capContextLength(n int) int {
 
 // GenerateOptions holds model runtime options sent to Ollama /api/generate.
 // Zero values are sent as-is; omitempty is not used so the API receives explicit values.
+// KeepAlive is not sent inside options; it is sent at the top level of the request (see generateRequest).
 type GenerateOptions struct {
-	Temperature float64 `json:"temperature"`
-	NumCtx      int     `json:"num_ctx"`
+	Temperature float64     `json:"temperature"`
+	NumCtx      int         `json:"num_ctx"`
+	KeepAlive   interface{} `json:"-"` // Top-level keep_alive; -1 = indefinitely, or string e.g. "60m"
 }
 
 type generateRequest struct {
-	Model   string           `json:"model"`
-	System  string           `json:"system,omitempty"`
-	Prompt  string           `json:"prompt"`
-	Stream  bool             `json:"stream"`
-	Format  string           `json:"format,omitempty"`
-	Options *GenerateOptions `json:"options,omitempty"`
+	Model     string           `json:"model"`
+	System    string           `json:"system,omitempty"`
+	Prompt    string           `json:"prompt"`
+	Stream    bool             `json:"stream"`
+	Format    string           `json:"format,omitempty"`
+	Options   *GenerateOptions `json:"options,omitempty"`
+	KeepAlive interface{}      `json:"keep_alive,omitempty"` // How long to keep model loaded; -1 = indefinitely
 }
 
 type generateResponse struct {
@@ -359,6 +362,9 @@ func (c *Client) generateWithFormat(ctx context.Context, model, systemPrompt, us
 		Stream:  false,
 		Format:  format,
 		Options: opts,
+	}
+	if opts != nil && opts.KeepAlive != nil {
+		body.KeepAlive = opts.KeepAlive
 	}
 	encoded, err := json.Marshal(body)
 	if err != nil {

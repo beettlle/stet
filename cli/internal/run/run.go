@@ -60,7 +60,7 @@ const (
 	_defaultOllamaTimeout    = 5 * time.Minute
 	maxPromptContextStoreLen = 4096
 	// prepareBufferSize caps how many hunks are prepared ahead; keeps the LLM fed while bounding memory.
-	prepareBufferSize = 3
+	prepareBufferSize = 5
 )
 
 // truncateForPromptContext truncates s to maxLen and appends "\n[truncated]" if truncated.
@@ -749,7 +749,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		if opts.Nitpicky {
 			systemBase = prompt.AppendNitpickyInstructions(systemBase)
 		}
-		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: effectiveNumCtx}
+		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: effectiveNumCtx, KeepAlive: -1}
 		rulesLoader := rules.NewLoader(opts.RepoRoot)
 		collected, findingPromptContext, sumPrompt, sumCompletion, sumDuration, err = runReviewPipeline(ctx, reviewPipelineOpts{
 			Client:                 ollamaClient,
@@ -1125,7 +1125,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 		if opts.Nitpicky {
 			systemBase = prompt.AppendNitpickyInstructions(systemBase)
 		}
-		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: effectiveNumCtx}
+		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: effectiveNumCtx, KeepAlive: -1}
 		rulesLoader := rules.NewLoader(opts.RepoRoot)
 		var pipelineContext map[string]string
 		newFindings, pipelineContext, sumPrompt, sumCompletion, sumDuration, err = runReviewPipeline(ctx, reviewPipelineOpts{

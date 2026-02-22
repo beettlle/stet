@@ -228,8 +228,9 @@ func TestClient_Generate_withOptions_sendsOptionsInRequest(t *testing.T) {
 	var receivedOpts *GenerateOptions
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
-			Model   string           `json:"model"`
-			Options *GenerateOptions `json:"options"`
+			Model     string           `json:"model"`
+			Options   *GenerateOptions `json:"options"`
+			KeepAlive interface{}      `json:"keep_alive"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Errorf("decode request: %v", err)
@@ -237,6 +238,9 @@ func TestClient_Generate_withOptions_sendsOptionsInRequest(t *testing.T) {
 			return
 		}
 		receivedOpts = body.Options
+		if body.KeepAlive != nil {
+			t.Errorf("keep_alive should be omitted when opts.KeepAlive is not set, got %v", body.KeepAlive)
+		}
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": wantResponse, "done": true})
 	}))
@@ -262,6 +266,39 @@ func TestClient_Generate_withOptions_sendsOptionsInRequest(t *testing.T) {
 	}
 	if receivedOpts.NumCtx != 4096 {
 		t.Errorf("options.NumCtx = %d, want 4096", receivedOpts.NumCtx)
+	}
+}
+
+func TestClient_Generate_withKeepAlive_sendsKeepAliveInRequest(t *testing.T) {
+	t.Parallel()
+	var keepAliveSeen interface{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			KeepAlive interface{} `json:"keep_alive"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decode request: %v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		keepAliveSeen = body.KeepAlive
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": "[]", "done": true})
+	}))
+	defer srv.Close()
+	client := NewClient(srv.URL, srv.Client())
+	ctx := context.Background()
+	opts := &GenerateOptions{Temperature: 0.5, NumCtx: 4096, KeepAlive: -1}
+	_, err := client.Generate(ctx, "m", "sys", "user", opts)
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	if keepAliveSeen == nil {
+		t.Fatal("request body should include top-level keep_alive when opts.KeepAlive is set")
+	}
+	// JSON numbers decode as float64.
+	if n, ok := keepAliveSeen.(float64); !ok || n != -1 {
+		t.Errorf("keep_alive = %v (%T), want -1", keepAliveSeen, keepAliveSeen)
 	}
 }
 
