@@ -104,7 +104,8 @@ func writeFindingsJSON(w io.Writer, stateDir string) error {
 }
 
 // writeFindingsHuman writes a human-readable summary to w: one line per finding (id  file:line  severity  message), then a summary line.
-func writeFindingsHuman(w io.Writer, stateDir string) error {
+// When stats is non-nil and EvalDurationNs > 0, the summary line includes " at Y tokens/sec.".
+func writeFindingsHuman(w io.Writer, stateDir string, stats *run.RunStats) error {
 	active, err := activeFindings(stateDir)
 	if err != nil {
 		return err
@@ -119,13 +120,28 @@ func writeFindingsHuman(w io.Writer, stateDir string) error {
 		}
 	}
 	n := len(active)
-	if n != 1 {
-		if _, err := fmt.Fprintf(w, "%d finding(s).\n", n); err != nil {
-			return erruser.New("Could not write findings.", err)
+	if stats != nil && stats.EvalDurationNs > 0 {
+		totalTokens := stats.PromptTokens + stats.CompletionTokens
+		secs := float64(stats.EvalDurationNs) / 1e9
+		tokensPerSec := float64(totalTokens) / secs
+		if n != 1 {
+			if _, err := fmt.Fprintf(w, "%d finding(s) at %.1f tokens/sec.\n", n, tokensPerSec); err != nil {
+				return erruser.New("Could not write findings.", err)
+			}
+		} else {
+			if _, err := fmt.Fprintf(w, "1 finding at %.1f tokens/sec.\n", tokensPerSec); err != nil {
+				return erruser.New("Could not write findings.", err)
+			}
 		}
 	} else {
-		if _, err := fmt.Fprintln(w, "1 finding."); err != nil {
-			return erruser.New("Could not write findings.", err)
+		if n != 1 {
+			if _, err := fmt.Fprintf(w, "%d finding(s).\n", n); err != nil {
+				return erruser.New("Could not write findings.", err)
+			}
+		} else {
+			if _, err := fmt.Fprintln(w, "1 finding."); err != nil {
+				return erruser.New("Could not write findings.", err)
+			}
 		}
 	}
 	return nil
@@ -337,7 +353,8 @@ func runStart(cmd *cobra.Command, args []string) error {
 	if stream {
 		opts.StreamOut = findingsWriter()
 	}
-	if err := run.Start(cmd.Context(), opts); err != nil {
+	stats, err := run.Start(cmd.Context(), opts)
+	if err != nil {
 		if errors.Is(err, ollama.ErrUnreachable) {
 			fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
 			fmt.Fprintf(os.Stderr, "Details: %v\n", err)
@@ -374,7 +391,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	} else {
-		if err := writeFindingsHuman(w, stateDir); err != nil {
+		if err := writeFindingsHuman(w, stateDir, &stats); err != nil {
 			return err
 		}
 	}
@@ -600,7 +617,8 @@ func runRun(cmd *cobra.Command, args []string) error {
 	if stream {
 		opts.StreamOut = findingsWriter()
 	}
-	if err := run.Run(cmd.Context(), opts); err != nil {
+	stats, err := run.Run(cmd.Context(), opts)
+	if err != nil {
 		if errors.Is(err, run.ErrNoSession) {
 			fmt.Fprintln(os.Stderr, err.Error())
 			return errExit(1)
@@ -626,7 +644,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	} else {
-		if err := writeFindingsHuman(w, stateDir); err != nil {
+		if err := writeFindingsHuman(w, stateDir, &stats); err != nil {
 			return err
 		}
 	}
@@ -771,7 +789,8 @@ func runRerun(cmd *cobra.Command, args []string) error {
 	if stream {
 		opts.StreamOut = findingsWriter()
 	}
-	if err := run.Run(cmd.Context(), opts); err != nil {
+	stats, err := run.Run(cmd.Context(), opts)
+	if err != nil {
 		if errors.Is(err, run.ErrNoSession) {
 			fmt.Fprintln(os.Stderr, err.Error())
 			return errExit(1)
@@ -796,7 +815,7 @@ func runRerun(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	} else {
-		if err := writeFindingsHuman(w, stateDir); err != nil {
+		if err := writeFindingsHuman(w, stateDir, &stats); err != nil {
 			return err
 		}
 	}
@@ -1338,7 +1357,7 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 			PersistContextLimit:            persistContextLimit,
 			PersistNumCtx:                  persistNumCtx,
 		}
-		if err := run.Start(cmd.Context(), startOpts); err != nil {
+		if _, err := run.Start(cmd.Context(), startOpts); err != nil {
 			if errors.Is(err, ollama.ErrUnreachable) {
 				fmt.Fprintf(os.Stderr, "Ollama unreachable. Details: %v\n", err)
 				return errExit(2)
@@ -1355,7 +1374,8 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	}
-	if err := run.Run(cmd.Context(), runOpts); err != nil {
+	runStats, err := run.Run(cmd.Context(), runOpts)
+	if err != nil {
 		if errors.Is(err, run.ErrNoSession) {
 			return err
 		}
@@ -1366,7 +1386,7 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	w := findingsWriter()
-	return writeFindingsHuman(w, stateDir)
+	return writeFindingsHuman(w, stateDir, &runStats)
 }
 
 func newOptimizeCmd() *cobra.Command {

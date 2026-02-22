@@ -85,7 +85,7 @@ func TestStart_createsSessionAndWorktree(t *testing.T) {
 		Model:         "",
 		OllamaBaseURL: "",
 	}
-	err := Start(ctx, opts)
+	_, err := Start(ctx, opts)
 	if err != nil {
 		t.Fatalf("Start: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestStart_refEqualsHEAD_skipsWorktree(t *testing.T) {
 		RepoRoot: repo, StateDir: stateDir, WorktreeRoot: "", Ref: "HEAD", DryRun: true,
 		Model: "", OllamaBaseURL: "",
 	}
-	err := Start(ctx, opts)
+	_, err := Start(ctx, opts)
 	if err != nil {
 		t.Fatalf("Start(HEAD): %v", err)
 	}
@@ -163,7 +163,7 @@ func TestStart_refEqualsHEAD_withPersistStrictness_storesInSession(t *testing.T)
 		Model: "", OllamaBaseURL: "",
 		PersistStrictness: &strictness,
 	}
-	if err := Start(ctx, opts); err != nil {
+	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start(HEAD): %v", err)
 	}
 	s, err := session.Load(stateDir)
@@ -189,7 +189,7 @@ func TestStart_negativeRAGOptions_clamped(t *testing.T) {
 		RAGSymbolMaxDefinitions: -1,
 		RAGSymbolMaxTokens:      -1,
 	}
-	err := Start(ctx, opts)
+	_, err := Start(ctx, opts)
 	if err != nil {
 		t.Fatalf("Start with negative RAG options (should clamp to 0): %v", err)
 	}
@@ -215,7 +215,7 @@ func TestStart_persistStrictnessAndRAG_storesInSession(t *testing.T) {
 		PersistRAGSymbolMaxDefinitions: &ragDefs,
 		PersistRAGSymbolMaxTokens:      &ragTokens,
 	}
-	if err := Start(ctx, opts); err != nil {
+	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	s, err := session.Load(stateDir)
@@ -251,7 +251,7 @@ func TestStart_refEqualsHEAD_withPersistContext_storesInSession(t *testing.T) {
 		PersistContextLimit: &contextLimit,
 		PersistNumCtx:       &numCtx,
 	}
-	if err := Start(ctx, opts); err != nil {
+	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start(HEAD): %v", err)
 	}
 	s, err := session.Load(stateDir)
@@ -273,7 +273,7 @@ func TestStart_requiresCleanWorktree(t *testing.T) {
 	stateDir := filepath.Join(repo, ".review")
 	writeFile(t, repo, "dirty.txt", "x\n")
 	opts := StartOptions{RepoRoot: repo, StateDir: stateDir, WorktreeRoot: "", Ref: "HEAD", DryRun: true}
-	err := Start(ctx, opts)
+	_, err := Start(ctx, opts)
 	if err == nil {
 		t.Fatal("Start with dirty worktree: expected error")
 	}
@@ -298,7 +298,7 @@ func TestStart_allowDirty_skipsCleanCheck(t *testing.T) {
 		Model:         "",
 		OllamaBaseURL: "",
 	}
-	err := Start(ctx, opts)
+	_, err := Start(ctx, opts)
 	if err != nil {
 		t.Fatalf("Start with AllowDirty and dirty worktree: %v", err)
 	}
@@ -332,7 +332,7 @@ func TestStart_allowDirty_warnsToStderr(t *testing.T) {
 		Model:         "",
 		OllamaBaseURL: "",
 	}
-	if err := Start(ctx, opts); err != nil {
+	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	_ = stderrW.Close()
@@ -364,7 +364,7 @@ func TestStart_concurrentLockFails(t *testing.T) {
 		Model:         "",
 		OllamaBaseURL: "",
 	}
-	err = Start(ctx, opts)
+	_, err = Start(ctx, opts)
 	if err == nil {
 		t.Fatal("Start with lock held: expected error")
 	}
@@ -386,7 +386,7 @@ func TestStart_baselineNotAncestor(t *testing.T) {
 	orphanSHA := runOut(t, repo, "git", "rev-parse", "HEAD")
 	runGit(t, repo, "git", "checkout", mainBranch)
 	opts := StartOptions{RepoRoot: repo, StateDir: stateDir, WorktreeRoot: "", Ref: orphanSHA, DryRun: true}
-	err := Start(ctx, opts)
+	_, err := Start(ctx, opts)
 	if err == nil {
 		t.Fatal("Start with non-ancestor baseline: expected error")
 	}
@@ -401,7 +401,7 @@ func TestFinish_removesWorktreeAndPersistsState(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	startOpts := StartOptions{RepoRoot: repo, StateDir: stateDir, WorktreeRoot: "", Ref: "HEAD~1", DryRun: true}
-	if err := Start(ctx, startOpts); err != nil {
+	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	sBefore, err := session.Load(stateDir)
@@ -453,10 +453,10 @@ func TestStart_worktreeAlreadyExists(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	opts := StartOptions{RepoRoot: repo, StateDir: stateDir, WorktreeRoot: "", Ref: "HEAD~1", DryRun: true}
-	if err := Start(ctx, opts); err != nil {
+	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("first Start: %v", err)
 	}
-	err := Start(ctx, opts)
+	_, err := Start(ctx, opts)
 	if err == nil {
 		t.Fatal("second Start: expected error")
 	}
@@ -471,7 +471,7 @@ func TestFinish_worktreeAlreadyGone(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	opts := StartOptions{RepoRoot: repo, StateDir: stateDir, WorktreeRoot: "", Ref: "HEAD~1", DryRun: true}
-	if err := Start(ctx, opts); err != nil {
+	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	s, err := session.Load(stateDir)
@@ -497,7 +497,7 @@ func TestFinish_writesGitNote(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	startOpts := StartOptions{RepoRoot: repo, StateDir: stateDir, WorktreeRoot: "", Ref: "HEAD~1", DryRun: true}
-	if err := Start(ctx, startOpts); err != nil {
+	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	s, err := session.Load(stateDir)
@@ -565,7 +565,7 @@ func TestFinish_appendsHistoryWhenFindings(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	startOpts := StartOptions{RepoRoot: repo, StateDir: stateDir, WorktreeRoot: "", Ref: "HEAD~1", DryRun: true}
-	if err := Start(ctx, startOpts); err != nil {
+	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	s, err := session.Load(stateDir)
@@ -609,7 +609,7 @@ func TestFinish_doesNotAppendHistoryWhenNoFindings(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	startOpts := StartOptions{RepoRoot: repo, StateDir: stateDir, WorktreeRoot: "", Ref: "HEAD~1", DryRun: true}
-	if err := Start(ctx, startOpts); err != nil {
+	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	s, err := session.Load(stateDir)
@@ -647,7 +647,7 @@ func TestStart_dryRun_deterministicFindings(t *testing.T) {
 		Model:         "",
 		OllamaBaseURL: "",
 	}
-	if err := Start(ctx, opts); err != nil {
+	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	s, err := session.Load(stateDir)
@@ -683,7 +683,7 @@ func TestStart_stream_emitsNDJSON(t *testing.T) {
 		OllamaBaseURL: "",
 		StreamOut:     &buf,
 	}
-	if err := Start(ctx, opts); err != nil {
+	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
@@ -744,7 +744,7 @@ func TestRun_dryRun_incremental(t *testing.T) {
 		Model:         "",
 		OllamaBaseURL: "",
 	}
-	if err := Start(ctx, startOpts); err != nil {
+	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	s0, err := session.Load(stateDir)
@@ -752,7 +752,7 @@ func TestRun_dryRun_incremental(t *testing.T) {
 		t.Fatalf("Load session: %v", err)
 	}
 	runOpts := RunOptions{RepoRoot: repo, StateDir: stateDir, DryRun: true}
-	if err := Run(ctx, runOpts); err != nil {
+	if _, err := Run(ctx, runOpts); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	s1, err := session.Load(stateDir)
@@ -773,7 +773,7 @@ func TestRun_noSession(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	opts := RunOptions{RepoRoot: repo, StateDir: stateDir, DryRun: true}
-	err := Run(ctx, opts)
+	_, err := Run(ctx, opts)
 	if err == nil {
 		t.Fatal("Run without start: expected error")
 	}
@@ -788,7 +788,7 @@ func TestRun_forceFullReview_noSession(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	opts := RunOptions{RepoRoot: repo, StateDir: stateDir, DryRun: true, ForceFullReview: true}
-	err := Run(ctx, opts)
+	_, err := Run(ctx, opts)
 	if err == nil {
 		t.Fatal("Run (ForceFullReview) without start: expected error")
 	}
@@ -814,7 +814,7 @@ func TestRun_forceFullReview_partitionsAllHunks(t *testing.T) {
 		Model:         "",
 		OllamaBaseURL: "",
 	}
-	if err := Start(ctx, startOpts); err != nil {
+	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	s0, err := session.Load(stateDir)
@@ -824,7 +824,7 @@ func TestRun_forceFullReview_partitionsAllHunks(t *testing.T) {
 	initialCount := len(s0.Findings)
 	// Run once without ForceFullReview so LastReviewedAt = HEAD; second Run would see 0 ToReview.
 	runOpts := RunOptions{RepoRoot: repo, StateDir: stateDir, DryRun: true}
-	if err := Run(ctx, runOpts); err != nil {
+	if _, err := Run(ctx, runOpts); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	s1, err := session.Load(stateDir)
@@ -834,7 +834,7 @@ func TestRun_forceFullReview_partitionsAllHunks(t *testing.T) {
 	afterFirstRun := len(s1.Findings)
 	// Rerun with ForceFullReview: all hunks go to ToReview, so review loop runs again and appends findings (merge mode).
 	runOpts.ForceFullReview = true
-	if err := Run(ctx, runOpts); err != nil {
+	if _, err := Run(ctx, runOpts); err != nil {
 		t.Fatalf("Run(ForceFullReview): %v", err)
 	}
 	s2, err := session.Load(stateDir)
@@ -863,16 +863,16 @@ func TestRun_replaceFindings(t *testing.T) {
 		Model:         "",
 		OllamaBaseURL: "",
 	}
-	if err := Start(ctx, startOpts); err != nil {
+	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	runOpts := RunOptions{RepoRoot: repo, StateDir: stateDir, DryRun: true}
-	if err := Run(ctx, runOpts); err != nil {
+	if _, err := Run(ctx, runOpts); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	runOpts.ForceFullReview = true
 	runOpts.ReplaceFindings = true
-	if err := Run(ctx, runOpts); err != nil {
+	if _, err := Run(ctx, runOpts); err != nil {
 		t.Fatalf("Run(ReplaceFindings): %v", err)
 	}
 	s1, err := session.Load(stateDir)
@@ -910,7 +910,7 @@ func TestStart_dryRun_noHunks(t *testing.T) {
 		Model:         "",
 		OllamaBaseURL: "",
 	}
-	if err := Start(ctx, opts); err != nil {
+	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	s, err := session.Load(stateDir)
@@ -941,7 +941,7 @@ func TestRun_dryRun_withNewCommitAppendsFindings(t *testing.T) {
 		Model:         "",
 		OllamaBaseURL: "",
 	}
-	if err := Start(ctx, startOpts); err != nil {
+	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	s0, err := session.Load(stateDir)
@@ -954,7 +954,7 @@ func TestRun_dryRun_withNewCommitAppendsFindings(t *testing.T) {
 	runGit(t, repo, "git", "add", "f3.txt")
 	runGit(t, repo, "git", "commit", "-m", "c3")
 	runOpts := RunOptions{RepoRoot: repo, StateDir: stateDir, DryRun: true}
-	if err := Run(ctx, runOpts); err != nil {
+	if _, err := Run(ctx, runOpts); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	s1, err := session.Load(stateDir)
@@ -1183,7 +1183,7 @@ func TestRun_dismissedHunksNotSentToModel(t *testing.T) {
 		Model:         "",
 		OllamaBaseURL: "",
 	}
-	if err := Start(ctx, startOpts); err != nil {
+	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	s0, err := session.Load(stateDir)
@@ -1206,7 +1206,7 @@ func TestRun_dismissedHunksNotSentToModel(t *testing.T) {
 	runGit(t, repo, "git", "commit", "-m", "change for re-review")
 	// Run: the only ToReview hunk contains the dismissed finding -> filtered out -> 0 hunks sent
 	runOpts := RunOptions{RepoRoot: repo, StateDir: stateDir, DryRun: true}
-	if err := Run(ctx, runOpts); err != nil {
+	if _, err := Run(ctx, runOpts); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	s1, err := session.Load(stateDir)
@@ -1235,7 +1235,7 @@ func TestRun_forceFullReview_skipsDismissedFilter(t *testing.T) {
 		Model:         "",
 		OllamaBaseURL: "",
 	}
-	if err := Start(ctx, startOpts); err != nil {
+	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	s0, err := session.Load(stateDir)
@@ -1256,7 +1256,7 @@ func TestRun_forceFullReview_skipsDismissedFilter(t *testing.T) {
 	runGit(t, repo, "git", "commit", "-m", "change for re-review")
 	// Run with ForceFullReview: filter is skipped, hunk is sent, we get new findings
 	runOpts := RunOptions{RepoRoot: repo, StateDir: stateDir, DryRun: true, ForceFullReview: true}
-	if err := Run(ctx, runOpts); err != nil {
+	if _, err := Run(ctx, runOpts); err != nil {
 		t.Fatalf("Run(ForceFullReview): %v", err)
 	}
 	s1, err := session.Load(stateDir)
@@ -1287,7 +1287,7 @@ func TestRun_autoDismiss_addressedFindingNotRereported(t *testing.T) {
 		Model:         "",
 		OllamaBaseURL: "",
 	}
-	if err := Start(ctx, startOpts); err != nil {
+	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	s0, err := session.Load(stateDir)
@@ -1320,7 +1320,7 @@ func TestRun_autoDismiss_addressedFindingNotRereported(t *testing.T) {
 	// Run: dry-run will add one finding per hunk (deterministic IDs). Our extra finding
 	// is in a reviewed hunk and its ID is not in the new set -> auto-dismissed.
 	runOpts := RunOptions{RepoRoot: repo, StateDir: stateDir, DryRun: true}
-	if err := Run(ctx, runOpts); err != nil {
+	if _, err := Run(ctx, runOpts); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	s1, err := session.Load(stateDir)
@@ -1391,7 +1391,7 @@ func TestStart_withMockOllama(t *testing.T) {
 		Model:         "m",
 		OllamaBaseURL: srv.URL,
 	}
-	if err := Start(ctx, opts); err != nil {
+	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	s, err := session.Load(stateDir)
@@ -1449,7 +1449,7 @@ func TestStart_capturesOllamaUsage_whenNotDryRun(t *testing.T) {
 		Model:         "m",
 		OllamaBaseURL: srv.URL,
 	}
-	if err := Start(ctx, opts); err != nil {
+	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	s, err := session.Load(stateDir)
@@ -1519,7 +1519,7 @@ func TestFinish_writesUsageFields_whenCaptureUsageTrue(t *testing.T) {
 		Model:         "m",
 		OllamaBaseURL: srv.URL,
 	}
-	if err := Start(ctx, startOpts); err != nil {
+	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	finishOpts := FinishOptions{RepoRoot: repo, StateDir: stateDir, WorktreeRoot: ""}
@@ -1592,7 +1592,7 @@ func TestFinish_omitsUsageFields_whenCaptureUsageFalse(t *testing.T) {
 		Model:         "m",
 		OllamaBaseURL: srv.URL,
 	}
-	if err := Start(ctx, startOpts); err != nil {
+	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	oldVal := os.Getenv("STET_CAPTURE_USAGE")
@@ -1657,7 +1657,7 @@ func TestStart_abstentionFilter_dropsLowConfidence(t *testing.T) {
 		Model:         "m",
 		OllamaBaseURL: srv.URL,
 	}
-	if err := Start(ctx, opts); err != nil {
+	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	s, err := session.Load(stateDir)
@@ -1701,7 +1701,7 @@ func TestStart_abstentionFilter_dropsMaintainabilityUnderThreshold(t *testing.T)
 		Model:         "m",
 		OllamaBaseURL: srv.URL,
 	}
-	if err := Start(ctx, opts); err != nil {
+	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	s, err := session.Load(stateDir)
@@ -1745,7 +1745,7 @@ func TestStart_abstentionFilter_keepsHighConfidence(t *testing.T) {
 		Model:         "m",
 		OllamaBaseURL: srv.URL,
 	}
-	if err := Start(ctx, opts); err != nil {
+	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	s, err := session.Load(stateDir)
@@ -1795,7 +1795,7 @@ func TestStart_fpKillList_filtersBannedPhrase(t *testing.T) {
 		Model:         "m",
 		OllamaBaseURL: srv.URL,
 	}
-	if err := Start(ctx, opts); err != nil {
+	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	s, err := session.Load(stateDir)
@@ -1842,7 +1842,7 @@ func TestStart_strictPreset_keepsLowerConfidence(t *testing.T) {
 		MinConfidenceMaintainability: 0.7,
 		ApplyFPKillList:            ptrBool(true),
 	}
-	if err := Start(ctx, opts); err != nil {
+	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	s, err := session.Load(stateDir)
@@ -1892,7 +1892,7 @@ func TestStart_strictPlus_keepsBannedPhrase(t *testing.T) {
 		MinConfidenceMaintainability: 0.9,
 		ApplyFPKillList:            ptrBool(false),
 	}
-	if err := Start(ctx, opts); err != nil {
+	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	s, err := session.Load(stateDir)
@@ -1942,7 +1942,7 @@ func TestStart_nitpicky_keepsBannedPhrase(t *testing.T) {
 		MinConfidenceMaintainability: 0.9,
 		Nitpicky:                    true,
 	}
-	if err := Start(ctx, opts); err != nil {
+	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	s, err := session.Load(stateDir)
@@ -1988,7 +1988,7 @@ func TestStart_removesWorktreeOnFailure(t *testing.T) {
 		Model:         "m",
 		OllamaBaseURL: srv.URL,
 	}
-	err := Start(ctx, opts)
+	_, err := Start(ctx, opts)
 	if err == nil {
 		t.Fatal("Start: expected error when generate fails, got nil")
 	}
@@ -2062,7 +2062,7 @@ func TestStart_tokenWarningWhenOverThreshold(t *testing.T) {
 		ContextLimit:  100,
 		WarnThreshold: 0.9,
 	}
-	err = Start(ctx, opts)
+	_, err = Start(ctx, opts)
 	if err != nil {
 		t.Fatalf("Start: %v", err)
 	}
@@ -2123,7 +2123,7 @@ func TestRun_tokenWarningWhenOverThreshold(t *testing.T) {
 		Model:         "",
 		OllamaBaseURL: "",
 	}
-	if err := Start(ctx, startOpts); err != nil {
+	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	// New commit so Run has to-review hunks.
@@ -2140,7 +2140,7 @@ func TestRun_tokenWarningWhenOverThreshold(t *testing.T) {
 		ContextLimit:  100,
 		WarnThreshold: 0.9,
 	}
-	if err := Run(ctx, runOpts); err != nil {
+	if _, err := Run(ctx, runOpts); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 
@@ -2196,7 +2196,7 @@ func TestRun_pipeline_multipleHunks_ordersFindingsAndOneGeneratePerHunk(t *testi
 		Model:         "m",
 		OllamaBaseURL: srv.URL,
 	}
-	if err := Start(ctx, opts); err != nil {
+	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	wantHunks := 2

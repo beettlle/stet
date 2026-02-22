@@ -476,6 +476,14 @@ type RunOptions struct {
 	ReplaceFindings bool
 }
 
+// RunStats holds token and duration totals for a single Start/Run invocation.
+// Used to print "X finding(s) at Y tokens/sec" when the run used the LLM.
+type RunStats struct {
+	PromptTokens     int64
+	CompletionTokens int64
+	EvalDurationNs   int64
+}
+
 // Start creates a worktree at the given ref, writes the session, then runs the
 // review pipeline: diff baseline..HEAD, partition to to-review hunks, and
 // either calls Ollama for each hunk or injects canned findings when DryRun.
@@ -483,9 +491,9 @@ type RunOptions struct {
 // clean worktree and that ref is an ancestor of HEAD. Caller should default
 // Ref to "HEAD" if unset. Errors are wrapped with %w so callers can use
 // errors.Is for session.ErrLocked, git.ErrWorktreeExists, git.ErrBaselineNotAncestor, ollama.ErrUnreachable.
-func Start(ctx context.Context, opts StartOptions) (err error) {
+func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 	if opts.RepoRoot == "" || opts.StateDir == "" {
-		return erruser.New("Start failed: repository root and state directory are required.", nil)
+		return RunStats{}, erruser.New("Start failed: repository root and state directory are required.", nil)
 	}
 	ref := opts.Ref
 	if ref == "" {
@@ -500,30 +508,30 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 
 	clean, err := git.IsClean(opts.RepoRoot)
 	if err != nil {
-		return err
+		return RunStats{}, err
 	}
 	if !clean {
 		if opts.AllowDirty {
 			fmt.Fprintln(os.Stderr, "Warning: proceeding with uncommitted changes; review scope may be unclear")
 		} else {
-			return ErrDirtyWorktree
+			return RunStats{}, ErrDirtyWorktree
 		}
 	}
 
 	release, err := session.AcquireLock(opts.StateDir)
 	if err != nil {
-		return err
+		return RunStats{}, err
 	}
 	defer release()
 
 	sha, err := git.RevParse(opts.RepoRoot, ref)
 	if err != nil {
-		return erruser.New(fmt.Sprintf("Could not resolve baseline ref %q.", ref), err)
+		return RunStats{}, erruser.New(fmt.Sprintf("Could not resolve baseline ref %q.", ref), err)
 	}
 
 	headSHA, err := git.RevParse(opts.RepoRoot, "HEAD")
 	if err != nil {
-		return erruser.New("Could not resolve current commit (HEAD).", err)
+		return RunStats{}, erruser.New("Could not resolve current commit (HEAD).", err)
 	}
 
 	// When baseline equals HEAD, there is nothing to review; skip worktree and Ollama.
@@ -557,12 +565,12 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 			s.NumCtx = &v
 		}
 		if err := session.Save(opts.StateDir, &s); err != nil {
-			return err
+			return RunStats{}, err
 		}
 		if opts.Verbose {
 			fmt.Fprintln(os.Stderr, "Nothing to review (baseline is HEAD).")
 		}
-		return nil
+		return RunStats{}, nil
 	}
 
 	// Upfront Ollama check when not dry-run so wrong URL fails before creating worktree (Phase 3 remediation).
@@ -575,13 +583,13 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		}
 		ollamaClient = ollama.NewClient(opts.OllamaBaseURL, &http.Client{Timeout: timeout})
 		if _, err := ollamaClient.Check(ctx, opts.Model); err != nil {
-			return err
+			return RunStats{}, err
 		}
 	}
 
 	worktreePath, err := git.Create(opts.RepoRoot, opts.WorktreeRoot, ref)
 	if err != nil {
-		return err
+		return RunStats{}, err
 	}
 	if opts.Verbose {
 		fmt.Fprintf(os.Stderr, "Worktree created at %s\n", worktreePath)
@@ -624,12 +632,12 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		s.NumCtx = &v
 	}
 	if err := session.Save(opts.StateDir, &s); err != nil {
-		return err
+		return RunStats{}, err
 	}
 
 	part, err := scope.Partition(ctx, opts.RepoRoot, sha, headSHA, "", nil)
 	if err != nil {
-		return erruser.New("Could not compute hunks to review.", err)
+		return RunStats{}, erruser.New("Could not compute hunks to review.", err)
 	}
 	tr := trace.New(opts.TraceOut)
 	if tr.Enabled() {
@@ -661,9 +669,9 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		}
 		s.LastReviewedAt = headSHA
 		if err := session.Save(opts.StateDir, &s); err != nil {
-			return err
+			return RunStats{}, err
 		}
-		return nil
+		return RunStats{}, nil
 	}
 
 	minKeep, minMaint := opts.MinConfidenceKeep, opts.MinConfidenceMaintainability
@@ -722,7 +730,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		if effectiveContextLimit > 0 && opts.WarnThreshold > 0 {
 			systemPrompt, err := prompt.SystemPrompt(opts.StateDir)
 			if err != nil {
-				return err
+				return RunStats{}, err
 			}
 			systemPrompt = prompt.InjectUserIntent(systemPrompt, branch, commitMsg)
 			if opts.Nitpicky {
@@ -742,7 +750,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		}
 		systemBase, err := prompt.SystemPrompt(opts.StateDir)
 		if err != nil {
-			return err
+			return RunStats{}, err
 		}
 		systemBase = prompt.InjectUserIntent(systemBase, branch, commitMsg)
 		systemBase = prompt.AppendPromptShadows(systemBase, runPromptShadows(&s))
@@ -770,7 +778,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 			TraceOut:               tr,
 		})
 		if err != nil {
-			return err
+			return RunStats{}, err
 		}
 	}
 	if opts.StreamOut != nil {
@@ -786,7 +794,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 	}
 	runConfig := history.NewRunConfigSnapshot(opts.Model, s.Strictness, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, opts.Nitpicky)
 	if err := applyAutoDismiss(&s, part.ToReview, collectedIDSet, headSHA, opts.StateDir, runConfig); err != nil {
-		return err
+		return RunStats{}, err
 	}
 	s.Findings = collected
 	s.FindingPromptContext = findingPromptContext
@@ -797,9 +805,9 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 		s.LastRunEvalDurationNs = sumDuration
 	}
 	if err := session.Save(opts.StateDir, &s); err != nil {
-		return err
+		return RunStats{}, err
 	}
-	return nil
+	return RunStats{PromptTokens: int64(sumPrompt), CompletionTokens: int64(sumCompletion), EvalDurationNs: sumDuration}, nil
 }
 
 // Finish removes the session's worktree and releases the lock. Session file
@@ -960,9 +968,9 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 // canned findings when DryRun), merges new findings into the session, and
 // updates last_reviewed_at = HEAD. Returns ErrNoSession if there is no active
 // session. On Ollama unreachable, returns an error that wraps ollama.ErrUnreachable.
-func Run(ctx context.Context, opts RunOptions) error {
+func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 	if opts.RepoRoot == "" || opts.StateDir == "" {
-		return erruser.New("Run failed: repository root and state directory are required.", nil)
+		return RunStats{}, erruser.New("Run failed: repository root and state directory are required.", nil)
 	}
 	if opts.RAGSymbolMaxDefinitions < 0 {
 		opts.RAGSymbolMaxDefinitions = 0
@@ -973,15 +981,15 @@ func Run(ctx context.Context, opts RunOptions) error {
 
 	s, err := session.Load(opts.StateDir)
 	if err != nil {
-		return err
+		return RunStats{}, err
 	}
 	if s.BaselineRef == "" {
-		return ErrNoSession
+		return RunStats{}, ErrNoSession
 	}
 
 	headSHA, err := git.RevParse(opts.RepoRoot, "HEAD")
 	if err != nil {
-		return erruser.New("Could not resolve current commit (HEAD).", err)
+		return RunStats{}, erruser.New("Could not resolve current commit (HEAD).", err)
 	}
 
 	lastReviewedAt := s.LastReviewedAt
@@ -990,7 +998,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 	}
 	part, err := scope.Partition(ctx, opts.RepoRoot, s.BaselineRef, headSHA, lastReviewedAt, nil)
 	if err != nil {
-		return erruser.New("Could not compute hunks to review.", err)
+		return RunStats{}, erruser.New("Could not compute hunks to review.", err)
 	}
 	trRun := trace.New(opts.TraceOut)
 	if trRun.Enabled() {
@@ -1029,7 +1037,10 @@ func Run(ctx context.Context, opts RunOptions) error {
 			fmt.Fprintln(os.Stderr, "Nothing to review.")
 		}
 		s.LastReviewedAt = headSHA
-		return session.Save(opts.StateDir, &s)
+		if saveErr := session.Save(opts.StateDir, &s); saveErr != nil {
+			return RunStats{}, saveErr
+		}
+		return RunStats{}, nil
 	}
 
 	var sumPrompt, sumCompletion int
@@ -1084,7 +1095,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 		client := ollama.NewClient(opts.OllamaBaseURL, &http.Client{Timeout: timeout})
 		// Upfront Ollama check so wrong URL fails before review loop (Phase 3 remediation).
 		if _, err := client.Check(ctx, opts.Model); err != nil {
-			return err
+			return RunStats{}, err
 		}
 		effectiveNumCtx := opts.NumCtx
 		effectiveContextLimit := opts.ContextLimit
@@ -1098,7 +1109,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 		if effectiveContextLimit > 0 && opts.WarnThreshold > 0 {
 			systemPrompt, err := prompt.SystemPrompt(opts.StateDir)
 			if err != nil {
-				return err
+				return RunStats{}, err
 			}
 			systemPrompt = prompt.InjectUserIntent(systemPrompt, branch, commitMsg)
 			if opts.Nitpicky {
@@ -1118,7 +1129,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 		}
 		systemBase, err := prompt.SystemPrompt(opts.StateDir)
 		if err != nil {
-			return err
+			return RunStats{}, err
 		}
 		systemBase = prompt.InjectUserIntent(systemBase, branch, commitMsg)
 		systemBase = prompt.AppendPromptShadows(systemBase, runPromptShadows(&s))
@@ -1147,7 +1158,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 			TraceOut:               trRun,
 		})
 		if err != nil {
-			return err
+			return RunStats{}, err
 		}
 		for id, ctx := range pipelineContext {
 			s.FindingPromptContext[id] = ctx
@@ -1187,7 +1198,7 @@ func Run(ctx context.Context, opts RunOptions) error {
 			RunConfig:    runConfig,
 		}
 		if err := history.Append(opts.StateDir, rec, history.DefaultMaxRecords); err != nil {
-			return erruser.New("Could not record review history.", err)
+			return RunStats{}, erruser.New("Could not record review history.", err)
 		}
 	} else {
 		// Auto-dismiss: findings in reviewed hunks that were not re-reported are considered addressed.
@@ -1199,14 +1210,14 @@ func Run(ctx context.Context, opts RunOptions) error {
 		}
 		runConfig := history.NewRunConfigSnapshot(opts.Model, s.Strictness, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, opts.Nitpicky)
 		if err := applyAutoDismiss(&s, toReview, newFindingIDSet, headSHA, opts.StateDir, runConfig); err != nil {
-			return err
+			return RunStats{}, err
 		}
 		s.Findings = append(s.Findings, newFindings...)
 	}
 
 	s.LastReviewedAt = headSHA
 	if err := session.Save(opts.StateDir, &s); err != nil {
-		return err
+		return RunStats{}, err
 	}
-	return nil
+	return RunStats{PromptTokens: int64(sumPrompt), CompletionTokens: int64(sumCompletion), EvalDurationNs: sumDuration}, nil
 }
