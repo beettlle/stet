@@ -926,6 +926,53 @@ func TestStart_dryRun_noHunks(t *testing.T) {
 	}
 }
 
+// TestStart_dryRun_multipleHunksSameFile_distinctIDs asserts that multiple hunks
+// in the same file produce distinct finding IDs so stet list shows one line per finding.
+func TestStart_dryRun_multipleHunksSameFile_distinctIDs(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	// One file with enough lines so two distant edits produce two hunks (context ~3).
+	lines := "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\nline15\n"
+	writeFile(t, repo, "multi.txt", lines)
+	runGit(t, repo, "git", "add", "multi.txt")
+	runGit(t, repo, "git", "commit", "-m", "add multi")
+	writeFile(t, repo, "multi.txt", "X\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\nline11\nline12\nline13\nline14\nY\n")
+	runGit(t, repo, "git", "add", "multi.txt")
+	runGit(t, repo, "git", "commit", "-m", "two edits")
+	opts := StartOptions{
+		RepoRoot:      repo,
+		StateDir:      stateDir,
+		WorktreeRoot:  "",
+		Ref:           "HEAD~1",
+		DryRun:        true,
+		Model:         "",
+		OllamaBaseURL: "",
+	}
+	if _, err := Start(ctx, opts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	if len(s.Findings) < 2 {
+		t.Fatalf("want at least 2 findings (two hunks in same file), got %d", len(s.Findings))
+	}
+	seen := make(map[string]struct{})
+	for _, f := range s.Findings {
+		if f.ID == "" {
+			t.Error("finding has empty ID")
+			continue
+		}
+		if _, ok := seen[f.ID]; ok {
+			t.Errorf("duplicate finding ID %q; each hunk must have a distinct ID", f.ID)
+		}
+		seen[f.ID] = struct{}{}
+	}
+}
+
 func TestRun_dryRun_withNewCommitAppendsFindings(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -1294,7 +1341,7 @@ func TestRun_autoDismiss_addressedFindingNotRereported(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load session: %v", err)
 	}
-	// Canned findings use StableFindingID(file, 1, 0, 0, dryRunMessage). Add an extra finding with
+	// Canned findings use a hunk-specific ID (StableFindingID with message + StrictHunkID). Add an extra finding with
 	// same file as first hunk, line 1 (inside any hunk), but a different ID so it won't be in newFindings.
 	if len(s0.Findings) < 1 {
 		t.Fatalf("need at least one finding after Start; got %d", len(s0.Findings))
@@ -1356,8 +1403,10 @@ func TestRun_autoDismiss_addressedFindingNotRereported(t *testing.T) {
 	if extraInActive {
 		t.Error("auto-dismissed finding should not appear in active set (filtered by DismissedIDs)")
 	}
-	if activeCount != len(s1.Findings)-1 {
-		t.Errorf("active count = %d, want len(Findings)-1 = %d (one finding dismissed)", activeCount, len(s1.Findings)-1)
+	// With hunk-specific IDs, the prior canned finding for this file (different hunk) is also addressed, so we may have more than one dismissed.
+	wantActive := len(s1.Findings) - len(s1.DismissedIDs)
+	if activeCount != wantActive {
+		t.Errorf("active count = %d, want len(Findings)-len(DismissedIDs) = %d", activeCount, wantActive)
 	}
 }
 

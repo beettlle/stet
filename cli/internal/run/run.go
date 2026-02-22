@@ -275,7 +275,7 @@ func tryWriteStreamLine(w io.Writer, obj interface{}) {
 }
 
 // cannedFindingsForHunks returns one deterministic finding per hunk for dry-run
-// (CI). IDs are stable via hunkid.StableFindingID.
+// (CI). IDs are stable and unique per hunk via StrictHunkID in the message stem.
 func cannedFindingsForHunks(hunks []diff.Hunk) []findings.Finding {
 	out := make([]findings.Finding, 0, len(hunks))
 	for _, h := range hunks {
@@ -283,11 +283,15 @@ func cannedFindingsForHunks(hunks []diff.Hunk) []findings.Finding {
 		if file == "" {
 			file = "unknown"
 		}
-		id := hunkid.StableFindingID(file, 1, 0, 0, dryRunMessage)
+		line := 1
+		if start, _, ok := expand.HunkLineRange(h); ok {
+			line = start
+		}
+		id := hunkid.StableFindingID(file, line, 0, 0, dryRunMessage+":"+hunkid.StrictHunkID(file, h.RawContent))
 		out = append(out, findings.Finding{
 			ID:         id,
 			File:       file,
-			Line:       1,
+			Line:       line,
 			Severity:   findings.SeverityInfo,
 			Category:   findings.CategoryMaintainability,
 			Confidence: 1.0,
