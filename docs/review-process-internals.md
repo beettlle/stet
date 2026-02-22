@@ -15,15 +15,17 @@ flowchart TB
     ollamaCheck[Ollama check unless dry-run]
     createWorktree[Create worktree save session]
     partition[Partition baseline HEAD to ToReview Approved]
-    loopHunks[For each hunk: prompt Ollama parse filters stream]
+    prepareHunks[Prepare hunks into buffer]
+    mainLoop[Main loop: Generate parse filters stream]
     autoSave[Auto-dismiss save session stream done]
     validate --> refCheck
     refCheck -->|yes| exitEarly
     refCheck -->|no| ollamaCheck
     ollamaCheck --> createWorktree
     createWorktree --> partition
-    partition --> loopHunks
-    loopHunks --> autoSave
+    partition --> prepareHunks
+    prepareHunks --> mainLoop
+    mainLoop --> autoSave
   end
 
   subgraph runFlow [stet run incremental]
@@ -42,7 +44,7 @@ flowchart TB
   end
 ```
 
-**In one paragraph:** The user (or extension) runs `stet start [ref]`. The CLI validates the repo and ref, creates a read-only worktree at the baseline ref, and saves a session. It computes which hunks to review by diffing `baseline..HEAD` and partitioning into "to-review" vs "already approved" using strict and semantic hunk IDs. Each to-review hunk goes through a pipeline: system prompt plus user intent, Cursor rules, optional nitpicky instructions (when `--nitpicky`), optional expand, user prompt, optional RAG, then Ollama, parse, abstention and FP kill list filters (FP kill list skipped when nitpicky), finding IDs and URIs. Findings are streamed (NDJSON) and stored in the session. Auto-dismiss marks previous findings that lie in re-reviewed hunks but were not re-reported. Later, `stet run` only reviews hunks that are new or changed since `last_reviewed_at`. Finish removes the worktree and writes a git note; status and list read from the session; dismiss adds a finding ID to the dismissed list and optionally records a reason and prompt shadow for future runs.
+**In one paragraph:** The user (or extension) runs `stet start [ref]`. The CLI validates the repo and ref, creates a read-only worktree at the baseline ref, and saves a session. It computes which hunks to review by diffing `baseline..HEAD` and partitioning into "to-review" vs "already approved" using strict and semantic hunk IDs. Each to-review hunk goes through a pipeline: system prompt plus user intent, Cursor rules, optional nitpicky instructions (when `--nitpicky`), optional expand, user prompt, optional RAG, then Ollama, parse, abstention and FP kill list filters (FP kill list skipped when nitpicky), finding IDs and URIs. Findings are streamed (NDJSON) and stored in the session. Auto-dismiss marks previous findings that lie in re-reviewed hunks but were not re-reported. Later, `stet run` only reviews hunks that are new or changed since `last_reviewed_at`. Finish removes the worktree and writes a git note; status and list read from the session; dismiss adds a finding ID to the dismissed list and optionally records a reason and prompt shadow for future runs. Execution is pipelined: hunks are prepared (prompts, expand, RAG) in advance by worker goroutines into a bounded buffer, while the main loop sends one Ollama request at a time in hunk order and post-processes each response; the last request asks Ollama to unload the model to free memory.
 
 ---
 
@@ -158,7 +160,33 @@ flowchart TB
 
 ## 7. Per-hunk review pipeline
 
-For each hunk in `part.ToReview`, the following steps run in order. Code lives in [cli/internal/review/review.go](cli/internal/review/review.go) (`ReviewHunk`) and [cli/internal/run/run.go](cli/internal/run/run.go) (loop and filters).
+The **logical** per-hunk steps (system prompt, rules, expand, user prompt, RAG, LLM, parse, filters) are described in §7.1–7.11; they are implemented by `review.PrepareHunkPrompt` (prepare phase) and the main loop (generate + process). **Execution** is pipelined as described in §7.0. Code lives in [cli/internal/review/review.go](cli/internal/review/review.go) (`ReviewHunk`, `PrepareHunkPrompt`, `ProcessReviewResponse`) and [cli/internal/run/run.go](cli/internal/run/run.go) (`runReviewPipeline`, loop and filters).
+
+### 7.0 Pipeline execution (runReviewPipeline)
+
+Start and Run both call `runReviewPipeline(ctx, opts)` in [cli/internal/run/run.go](cli/internal/run/run.go) with a pre-built **systemBase** (system prompt + user intent + prompt shadows + nitpicky) and a preloaded **rules map** (`RulesByFile`): for each distinct `hunk.FilePath` in the run, `rulesLoader.RulesForFile(filePath)` is called once in the main goroutine so preparer goroutines do not touch the loader concurrently.
+
+- **Prepare workers:** A fixed number of worker goroutines (`prepareWorkerCount`) pull hunk indices from a channel, load the hunk and its rules from the map, and call `review.PrepareHunkPrompt(ctx, systemBase, hunk, cursorRules, ...)`, which performs the steps in §7.1–7.7 (Cursor rules append, expand, user prompt, token estimate, RAG). Each worker sends a `preparedPrompt{System, User, Hunk, Index}` (or an error) to a ready channel.
+- **Main loop:** Consumes from the ready channel and maintains a **slots** array and **nextNeeded** index so that results are processed **in hunk order**. For each slot in order: call `client.Generate`, then `review.ProcessReviewResponse` (parse, assign IDs, retry on parse error), then post-filters (§7.10–7.11), stream, and append to collected. Only one `Generate` is in flight at a time; ordering ensures findings and stream output match hunk order.
+- **Tuning:** In run.go, `prepareBufferSize` caps the ready channel size; `prepareWorkerCount` is the number of preparer goroutines. These keep the LLM fed while bounding memory and I/O concurrency.
+
+```mermaid
+flowchart LR
+  idxCh[Index channel]
+  subgraph workers [Prepare workers]
+    W1[Worker 1]
+    W2[Worker 2]
+  end
+  readyCh[Ready channel]
+  mainLoop[Main loop in order]
+  gen[Generate]
+  post[Post-process]
+  idxCh --> workers
+  workers --> readyCh
+  readyCh --> mainLoop
+  mainLoop --> gen
+  gen --> post
+```
 
 ### 7.1 System prompt
 
@@ -170,7 +198,7 @@ For each hunk in `part.ToReview`, the following steps run in order. Code lives i
 
 ### 7.3 Cursor rules
 
-- **Load (per hunk):** A `rules.Loader` is created once per start/run via `rules.NewLoader(repoRoot)`. For each hunk, `loader.RulesForFile(hunk.FilePath)` returns the merged rule list: rules from the repo root `.cursor/rules/` plus rules from any nested `.cursor/rules/` directory whose path is a prefix of the file (e.g. for `cli/internal/run/run.go`, root and `cli/.cursor/rules/`; not `extension/.cursor/rules/`). Discovery is in [cli/internal/rules/loader.go](cli/internal/rules/loader.go) (`DiscoverRulesDirs`); each physical rules dir is loaded once and cached. Merged order is root first, then nested dirs by relative path (lexicographic).
+- **Load (per hunk):** A `rules.Loader` is created once per start/run via `rules.NewLoader(repoRoot)`. For each hunk, `loader.RulesForFile(hunk.FilePath)` returns the merged rule list: rules from the repo root `.cursor/rules/` plus rules from any nested `.cursor/rules/` directory whose path is a prefix of the file (e.g. for `cli/internal/run/run.go`, root and `cli/.cursor/rules/`; not `extension/.cursor/rules/`). Discovery is in [cli/internal/rules/loader.go](cli/internal/rules/loader.go) (`DiscoverRulesDirs`); each physical rules dir is loaded once and cached. Merged order is root first, then nested dirs by relative path (lexicographic). When using the pipelined review (§7.0), rules are **preloaded** once per run into a map keyed by file path and passed into the pipeline so that preparer goroutines do not call the loader concurrently.
 - **Description-based inference:** Rules are parsed from `.mdc` frontmatter (`globs`, `alwaysApply`, `description`). If a rule has no `globs` and not `alwaysApply` but has a non-empty `description`, glob patterns are inferred locally from the description (keyword table: e.g. "TypeScript", "Go", "frontend" → `*.ts`/`*.tsx`, `*.go`, `frontend/*`) so the rule applies at the right time without an LLM. See `InferGlobsFromDescription` in [cli/internal/rules/rules.go](cli/internal/rules/rules.go).
 - **Append:** `prompt.AppendCursorRules(system, ruleList, hunk.FilePath, maxRuleTokens)`. Filters `ruleList` by file path (alwaysApply or glob match), orders always-apply first, truncates to token budget, appends "## Project review criteria".
 
@@ -198,6 +226,7 @@ For each hunk in `part.ToReview`, the following steps run in order. Code lives i
 ### 7.8 LLM call
 
 - **Ollama:** `client.Generate(ctx, model, system, user, genOpts)`. The `genOpts.NumCtx` and the `contextLimit` passed to `ReviewHunk` may have been upgraded from config using the model's reported context (see §3.1). On malformed JSON response, the generate call is retried once; on second parse failure an error is returned.
+- **keep_alive:** Each `/api/generate` request includes a top-level `keep_alive` (Ollama API). For all but the last hunk, stet sends a long duration (e.g. `-1` = keep loaded) so the model stays in memory across requests and load/unload spikes are avoided. For the **last** hunk, stet sends a short value (e.g. `0` = unload when done) so Ollama frees the model after the run; this keeps memory available for other processes.
 
 ### 7.9 Parse and assign IDs
 
@@ -316,7 +345,8 @@ Panel state is driven by the stream (start) and clear (finish); the extension do
 
 | Topic | Path | Responsibility |
 |-------|------|----------------|
-| Start / Run / Finish entry | [cli/internal/run/run.go](cli/internal/run/run.go) | Session lifecycle, partition, per-hunk loop, auto-dismiss, stream write, worktree defer |
+| Start / Run / Finish entry | [cli/internal/run/run.go](cli/internal/run/run.go) | Session lifecycle, partition, runReviewPipeline (prepare workers, ordered consumption, keep_alive), auto-dismiss, stream write, worktree defer |
+| Review pipeline (prepare + LLM loop) | [cli/internal/run/run.go](cli/internal/run/run.go) | runReviewPipeline: preload rules, worker pool, ready channel, slots/nextNeeded ordering, per-request keep_alive, Generate, ProcessReviewResponse, filters, stream |
 | Worktree create/list/remove | [cli/internal/git/worktree.go](cli/internal/git/worktree.go) | PathForRef, Create, Remove, List, IsAncestor |
 | Session load/save/lock | [cli/internal/session/session.go](cli/internal/session/session.go) | Session struct, Load, Save, AcquireLock |
 | Partition (ToReview/Approved) | [cli/internal/scope/scope.go](cli/internal/scope/scope.go) | Partition(baseline, head, lastReviewedAt) → ToReview, Approved |
