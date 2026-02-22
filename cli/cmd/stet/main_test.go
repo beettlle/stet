@@ -799,6 +799,43 @@ func TestRunCLI_startBaselineNotAncestorPrintsClearMessage(t *testing.T) {
 	}
 }
 
+func TestRunCLI_startInvalidBaselineRefPrintsHint(t *testing.T) {
+	// Do not run in parallel: test changes cwd and stderr.
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStderr := os.Stderr
+	os.Stderr = w
+	t.Cleanup(func() { os.Stderr = oldStderr })
+	got := runCLI([]string{"start", "HEAD~999", "--dry-run"})
+	_ = w.Close()
+	var stderr bytes.Buffer
+	_, _ = io.Copy(&stderr, r)
+	if got == 0 {
+		t.Errorf("runCLI(start HEAD~999) = %d, want non-zero", got)
+	}
+	out := stderr.String()
+	if !strings.Contains(out, "Could not resolve baseline ref") {
+		t.Errorf("stderr should contain 'Could not resolve baseline ref'; got %q", out)
+	}
+	if !strings.Contains(out, "Hint:") {
+		t.Errorf("stderr should contain 'Hint:' for baseline ref resolution failure; got %q", out)
+	}
+	if !strings.Contains(out, "shallow") {
+		t.Errorf("stderr hint should mention shallow; got %q", out)
+	}
+}
+
 func runGitOut(t *testing.T, dir string, name string, args ...string) string {
 	t.Helper()
 	cmd := exec.Command(name, args...)

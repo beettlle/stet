@@ -38,12 +38,12 @@ func GetNote(repoRoot, notesRef, commitRef string) (string, error) {
 	cmd := exec.Command("git", "notes", "--ref="+notesRef, "show", commitRef)
 	cmd.Dir = repoRoot
 	cmd.Env = minimalEnv()
-	out, err := cmd.Output()
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
 			return "", fmt.Errorf("git notes show: no note for %s", commitRef)
 		}
-		return "", fmt.Errorf("git notes show: %w", err)
+		return "", fmt.Errorf("git notes show: %w: %s", err, strings.TrimSpace(string(out)))
 	}
 	return strings.TrimSuffix(string(out), "\n"), nil
 }

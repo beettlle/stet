@@ -105,8 +105,10 @@ func TestStart_createsSessionAndWorktree(t *testing.T) {
 		t.Fatalf("PathForRef: %v", err)
 	}
 	found := false
+	wantNorm, _ := filepath.EvalSymlinks(wantPath)
 	for _, w := range list {
-		if w.Path == wantPath {
+		wNorm, _ := filepath.EvalSymlinks(w.Path)
+		if wantNorm == wNorm {
 			found = true
 			break
 		}

@@ -2,7 +2,9 @@
 package git
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -17,11 +19,13 @@ func RepoRoot(dir string) (string, error) {
 	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
 	cmd.Dir = dir
 	cmd.Env = minimalEnv()
-	out, err := cmd.Output()
-	if err != nil {
-		return "", erruser.New("This directory is not inside a Git repository.", err)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", erruser.New("This directory is not inside a Git repository.", fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String())))
 	}
-	root := strings.TrimSpace(string(out))
+	root := strings.TrimSpace(stdout.String())
 	return filepath.Abs(root)
 }
 
@@ -32,11 +36,13 @@ func IsClean(repoRoot string) (bool, error) {
 	cmd := exec.Command("git", "status", "--porcelain")
 	cmd.Dir = repoRoot
 	cmd.Env = minimalEnv()
-	out, err := cmd.Output()
-	if err != nil {
-		return false, erruser.New("Could not check working tree status.", err)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return false, erruser.New("Could not check working tree status.", fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String())))
 	}
-	return len(strings.TrimSpace(string(out))) == 0, nil
+	return len(strings.TrimSpace(stdout.String())) == 0, nil
 }
 
 // RefExists reports whether the given ref exists in the repository at repoRoot.
@@ -50,17 +56,21 @@ func RefExists(repoRoot, ref string) (bool, error) {
 	cmd := exec.Command("git", "rev-parse", ref)
 	cmd.Dir = repoRoot
 	cmd.Env = minimalEnv()
-	out, err := cmd.CombinedOutput()
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
 	if err == nil {
 		return true, nil
 	}
+	out := stdout.String() + stderr.String()
 	if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 128 {
-		if strings.Contains(string(out), "not a git repository") {
-			return false, erruser.New("This directory is not inside a Git repository.", err)
+		if strings.Contains(out, "not a git repository") {
+			return false, erruser.New("This directory is not inside a Git repository.", fmt.Errorf("%w: %s", err, strings.TrimSpace(out)))
 		}
 		return false, nil
 	}
-	return false, erruser.New("Could not check if ref exists.", err)
+	return false, erruser.New("Could not check if ref exists.", fmt.Errorf("%w: %s", err, strings.TrimSpace(out)))
 }
 
 // RevParse resolves ref to a full SHA in the repository at repoRoot.
@@ -69,11 +79,13 @@ func RevParse(repoRoot, ref string) (string, error) {
 	cmd := exec.Command("git", "rev-parse", ref)
 	cmd.Dir = repoRoot
 	cmd.Env = minimalEnv()
-	out, err := cmd.Output()
-	if err != nil {
-		return "", erruser.New("Invalid ref or commit.", err)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", erruser.New("Invalid ref or commit.", fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String())))
 	}
-	return strings.TrimSpace(string(out)), nil
+	return strings.TrimSpace(stdout.String()), nil
 }
 
 // UserIntent returns the current branch name and the last commit message at HEAD.
@@ -83,20 +95,25 @@ func UserIntent(repoRoot string) (branch, commitMsg string, err error) {
 	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
 	cmd.Dir = repoRoot
 	cmd.Env = minimalEnv()
-	out, err := cmd.Output()
-	if err != nil {
-		return "", "", erruser.New("Could not read branch or commit message.", err)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", "", erruser.New("Could not read branch or commit message.", fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String())))
 	}
-	branch = strings.TrimSpace(string(out))
+	branch = strings.TrimSpace(stdout.String())
 
 	cmd = exec.Command("git", "log", "-1", "--format=%B", "HEAD")
 	cmd.Dir = repoRoot
 	cmd.Env = minimalEnv()
-	out, err = cmd.Output()
-	if err != nil {
-		return "", "", erruser.New("Could not read branch or commit message.", err)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	stdout.Reset()
+	stderr.Reset()
+	if err := cmd.Run(); err != nil {
+		return "", "", erruser.New("Could not read branch or commit message.", fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String())))
 	}
-	commitMsg = strings.TrimSpace(string(out))
+	commitMsg = strings.TrimSpace(stdout.String())
 
 	return branch, commitMsg, nil
 }
@@ -115,9 +132,11 @@ func UncommittedDiff(ctx context.Context, repoRoot string, stagedOnly bool) (str
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = repoRoot
 	cmd.Env = minimalEnv()
-	out, err := cmd.Output()
-	if err != nil {
-		return "", erruser.New("Could not get uncommitted diff.", err)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", erruser.New("Could not get uncommitted diff.", fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String())))
 	}
-	return strings.TrimSpace(string(out)), nil
+	return strings.TrimSpace(stdout.String()), nil
 }

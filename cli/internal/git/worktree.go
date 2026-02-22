@@ -3,6 +3,7 @@
 package git
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -50,11 +51,13 @@ func revParseShort(repoRoot, ref string, n int) (string, error) {
 	cmd := exec.Command("git", "rev-parse", fmt.Sprintf("--short=%d", n), ref)
 	cmd.Dir = repoRoot
 	cmd.Env = minimalEnv()
-	out, err := cmd.Output()
-	if err != nil {
-		return "", erruser.New("Could not resolve ref.", err)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", erruser.New("Could not resolve ref.", fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String())))
 	}
-	return strings.TrimSpace(string(out)), nil
+	return strings.TrimSpace(stdout.String()), nil
 }
 
 // IsAncestor returns true if ancestor is an ancestor of descendant in the repo.
@@ -62,6 +65,9 @@ func IsAncestor(repoRoot, ancestor, descendant string) (bool, error) {
 	cmd := exec.Command("git", "merge-base", "--is-ancestor", ancestor, descendant)
 	cmd.Dir = repoRoot
 	cmd.Env = minimalEnv()
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err == nil {
 		return true, nil
@@ -69,7 +75,7 @@ func IsAncestor(repoRoot, ancestor, descendant string) (bool, error) {
 	if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
 		return false, nil
 	}
-	return false, erruser.New("Could not check whether baseline is an ancestor of HEAD.", err)
+	return false, erruser.New("Could not check whether baseline is an ancestor of HEAD.", fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String())))
 }
 
 // Create creates a read-only worktree at the given ref. Path is derived via PathForRef.

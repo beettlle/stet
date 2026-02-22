@@ -171,8 +171,10 @@ func TestList(t *testing.T) {
 		t.Fatalf("expected at least 2 worktrees, got %d", len(list))
 	}
 	found := false
+	pathNorm, _ := filepath.EvalSymlinks(path)
 	for _, w := range list {
-		if w.Path == path {
+		wNorm, _ := filepath.EvalSymlinks(w.Path)
+		if pathNorm == wNorm {
 			found = true
 			break
 		}

@@ -189,6 +189,9 @@ func runCLI(args []string) int {
 		if u := errors.Unwrap(err); u != nil {
 			fmt.Fprintf(os.Stderr, "Details: %v\n", u)
 		}
+		if strings.Contains(err.Error(), "Could not resolve baseline ref") {
+			fmt.Fprintln(os.Stderr, "Hint: If you used HEAD~N, the repo may be shallow; try the commit SHA (e.g. stet start <sha>).")
+		}
 		return 1
 	}
 	return 0

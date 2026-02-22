@@ -414,7 +414,7 @@ func Start(ctx context.Context, opts StartOptions) (err error) {
 
 	sha, err := git.RevParse(opts.RepoRoot, ref)
 	if err != nil {
-		return erruser.New("Could not resolve baseline ref.", err)
+		return erruser.New(fmt.Sprintf("Could not resolve baseline ref %q.", ref), err)
 	}
 
 	headSHA, err := git.RevParse(opts.RepoRoot, "HEAD")

@@ -2,6 +2,8 @@
 package git
 
 import (
+	"bytes"
+	"fmt"
 	"os/exec"
 	"strings"
 
@@ -19,14 +21,17 @@ func RevList(repoRoot, sinceRef, untilRef string) ([]string, error) {
 	cmd := exec.Command("git", "rev-list", rangeSpec)
 	cmd.Dir = repoRoot
 	cmd.Env = minimalEnv()
-	out, err := cmd.Output()
-	if err != nil {
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		msg := strings.TrimSpace(stderr.String())
 		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 128 {
-			return nil, erruser.New("Invalid ref or commit.", err)
+			return nil, erruser.New("Invalid ref or commit.", fmt.Errorf("%w: %s", err, msg))
 		}
-		return nil, erruser.New("Could not list commits in range.", err)
+		return nil, erruser.New("Could not list commits in range.", fmt.Errorf("%w: %s", err, msg))
 	}
-	trimmed := strings.TrimSpace(string(out))
+	trimmed := strings.TrimSpace(stdout.String())
 	if trimmed == "" {
 		return nil, nil
 	}
