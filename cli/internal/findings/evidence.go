@@ -15,7 +15,7 @@ package findings
 // Rules: File mismatch (finding.File != filePath) → keep. File-only
 // (Line == 0 and no Range) → keep. Line only: keep iff in [hunkStart, hunkEnd].
 // Range: invalid (Start > End) → drop; else keep iff range overlaps hunk
-// (overlap: finding.Range.End >= hunkStart && finding.Range.Start <= hunkEnd).
+// (overlap: finding.Range.Start <= hunkEnd && finding.Range.End >= hunkStart).
 func FilterByHunkLines(list []Finding, filePath string, hunkStart, hunkEnd int) []Finding {
 	if len(list) == 0 {
 		return nil
@@ -37,7 +37,7 @@ func FilterByHunkLines(list []Finding, filePath string, hunkStart, hunkEnd int) 
 			if f.Range.Start > f.Range.End {
 				continue
 			}
-			if f.Range.End >= hunkStart && f.Range.Start <= hunkEnd {
+			if f.Range.Start <= hunkEnd && f.Range.End >= hunkStart {
 				out = append(out, f)
 			}
 			continue
