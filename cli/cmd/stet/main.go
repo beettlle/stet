@@ -351,6 +351,8 @@ func runStart(cmd *cobra.Command, args []string) error {
 		PersistNumCtx:                  persistNumCtx,
 		TraceOut:                       traceOut,
 		UseSearchReplaceFormat:         getSearchReplaceFlag(cmd),
+		SuppressionEnabled:             cfg.SuppressionEnabled,
+		SuppressionHistoryCount:        cfg.SuppressionHistoryCount,
 	}
 	if stream {
 		opts.StreamOut = findingsWriter()
@@ -617,6 +619,8 @@ func runRun(cmd *cobra.Command, args []string) error {
 		Nitpicky:                     effectiveNitpicky,
 		TraceOut:                     traceOut,
 		UseSearchReplaceFormat:       getSearchReplaceFlag(cmd),
+		SuppressionEnabled:           cfg.SuppressionEnabled,
+		SuppressionHistoryCount:      cfg.SuppressionHistoryCount,
 	}
 	if stream {
 		opts.StreamOut = findingsWriter()
@@ -790,6 +794,8 @@ func runRerun(cmd *cobra.Command, args []string) error {
 		UseSearchReplaceFormat:       getSearchReplaceFlag(cmd),
 		ForceFullReview:             true,
 		ReplaceFindings:             replace,
+		SuppressionEnabled:          cfg.SuppressionEnabled,
+		SuppressionHistoryCount:     cfg.SuppressionHistoryCount,
 	}
 	if stream {
 		opts.StreamOut = findingsWriter()
@@ -1335,6 +1341,8 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 		MinConfidenceMaintainability: minMaint,
 		ApplyFPKillList:              &applyFP,
 		Nitpicky:                     cfg.Nitpicky,
+		SuppressionEnabled:           cfg.SuppressionEnabled,
+		SuppressionHistoryCount:     cfg.SuppressionHistoryCount,
 	}
 	var persistContextLimit, persistNumCtx *int
 	if overrides != nil && (overrides.ContextLimit != nil || overrides.NumCtx != nil) {
@@ -1366,6 +1374,8 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 			Nitpicky:                       cfg.Nitpicky,
 			PersistContextLimit:            persistContextLimit,
 			PersistNumCtx:                  persistNumCtx,
+			SuppressionEnabled:            cfg.SuppressionEnabled,
+			SuppressionHistoryCount:       cfg.SuppressionHistoryCount,
 		}
 		if _, err := run.Start(cmd.Context(), startOpts); err != nil {
 			if errors.Is(err, ollama.ErrUnreachable) {

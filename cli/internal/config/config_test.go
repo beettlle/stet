@@ -45,6 +45,12 @@ func TestDefaultConfig(t *testing.T) {
 	if c.Strictness != _defaultStrictness {
 		t.Errorf("Strictness = %q, want %q", c.Strictness, _defaultStrictness)
 	}
+	if !c.SuppressionEnabled {
+		t.Errorf("SuppressionEnabled = false, want true (default)")
+	}
+	if c.SuppressionHistoryCount != _defaultSuppressionHistoryCount {
+		t.Errorf("SuppressionHistoryCount = %d, want %d", c.SuppressionHistoryCount, _defaultSuppressionHistoryCount)
+	}
 }
 
 func TestLoad_defaultsOnly(t *testing.T) {
@@ -869,6 +875,160 @@ func TestLoad_nitpickyInvalidFromEnv(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "STET_NITPICKY") {
 		t.Errorf("Load: want STET_NITPICKY in error, got %v", err)
+	}
+}
+
+func TestLoad_suppressionEnabledFromEnv(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ctx := context.Background()
+	for _, envVal := range []string{"1", "true", "yes", "on"} {
+		cfg, err := Load(ctx, LoadOptions{
+			RepoRoot:         dir,
+			GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+			Env:              []string{"STET_SUPPRESSION_ENABLED=" + envVal},
+		})
+		if err != nil {
+			t.Fatalf("Load(STET_SUPPRESSION_ENABLED=%s): %v", envVal, err)
+		}
+		if !cfg.SuppressionEnabled {
+			t.Errorf("SuppressionEnabled = false for STET_SUPPRESSION_ENABLED=%s, want true", envVal)
+		}
+	}
+	for _, envVal := range []string{"0", "false", "no", "off"} {
+		cfg, err := Load(ctx, LoadOptions{
+			RepoRoot:         dir,
+			GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+			Env:              []string{"STET_SUPPRESSION_ENABLED=" + envVal},
+		})
+		if err != nil {
+			t.Fatalf("Load(STET_SUPPRESSION_ENABLED=%s): %v", envVal, err)
+		}
+		if cfg.SuppressionEnabled {
+			t.Errorf("SuppressionEnabled = true for STET_SUPPRESSION_ENABLED=%s, want false", envVal)
+		}
+	}
+}
+
+func TestLoad_suppressionEnabledInvalidFromEnv(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ctx := context.Background()
+	_, err := Load(ctx, LoadOptions{
+		RepoRoot:         dir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{"STET_SUPPRESSION_ENABLED=invalid"},
+	})
+	if err == nil {
+		t.Fatal("Load: want error for invalid STET_SUPPRESSION_ENABLED, got nil")
+	}
+	if !strings.Contains(err.Error(), "STET_SUPPRESSION_ENABLED") {
+		t.Errorf("Load: want STET_SUPPRESSION_ENABLED in error, got %v", err)
+	}
+}
+
+func TestLoad_suppressionHistoryCountFromEnv(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ctx := context.Background()
+	cfg, err := Load(ctx, LoadOptions{
+		RepoRoot:         dir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{"STET_SUPPRESSION_HISTORY_COUNT=50"},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.SuppressionHistoryCount != 50 {
+		t.Errorf("SuppressionHistoryCount = %d, want 50", cfg.SuppressionHistoryCount)
+	}
+	cfg, err = Load(ctx, LoadOptions{
+		RepoRoot:         dir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{"STET_SUPPRESSION_HISTORY_COUNT=0"},
+	})
+	if err != nil {
+		t.Fatalf("Load(0): %v", err)
+	}
+	if cfg.SuppressionHistoryCount != 0 {
+		t.Errorf("SuppressionHistoryCount = %d, want 0", cfg.SuppressionHistoryCount)
+	}
+}
+
+func TestLoad_suppressionHistoryCountNegativeFromEnv(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ctx := context.Background()
+	_, err := Load(ctx, LoadOptions{
+		RepoRoot:         dir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{"STET_SUPPRESSION_HISTORY_COUNT=-1"},
+	})
+	if err == nil {
+		t.Fatal("Load: want error for negative STET_SUPPRESSION_HISTORY_COUNT, got nil")
+	}
+	if !strings.Contains(err.Error(), "STET_SUPPRESSION_HISTORY_COUNT") {
+		t.Errorf("Load: want STET_SUPPRESSION_HISTORY_COUNT in error, got %v", err)
+	}
+}
+
+func TestLoad_suppressionHistoryCountInvalidFromEnv(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ctx := context.Background()
+	_, err := Load(ctx, LoadOptions{
+		RepoRoot:         dir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{"STET_SUPPRESSION_HISTORY_COUNT=notanumber"},
+	})
+	if err == nil {
+		t.Fatal("Load: want error for invalid STET_SUPPRESSION_HISTORY_COUNT, got nil")
+	}
+	if !strings.Contains(err.Error(), "STET_SUPPRESSION_HISTORY_COUNT") {
+		t.Errorf("Load: want STET_SUPPRESSION_HISTORY_COUNT in error, got %v", err)
+	}
+}
+
+func TestLoad_suppressionFromTOML(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	repoDir := filepath.Join(dir, "repo")
+	if err := os.MkdirAll(filepath.Join(repoDir, ".review"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(repoDir, ".review", "config.toml")
+	if err := os.WriteFile(path, []byte("suppression_enabled = false\nsuppression_history_count = 10"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	cfg, err := Load(ctx, LoadOptions{
+		RepoRoot:         repoDir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.SuppressionEnabled {
+		t.Errorf("SuppressionEnabled = true, want false (from TOML)")
+	}
+	if cfg.SuppressionHistoryCount != 10 {
+		t.Errorf("SuppressionHistoryCount = %d, want 10", cfg.SuppressionHistoryCount)
+	}
+	// Explicit 0 means do not use history for suppression.
+	if err := os.WriteFile(path, []byte("suppression_history_count = 0"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err = Load(ctx, LoadOptions{
+		RepoRoot:         repoDir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.SuppressionHistoryCount != 0 {
+		t.Errorf("SuppressionHistoryCount = %d, want 0 (explicit TOML)", cfg.SuppressionHistoryCount)
 	}
 }
 

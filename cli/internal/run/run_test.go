@@ -18,6 +18,7 @@ import (
 	"stet/cli/internal/findings"
 	"stet/cli/internal/git"
 	"stet/cli/internal/history"
+	"stet/cli/internal/prompt"
 	"stet/cli/internal/session"
 )
 
@@ -2281,5 +2282,44 @@ func TestRun_pipeline_multipleHunks_ordersFindingsAndOneGeneratePerHunk(t *testi
 		} else if n, ok := last.(float64); !ok || n != 0 {
 			t.Errorf("last request keep_alive = %v (type %T), want 0 for good stewardship", last, last)
 		}
+	}
+}
+
+// TestSuppressionWiring_systemPromptContainsSection asserts that when SuppressionEnabled
+// and SuppressionHistoryCount > 0, the system prompt built for the pipeline includes
+// the "Do not report issues similar to" section with examples from history.
+func TestSuppressionWiring_systemPromptContainsSection(t *testing.T) {
+	t.Parallel()
+	stateDir := t.TempDir()
+	rec := history.Record{
+		DiffRef: "HEAD",
+		ReviewOutput: []findings.Finding{
+			{ID: "f1", File: "pkg/foo.go", Line: 42, Severity: findings.SeverityInfo, Category: findings.CategoryMaintainability, Confidence: 0.9, Message: "Consider adding comments"},
+		},
+		UserAction: history.UserAction{
+			Dismissals: []history.Dismissal{{FindingID: "f1", Reason: history.ReasonFalsePositive}},
+		},
+	}
+	if err := history.Append(stateDir, rec, 0); err != nil {
+		t.Fatalf("history.Append: %v", err)
+	}
+	examples, err := history.SuppressionExamples(stateDir, 50, 30)
+	if err != nil {
+		t.Fatalf("SuppressionExamples: %v", err)
+	}
+	if len(examples) == 0 {
+		t.Fatal("SuppressionExamples: want at least one example")
+	}
+	systemBase, err := prompt.SystemPrompt(stateDir)
+	if err != nil {
+		t.Fatalf("SystemPrompt: %v", err)
+	}
+	systemBase = prompt.AppendSuppressionExamples(systemBase, examples)
+	if !strings.Contains(systemBase, "## Do not report issues similar to") {
+		t.Error("system prompt should contain suppression section header")
+	}
+	wantEx := "pkg/foo.go:42: Consider adding comments"
+	if !strings.Contains(systemBase, wantEx) {
+		t.Errorf("system prompt should contain example %q", wantEx)
 	}
 }

@@ -13,6 +13,8 @@
 //   - STET_RAG_SYMBOL_MAX_DEFINITIONS, STET_RAG_SYMBOL_MAX_TOKENS (RAG-lite symbol lookup; Sub-phase 6.8).
 //   - STET_STRICTNESS (review strictness preset: strict, default, lenient, strict+, default+, lenient+).
 //   - STET_NITPICKY (enable nitpicky mode: 1/true/yes/on = true, 0/false/no/off = false).
+//   - STET_SUPPRESSION_ENABLED (history-based suppression: 1/true/yes/on = true, 0/false/no/off = false).
+//   - STET_SUPPRESSION_HISTORY_COUNT (max history records to scan for dismissals; non-negative integer).
 package config
 
 import (
@@ -53,6 +55,10 @@ type Config struct {
 	Strictness string `toml:"strictness"`
 	// Nitpicky enables convention- and typo-aware review; when true, FP kill list is not applied.
 	Nitpicky bool `toml:"nitpicky"`
+	// SuppressionEnabled enables history-based suppression (prompt injection of dismissed examples). Default true.
+	SuppressionEnabled bool `toml:"suppression_enabled"`
+	// SuppressionHistoryCount is the max number of history records to scan for dismissals (0 = do not use history). Default 50.
+	SuppressionHistoryCount int `toml:"suppression_history_count"`
 }
 
 // Overrides represents optional CLI flag overrides. Non-nil pointer means
@@ -72,6 +78,8 @@ type Overrides struct {
 	RAGSymbolMaxTokens      *int
 	Strictness              *string
 	Nitpicky                *bool
+	SuppressionEnabled       *bool
+	SuppressionHistoryCount  *int
 }
 
 // LoadOptions configures Load. All fields are optional.
@@ -94,9 +102,10 @@ const (
 	_defaultTimeout       = 5 * time.Minute
 	_defaultTemperature          = 0.2
 	_defaultNumCtx               = 32768
-	_defaultRAGSymbolMaxDefs     = 10
-	_defaultRAGSymbolMaxTokens   = 0
-	_defaultStrictness           = "default"
+	_defaultRAGSymbolMaxDefs       = 10
+	_defaultRAGSymbolMaxTokens    = 0
+	_defaultStrictness             = "default"
+	_defaultSuppressionHistoryCount = 50
 )
 
 // validStrictness is the set of allowed strictness values (normalized lowercase).
@@ -139,8 +148,10 @@ func DefaultConfig() Config {
 		NumCtx:                  _defaultNumCtx,
 		RAGSymbolMaxDefinitions: _defaultRAGSymbolMaxDefs,
 		RAGSymbolMaxTokens:      _defaultRAGSymbolMaxTokens,
-		Strictness:              _defaultStrictness,
-		Nitpicky:                false,
+		Strictness:                _defaultStrictness,
+		Nitpicky:                  false,
+		SuppressionEnabled:        true,
+		SuppressionHistoryCount:   _defaultSuppressionHistoryCount,
 	}
 }
 
@@ -215,8 +226,10 @@ func mergeFile(cfg *Config, path string) error {
 		OptimizerScript         *string `toml:"optimizer_script"`
 		RAGSymbolMaxDefinitions *int64  `toml:"rag_symbol_max_definitions"`
 		RAGSymbolMaxTokens      *int64  `toml:"rag_symbol_max_tokens"`
-		Strictness              *string `toml:"strictness"`
-		Nitpicky                *bool   `toml:"nitpicky"`
+		Strictness               *string `toml:"strictness"`
+		Nitpicky                 *bool   `toml:"nitpicky"`
+		SuppressionEnabled       *bool   `toml:"suppression_enabled"`
+		SuppressionHistoryCount  *int64  `toml:"suppression_history_count"`
 	}
 	if _, err := toml.Decode(string(data), &file); err != nil {
 		return erruser.New("Invalid configuration in .review/config.toml.", err)
@@ -289,6 +302,16 @@ func mergeFile(cfg *Config, path string) error {
 	if file.Nitpicky != nil {
 		cfg.Nitpicky = *file.Nitpicky
 	}
+	if file.SuppressionEnabled != nil {
+		cfg.SuppressionEnabled = *file.SuppressionEnabled
+	}
+	if file.SuppressionHistoryCount != nil && *file.SuppressionHistoryCount >= 0 {
+		v, err := int64ToInt(*file.SuppressionHistoryCount)
+		if err != nil {
+			return erruser.New("Configuration suppression_history_count value out of range.", err)
+		}
+		cfg.SuppressionHistoryCount = v
+	}
 	return nil
 }
 
@@ -324,8 +347,10 @@ const (
 	envOptimizerScript         = "STET_OPTIMIZER_SCRIPT"
 	envRAGSymbolMaxDefinitions = "STET_RAG_SYMBOL_MAX_DEFINITIONS"
 	envRAGSymbolMaxTokens      = "STET_RAG_SYMBOL_MAX_TOKENS"
-	envStrictness              = "STET_STRICTNESS"
-	envNitpicky                = "STET_NITPICKY"
+	envStrictness               = "STET_STRICTNESS"
+	envNitpicky                 = "STET_NITPICKY"
+	envSuppressionEnabled       = "STET_SUPPRESSION_ENABLED"
+	envSuppressionHistoryCount  = "STET_SUPPRESSION_HISTORY_COUNT"
 )
 
 func applyEnv(cfg *Config, env []string) error {
@@ -443,6 +468,26 @@ func applyEnv(cfg *Config, env []string) error {
 		}
 		cfg.Nitpicky = b
 	}
+	if v, ok := vals[envSuppressionEnabled]; ok && v != "" {
+		b, err := parseBool(v)
+		if err != nil {
+			return erruser.New("STET_SUPPRESSION_ENABLED must be 1/true/yes/on or 0/false/no/off.", err)
+		}
+		cfg.SuppressionEnabled = b
+	}
+	if v, ok := vals[envSuppressionHistoryCount]; ok && v != "" {
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return erruser.New("STET_SUPPRESSION_HISTORY_COUNT must be a valid number.", err)
+		}
+		if n < 0 {
+			return erruser.New("STET_SUPPRESSION_HISTORY_COUNT must be non-negative.", nil)
+		}
+		cfg.SuppressionHistoryCount, err = int64ToInt(n)
+		if err != nil {
+			return erruser.New("STET_SUPPRESSION_HISTORY_COUNT value out of range.", err)
+		}
+	}
 	return nil
 }
 
@@ -505,5 +550,11 @@ func applyOverrides(cfg *Config, o *Overrides) {
 	}
 	if o.Nitpicky != nil {
 		cfg.Nitpicky = *o.Nitpicky
+	}
+	if o.SuppressionEnabled != nil {
+		cfg.SuppressionEnabled = *o.SuppressionEnabled
+	}
+	if o.SuppressionHistoryCount != nil {
+		cfg.SuppressionHistoryCount = *o.SuppressionHistoryCount
 	}
 }

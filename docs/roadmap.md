@@ -144,7 +144,7 @@ The following exist today; this roadmap only lists work not yet implemented.
 
 ### 9.1 Feature: Dynamic Suppression (The "Shut Up" Button)
 
-- **Status:** Not started.
+- **Status:** Done.
 - **Goal:** If the user repeatedly dismisses similar feedback, stet should reduce or stop offering similar findings (via prompt injection or post-process filter).
 - **Entry points:** No new command. Integrate into the review path. Call sites: when building the system prompt or when post-processing findings — [cli/internal/review/review.go](cli/internal/review/review.go) and/or [cli/internal/run/run.go](cli/internal/run/run.go). Prefer Option A (prompt injection) first; Option B (post-process similarity) can follow as an optional chunk.
 - **Inputs:** Last N dismissed findings from `.review/history.jsonl`. Schema: [history.Record](cli/internal/history/schema.go) with UserAction.Dismissals and ReviewOutput; see [history.ReadRecords](cli/internal/history/append.go) (or equivalent) for reading in chronological order. Config: enable/disable, N (e.g. 50).

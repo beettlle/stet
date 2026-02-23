@@ -68,6 +68,8 @@ const (
 	keepAliveDuringRun = -1
 	// keepAliveAfterRun tells Ollama to unload the model after the last request (0 = when done); good stewardship.
 	keepAliveAfterRun = 0
+	// maxSuppressionExamples caps the number of history-based suppression examples injected into the system prompt (roadmap 9.1).
+	maxSuppressionExamples = 30
 )
 
 // truncateForPromptContext truncates s to maxLen and appends "\n[truncated]" if truncated.
@@ -505,6 +507,10 @@ type StartOptions struct {
 	TraceOut io.Writer
 	// UseSearchReplaceFormat, when true, sends the hunk in search-replace (merge-conflict) style for testing token usage and finding quality.
 	UseSearchReplaceFormat bool
+	// SuppressionEnabled enables history-based suppression (prompt injection of dismissed examples). When true and SuppressionHistoryCount > 0, last N history records are scanned.
+	SuppressionEnabled bool
+	// SuppressionHistoryCount is the max history records to scan for dismissals (0 = do not use history).
+	SuppressionHistoryCount int
 }
 
 // FinishOptions configures Finish.
@@ -547,6 +553,10 @@ type RunOptions struct {
 	ForceFullReview bool
 	// ReplaceFindings, when true, replaces session findings with only this run's results; when false, merges (append + auto-dismiss).
 	ReplaceFindings bool
+	// SuppressionEnabled enables history-based suppression (prompt injection of dismissed examples).
+	SuppressionEnabled bool
+	// SuppressionHistoryCount is the max history records to scan for dismissals (0 = do not use history).
+	SuppressionHistoryCount int
 }
 
 // RunStats holds token and duration totals for a single Start/Run invocation.
@@ -832,6 +842,11 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 		systemBase = prompt.AppendPromptShadows(systemBase, runPromptShadows(&s))
 		if opts.Nitpicky {
 			systemBase = prompt.AppendNitpickyInstructions(systemBase)
+		}
+		if opts.SuppressionEnabled && opts.SuppressionHistoryCount > 0 {
+			if examples, err := history.SuppressionExamples(opts.StateDir, opts.SuppressionHistoryCount, maxSuppressionExamples); err == nil && len(examples) > 0 {
+				systemBase = prompt.AppendSuppressionExamples(systemBase, examples)
+			}
 		}
 		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: effectiveNumCtx, KeepAlive: keepAliveDuringRun}
 		rulesLoader := rules.NewLoader(opts.RepoRoot)
@@ -1221,6 +1236,11 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 		systemBase = prompt.AppendPromptShadows(systemBase, runPromptShadows(&s))
 		if opts.Nitpicky {
 			systemBase = prompt.AppendNitpickyInstructions(systemBase)
+		}
+		if opts.SuppressionEnabled && opts.SuppressionHistoryCount > 0 {
+			if examples, err := history.SuppressionExamples(opts.StateDir, opts.SuppressionHistoryCount, maxSuppressionExamples); err == nil && len(examples) > 0 {
+				systemBase = prompt.AppendSuppressionExamples(systemBase, examples)
+			}
 		}
 		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: effectiveNumCtx, KeepAlive: keepAliveDuringRun}
 		rulesLoader := rules.NewLoader(opts.RepoRoot)

@@ -301,6 +301,25 @@ func AppendPromptShadows(system string, shadows []Shadow) string {
 	return system + b.String()
 }
 
+const suppressionExamplesHeader = "\n\n## Do not report issues similar to\n\n"
+
+// AppendSuppressionExamples appends a "## Do not report issues similar to" section
+// with one line per example (from history dismissals). Returns systemPrompt
+// unchanged if examples is nil or empty. Used for history-based suppression (roadmap 9.1).
+func AppendSuppressionExamples(systemPrompt string, examples []string) string {
+	if len(examples) == 0 {
+		return systemPrompt
+	}
+	var b strings.Builder
+	b.WriteString(suppressionExamplesHeader)
+	for _, ex := range examples {
+		b.WriteString("- ")
+		b.WriteString(ex)
+		b.WriteString("\n")
+	}
+	return systemPrompt + b.String()
+}
+
 // UserPrompt builds the user-facing prompt for one hunk: file path and the
 // hunk content (context). Phase 3 uses only hunk content; no RAG or extra context.
 func UserPrompt(hunk diff.Hunk) string {

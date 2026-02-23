@@ -209,6 +209,7 @@ flowchart LR
 ### 7.4 Prompt shadows (negative examples)
 
 - **Append:** `prompt.AppendPromptShadows(system, promptShadows)`. Up to 5 recent dismissed-finding contexts (from session `PromptShadows`) are appended as "## Negative examples (do not report)" so the model does not re-report similar issues.
+- When suppression is enabled and history has dismissals, the system prompt also includes a "Do not report issues similar to" section built from the last N history records (see config `suppression_enabled`, `suppression_history_count` and env `STET_SUPPRESSION_ENABLED`, `STET_SUPPRESSION_HISTORY_COUNT`).
 
 ### 7.5 Optional expand (Go only)
 

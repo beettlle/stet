@@ -415,6 +415,36 @@ func TestAppendPromptShadows_contextExceedsLimit_truncated(t *testing.T) {
 	}
 }
 
+func TestAppendSuppressionExamples_nilOrEmpty_unchanged(t *testing.T) {
+	base := "System prompt."
+	got := AppendSuppressionExamples(base, nil)
+	if got != base {
+		t.Errorf("AppendSuppressionExamples(nil): want unchanged; got %q", got)
+	}
+	got = AppendSuppressionExamples(base, []string{})
+	if got != base {
+		t.Errorf("AppendSuppressionExamples(empty): want unchanged; got %q", got)
+	}
+}
+
+func TestAppendSuppressionExamples_nonEmpty_appendsSection(t *testing.T) {
+	base := "System prompt."
+	examples := []string{"a.go:1: msg1"}
+	got := AppendSuppressionExamples(base, examples)
+	if !strings.Contains(got, "## Do not report issues similar to") {
+		t.Errorf("AppendSuppressionExamples: want section header; got:\n%s", got)
+	}
+	if !strings.Contains(got, "a.go:1: msg1") {
+		t.Errorf("AppendSuppressionExamples: want example in output; got:\n%s", got)
+	}
+	if !strings.Contains(got, "- a.go:1: msg1") {
+		t.Errorf("AppendSuppressionExamples: want bullet format; got:\n%s", got)
+	}
+	if !strings.HasPrefix(got, base) {
+		t.Errorf("AppendSuppressionExamples: should start with original prompt")
+	}
+}
+
 func TestAppendSymbolDefinitions_empty_unchanged(t *testing.T) {
 	userPrompt := "File: foo.go\n\ncontent"
 	got := AppendSymbolDefinitions(userPrompt, nil, 0)
