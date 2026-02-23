@@ -207,6 +207,13 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 					opts.TraceOut.Printf("FP kill list: %d -> %d\n", beforeFP, len(batch))
 				}
 			}
+			if hunkStart, hunkEnd, ok := expand.HunkLineRange(p.Hunk); ok {
+				beforeEvidence := len(batch)
+				batch = findings.FilterByHunkLines(batch, p.Hunk.FilePath, hunkStart, hunkEnd)
+				if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+					opts.TraceOut.Printf("Evidence (hunk lines): %d -> %d\n", beforeEvidence, len(batch))
+				}
+			}
 			findings.SetCursorURIs(opts.RepoRoot, batch)
 			hunkCtx := truncateForPromptContext(p.Hunk.RawContent, maxPromptContextStoreLen)
 			for _, f := range batch {
@@ -775,6 +782,9 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 			if applyFP {
 				batch = findings.FilterFPKillList(batch)
 			}
+			if hunkStart, hunkEnd, ok := expand.HunkLineRange(hunk); ok {
+				batch = findings.FilterByHunkLines(batch, hunk.FilePath, hunkStart, hunkEnd)
+			}
 			findings.SetCursorURIs(opts.RepoRoot, batch)
 			ctx := truncateForPromptContext(hunk.RawContent, maxPromptContextStoreLen)
 			for _, f := range batch {
@@ -1147,6 +1157,9 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 			batch = findings.FilterAbstention(batch, minKeep, minMaint)
 			if applyFP {
 				batch = findings.FilterFPKillList(batch)
+			}
+			if hunkStart, hunkEnd, ok := expand.HunkLineRange(hunk); ok {
+				batch = findings.FilterByHunkLines(batch, hunk.FilePath, hunkStart, hunkEnd)
 			}
 			findings.SetCursorURIs(opts.RepoRoot, batch)
 			hunkCtx := truncateForPromptContext(hunk.RawContent, maxPromptContextStoreLen)

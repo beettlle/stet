@@ -237,6 +237,7 @@ flowchart LR
 
 1. **Abstention:** `findings.FilterAbstention(list, minKeep, minMaint)` in [cli/internal/findings/abstention.go](cli/internal/findings/abstention.go) — drop if `confidence < minKeep`, or if `category == maintainability` and `confidence < minMaint`. Defaults (e.g. 0.8 and 0.9) come from config or strictness preset (strict, default, lenient). The "+" presets (strict+, default+, lenient+) use the same thresholds but do **not** apply the FP kill list.
 2. **FP kill list:** `findings.FilterFPKillList(list)` in [cli/internal/findings/fpkilllist.go](cli/internal/findings/fpkilllist.go) — drop if `Message` matches any built-in banned phrase (case-insensitive). Phrases include "Consider adding comments", "You might want to", etc. Skipped when nitpicky mode is enabled.
+3. **Evidence (hunk lines):** `findings.FilterByHunkLines(batch, hunk.FilePath, hunkStart, hunkEnd)` — drop findings whose line or range fall outside the current hunk's line range in the new file; reduces hallucinated line numbers. Caller obtains `hunkStart`, `hunkEnd` from `expand.HunkLineRange(hunk)`; if parsing fails, the filter is not applied. See [cli/internal/findings/evidence.go](cli/internal/findings/evidence.go).
 
 ### 7.11 Cursor URIs and output
 
