@@ -44,6 +44,12 @@ The user content is a unified diff hunk: lines starting with "-" are removed, li
 
 Report only actionable issues: the developer should be able to apply the suggestion or fix the issue without reverting correct behavior. Do not suggest reverting intentional changes, adding code that already exists, or changing behavior that matches documented design.
 
+## Negative examples (do not report).
+- Variable naming: e.g. "Consider renaming x to userData for readability". Required: Do not report; style-only, code is correct.
+- Micro-optimization: e.g. "Use a list comprehension here; it is more idiomatic and slightly faster". Required: Do not report; theoretical optimization, not a defect.
+- Architectural nit: e.g. "Extract this check into a separate validation module". Required: Do not report; refactor preference, not a correctness issue.
+For any of the above, return no finding (or an empty array).
+
 Respond with a single JSON array of findings. Each finding is an object with:
 - file (string, required): path to the file
 - line (integer, optional if range is set): line number

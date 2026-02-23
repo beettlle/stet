@@ -11,6 +11,7 @@ A finding is **actionable** when the reported issue is real (not already fixed o
 - Report only **actionable** issues: do not suggest reverting intentional changes, adding code that already exists, or changing behavior that matches documented design.
 - Prefer **fewer, high-confidence** findings over volume; avoid speculative or low-signal suggestions.
 - **Diff interpretation:** Any custom or optimized system prompt (e.g. from `stet optimize`) should preserve or replicate the default’s diff-interpretation rule: review the resulting code (the + side) and the change; do not report issues that exist only in the removed lines (-) and are already fixed by the added lines (+). This keeps actionability consistent.
+- **Negative examples:** Any custom or optimized system prompt (e.g. from `stet optimize` / `system_prompt_optimized.txt`) should preserve or replicate the **negative examples** idea: explicitly show the model what not to report (pedantic/style-only) so it defaults to silence for those cases.
 
 ## Expected false-positive rate
 

@@ -60,6 +60,20 @@ func TestDefaultSystemPrompt_instructsCoTAndAssumeValid(t *testing.T) {
 	}
 }
 
+func TestDefaultSystemPrompt_containsNegativeExamplesSection(t *testing.T) {
+	got := DefaultSystemPrompt
+	if !strings.Contains(got, "## Negative examples (do not report)") {
+		t.Errorf("default prompt should include negative examples section; missing '## Negative examples (do not report)'")
+	}
+	if !strings.Contains(got, "do not report") {
+		t.Errorf("default prompt negative examples section should instruct do not report")
+	}
+	if !strings.Contains(got, "style-only") && !strings.Contains(got, "variable naming") &&
+		!strings.Contains(got, "micro-optimization") && !strings.Contains(got, "architectural") {
+		t.Errorf("default prompt negative examples section should include at least one key phrase (style-only, variable naming, micro-optimization, architectural)")
+	}
+}
+
 func TestSystemPrompt_absentFile_returnsDefault(t *testing.T) {
 	dir := t.TempDir()
 	got, err := SystemPrompt(dir)
