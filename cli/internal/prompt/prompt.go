@@ -308,6 +308,9 @@ func UserPromptSearchReplace(hunk diff.Hunk) string {
 			newBlock = append(newBlock, "")
 			continue
 		}
+		if len(line) < 1 {
+			continue
+		}
 		first := line[0]
 		rest := line[1:]
 		if first == ' ' || first == '-' {

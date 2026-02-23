@@ -277,12 +277,16 @@ func tryWriteStreamLine(w io.Writer, obj interface{}) {
 // cannedFindingsForHunks returns one deterministic finding per hunk for dry-run
 // (CI). IDs are stable and unique per hunk via StrictHunkID in the message stem.
 func cannedFindingsForHunks(hunks []diff.Hunk) []findings.Finding {
+	if hunks == nil {
+		return nil
+	}
 	out := make([]findings.Finding, 0, len(hunks))
 	for _, h := range hunks {
 		file := h.FilePath
 		if file == "" {
 			file = "unknown"
 		}
+		// Line is the 1-based start line of the hunk in the new file (from the diff header).
 		line := 1
 		if start, _, ok := expand.HunkLineRange(h); ok {
 			line = start
