@@ -204,13 +204,13 @@ func truncateToTokenBudget(s string, maxTokens int) string {
 
 const symbolDefinitionsHeader = "## Symbol definitions (for context)\n\n"
 
-// AppendSymbolDefinitions appends a section with symbol definitions (signature +
-// optional docstring) to the user prompt. Used by RAG-lite (Sub-phase 6.8).
-// If defs is nil or empty, returns userPrompt unchanged. If maxTokens > 0,
-// the appended block is truncated to fit the token budget.
-func AppendSymbolDefinitions(userPrompt string, defs []rag.Definition, maxTokens int) string {
+// FormatSymbolDefinitions returns the symbol-definitions section only (header +
+// formatted defs). Used when building the user message with RAG placement.
+// If defs is nil or empty, returns "". If maxTokens > 0, the body is truncated
+// to fit the token budget.
+func FormatSymbolDefinitions(defs []rag.Definition, maxTokens int) string {
 	if len(defs) == 0 {
-		return userPrompt
+		return ""
 	}
 	var b strings.Builder
 	for i, d := range defs {
@@ -235,7 +235,32 @@ func AppendSymbolDefinitions(userPrompt string, defs []rag.Definition, maxTokens
 	if maxTokens > 0 {
 		text = truncateToTokenBudget(text, maxTokens)
 	}
-	return userPrompt + "\n\n" + symbolDefinitionsHeader + text
+	return symbolDefinitionsHeader + text
+}
+
+// AppendSymbolDefinitions appends a section with symbol definitions (signature +
+// optional docstring) to the user prompt. Used by RAG-lite (Sub-phase 6.8).
+// If defs is nil or empty, returns userPrompt unchanged. If maxTokens > 0,
+// the appended block is truncated to fit the token budget.
+func AppendSymbolDefinitions(userPrompt string, defs []rag.Definition, maxTokens int) string {
+	if len(defs) == 0 {
+		return userPrompt
+	}
+	return userPrompt + "\n\n" + FormatSymbolDefinitions(defs, maxTokens)
+}
+
+const codeUnderReviewRepeatHeader = "## Code under review (repeat)\n\n"
+
+// UserPromptWithRAGPlacement builds the user message with the code-under-review
+// block at both start and end when RAG (symbol definitions) is present, to
+// mitigate lost-in-the-middle: the model sees the hunk in high-attention
+// positions (primacy and recency). If symbolDefsBlock is empty, returns
+// hunkBlock unchanged (no repeat).
+func UserPromptWithRAGPlacement(hunkBlock, symbolDefsBlock string) string {
+	if symbolDefsBlock == "" {
+		return hunkBlock
+	}
+	return hunkBlock + "\n\n" + symbolDefsBlock + "\n\n" + codeUnderReviewRepeatHeader + hunkBlock
 }
 
 // Shadow holds a dismissed finding's ID and the prompt context (hunk content)

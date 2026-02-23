@@ -221,7 +221,7 @@ flowchart LR
 
 ### 7.7 Optional RAG (symbol definitions)
 
-- **Package:** [cli/internal/rag/rag.go](cli/internal/rag/rag.go). If `ragMaxDefs > 0`, `rag.ResolveSymbols(ctx, repoRoot, hunk.FilePath, hunk.RawContent, opts)` is called. Dispatches by file extension to a registered resolver (Go, TypeScript/JavaScript, Python, Swift, Java); returns definitions (signature + optional docstring). These are appended to the user prompt as "## Symbol definitions" (truncated to token budget). A planned enhancement (implementation plan Phase 6.11) computes a per-hunk token budget from the context limit and base prompt size and uses it as the RAG token cap so the symbol-definitions block fits within the model context; config values then act as upper bounds.
+- **Package:** [cli/internal/rag/rag.go](cli/internal/rag/rag.go). If `ragMaxDefs > 0`, `rag.ResolveSymbols(ctx, repoRoot, hunk.FilePath, hunk.RawContent, opts)` is called. Dispatches by file extension to a registered resolver (Go, TypeScript/JavaScript, Python, Swift, Java); returns definitions (signature + optional docstring). These are appended to the user prompt as "## Symbol definitions" (truncated to token budget). When RAG is used, the user message is structured as [hunk block] + [symbol definitions] + "## Code under review (repeat)" + [same hunk block] so the model sees the code under review at both start and end to mitigate lost-in-the-middle (primacy/recency). A planned enhancement (implementation plan Phase 6.11) computes a per-hunk token budget from the context limit and base prompt size and uses it as the RAG token cap so the symbol-definitions block fits within the model context; config values then act as upper bounds.
 
 ### 7.8 LLM call
 

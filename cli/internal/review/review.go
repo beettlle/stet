@@ -137,7 +137,9 @@ func PrepareHunkPrompt(ctx context.Context, systemBase string, hunk diff.Hunk, r
 		if err != nil {
 			return "", "", fmt.Errorf("review: RAG resolve: %w", err)
 		}
-		user = prompt.AppendSymbolDefinitions(user, defs, effectiveRAGTokens)
+		// Place hunk at start and end when RAG is used to mitigate lost-in-the-middle.
+		symbolDefsBlock := prompt.FormatSymbolDefinitions(defs, effectiveRAGTokens)
+		user = prompt.UserPromptWithRAGPlacement(user, symbolDefsBlock)
 		if traceOut != nil && traceOut.Enabled() {
 			traceOut.Section("RAG")
 			traceOut.Printf("effective_rag_tokens=%d definitions=%d\n", effectiveRAGTokens, len(defs))

@@ -449,3 +449,69 @@ func TestAppendSymbolDefinitions_injectsSectionAndSignature(t *testing.T) {
 		t.Errorf("AppendSymbolDefinitions: should start with original user prompt")
 	}
 }
+
+func TestFormatSymbolDefinitions_empty_returnsEmpty(t *testing.T) {
+	if got := FormatSymbolDefinitions(nil, 0); got != "" {
+		t.Errorf("FormatSymbolDefinitions(nil): want %q; got %q", "", got)
+	}
+	if got := FormatSymbolDefinitions([]rag.Definition{}, 0); got != "" {
+		t.Errorf("FormatSymbolDefinitions(empty): want %q; got %q", "", got)
+	}
+}
+
+func TestFormatSymbolDefinitions_formatParityWithAppendSymbolDefinitions(t *testing.T) {
+	userPrompt := "File: pkg/foo.go\n\n+hunk line"
+	defs := []rag.Definition{
+		{Symbol: "Bar", File: "pkg/foo.go", Line: 5, Signature: "func Bar() int", Docstring: "Bar does something."},
+	}
+	wantSuffix := FormatSymbolDefinitions(defs, 0)
+	got := AppendSymbolDefinitions(userPrompt, defs, 0)
+	want := userPrompt + "\n\n" + wantSuffix
+	if got != want {
+		t.Errorf("AppendSymbolDefinitions should equal userPrompt + FormatSymbolDefinitions; got len %d want len %d", len(got), len(want))
+	}
+	if !strings.Contains(wantSuffix, symbolDefinitionsHeader) {
+		t.Errorf("FormatSymbolDefinitions: want section header; got:\n%s", wantSuffix)
+	}
+	if !strings.Contains(wantSuffix, "func Bar() int") || !strings.Contains(wantSuffix, "Bar does something.") {
+		t.Errorf("FormatSymbolDefinitions: want signature and docstring; got:\n%s", wantSuffix)
+	}
+}
+
+func TestFormatSymbolDefinitions_truncatesWhenMaxTokensSet(t *testing.T) {
+	defs := []rag.Definition{
+		{Symbol: "Long", File: "pkg/foo.go", Line: 1, Signature: "func Long() " + strings.Repeat("x", 500), Docstring: ""},
+	}
+	got := FormatSymbolDefinitions(defs, 20)
+	if !strings.Contains(got, "[truncated]") {
+		t.Errorf("FormatSymbolDefinitions: want [truncated] when over token budget; got len %d", len(got))
+	}
+	// Unconstrained should be longer
+	full := FormatSymbolDefinitions(defs, 0)
+	if len(got) >= len(full) {
+		t.Errorf("FormatSymbolDefinitions: truncated output should be shorter than full; got %d >= %d", len(got), len(full))
+	}
+}
+
+func TestUserPromptWithRAGPlacement_emptyDefsBlock_returnsHunkOnly(t *testing.T) {
+	hunkBlock := "File: a.go\n\n+foo"
+	got := UserPromptWithRAGPlacement(hunkBlock, "")
+	if got != hunkBlock {
+		t.Errorf("UserPromptWithRAGPlacement(_, \"\"): want hunkBlock only; got %q", got)
+	}
+}
+
+func TestUserPromptWithRAGPlacement_nonEmpty_structure(t *testing.T) {
+	hunkBlock := "File: a.go\n\n+foo"
+	symbolDefsBlock := symbolDefinitionsHeader + "(File: a.go, Line: 1)\n\n```\nfunc foo()\n```"
+	got := UserPromptWithRAGPlacement(hunkBlock, symbolDefsBlock)
+	if !strings.HasPrefix(got, hunkBlock) {
+		t.Errorf("UserPromptWithRAGPlacement: should start with hunkBlock; got first %d chars: %q", len(hunkBlock), got[:min(len(got), len(hunkBlock)+20)])
+	}
+	if !strings.Contains(got, symbolDefsBlock) {
+		t.Errorf("UserPromptWithRAGPlacement: should contain symbolDefsBlock in middle")
+	}
+	if !strings.HasSuffix(got, codeUnderReviewRepeatHeader+hunkBlock) {
+		t.Errorf("UserPromptWithRAGPlacement: should end with repeat header + hunkBlock; got last %d chars: %q", len(codeUnderReviewRepeatHeader)+len(hunkBlock)+20, got[max(0, len(got)-80):])
+	}
+}
