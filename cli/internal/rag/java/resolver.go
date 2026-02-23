@@ -132,7 +132,8 @@ func lookupDefinitions(ctx context.Context, repoRoot, fromFile string, symbols [
 
 func gitGrepSymbol(ctx context.Context, repoRoot, symbol string) (absPath string, line int, lineContent string, err error) {
 	quoted := regexp.QuoteMeta(symbol)
-	pattern := `(class\s+` + quoted + `\b|interface\s+` + quoted + `\b|void\s+` + quoted + `\s*\(|[A-Za-z][A-Za-z0-9_<>,\s]*\s+` + quoted + `\s*\()`
+	// Use POSIX [[:space:]] and [^a-zA-Z0-9_] so git grep -E works on macOS/BSD.
+	pattern := `(class[[:space:]]+` + quoted + `[^a-zA-Z0-9_]|interface[[:space:]]+` + quoted + `[^a-zA-Z0-9_]|void[[:space:]]+` + quoted + `[[:space:]]*\(|[A-Za-z][A-Za-z0-9_<>,[:space:]]*[[:space:]]+` + quoted + `[[:space:]]*\()`
 	ctx, cancel := context.WithTimeout(ctx, grepTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "git", "grep", "-n", "-E", pattern)
@@ -168,6 +169,7 @@ func minimalEnv(repoRoot string) []string {
 		"PATH=" + os.Getenv("PATH"),
 		"GIT_TERMINAL_PROMPT=0",
 		"GIT_DIR=" + gitDir,
+		"GIT_WORK_TREE=" + repoRoot,
 	}
 }
 

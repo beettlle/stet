@@ -163,6 +163,11 @@ This project utilizes **Go** and **JavaScript/TypeScript**. Refer to the followi
 - **Phased Delivery:** Complete work in phases as defined in the Implementation Plan.
 - **Verification:** A phase is not complete until new/changed code has tests, coverage thresholds are met, and existing tests pass.
 
+### Known acceptable warnings (builds and tests still pass)
+- **Extension `npm install`:** Deprecated `glob` warning from transitive deps (Vitest coverage). Resolving would require Vitest 4 or glob overrides that need Node 20+.
+- **Extension `npm test`:** "The CJS build of Vite's Node API is deprecated" comes from Vitest; tests pass. Upgrading to Vitest 4 would address it.
+- **Extension `npm test`:** One test intentionally triggers an error path; stderr "Failed to clear findings panel" in `finishReview.test.ts` is expected and not a failure.
+
 ## 🔄 Phase Verification (Brutal Audit)
 
 **Before marking a phase or task as complete, you MUST run the appropriate "Brutal Audit" to verify quality.**

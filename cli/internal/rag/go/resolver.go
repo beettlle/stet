@@ -132,8 +132,9 @@ func lookupDefinitions(ctx context.Context, repoRoot, fromFile string, symbols [
 
 // gitGrepSymbol runs git grep for Go definitions of symbol. Returns absPath, line, lineContent.
 func gitGrepSymbol(ctx context.Context, repoRoot, symbol string) (absPath string, line int, lineContent string, err error) {
-	// Match: func Symbol, type Symbol, var Symbol, const Symbol (word boundary).
-	pattern := `(func|type|var|const)\s+` + regexp.QuoteMeta(symbol) + `\b`
+	// Match: func Symbol, type Symbol, var Symbol, const Symbol. Use POSIX classes
+	// so git grep -E works on macOS/BSD (which do not support \b or \s).
+	pattern := `(func|type|var|const)[[:space:]]+` + regexp.QuoteMeta(symbol) + `[^a-zA-Z0-9_]`
 	ctx, cancel := context.WithTimeout(ctx, grepTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "git", "grep", "-n", "-E", pattern)
@@ -147,7 +148,7 @@ func gitGrepSymbol(ctx context.Context, repoRoot, symbol string) (absPath string
 		}
 		return "", 0, "", err
 	}
-	// First line: "path:lineno:content"
+	// First line: "path:lineno:content". Use first two colons (path must not contain colons; content may).
 	first := strings.SplitN(strings.TrimSpace(string(out)), "\n", 2)[0]
 	idx := strings.Index(first, ":")
 	if idx == -1 {
@@ -171,6 +172,7 @@ func minimalEnv(repoRoot string) []string {
 		"PATH=" + os.Getenv("PATH"),
 		"GIT_TERMINAL_PROMPT=0",
 		"GIT_DIR=" + gitDir,
+		"GIT_WORK_TREE=" + repoRoot,
 	}
 }
 
