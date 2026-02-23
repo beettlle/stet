@@ -101,6 +101,10 @@ type reviewPipelineOpts struct {
 	EffectiveContextLimit    int
 	RAGSymbolMaxDefinitions  int
 	RAGSymbolMaxTokens       int
+	RAGCallGraphEnabled      bool
+	RAGCallersMax            int
+	RAGCalleesMax            int
+	RAGCallGraphMaxTokens    int
 	RulesByFile              map[string][]rules.CursorRule
 	MinKeep, MinMaint         float64
 	ApplyFP                  bool
@@ -144,7 +148,7 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 				}
 				hunk := opts.Hunks[i]
 				cursorRules := opts.RulesByFile[hunk.FilePath]
-				system, user, prepErr := review.PrepareHunkPrompt(ctx, opts.SystemBase, hunk, cursorRules, opts.RepoRoot, opts.EffectiveContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, opts.UseSearchReplaceFormat, opts.TraceOut)
+				system, user, prepErr := review.PrepareHunkPrompt(ctx, opts.SystemBase, hunk, cursorRules, opts.RepoRoot, opts.EffectiveContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, opts.RAGCallGraphEnabled, opts.RAGCallersMax, opts.RAGCalleesMax, opts.RAGCallGraphMaxTokens, opts.UseSearchReplaceFormat, opts.TraceOut)
 				if prepErr != nil {
 					readyCh <- preparedPrompt{Index: i, Hunk: hunk, Err: prepErr}
 					continue
@@ -489,6 +493,10 @@ type StartOptions struct {
 	StreamOut               io.Writer
 	RAGSymbolMaxDefinitions int
 	RAGSymbolMaxTokens      int
+	RAGCallGraphEnabled     bool
+	RAGCallersMax           int
+	RAGCalleesMax           int
+	RAGCallGraphMaxTokens   int
 	// MinConfidenceKeep and MinConfidenceMaintainability are abstention thresholds (0,0 = use 0.8, 0.9).
 	// ApplyFPKillList nil = apply FP kill list (true); set to false for strict+ presets.
 	MinConfidenceKeep            float64
@@ -541,6 +549,10 @@ type RunOptions struct {
 	StreamOut                    io.Writer
 	RAGSymbolMaxDefinitions      int
 	RAGSymbolMaxTokens           int
+	RAGCallGraphEnabled          bool
+	RAGCallersMax                int
+	RAGCalleesMax                int
+	RAGCallGraphMaxTokens        int
 	MinConfidenceKeep            float64
 	MinConfidenceMaintainability float64
 	ApplyFPKillList              *bool
@@ -866,6 +878,10 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 			EffectiveContextLimit:   effectiveContextLimit,
 			RAGSymbolMaxDefinitions: opts.RAGSymbolMaxDefinitions,
 			RAGSymbolMaxTokens:      opts.RAGSymbolMaxTokens,
+			RAGCallGraphEnabled:     opts.RAGCallGraphEnabled,
+			RAGCallersMax:           opts.RAGCallersMax,
+			RAGCalleesMax:           opts.RAGCalleesMax,
+			RAGCallGraphMaxTokens:   opts.RAGCallGraphMaxTokens,
 			RulesByFile:             rulesByFile,
 			MinKeep:                 minKeep,
 			MinMaint:                minMaint,
@@ -1261,6 +1277,10 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 			EffectiveContextLimit:   effectiveContextLimit,
 			RAGSymbolMaxDefinitions: opts.RAGSymbolMaxDefinitions,
 			RAGSymbolMaxTokens:      opts.RAGSymbolMaxTokens,
+			RAGCallGraphEnabled:     opts.RAGCallGraphEnabled,
+			RAGCallersMax:           opts.RAGCallersMax,
+			RAGCalleesMax:           opts.RAGCalleesMax,
+			RAGCallGraphMaxTokens:   opts.RAGCallGraphMaxTokens,
 			RulesByFile:             rulesByFile,
 			MinKeep:                 minKeep,
 			MinMaint:                minMaint,

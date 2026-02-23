@@ -76,7 +76,7 @@ func TestReviewHunk_successFirstTry(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "a.go", RawContent: "code", Context: "code"}
 	ctx := context.Background()
 
-	list, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil, false, false, nil)
+	list, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestReviewHunk_retryThenSuccess(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "b.go", RawContent: "x", Context: "x"}
 	ctx := context.Background()
 
-	list, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil, false, false, nil)
+	list, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestReviewHunk_generateFails_returnsError(t *testing.T) {
 	dir := t.TempDir()
 	hunk := diff.Hunk{FilePath: "x.go", RawContent: "code", Context: "code"}
 	ctx := context.Background()
-	_, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil, false, false, nil)
+	_, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil)
 	if err == nil {
 		t.Fatal("ReviewHunk: want error when generate fails, got nil")
 	}
@@ -152,7 +152,7 @@ func TestReviewHunk_parseFailsTwice_returnsError(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "c.go", RawContent: "y", Context: "y"}
 	ctx := context.Background()
 
-	_, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil, false, false, nil)
+	_, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil)
 	if err == nil {
 		t.Fatal("ReviewHunk: want error when parse fails twice, got nil")
 	}
@@ -187,7 +187,7 @@ func TestReviewHunk_hunkWithExternalVariable_mockReturnsNoUndefinedFinding(t *te
 	}
 	ctx := context.Background()
 
-	list, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil, false, false, nil)
+	list, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -239,7 +239,7 @@ func TestReviewHunk_injectsUserIntentIntoPrompt(t *testing.T) {
 	userIntent := &prompt.UserIntent{Branch: "main", CommitMsg: commitMsg}
 	ctx := context.Background()
 
-	_, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, userIntent, nil, "", 0, 0, 0, nil, false, false, nil)
+	_, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, userIntent, nil, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -313,7 +313,7 @@ func processData(input string) (int, error) {
 	}
 	ctx := context.Background()
 
-	_, _, err := ReviewHunk(ctx, client, "m", stateDir, hunk, nil, nil, nil, dir, 32768, 0, 0, nil, false, false, nil)
+	_, _, err := ReviewHunk(ctx, client, "m", stateDir, hunk, nil, nil, nil, dir, 32768, 0, 0, false, 0, 0, 0, nil, false, false, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -365,7 +365,7 @@ func TestReviewHunk_injectsCursorRulesIntoSystemPrompt(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	_, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, ruleList, "", 0, 0, 0, nil, false, false, nil)
+	_, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, ruleList, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -415,7 +415,7 @@ func TestReviewHunk_withRAG_injectsSymbolDefinitions(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "pkg/foo.go", RawContent: "+x := Bar()", Context: "+x := Bar()"}
 	ctx := context.Background()
 
-	_, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, dir, 0, 5, 0, nil, false, false, nil)
+	_, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, dir, 0, 5, 0, false, 0, 0, 0, nil, false, false, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -480,7 +480,7 @@ func TestReviewHunk_perHunkAdaptiveRAG_truncatesToFitContext(t *testing.T) {
 	client := ollama.NewClient(srv.URL, srv.Client())
 	ctx := context.Background()
 
-	_, _, err = ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, dir, contextLimit, 5, 0, nil, false, false, nil)
+	_, _, err = ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, dir, contextLimit, 5, 0, false, 0, 0, 0, nil, false, false, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -533,7 +533,7 @@ func TestReviewHunk_nitpickyTrue_appendsNitpickySection(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "a.go", RawContent: "code", Context: "code"}
 	ctx := context.Background()
 
-	list, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, nil, true, false, nil)
+	list, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, false, 0, 0, 0, nil, true, false, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -545,6 +545,55 @@ func TestReviewHunk_nitpickyTrue_appendsNitpickySection(t *testing.T) {
 	}
 	if !strings.Contains(capturedSystem, "Do **not** discard findings") {
 		t.Errorf("system prompt must contain nitpicky instructions; got:\n%s", capturedSystem)
+	}
+}
+
+// TestPrepareHunkPrompt_callGraphDisabled_noCallGraphSection asserts that when
+// RAG call-graph is disabled, the user prompt does not contain call-graph sections.
+func TestPrepareHunkPrompt_callGraphDisabled_noCallGraphSection(t *testing.T) {
+	dir := t.TempDir()
+	pkgDir := filepath.Join(dir, "pkg")
+	if err := os.MkdirAll(pkgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := "package pkg\n\nfunc Foo() int { return 1 }\n"
+	if err := os.WriteFile(filepath.Join(pkgDir, "a.go"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hunk := diff.Hunk{
+		FilePath:   "pkg/a.go",
+		RawContent: "@@ -1,3 +1,3 @@\n package pkg\n\n func Foo() int { return 1 }\n",
+		Context:    "",
+	}
+	ctx := context.Background()
+	_, user, err := PrepareHunkPrompt(ctx, "system", hunk, nil, dir, 32768, 0, 0, false, 3, 3, 0, false, nil)
+	if err != nil {
+		t.Fatalf("PrepareHunkPrompt: %v", err)
+	}
+	if strings.Contains(user, "## Callers (upstream)") {
+		t.Errorf("call-graph disabled: user prompt must not contain ## Callers (upstream); got:\n%s", user)
+	}
+	if strings.Contains(user, "## Callees (downstream)") {
+		t.Errorf("call-graph disabled: user prompt must not contain ## Callees (downstream); got:\n%s", user)
+	}
+}
+
+// TestPrepareHunkPrompt_nonGoFile_noCallGraphSection asserts that for non-Go files
+// the prompt does not contain call-graph sections even when call-graph is enabled.
+func TestPrepareHunkPrompt_nonGoFile_noCallGraphSection(t *testing.T) {
+	dir := t.TempDir()
+	hunk := diff.Hunk{
+		FilePath:   "app.ts",
+		RawContent: "@@ -1,1 +1,1 @@\n code\n",
+		Context:    "code",
+	}
+	ctx := context.Background()
+	_, user, err := PrepareHunkPrompt(ctx, "system", hunk, nil, dir, 32768, 0, 0, true, 3, 3, 0, false, nil)
+	if err != nil {
+		t.Fatalf("PrepareHunkPrompt: %v", err)
+	}
+	if strings.Contains(user, "## Callers (upstream)") {
+		t.Errorf("non-Go file: user prompt must not contain ## Callers (upstream); got:\n%s", user)
 	}
 }
 

@@ -273,3 +273,109 @@ func TestExpandHunk_largeFile_skipped(t *testing.T) {
 		t.Error("large file must be skipped; expected no expansion")
 	}
 }
+
+func TestEnclosingFuncName(t *testing.T) {
+	tests := []struct {
+		name      string
+		content   string
+		startLine int
+		endLine   int
+		wantName  string
+		wantOK    bool
+	}{
+		{
+			name: "inside_function",
+			content: `package pkg
+
+func processData(input string) (int, error) {
+	var count int
+	return count, nil
+}
+`,
+			startLine: 4,
+			endLine:   5,
+			wantName:  "processData",
+			wantOK:    true,
+		},
+		{
+			name: "inside_method",
+			content: `package pkg
+
+type S struct{}
+
+func (s *S) DoWork() int {
+	return 42
+}
+`,
+			startLine: 5,
+			endLine:   6,
+			wantName:  "(*S).DoWork",
+			wantOK:    true,
+		},
+		{
+			name: "method_value_receiver",
+			content: `package pkg
+
+type T struct{}
+
+func (t T) Foo() {}
+`,
+			startLine: 5,
+			endLine:   5,
+			wantName:  "(T).Foo",
+			wantOK:    true,
+		},
+		{
+			name: "file_level_no_function",
+			content: `package pkg
+
+var x int = 1
+`,
+			startLine: 1,
+			endLine:   3,
+			wantName:  "",
+			wantOK:    false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "pkg", "code.go")
+			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte(tt.content), 0644); err != nil {
+				t.Fatal(err)
+			}
+			gotName, gotOK := EnclosingFuncName(dir, "pkg/code.go", tt.startLine, tt.endLine)
+			if gotOK != tt.wantOK || gotName != tt.wantName {
+				t.Errorf("EnclosingFuncName() = (%q, %v), want (%q, %v)", gotName, gotOK, tt.wantName, tt.wantOK)
+			}
+		})
+	}
+}
+
+func TestEnclosingFuncName_nonGo_returnsFalse(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "app.ts")
+	_ = os.WriteFile(path, []byte("export function foo() {}"), 0644)
+	name, ok := EnclosingFuncName(dir, "app.ts", 1, 1)
+	if ok || name != "" {
+		t.Errorf("EnclosingFuncName(non-Go) = (%q, %v), want (\"\", false)", name, ok)
+	}
+}
+
+func TestEnclosingFuncName_invalidPath_returnsFalse(t *testing.T) {
+	dir := t.TempDir()
+	name, ok := EnclosingFuncName(dir, "nonexistent/foo.go", 1, 1)
+	if ok || name != "" {
+		t.Errorf("EnclosingFuncName(invalid path) = (%q, %v), want (\"\", false)", name, ok)
+	}
+}
+
+func TestEnclosingFuncName_emptyRepoRoot_returnsFalse(t *testing.T) {
+	name, ok := EnclosingFuncName("", "pkg/foo.go", 1, 1)
+	if ok || name != "" {
+		t.Errorf("EnclosingFuncName(empty repo) = (%q, %v), want (\"\", false)", name, ok)
+	}
+}

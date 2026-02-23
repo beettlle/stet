@@ -139,6 +139,80 @@ func readFile(path string) ([]byte, error) {
 	return os.ReadFile(path)
 }
 
+// EnclosingFuncName returns the name of the function or method that contains
+// the given line range (1-based, inclusive) in the Go file at repoRoot/filePath.
+// For a function, returns e.g. "Foo"; for a method, returns e.g. "(*T).Foo".
+// Returns ("", false) if the file is not Go, path is invalid, parse fails, or
+// no enclosing function (e.g. file-level code).
+func EnclosingFuncName(repoRoot, filePath string, startLine, endLine int) (funcName string, ok bool) {
+	if repoRoot == "" || filePath == "" {
+		return "", false
+	}
+	if filepath.Ext(filePath) != goExt {
+		return "", false
+	}
+	path := filepath.Join(repoRoot, filepath.FromSlash(filePath))
+	path = filepath.Clean(path)
+	absRepo, err := filepath.Abs(repoRoot)
+	if err != nil {
+		return "", false
+	}
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", false
+	}
+	rel, err := filepath.Rel(absRepo, absPath)
+	if err != nil || strings.HasPrefix(rel, "..") || rel == ".." {
+		return "", false
+	}
+	path = absPath
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", false
+	}
+	if info.Size() > maxExpandFileSize {
+		return "", false
+	}
+	src, err := readFile(path)
+	if err != nil {
+		return "", false
+	}
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, path, src, 0)
+	if err != nil {
+		return "", false
+	}
+	enclosing := findEnclosingFunc(fset, f, startLine, endLine)
+	if enclosing == nil {
+		return "", false
+	}
+	return formatFuncName(enclosing), true
+}
+
+// formatFuncName returns a string suitable for matching call sites: "Foo" for
+// a function, "(*T).Foo" or "T.Foo" for a method.
+func formatFuncName(fn *ast.FuncDecl) string {
+	name := fn.Name.Name
+	if fn.Recv == nil || len(fn.Recv.List) == 0 {
+		return name
+	}
+	recv := fn.Recv.List[0]
+	var recvType string
+	switch t := recv.Type.(type) {
+	case *ast.StarExpr:
+		if id, ok := t.X.(*ast.Ident); ok {
+			recvType = "*" + id.Name
+		} else {
+			recvType = "*?"
+		}
+	case *ast.Ident:
+		recvType = t.Name
+	default:
+		recvType = "?"
+	}
+	return "(" + recvType + ")." + name
+}
+
 // findEnclosingFunc returns the smallest *ast.FuncDecl that fully contains
 // the given line range (1-based, inclusive). Returns nil if none found.
 func findEnclosingFunc(fset *token.FileSet, f *ast.File, startLine, endLine int) *ast.FuncDecl {

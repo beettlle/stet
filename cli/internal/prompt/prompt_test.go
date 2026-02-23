@@ -523,6 +523,60 @@ func TestFormatSymbolDefinitions_truncatesWhenMaxTokensSet(t *testing.T) {
 	}
 }
 
+func TestFormatCallGraph_empty_returnsEmpty(t *testing.T) {
+	if got := FormatCallGraph(nil, nil, 0); got != "" {
+		t.Errorf("FormatCallGraph(nil, nil): want %q; got %q", "", got)
+	}
+	if got := FormatCallGraph([]rag.Definition{}, []rag.Definition{}, 0); got != "" {
+		t.Errorf("FormatCallGraph(empty, empty): want %q; got %q", "", got)
+	}
+}
+
+func TestFormatCallGraph_callersOnly(t *testing.T) {
+	callers := []rag.Definition{
+		{Symbol: "Foo", File: "pkg/a.go", Line: 10, Signature: "result := Foo(x)", Docstring: ""},
+	}
+	got := FormatCallGraph(callers, nil, 0)
+	if !strings.Contains(got, callersHeader) {
+		t.Errorf("FormatCallGraph(callers only): want callers header; got %q", got)
+	}
+	if !strings.Contains(got, "pkg/a.go") || !strings.Contains(got, "Line: 10") {
+		t.Errorf("FormatCallGraph: want file and line; got %q", got)
+	}
+	if !strings.Contains(got, "result := Foo(x)") {
+		t.Errorf("FormatCallGraph: want signature; got %q", got)
+	}
+	if strings.Contains(got, calleesHeader) {
+		t.Errorf("FormatCallGraph(callers only): should not contain callees header")
+	}
+}
+
+func TestFormatCallGraph_calleesOnly(t *testing.T) {
+	callees := []rag.Definition{
+		{Symbol: "bar", File: "pkg/b.go", Line: 5, Signature: "func bar() {}", Docstring: ""},
+	}
+	got := FormatCallGraph(nil, callees, 0)
+	if !strings.Contains(got, calleesHeader) {
+		t.Errorf("FormatCallGraph(callees only): want callees header; got %q", got)
+	}
+	if !strings.Contains(got, "func bar() {}") {
+		t.Errorf("FormatCallGraph: want signature; got %q", got)
+	}
+}
+
+func TestFormatCallGraph_both_truncatesWhenMaxTokensSet(t *testing.T) {
+	callers := []rag.Definition{
+		{Symbol: "X", File: "a.go", Line: 1, Signature: strings.Repeat("x", 300), Docstring: ""},
+	}
+	callees := []rag.Definition{
+		{Symbol: "Y", File: "b.go", Line: 2, Signature: "func Y() {}", Docstring: ""},
+	}
+	got := FormatCallGraph(callers, callees, 20)
+	if !strings.Contains(got, "[truncated]") {
+		t.Errorf("FormatCallGraph: want [truncated] when over token budget; got len %d", len(got))
+	}
+}
+
 func TestUserPromptWithRAGPlacement_emptyDefsBlock_returnsHunkOnly(t *testing.T) {
 	hunkBlock := "File: a.go\n\n+foo"
 	got := UserPromptWithRAGPlacement(hunkBlock, "")

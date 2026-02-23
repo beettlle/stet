@@ -65,8 +65,10 @@ func effectiveRAGTokenCap(contextLimit, basePromptTokens, responseReserve, ragMa
 // AppendNitpickyInstructions). It appends Cursor rules for the hunk's file,
 // expands the hunk, optionally minifies (Go), builds the user prompt (unified or
 // search-replace when useSearchReplaceFormat), and runs RAG when enabled.
-// Used by the pipeline to prepare the next hunk while the LLM is busy.
-func PrepareHunkPrompt(ctx context.Context, systemBase string, hunk diff.Hunk, ruleList []rules.CursorRule, repoRoot string, contextLimit int, ragMaxDefs, ragMaxTokens int, useSearchReplaceFormat bool, traceOut *trace.Tracer) (system, user string, err error) {
+// When ragCallGraphEnabled is true and the file is Go, call-graph (callers/callees)
+// is resolved and appended to the middle block; token cap is ragCallGraphMaxTokens
+// or half of effectiveRAGTokens when 0. Used by the pipeline to prepare the next hunk.
+func PrepareHunkPrompt(ctx context.Context, systemBase string, hunk diff.Hunk, ruleList []rules.CursorRule, repoRoot string, contextLimit int, ragMaxDefs, ragMaxTokens int, ragCallGraphEnabled bool, ragCallersMax, ragCalleesMax, ragCallGraphMaxTokens int, useSearchReplaceFormat bool, traceOut *trace.Tracer) (system, user string, err error) {
 	system = prompt.AppendCursorRules(systemBase, ruleList, hunk.FilePath, rules.MaxRuleTokens)
 	if useSearchReplaceFormat {
 		system = prompt.AppendSearchReplaceFormatNote(system)
@@ -131,15 +133,14 @@ func PrepareHunkPrompt(ctx context.Context, systemBase string, hunk diff.Hunk, r
 	basePromptTokens := tokens.Estimate(system + "\n" + user)
 	effectiveRAGTokens := effectiveRAGTokenCap(contextLimit, basePromptTokens, tokens.DefaultResponseReserve, ragMaxTokens)
 	doRAG := repoRoot != "" && ragMaxDefs > 0 && (contextLimit <= 0 || effectiveRAGTokens > 0)
+	var symbolDefsBlock string
 	if doRAG {
 		var defs []rag.Definition
 		defs, err = rag.ResolveSymbols(ctx, repoRoot, hunk.FilePath, hunk.RawContent, rag.ResolveOptions{MaxDefinitions: ragMaxDefs, MaxTokens: effectiveRAGTokens})
 		if err != nil {
 			return "", "", fmt.Errorf("review: RAG resolve: %w", err)
 		}
-		// Place hunk at start and end when RAG is used to mitigate lost-in-the-middle.
-		symbolDefsBlock := prompt.FormatSymbolDefinitions(defs, effectiveRAGTokens)
-		user = prompt.UserPromptWithRAGPlacement(user, symbolDefsBlock)
+		symbolDefsBlock = prompt.FormatSymbolDefinitions(defs, effectiveRAGTokens)
 		if traceOut != nil && traceOut.Enabled() {
 			traceOut.Section("RAG")
 			traceOut.Printf("effective_rag_tokens=%d definitions=%d\n", effectiveRAGTokens, len(defs))
@@ -150,6 +151,37 @@ func PrepareHunkPrompt(ctx context.Context, systemBase string, hunk diff.Hunk, r
 	} else if traceOut != nil && traceOut.Enabled() {
 		traceOut.Section("RAG")
 		traceOut.Printf("effective_rag_tokens=%d definitions=0\n", effectiveRAGTokens)
+	}
+	// Call-graph (callers/callees) for Go only when enabled. Token cap: config or half of RAG budget.
+	middleBlock := symbolDefsBlock
+	doCallGraph := repoRoot != "" && ragCallGraphEnabled && filepath.Ext(hunk.FilePath) == ".go"
+	if doCallGraph {
+		callGraphTokenCap := ragCallGraphMaxTokens
+		if callGraphTokenCap <= 0 {
+			callGraphTokenCap = effectiveRAGTokens / 2
+		}
+		cgResult, cgErr := rag.ResolveCallGraph(ctx, repoRoot, hunk.FilePath, hunk.RawContent, rag.CallGraphOptions{
+			CallersMax: ragCallersMax,
+			CalleesMax: ragCalleesMax,
+			MaxTokens:  callGraphTokenCap,
+		})
+		if cgErr == nil && cgResult != nil && (len(cgResult.Callers) > 0 || len(cgResult.Callees) > 0) {
+			callGraphBlock := prompt.FormatCallGraph(cgResult.Callers, cgResult.Callees, callGraphTokenCap)
+			if callGraphBlock != "" {
+				if middleBlock != "" {
+					middleBlock = middleBlock + "\n\n" + callGraphBlock
+				} else {
+					middleBlock = callGraphBlock
+				}
+				if traceOut != nil && traceOut.Enabled() {
+					traceOut.Section("RAG call-graph")
+					traceOut.Printf("callers=%d callees=%d\n", len(cgResult.Callers), len(cgResult.Callees))
+				}
+			}
+		}
+	}
+	if middleBlock != "" {
+		user = prompt.UserPromptWithRAGPlacement(user, middleBlock)
 	}
 	return system, user, nil
 }
@@ -217,9 +249,10 @@ func ProcessReviewResponse(ctx context.Context, result *ollama.GenerateResult, h
 // promptShadows, when non-empty, are appended as negative few-shot examples.
 // On malformed JSON it retries the Generate call once; on second parse failure
 // returns an error. ragMaxDefs and ragMaxTokens control RAG-lite symbol lookup
-// (Sub-phase 6.8); zero ragMaxDefs disables it. When nitpicky is true, nitpicky-mode
-// instructions are appended so the model reports style, typos, and convention violations.
-func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir string, hunk diff.Hunk, generateOpts *ollama.GenerateOptions, userIntent *prompt.UserIntent, ruleList []rules.CursorRule, repoRoot string, contextLimit int, ragMaxDefs, ragMaxTokens int, promptShadows []prompt.Shadow, nitpicky bool, useSearchReplaceFormat bool, traceOut *trace.Tracer) ([]findings.Finding, *HunkUsage, error) {
+// (Sub-phase 6.8); zero ragMaxDefs disables it. ragCallGraphEnabled and
+// ragCallersMax/ragCalleesMax/ragCallGraphMaxTokens control optional call-graph (Go only).
+// When nitpicky is true, nitpicky-mode instructions are appended.
+func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir string, hunk diff.Hunk, generateOpts *ollama.GenerateOptions, userIntent *prompt.UserIntent, ruleList []rules.CursorRule, repoRoot string, contextLimit int, ragMaxDefs, ragMaxTokens int, ragCallGraphEnabled bool, ragCallersMax, ragCalleesMax, ragCallGraphMaxTokens int, promptShadows []prompt.Shadow, nitpicky bool, useSearchReplaceFormat bool, traceOut *trace.Tracer) ([]findings.Finding, *HunkUsage, error) {
 	systemBase, err := prompt.SystemPrompt(stateDir)
 	if err != nil {
 		return nil, nil, fmt.Errorf("review: system prompt: %w", err)
@@ -257,7 +290,7 @@ func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir stri
 			traceOut.Printf("Nitpicky: disabled\n")
 		}
 	}
-	system, user, err := PrepareHunkPrompt(ctx, systemBase, hunk, ruleList, repoRoot, contextLimit, ragMaxDefs, ragMaxTokens, useSearchReplaceFormat, traceOut)
+	system, user, err := PrepareHunkPrompt(ctx, systemBase, hunk, ruleList, repoRoot, contextLimit, ragMaxDefs, ragMaxTokens, ragCallGraphEnabled, ragCallersMax, ragCalleesMax, ragCallGraphMaxTokens, useSearchReplaceFormat, traceOut)
 	if err != nil {
 		return nil, nil, err
 	}

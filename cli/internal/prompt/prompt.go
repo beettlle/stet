@@ -205,6 +205,9 @@ func truncateToTokenBudget(s string, maxTokens int) string {
 
 const symbolDefinitionsHeader = "## Symbol definitions (for context)\n\n"
 
+const callersHeader = "## Callers (upstream)\n\n"
+const calleesHeader = "## Callees (downstream)\n\n"
+
 // FormatSymbolDefinitions returns the symbol-definitions section only (header +
 // formatted defs). Used when building the user message with RAG placement.
 // If defs is nil or empty, returns "". If maxTokens > 0, the body is truncated
@@ -237,6 +240,65 @@ func FormatSymbolDefinitions(defs []rag.Definition, maxTokens int) string {
 		text = truncateToTokenBudget(text, maxTokens)
 	}
 	return symbolDefinitionsHeader + text
+}
+
+// FormatCallGraph returns the call-graph section (callers then callees) for the
+// user prompt. Same entry style as FormatSymbolDefinitions: (File: path, Line: N)
+// then code block with signature. If both callers and callees are empty,
+// returns "". If maxTokens > 0, the body is truncated to fit the token budget.
+func FormatCallGraph(callers, callees []rag.Definition, maxTokens int) string {
+	if len(callers) == 0 && len(callees) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	if len(callers) > 0 {
+		b.WriteString(callersHeader)
+		for i, d := range callers {
+			if i > 0 {
+				b.WriteString("\n\n")
+			}
+			b.WriteString("(File: ")
+			b.WriteString(d.File)
+			b.WriteString(", Line: ")
+			b.WriteString(strconv.Itoa(d.Line))
+			b.WriteString(")")
+			if d.Docstring != "" {
+				b.WriteString("\n\n")
+				b.WriteString(d.Docstring)
+			}
+			b.WriteString("\n\n```\n")
+			b.WriteString(d.Signature)
+			b.WriteString("\n```")
+		}
+	}
+	if len(callees) > 0 {
+		if b.Len() > 0 {
+			b.WriteString("\n\n")
+		}
+		b.WriteString(calleesHeader)
+		for i, d := range callees {
+			if i > 0 {
+				b.WriteString("\n\n")
+			}
+			b.WriteString("(File: ")
+			b.WriteString(d.File)
+			b.WriteString(", Line: ")
+			b.WriteString(strconv.Itoa(d.Line))
+			b.WriteString(")")
+			if d.Docstring != "" {
+				b.WriteString("\n\n")
+				b.WriteString(d.Docstring)
+			}
+			b.WriteString("\n\n```\n")
+			b.WriteString(d.Signature)
+			b.WriteString("\n```")
+		}
+	}
+	text := b.String()
+	if maxTokens > 0 {
+		text = truncateToTokenBudget(text, maxTokens)
+	}
+	return text
 }
 
 // AppendSymbolDefinitions appends a section with symbol definitions (signature +

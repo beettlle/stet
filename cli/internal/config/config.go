@@ -11,6 +11,7 @@
 //   - STET_TEMPERATURE, STET_NUM_CTX (Ollama model runtime options; passed to /api/generate),
 //   - STET_OPTIMIZER_SCRIPT (command to run for stet optimize; e.g. python3 scripts/optimize.py).
 //   - STET_RAG_SYMBOL_MAX_DEFINITIONS, STET_RAG_SYMBOL_MAX_TOKENS (RAG-lite symbol lookup; Sub-phase 6.8).
+//   - STET_RAG_CALL_GRAPH_ENABLED, STET_RAG_CALLERS_MAX, STET_RAG_CALLEES_MAX, STET_RAG_CALL_GRAPH_MAX_TOKENS (RAG call-graph for Go).
 //   - STET_STRICTNESS (review strictness preset: strict, default, lenient, strict+, default+, lenient+).
 //   - STET_NITPICKY (enable nitpicky mode: 1/true/yes/on = true, 0/false/no/off = false).
 //   - STET_SUPPRESSION_ENABLED (history-based suppression: 1/true/yes/on = true, 0/false/no/off = false).
@@ -51,6 +52,14 @@ type Config struct {
 	RAGSymbolMaxDefinitions int `toml:"rag_symbol_max_definitions"`
 	// RAGSymbolMaxTokens caps the token size of the symbol-definitions block (0 = no cap). Default 0.
 	RAGSymbolMaxTokens int `toml:"rag_symbol_max_tokens"`
+	// RAGCallGraphEnabled enables call-graph (callers/callees) for Go hunks. Default false.
+	RAGCallGraphEnabled bool `toml:"rag_call_graph_enabled"`
+	// RAGCallersMax is the max number of call sites to include (0 = use default 3). Default 3.
+	RAGCallersMax int `toml:"rag_callers_max"`
+	// RAGCalleesMax is the max number of callees to include (0 = use default 3). Default 3.
+	RAGCalleesMax int `toml:"rag_callees_max"`
+	// RAGCallGraphMaxTokens caps the call-graph block size (0 = use fraction of RAG budget). Default 0.
+	RAGCallGraphMaxTokens int `toml:"rag_call_graph_max_tokens"`
 	// Strictness is the review preset: strict, default, lenient, strict+, default+, lenient+ (case-insensitive).
 	Strictness string `toml:"strictness"`
 	// Nitpicky enables convention- and typo-aware review; when true, FP kill list is not applied.
@@ -76,6 +85,10 @@ type Overrides struct {
 	OptimizerScript        *string
 	RAGSymbolMaxDefinitions *int
 	RAGSymbolMaxTokens      *int
+	RAGCallGraphEnabled     *bool
+	RAGCallersMax           *int
+	RAGCalleesMax           *int
+	RAGCallGraphMaxTokens   *int
 	Strictness              *string
 	Nitpicky                *bool
 	SuppressionEnabled       *bool
@@ -104,6 +117,10 @@ const (
 	_defaultNumCtx               = 32768
 	_defaultRAGSymbolMaxDefs       = 10
 	_defaultRAGSymbolMaxTokens    = 0
+	_defaultRAGCallGraphEnabled   = false
+	_defaultRAGCallersMax         = 3
+	_defaultRAGCalleesMax         = 3
+	_defaultRAGCallGraphMaxTokens = 0
 	_defaultStrictness             = "default"
 	_defaultSuppressionHistoryCount = 50
 )
@@ -148,6 +165,10 @@ func DefaultConfig() Config {
 		NumCtx:                  _defaultNumCtx,
 		RAGSymbolMaxDefinitions: _defaultRAGSymbolMaxDefs,
 		RAGSymbolMaxTokens:      _defaultRAGSymbolMaxTokens,
+		RAGCallGraphEnabled:     _defaultRAGCallGraphEnabled,
+		RAGCallersMax:           _defaultRAGCallersMax,
+		RAGCalleesMax:           _defaultRAGCalleesMax,
+		RAGCallGraphMaxTokens:   _defaultRAGCallGraphMaxTokens,
 		Strictness:                _defaultStrictness,
 		Nitpicky:                  false,
 		SuppressionEnabled:        true,
@@ -226,6 +247,10 @@ func mergeFile(cfg *Config, path string) error {
 		OptimizerScript         *string `toml:"optimizer_script"`
 		RAGSymbolMaxDefinitions *int64  `toml:"rag_symbol_max_definitions"`
 		RAGSymbolMaxTokens      *int64  `toml:"rag_symbol_max_tokens"`
+		RAGCallGraphEnabled     *bool   `toml:"rag_call_graph_enabled"`
+		RAGCallersMax           *int64  `toml:"rag_callers_max"`
+		RAGCalleesMax           *int64  `toml:"rag_callees_max"`
+		RAGCallGraphMaxTokens   *int64  `toml:"rag_call_graph_max_tokens"`
 		Strictness               *string `toml:"strictness"`
 		Nitpicky                 *bool   `toml:"nitpicky"`
 		SuppressionEnabled       *bool   `toml:"suppression_enabled"`
@@ -292,6 +317,30 @@ func mergeFile(cfg *Config, path string) error {
 		}
 		cfg.RAGSymbolMaxTokens = v
 	}
+	if file.RAGCallGraphEnabled != nil {
+		cfg.RAGCallGraphEnabled = *file.RAGCallGraphEnabled
+	}
+	if file.RAGCallersMax != nil && *file.RAGCallersMax >= 0 {
+		v, err := int64ToInt(*file.RAGCallersMax)
+		if err != nil {
+			return erruser.New("Configuration rag_callers_max value out of range.", err)
+		}
+		cfg.RAGCallersMax = v
+	}
+	if file.RAGCalleesMax != nil && *file.RAGCalleesMax >= 0 {
+		v, err := int64ToInt(*file.RAGCalleesMax)
+		if err != nil {
+			return erruser.New("Configuration rag_callees_max value out of range.", err)
+		}
+		cfg.RAGCalleesMax = v
+	}
+	if file.RAGCallGraphMaxTokens != nil && *file.RAGCallGraphMaxTokens >= 0 {
+		v, err := int64ToInt(*file.RAGCallGraphMaxTokens)
+		if err != nil {
+			return erruser.New("Configuration rag_call_graph_max_tokens value out of range.", err)
+		}
+		cfg.RAGCallGraphMaxTokens = v
+	}
 	if file.Strictness != nil && *file.Strictness != "" {
 		norm, err := validateStrictness(*file.Strictness)
 		if err != nil {
@@ -347,6 +396,10 @@ const (
 	envOptimizerScript         = "STET_OPTIMIZER_SCRIPT"
 	envRAGSymbolMaxDefinitions = "STET_RAG_SYMBOL_MAX_DEFINITIONS"
 	envRAGSymbolMaxTokens      = "STET_RAG_SYMBOL_MAX_TOKENS"
+	envRAGCallGraphEnabled     = "STET_RAG_CALL_GRAPH_ENABLED"
+	envRAGCallersMax            = "STET_RAG_CALLERS_MAX"
+	envRAGCalleesMax            = "STET_RAG_CALLEES_MAX"
+	envRAGCallGraphMaxTokens    = "STET_RAG_CALL_GRAPH_MAX_TOKENS"
 	envStrictness               = "STET_STRICTNESS"
 	envNitpicky                 = "STET_NITPICKY"
 	envSuppressionEnabled       = "STET_SUPPRESSION_ENABLED"
@@ -454,6 +507,49 @@ func applyEnv(cfg *Config, env []string) error {
 			}
 		}
 	}
+	if v, ok := vals[envRAGCallGraphEnabled]; ok && v != "" {
+		b, err := parseBool(v)
+		if err != nil {
+			return erruser.New("STET_RAG_CALL_GRAPH_ENABLED must be 1/true/yes/on or 0/false/no/off.", err)
+		}
+		cfg.RAGCallGraphEnabled = b
+	}
+	if v, ok := vals[envRAGCallersMax]; ok && v != "" {
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return erruser.New("STET_RAG_CALLERS_MAX must be a valid number.", err)
+		}
+		if n >= 0 {
+			cfg.RAGCallersMax, err = int64ToInt(n)
+			if err != nil {
+				return erruser.New("STET_RAG_CALLERS_MAX value out of range.", err)
+			}
+		}
+	}
+	if v, ok := vals[envRAGCalleesMax]; ok && v != "" {
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return erruser.New("STET_RAG_CALLEES_MAX must be a valid number.", err)
+		}
+		if n >= 0 {
+			cfg.RAGCalleesMax, err = int64ToInt(n)
+			if err != nil {
+				return erruser.New("STET_RAG_CALLEES_MAX value out of range.", err)
+			}
+		}
+	}
+	if v, ok := vals[envRAGCallGraphMaxTokens]; ok && v != "" {
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return erruser.New("STET_RAG_CALL_GRAPH_MAX_TOKENS must be a valid number.", err)
+		}
+		if n >= 0 {
+			cfg.RAGCallGraphMaxTokens, err = int64ToInt(n)
+			if err != nil {
+				return erruser.New("STET_RAG_CALL_GRAPH_MAX_TOKENS value out of range.", err)
+			}
+		}
+	}
 	if v, ok := vals[envStrictness]; ok && v != "" {
 		norm, err := validateStrictness(v)
 		if err != nil {
@@ -542,6 +638,30 @@ func applyOverrides(cfg *Config, o *Overrides) {
 	}
 	if o.RAGSymbolMaxTokens != nil {
 		cfg.RAGSymbolMaxTokens = *o.RAGSymbolMaxTokens
+	}
+	if o.RAGCallGraphEnabled != nil {
+		cfg.RAGCallGraphEnabled = *o.RAGCallGraphEnabled
+	}
+	if o.RAGCallersMax != nil {
+		v := *o.RAGCallersMax
+		if v < 0 {
+			v = 0
+		}
+		cfg.RAGCallersMax = v
+	}
+	if o.RAGCalleesMax != nil {
+		v := *o.RAGCalleesMax
+		if v < 0 {
+			v = 0
+		}
+		cfg.RAGCalleesMax = v
+	}
+	if o.RAGCallGraphMaxTokens != nil {
+		v := *o.RAGCallGraphMaxTokens
+		if v < 0 {
+			v = 0
+		}
+		cfg.RAGCallGraphMaxTokens = v
 	}
 	if o.Strictness != nil && *o.Strictness != "" {
 		if norm, err := validateStrictness(*o.Strictness); err == nil {

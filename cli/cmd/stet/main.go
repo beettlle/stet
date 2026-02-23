@@ -229,6 +229,7 @@ func newStartCmd() *cobra.Command {
 	cmd.Flags().Bool("allow-dirty", false, "Proceed with uncommitted changes (warns)")
 	cmd.Flags().Int("rag-symbol-max-definitions", 0, "Max symbol definitions to inject (0 = use config); overrides config and env")
 	cmd.Flags().Int("rag-symbol-max-tokens", 0, "Max tokens for symbol-definitions block (0 = use config); overrides config and env")
+	cmd.Flags().Bool("rag-call-graph", false, "Enable RAG call-graph (callers/callees) for Go hunks; overrides config and env")
 	cmd.Flags().String("strictness", "", "Review strictness preset: strict, default, lenient, strict+, default+, lenient+ (overrides config and env)")
 	cmd.Flags().Bool("nitpicky", false, "Enable nitpicky mode: report typos, grammar, style, and convention violations; do not filter those findings")
 	cmd.Flags().String("context", "", "Context window preset: 4k, 8k, 16k, 32k, 64k, 128k, 256k (sets both context_limit and num_ctx)")
@@ -339,6 +340,10 @@ func runStart(cmd *cobra.Command, args []string) error {
 		StreamOut:                      nil,
 		RAGSymbolMaxDefinitions:        cfg.RAGSymbolMaxDefinitions,
 		RAGSymbolMaxTokens:             cfg.RAGSymbolMaxTokens,
+		RAGCallGraphEnabled:            cfg.RAGCallGraphEnabled,
+		RAGCallersMax:                  cfg.RAGCallersMax,
+		RAGCalleesMax:                  cfg.RAGCalleesMax,
+		RAGCallGraphMaxTokens:          cfg.RAGCallGraphMaxTokens,
 		MinConfidenceKeep:              minKeep,
 		MinConfidenceMaintainability:   minMaint,
 		ApplyFPKillList:                &applyFP,
@@ -411,6 +416,7 @@ func addRunLikeFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool("stream", false, "Emit progress and findings as NDJSON (one event per line); requires --output=json")
 	cmd.Flags().Int("rag-symbol-max-definitions", 0, "Max symbol definitions to inject (0 = use config); overrides config and env")
 	cmd.Flags().Int("rag-symbol-max-tokens", 0, "Max tokens for symbol-definitions block (0 = use config); overrides config and env")
+	cmd.Flags().Bool("rag-call-graph", false, "Enable RAG call-graph (callers/callees) for Go hunks; overrides config and env")
 	cmd.Flags().String("strictness", "", "Review strictness preset: strict, default, lenient, strict+, default+, lenient+ (overrides config and env)")
 	cmd.Flags().Bool("nitpicky", false, "Enable nitpicky mode: report typos, grammar, style, and convention violations; do not filter those findings")
 	cmd.Flags().String("context", "", "Context window preset: 4k, 8k, 16k, 32k, 64k, 128k, 256k (sets both context_limit and num_ctx)")
@@ -455,11 +461,12 @@ func parseContextPreset(s string) (int, error) {
 func overridesFromFlags(cmd *cobra.Command) (*config.Overrides, error) {
 	defChanged := cmd.Flags().Lookup("rag-symbol-max-definitions") != nil && cmd.Flags().Lookup("rag-symbol-max-definitions").Changed
 	tokChanged := cmd.Flags().Lookup("rag-symbol-max-tokens") != nil && cmd.Flags().Lookup("rag-symbol-max-tokens").Changed
+	ragCallGraphChanged := cmd.Flags().Lookup("rag-call-graph") != nil && cmd.Flags().Lookup("rag-call-graph").Changed
 	strictnessChanged := cmd.Flags().Lookup("strictness") != nil && cmd.Flags().Lookup("strictness").Changed
 	nitpickyChanged := cmd.Flags().Lookup("nitpicky") != nil && cmd.Flags().Lookup("nitpicky").Changed
 	contextChanged := cmd.Flags().Lookup("context") != nil && cmd.Flags().Lookup("context").Changed
 	numCtxChanged := cmd.Flags().Lookup("num-ctx") != nil && cmd.Flags().Lookup("num-ctx").Changed
-	if !defChanged && !tokChanged && !strictnessChanged && !nitpickyChanged && !contextChanged && !numCtxChanged {
+	if !defChanged && !tokChanged && !ragCallGraphChanged && !strictnessChanged && !nitpickyChanged && !contextChanged && !numCtxChanged {
 		return nil, nil
 	}
 	o := &config.Overrides{}
@@ -470,6 +477,10 @@ func overridesFromFlags(cmd *cobra.Command) (*config.Overrides, error) {
 	if tokChanged {
 		v, _ := cmd.Flags().GetInt("rag-symbol-max-tokens")
 		o.RAGSymbolMaxTokens = &v
+	}
+	if ragCallGraphChanged {
+		v, _ := cmd.Flags().GetBool("rag-call-graph")
+		o.RAGCallGraphEnabled = &v
 	}
 	if strictnessChanged {
 		v, _ := cmd.Flags().GetString("strictness")
@@ -613,6 +624,10 @@ func runRun(cmd *cobra.Command, args []string) error {
 		StreamOut:                    nil,
 		RAGSymbolMaxDefinitions:      effectiveRAGDefs,
 		RAGSymbolMaxTokens:           effectiveRAGTokens,
+		RAGCallGraphEnabled:          cfg.RAGCallGraphEnabled,
+		RAGCallersMax:                cfg.RAGCallersMax,
+		RAGCalleesMax:                cfg.RAGCalleesMax,
+		RAGCallGraphMaxTokens:        cfg.RAGCallGraphMaxTokens,
 		MinConfidenceKeep:            minKeep,
 		MinConfidenceMaintainability: minMaint,
 		ApplyFPKillList:              &applyFP,
@@ -786,6 +801,10 @@ func runRerun(cmd *cobra.Command, args []string) error {
 		StreamOut:                    nil,
 		RAGSymbolMaxDefinitions:      effectiveRAGDefs,
 		RAGSymbolMaxTokens:           effectiveRAGTokens,
+		RAGCallGraphEnabled:          cfg.RAGCallGraphEnabled,
+		RAGCallersMax:                cfg.RAGCallersMax,
+		RAGCalleesMax:                cfg.RAGCalleesMax,
+		RAGCallGraphMaxTokens:        cfg.RAGCallGraphMaxTokens,
 		MinConfidenceKeep:            minKeep,
 		MinConfidenceMaintainability: minMaint,
 		ApplyFPKillList:              &applyFP,
@@ -1337,6 +1356,10 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 		StreamOut:                    nil,
 		RAGSymbolMaxDefinitions:      cfg.RAGSymbolMaxDefinitions,
 		RAGSymbolMaxTokens:            cfg.RAGSymbolMaxTokens,
+		RAGCallGraphEnabled:          cfg.RAGCallGraphEnabled,
+		RAGCallersMax:                cfg.RAGCallersMax,
+		RAGCalleesMax:                cfg.RAGCalleesMax,
+		RAGCallGraphMaxTokens:        cfg.RAGCallGraphMaxTokens,
 		MinConfidenceKeep:            minKeep,
 		MinConfidenceMaintainability: minMaint,
 		ApplyFPKillList:              &applyFP,
@@ -1368,6 +1391,10 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 			StreamOut:                      nil,
 			RAGSymbolMaxDefinitions:        cfg.RAGSymbolMaxDefinitions,
 			RAGSymbolMaxTokens:             cfg.RAGSymbolMaxTokens,
+			RAGCallGraphEnabled:            cfg.RAGCallGraphEnabled,
+			RAGCallersMax:                  cfg.RAGCallersMax,
+			RAGCalleesMax:                  cfg.RAGCalleesMax,
+			RAGCallGraphMaxTokens:          cfg.RAGCallGraphMaxTokens,
 			MinConfidenceKeep:              minKeep,
 			MinConfidenceMaintainability:   minMaint,
 			ApplyFPKillList:                &applyFP,

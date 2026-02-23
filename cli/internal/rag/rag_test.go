@@ -66,3 +66,25 @@ func TestResolveSymbols_withRegisteredResolver_returnsDefinitions(t *testing.T) 
 		t.Errorf("unexpected definition: %+v", defs[0])
 	}
 }
+
+func TestResolveCallGraph_nonGo_returnsNil(t *testing.T) {
+	ctx := context.Background()
+	result, err := ResolveCallGraph(ctx, "/repo", "src/file.ts", "@@ -1 +1 @@\ncode", CallGraphOptions{CallersMax: 3, CalleesMax: 3})
+	if err != nil {
+		t.Fatalf("ResolveCallGraph: %v", err)
+	}
+	if result != nil {
+		t.Errorf("expected nil for non-Go extension; got %+v", result)
+	}
+}
+
+func TestResolveCallGraph_emptyExtension_returnsNil(t *testing.T) {
+	ctx := context.Background()
+	result, err := ResolveCallGraph(ctx, "/repo", "Makefile", "content", CallGraphOptions{})
+	if err != nil {
+		t.Fatalf("ResolveCallGraph: %v", err)
+	}
+	if result != nil {
+		t.Errorf("expected nil for no extension; got %+v", result)
+	}
+}

@@ -28,6 +28,20 @@ type ResolveOptions struct {
 	MaxTokens      int // max tokens for combined definitions; 0 = no cap
 }
 
+// CallGraphResult holds upstream callers and downstream callees for the
+// function containing a hunk. Reuses Definition for each entry.
+type CallGraphResult struct {
+	Callers []Definition
+	Callees []Definition
+}
+
+// CallGraphOptions bounds call-graph resolution: max callers, max callees, and optional token cap.
+type CallGraphOptions struct {
+	CallersMax int // max call sites to return (0 = use default)
+	CalleesMax int // max callees to return (0 = use default)
+	MaxTokens  int // max tokens for the combined block; 0 = no cap
+}
+
 // Resolver looks up symbols used in a hunk and returns their definitions.
 // Each language (Go, TypeScript, etc.) implements this interface.
 type Resolver interface {
@@ -78,4 +92,50 @@ func ResolveSymbols(ctx context.Context, repoRoot, filePath, hunkContent string,
 		return nil, nil
 	}
 	return r.ResolveSymbols(ctx, repoRoot, filePath, hunkContent, opts)
+}
+
+// CallGraphResolver resolves callers and callees for the function containing a hunk.
+// Each language (Go, etc.) can implement this interface and register by extension.
+type CallGraphResolver interface {
+	ResolveCallGraph(ctx context.Context, repoRoot, filePath, hunkContent string, opts CallGraphOptions) (*CallGraphResult, error)
+}
+
+var (
+	callGraphRegistry   = make(map[string]CallGraphResolver)
+	callGraphRegistryMu sync.RWMutex
+)
+
+// RegisterCallGraphResolver registers a call-graph resolver for the given file extension (e.g. ".go").
+func RegisterCallGraphResolver(ext string, r CallGraphResolver) error {
+	if ext == "" {
+		return ErrEmptyExtension
+	}
+	callGraphRegistryMu.Lock()
+	defer callGraphRegistryMu.Unlock()
+	callGraphRegistry[ext] = r
+	return nil
+}
+
+// MustRegisterCallGraphResolver calls RegisterCallGraphResolver and panics on error.
+func MustRegisterCallGraphResolver(ext string, r CallGraphResolver) {
+	if err := RegisterCallGraphResolver(ext, r); err != nil {
+		panic(err)
+	}
+}
+
+// ResolveCallGraph returns callers (upstream) and callees (downstream) for the
+// function containing the hunk. Dispatches by file extension; for non-Go or
+// when no resolver is registered, returns (nil, nil) without error.
+func ResolveCallGraph(ctx context.Context, repoRoot, filePath, hunkContent string, opts CallGraphOptions) (*CallGraphResult, error) {
+	ext := filepath.Ext(filePath)
+	if ext == "" {
+		return nil, nil
+	}
+	callGraphRegistryMu.RLock()
+	r, ok := callGraphRegistry[ext]
+	callGraphRegistryMu.RUnlock()
+	if !ok || r == nil {
+		return nil, nil
+	}
+	return r.ResolveCallGraph(ctx, repoRoot, filePath, hunkContent, opts)
 }
