@@ -155,6 +155,9 @@ func gitGrepSymbol(ctx context.Context, repoRoot, symbol string) (absPath string
 		return "", 0, "", nil
 	}
 	path := first[:idx]
+	if path == "" || strings.Contains(path, "..") {
+		return "", 0, "", nil
+	}
 	rest := first[idx+1:]
 	idx2 := strings.Index(rest, ":")
 	if idx2 == -1 {
