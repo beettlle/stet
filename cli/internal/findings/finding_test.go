@@ -2,6 +2,7 @@ package findings
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -129,14 +130,8 @@ func roundtripCompare(t *testing.T, a, b *Finding) {
 	if a.CursorURI != b.CursorURI {
 		t.Errorf("CursorURI: got %q want %q", b.CursorURI, a.CursorURI)
 	}
-	if len(a.EvidenceLines) != len(b.EvidenceLines) {
-		t.Errorf("EvidenceLines len: got %d want %d", len(b.EvidenceLines), len(a.EvidenceLines))
-	}
-	for i := range a.EvidenceLines {
-		if i >= len(b.EvidenceLines) || a.EvidenceLines[i] != b.EvidenceLines[i] {
-			t.Errorf("EvidenceLines[%d]: got %v want %v", i, b.EvidenceLines, a.EvidenceLines)
-			break
-		}
+	if !reflect.DeepEqual(a.EvidenceLines, b.EvidenceLines) {
+		t.Errorf("EvidenceLines: got %v want %v", b.EvidenceLines, a.EvidenceLines)
 	}
 }
 
