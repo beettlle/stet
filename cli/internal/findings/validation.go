@@ -17,6 +17,21 @@ var (
 	}
 )
 
+// Normalize mutates the finding in place: invalid severity is set to SeverityWarning,
+// invalid category is set to CategoryBug. Call Validate after Normalize to check
+// other constraints (message, file, confidence, range).
+func (f *Finding) Normalize() {
+	if f == nil {
+		return
+	}
+	if _, ok := validSeverities[f.Severity]; !ok {
+		f.Severity = SeverityWarning
+	}
+	if _, ok := validCategories[f.Category]; !ok {
+		f.Category = CategoryBug
+	}
+}
+
 // Validate checks that the finding has required fields and allowed enum values.
 // Line and range are optional (file-only findings are valid). It returns an error
 // if: severity or category is missing or not in the allowed set; confidence is

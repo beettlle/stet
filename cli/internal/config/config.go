@@ -555,6 +555,10 @@ func applyOverrides(cfg *Config, o *Overrides) {
 		cfg.SuppressionEnabled = *o.SuppressionEnabled
 	}
 	if o.SuppressionHistoryCount != nil {
-		cfg.SuppressionHistoryCount = *o.SuppressionHistoryCount
+		v := *o.SuppressionHistoryCount
+		if v < 0 {
+			v = 0
+		}
+		cfg.SuppressionHistoryCount = v
 	}
 }

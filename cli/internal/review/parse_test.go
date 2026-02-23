@@ -108,6 +108,72 @@ func TestParseFindingsResponse_singleObject_invalid_returnsError(t *testing.T) {
 	}
 }
 
+func TestParseFindingsResponse_arrayInvalidSeverity_coerced(t *testing.T) {
+	// Invalid severity "critical" is coerced to "warning"; finding is kept.
+	jsonStr := `[{"file":"a.go","line":1,"severity":"critical","category":"bug","confidence":1.0,"message":"issue"}]`
+	list, err := ParseFindingsResponse(jsonStr)
+	if err != nil {
+		t.Fatalf("ParseFindingsResponse: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("len(list) = %d, want 1 (coerced)", len(list))
+	}
+	if list[0].Severity != findings.SeverityWarning {
+		t.Errorf("severity = %q, want %q (coerced from critical)", list[0].Severity, findings.SeverityWarning)
+	}
+	if list[0].Category != findings.CategoryBug || list[0].Message != "issue" {
+		t.Errorf("finding: %+v", list[0])
+	}
+}
+
+func TestParseFindingsResponse_arrayInvalidCategory_coerced(t *testing.T) {
+	// Invalid category "typo" is coerced to "bug"; finding is kept.
+	jsonStr := `[{"file":"b.go","line":2,"severity":"info","category":"typo","confidence":0.9,"message":"fix typo"}]`
+	list, err := ParseFindingsResponse(jsonStr)
+	if err != nil {
+		t.Fatalf("ParseFindingsResponse: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("len(list) = %d, want 1 (coerced)", len(list))
+	}
+	if list[0].Category != findings.CategoryBug {
+		t.Errorf("category = %q, want %q (coerced from typo)", list[0].Category, findings.CategoryBug)
+	}
+}
+
+func TestParseFindingsResponse_arrayTwoValidOneInvalid_dropsInvalid(t *testing.T) {
+	// Two valid findings and one invalid (empty message); invalid is dropped.
+	jsonStr := `[
+		{"file":"a.go","line":1,"severity":"warning","category":"bug","confidence":1.0,"message":"first"},
+		{"file":"b.go","line":2,"severity":"info","category":"style","confidence":0.8,"message":""},
+		{"file":"c.go","line":3,"severity":"error","category":"security","confidence":1.0,"message":"third"}
+	]`
+	list, err := ParseFindingsResponse(jsonStr)
+	if err != nil {
+		t.Fatalf("ParseFindingsResponse: %v", err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("len(list) = %d, want 2 (invalid dropped)", len(list))
+	}
+	if list[0].Message != "first" || list[1].Message != "third" {
+		t.Errorf("want first and third messages, got %q and %q", list[0].Message, list[1].Message)
+	}
+}
+
+func TestParseFindingsResponse_evidenceLines_unmarshals(t *testing.T) {
+	jsonStr := `[{"file":"p.go","line":5,"severity":"warning","category":"bug","confidence":1.0,"message":"m","evidence_lines":[10,12]}]`
+	list, err := ParseFindingsResponse(jsonStr)
+	if err != nil {
+		t.Fatalf("ParseFindingsResponse: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("len(list) = %d, want 1", len(list))
+	}
+	if len(list[0].EvidenceLines) != 2 || list[0].EvidenceLines[0] != 10 || list[0].EvidenceLines[1] != 12 {
+		t.Errorf("evidence_lines = %v, want [10, 12]", list[0].EvidenceLines)
+	}
+}
+
 func TestAssignFindingIDs_setsIDAndValidates(t *testing.T) {
 	list := []findings.Finding{
 		{File: "a.go", Line: 5, Severity: findings.SeverityWarning, Category: findings.CategoryStyle, Confidence: 1.0, Message: "msg"},

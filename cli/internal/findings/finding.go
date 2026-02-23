@@ -46,6 +46,7 @@ type Finding struct {
 	Category   Category   `json:"category"`
 	Confidence float64     `json:"confidence"`
 	Message    string     `json:"message"`
-	Suggestion string     `json:"suggestion,omitempty"`
-	CursorURI  string     `json:"cursor_uri,omitempty"`
+	Suggestion    string     `json:"suggestion,omitempty"`
+	CursorURI     string     `json:"cursor_uri,omitempty"`
+	EvidenceLines []int      `json:"evidence_lines,omitempty"`
 }

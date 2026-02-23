@@ -64,6 +64,18 @@ func TestFindingRoundtripJSON(t *testing.T) {
 				CursorURI:  "file:///x.go#L1",
 			},
 		},
+		{
+			name: "with_evidence_lines",
+			finding: Finding{
+				File:          "p.go",
+				Line:          5,
+				Severity:      SeverityWarning,
+				Category:      CategoryBug,
+				Confidence:    1.0,
+				Message:       "m",
+				EvidenceLines: []int{10, 12},
+			},
+		},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -116,6 +128,15 @@ func roundtripCompare(t *testing.T, a, b *Finding) {
 	}
 	if a.CursorURI != b.CursorURI {
 		t.Errorf("CursorURI: got %q want %q", b.CursorURI, a.CursorURI)
+	}
+	if len(a.EvidenceLines) != len(b.EvidenceLines) {
+		t.Errorf("EvidenceLines len: got %d want %d", len(b.EvidenceLines), len(a.EvidenceLines))
+	}
+	for i := range a.EvidenceLines {
+		if i >= len(b.EvidenceLines) || a.EvidenceLines[i] != b.EvidenceLines[i] {
+			t.Errorf("EvidenceLines[%d]: got %v want %v", i, b.EvidenceLines, a.EvidenceLines)
+			break
+		}
 	}
 }
 
@@ -260,6 +281,17 @@ func TestUnmarshalFinding(t *testing.T) {
 				t.Helper()
 				if err := f.Validate(); err == nil {
 					t.Error("expected Validate() to fail for invalid severity")
+				}
+			},
+		},
+		{
+			name:    "valid_with_evidence_lines",
+			jsonStr: `{"file":"p.go","line":5,"severity":"warning","category":"bug","confidence":1.0,"message":"m","evidence_lines":[10,12]}`,
+			wantErr: false,
+			check: func(t *testing.T, f *Finding) {
+				t.Helper()
+				if len(f.EvidenceLines) != 2 || f.EvidenceLines[0] != 10 || f.EvidenceLines[1] != 12 {
+					t.Errorf("evidence_lines = %v, want [10, 12]", f.EvidenceLines)
 				}
 			},
 		},

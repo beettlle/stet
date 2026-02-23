@@ -166,7 +166,15 @@ func ProcessReviewResponse(ctx context.Context, result *ollama.GenerateResult, h
 		traceOut.Printf("model=%s prompt_eval_count=%d eval_count=%d eval_duration=%d\n", result.Model, result.PromptEvalCount, result.EvalCount, result.EvalDuration)
 		traceOut.Printf("%s\n", result.Response)
 	}
-	list, err := ParseFindingsResponse(result.Response)
+	var parseOpts []ParseOptions
+	if traceOut != nil && traceOut.Enabled() {
+		parseOpts = []ParseOptions{{
+			OnDropped: func(index int, reason string) {
+				traceOut.Printf("dropped finding %d: %s\n", index, reason)
+			},
+		}}
+	}
+	list, err := ParseFindingsResponse(result.Response, parseOpts...)
 	if err != nil {
 		result2, retryErr := client.Generate(ctx, model, system, user, generateOpts)
 		if retryErr != nil {
@@ -181,7 +189,7 @@ func ProcessReviewResponse(ctx context.Context, result *ollama.GenerateResult, h
 			traceOut.Printf("%s\n", result2.Response)
 		}
 		usage = &HunkUsage{PromptEvalCount: result2.PromptEvalCount, EvalCount: result2.EvalCount, EvalDurationNs: result2.EvalDuration}
-		list, err = ParseFindingsResponse(result2.Response)
+		list, err = ParseFindingsResponse(result2.Response, parseOpts...)
 		if err != nil {
 			return nil, nil, fmt.Errorf("review: parse failed (after retry): %w", err)
 		}

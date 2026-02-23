@@ -93,7 +93,7 @@ The optional **`stet optimize`** command invokes an external script (e.g. a Pyth
 
 - **When to run**: e.g. weekly or after enough feedback has been collected in `.review/history.jsonl`.
 - **Input**: The script reads `.review/history.jsonl` (see State storage and history below). The CLI passes the state directory via the **`STET_STATE_DIR`** environment variable when invoking the script.
-- **Output**: The script should write `.review/system_prompt_optimized.txt`. When that file exists, the CLI uses it as the system prompt for review (see Phase 3.3).
+- **Output**: The script should write `.review/system_prompt_optimized.txt`. When that file exists, the CLI uses it as the system prompt for review (see Phase 3.3). Optimized prompts must request the same JSON finding shape (file, line, range, severity, category, confidence, message, suggestion, cursor_uri, and optional evidence_lines) so the CLI parser and validators continue to work.
 - **Configuration**: Set the command to run via **`STET_OPTIMIZER_SCRIPT`** or **`optimizer_script`** in repo/global config (e.g. `python3 scripts/optimize.py` or a path to your script). If unset, `stet optimize` exits 1 with a message asking you to configure it.
 - **Exit codes**: 0 = success; non-zero = failure (script missing, Python/DSPy error, invalid history, etc.). The CLI propagates the script’s exit code when in 0–255.
 
