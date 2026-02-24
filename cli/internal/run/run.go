@@ -173,23 +173,8 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 		close(readyCh)
 	}()
 
-	// Phase 1: drain prepared prompts into slots so we can pipeline Generate with process.
+	// Interleaved pipeline: send first Generate as soon as slot 0 is ready; overlap "process result" with "next Generate" by feeding the next prompt when we have it. No full drain so the LLM gets work immediately.
 	slots := make([]*preparedPrompt, total)
-	for prep := range readyCh {
-		prep := prep
-		slots[prep.Index] = &prep
-	}
-	for i := 0; i < total; i++ {
-		p := slots[i]
-		if p == nil {
-			return nil, nil, 0, 0, 0, erruser.New("Review failed: missing prepared prompt for hunk.", nil)
-		}
-		if p.Err != nil {
-			return nil, nil, 0, 0, 0, erruser.New("Review failed for "+p.Hunk.FilePath+".", p.Err)
-		}
-	}
-
-	// Phase 2: generate worker runs one Generate at a time; main loop processes each result and feeds the next prompt.
 	toWorker := make(chan *preparedPrompt, 1)
 	fromWorker := make(chan genResult, 1)
 	go func() {
@@ -207,97 +192,218 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 	}()
 	defer close(toWorker)
 
-	toWorker <- slots[0]
-	for i := 0; i < total; i++ {
-		res := <-fromWorker
-		if res.err != nil {
-			if opts.TraceOut != nil && opts.TraceOut.Enabled() {
-				opts.TraceOut.Printf("LLM request failed: %v\n", res.err)
+	var nextSendIndex int   // next hunk index to send to worker (we have sent 0..nextSendIndex-1)
+	var processedCount int  // number of results processed
+	readyChOpen := true
+	trySendNext := func() {
+		if nextSendIndex < total && slots[nextSendIndex] != nil {
+			p := slots[nextSendIndex]
+			if p.Err != nil {
+				return // caller will check and return error when handling prep
 			}
-			return nil, nil, 0, 0, 0, erruser.New("Review failed for "+opts.Hunks[res.index].FilePath+".", res.err)
+			toWorker <- p
+			nextSendIndex++
 		}
-		p := slots[res.index]
-		if opts.StreamOut != nil {
-			tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", p.Index+1, total, p.Hunk.FilePath)})
-		}
-		if opts.Verbose {
-			fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", p.Index+1, total, p.Hunk.FilePath)
-		}
-		if opts.TraceOut != nil && opts.TraceOut.Enabled() {
-			opts.TraceOut.Section("Hunk " + fmt.Sprintf("%d/%d", p.Index+1, total) + ": " + p.Hunk.FilePath)
-			opts.TraceOut.Printf("strict_id=%s semantic_id=%s\n", hunkid.StrictHunkID(p.Hunk.FilePath, p.Hunk.RawContent), hunkid.SemanticHunkID(p.Hunk.FilePath, p.Hunk.RawContent))
-		}
-		requestOpts := *opts.GenOpts
-		if p.Index+1 == total {
-			requestOpts.KeepAlive = keepAliveAfterRun
-		} else {
-			requestOpts.KeepAlive = keepAliveDuringRun
-		}
-		list, usage, processErr := review.ProcessReviewResponse(ctx, res.result, p.Hunk, opts.Client, opts.Model, p.System, p.User, &requestOpts, opts.TraceOut)
-		if processErr != nil {
-			return nil, nil, 0, 0, 0, erruser.New("Review failed for "+p.Hunk.FilePath+".", processErr)
-		}
-		if usage != nil {
-			sumPrompt += usage.PromptEvalCount
-			sumCompletion += usage.EvalCount
-			sumDuration += usage.EvalDurationNs
-		}
-		batch := findings.FilterAbstention(list, opts.MinKeep, opts.MinMaint)
-		if opts.TraceOut != nil && opts.TraceOut.Enabled() {
-			opts.TraceOut.Section("Post-filters")
-			opts.TraceOut.Printf("Abstention: %d -> %d\n", len(list), len(batch))
-		}
-		if opts.ApplyFP {
-			beforeFP := len(batch)
-			batch = findings.FilterFPKillList(batch)
-			if opts.TraceOut != nil && opts.TraceOut.Enabled() {
-				opts.TraceOut.Printf("FP kill list: %d -> %d\n", beforeFP, len(batch))
-			}
-		}
-		if hunkStart, hunkEnd, ok := expand.HunkLineRange(p.Hunk); ok {
-			beforeEvidence := len(batch)
-			batch = findings.FilterByHunkLines(batch, p.Hunk.FilePath, hunkStart, hunkEnd)
-			if opts.TraceOut != nil && opts.TraceOut.Enabled() {
-				opts.TraceOut.Printf("Evidence (hunk lines): %d -> %d\n", beforeEvidence, len(batch))
-			}
-		}
-		if opts.CriticEnabled && opts.CriticModel != "" && len(batch) > 0 {
-			beforeCritic := len(batch)
-			criticOpts := &review.CriticOptions{RetryOnParseError: true}
-			if opts.CriticModel == opts.Model {
-				criticOpts.KeepAlive = keepAliveDuringRun
-			}
-			kept := batch[:0]
-			for _, f := range batch {
-				keep, verr := review.VerifyFinding(ctx, opts.Client, opts.CriticModel, f, p.Hunk.RawContent, criticOpts)
-				if verr != nil {
+	}
+
+	for processedCount < total {
+		if readyChOpen {
+			select {
+			case prep, ok := <-readyCh:
+				if !ok {
+					readyChOpen = false
+					continue
+				}
+				prepVal := prep
+				slots[prepVal.Index] = &prepVal
+				if prepVal.Err != nil {
+					return nil, nil, 0, 0, 0, erruser.New("Review failed for "+prepVal.Hunk.FilePath+".", prepVal.Err)
+				}
+				trySendNext()
+			case res := <-fromWorker:
+				processedCount++
+				// Process res (same block as before) then trySendNext below
+				if res.err != nil {
 					if opts.TraceOut != nil && opts.TraceOut.Enabled() {
-						opts.TraceOut.Printf("Critic request failed: %v\n", verr)
+						opts.TraceOut.Printf("LLM request failed: %v\n", res.err)
 					}
-					return nil, nil, 0, 0, 0, erruser.New("Critic failed for "+p.Hunk.FilePath+".", verr)
+					return nil, nil, 0, 0, 0, erruser.New("Review failed for "+opts.Hunks[res.index].FilePath+".", res.err)
 				}
-				if keep {
-					kept = append(kept, f)
+				p := slots[res.index]
+				if opts.StreamOut != nil {
+					tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", p.Index+1, total, p.Hunk.FilePath)})
 				}
+				if opts.Verbose {
+					fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", p.Index+1, total, p.Hunk.FilePath)
+				}
+				if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+					opts.TraceOut.Section("Hunk " + fmt.Sprintf("%d/%d", p.Index+1, total) + ": " + p.Hunk.FilePath)
+					opts.TraceOut.Printf("strict_id=%s semantic_id=%s\n", hunkid.StrictHunkID(p.Hunk.FilePath, p.Hunk.RawContent), hunkid.SemanticHunkID(p.Hunk.FilePath, p.Hunk.RawContent))
+				}
+				requestOpts := *opts.GenOpts
+				if p.Index+1 == total {
+					requestOpts.KeepAlive = keepAliveAfterRun
+				} else {
+					requestOpts.KeepAlive = keepAliveDuringRun
+				}
+				list, usage, processErr := review.ProcessReviewResponse(ctx, res.result, p.Hunk, opts.Client, opts.Model, p.System, p.User, &requestOpts, opts.TraceOut)
+				if processErr != nil {
+					return nil, nil, 0, 0, 0, erruser.New("Review failed for "+p.Hunk.FilePath+".", processErr)
+				}
+				if usage != nil {
+					sumPrompt += usage.PromptEvalCount
+					sumCompletion += usage.EvalCount
+					sumDuration += usage.EvalDurationNs
+				}
+				batch := findings.FilterAbstention(list, opts.MinKeep, opts.MinMaint)
+				if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+					opts.TraceOut.Section("Post-filters")
+					opts.TraceOut.Printf("Abstention: %d -> %d\n", len(list), len(batch))
+				}
+				if opts.ApplyFP {
+					beforeFP := len(batch)
+					batch = findings.FilterFPKillList(batch)
+					if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+						opts.TraceOut.Printf("FP kill list: %d -> %d\n", beforeFP, len(batch))
+					}
+				}
+				if hunkStart, hunkEnd, ok := expand.HunkLineRange(p.Hunk); ok {
+					beforeEvidence := len(batch)
+					batch = findings.FilterByHunkLines(batch, p.Hunk.FilePath, hunkStart, hunkEnd)
+					if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+						opts.TraceOut.Printf("Evidence (hunk lines): %d -> %d\n", beforeEvidence, len(batch))
+					}
+				}
+				if opts.CriticEnabled && opts.CriticModel != "" && len(batch) > 0 {
+					beforeCritic := len(batch)
+					criticOpts := &review.CriticOptions{RetryOnParseError: true}
+					if opts.CriticModel == opts.Model {
+						criticOpts.KeepAlive = keepAliveDuringRun
+					}
+					kept := batch[:0]
+					for _, f := range batch {
+						keep, verr := review.VerifyFinding(ctx, opts.Client, opts.CriticModel, f, p.Hunk.RawContent, criticOpts)
+						if verr != nil {
+							if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+								opts.TraceOut.Printf("Critic request failed: %v\n", verr)
+							}
+							return nil, nil, 0, 0, 0, erruser.New("Critic failed for "+p.Hunk.FilePath+".", verr)
+						}
+						if keep {
+							kept = append(kept, f)
+						}
+					}
+					batch = kept
+					if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+						opts.TraceOut.Printf("Critic: %d -> %d\n", beforeCritic, len(batch))
+					}
+				}
+				findings.SetCursorURIs(opts.RepoRoot, batch)
+				hunkCtx := truncateForPromptContext(p.Hunk.RawContent, maxPromptContextStoreLen)
+				for _, f := range batch {
+					if f.ID != "" {
+						findingPromptContext[f.ID] = hunkCtx
+					}
+					if opts.StreamOut != nil {
+						tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "finding", "data": f})
+					}
+					collected = append(collected, f)
+				}
+				trySendNext()
 			}
-			batch = kept
-			if opts.TraceOut != nil && opts.TraceOut.Enabled() {
-				opts.TraceOut.Printf("Critic: %d -> %d\n", beforeCritic, len(batch))
+		} else {
+			res := <-fromWorker
+			processedCount++
+			if res.err != nil {
+				if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+					opts.TraceOut.Printf("LLM request failed: %v\n", res.err)
+				}
+				return nil, nil, 0, 0, 0, erruser.New("Review failed for "+opts.Hunks[res.index].FilePath+".", res.err)
 			}
-		}
-		findings.SetCursorURIs(opts.RepoRoot, batch)
-		hunkCtx := truncateForPromptContext(p.Hunk.RawContent, maxPromptContextStoreLen)
-		for _, f := range batch {
-			if f.ID != "" {
-				findingPromptContext[f.ID] = hunkCtx
+			p := slots[res.index]
+			if p == nil {
+				return nil, nil, 0, 0, 0, erruser.New("Review failed: missing prepared prompt for hunk.", nil)
 			}
 			if opts.StreamOut != nil {
-				tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "finding", "data": f})
+				tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", p.Index+1, total, p.Hunk.FilePath)})
 			}
-			collected = append(collected, f)
-		}
-		if i+1 < total {
-			toWorker <- slots[i+1]
+			if opts.Verbose {
+				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", p.Index+1, total, p.Hunk.FilePath)
+			}
+			if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+				opts.TraceOut.Section("Hunk " + fmt.Sprintf("%d/%d", p.Index+1, total) + ": " + p.Hunk.FilePath)
+				opts.TraceOut.Printf("strict_id=%s semantic_id=%s\n", hunkid.StrictHunkID(p.Hunk.FilePath, p.Hunk.RawContent), hunkid.SemanticHunkID(p.Hunk.FilePath, p.Hunk.RawContent))
+			}
+			requestOpts := *opts.GenOpts
+			if p.Index+1 == total {
+				requestOpts.KeepAlive = keepAliveAfterRun
+			} else {
+				requestOpts.KeepAlive = keepAliveDuringRun
+			}
+			list, usage, processErr := review.ProcessReviewResponse(ctx, res.result, p.Hunk, opts.Client, opts.Model, p.System, p.User, &requestOpts, opts.TraceOut)
+			if processErr != nil {
+				return nil, nil, 0, 0, 0, erruser.New("Review failed for "+p.Hunk.FilePath+".", processErr)
+			}
+			if usage != nil {
+				sumPrompt += usage.PromptEvalCount
+				sumCompletion += usage.EvalCount
+				sumDuration += usage.EvalDurationNs
+			}
+			batch := findings.FilterAbstention(list, opts.MinKeep, opts.MinMaint)
+			if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+				opts.TraceOut.Section("Post-filters")
+				opts.TraceOut.Printf("Abstention: %d -> %d\n", len(list), len(batch))
+			}
+			if opts.ApplyFP {
+				beforeFP := len(batch)
+				batch = findings.FilterFPKillList(batch)
+				if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+					opts.TraceOut.Printf("FP kill list: %d -> %d\n", beforeFP, len(batch))
+				}
+			}
+			if hunkStart, hunkEnd, ok := expand.HunkLineRange(p.Hunk); ok {
+				beforeEvidence := len(batch)
+				batch = findings.FilterByHunkLines(batch, p.Hunk.FilePath, hunkStart, hunkEnd)
+				if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+					opts.TraceOut.Printf("Evidence (hunk lines): %d -> %d\n", beforeEvidence, len(batch))
+				}
+			}
+			if opts.CriticEnabled && opts.CriticModel != "" && len(batch) > 0 {
+				beforeCritic := len(batch)
+				criticOpts := &review.CriticOptions{RetryOnParseError: true}
+				if opts.CriticModel == opts.Model {
+					criticOpts.KeepAlive = keepAliveDuringRun
+				}
+				kept := batch[:0]
+				for _, f := range batch {
+					keep, verr := review.VerifyFinding(ctx, opts.Client, opts.CriticModel, f, p.Hunk.RawContent, criticOpts)
+					if verr != nil {
+						if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+							opts.TraceOut.Printf("Critic request failed: %v\n", verr)
+						}
+						return nil, nil, 0, 0, 0, erruser.New("Critic failed for "+p.Hunk.FilePath+".", verr)
+					}
+					if keep {
+						kept = append(kept, f)
+					}
+				}
+				batch = kept
+				if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+					opts.TraceOut.Printf("Critic: %d -> %d\n", beforeCritic, len(batch))
+				}
+			}
+			findings.SetCursorURIs(opts.RepoRoot, batch)
+			hunkCtx := truncateForPromptContext(p.Hunk.RawContent, maxPromptContextStoreLen)
+			for _, f := range batch {
+				if f.ID != "" {
+					findingPromptContext[f.ID] = hunkCtx
+				}
+				if opts.StreamOut != nil {
+					tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "finding", "data": f})
+				}
+				collected = append(collected, f)
+			}
+			trySendNext()
 		}
 	}
 	return collected, findingPromptContext, sumPrompt, sumCompletion, sumDuration, nil
