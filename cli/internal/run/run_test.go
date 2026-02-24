@@ -397,7 +397,7 @@ func TestStart_baselineNotAncestor(t *testing.T) {
 	}
 }
 
-func TestFinish_removesWorktreeAndPersistsState(t *testing.T) {
+func TestFinish_removesWorktreeAndClearsSession(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	repo := initRepo(t)
@@ -429,8 +429,8 @@ func TestFinish_removesWorktreeAndPersistsState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load session after Finish: %v", err)
 	}
-	if sAfter.BaselineRef != sBefore.BaselineRef {
-		t.Errorf("state persisted: BaselineRef = %q, want %q", sAfter.BaselineRef, sBefore.BaselineRef)
+	if sAfter.BaselineRef != "" {
+		t.Errorf("session should be cleared after Finish: BaselineRef = %q, want empty", sAfter.BaselineRef)
 	}
 }
 

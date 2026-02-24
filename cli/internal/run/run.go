@@ -1108,9 +1108,9 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 	return RunStats{PromptTokens: int64(sumPrompt), CompletionTokens: int64(sumCompletion), EvalDurationNs: sumDuration}, nil
 }
 
-// Finish removes the session's worktree and releases the lock. Session file
-// is left on disk (state persisted). If the worktree path no longer exists,
-// Finish succeeds without error.
+// Finish removes the session's worktree and releases the lock. The session
+// file is removed so there is no active session after finish. If the worktree
+// path no longer exists, Finish succeeds without error.
 func Finish(ctx context.Context, opts FinishOptions) error {
 	if opts.RepoRoot == "" || opts.StateDir == "" {
 		return erruser.New("Finish failed: repository root and state directory are required.", nil)
@@ -1257,6 +1257,9 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 	}
 	if err := git.AddNote(opts.RepoRoot, git.NotesRefStet, headSHA, string(noteJSON)); err != nil {
 		return erruser.New("Could not write Git note for this review.", err)
+	}
+	if err := session.Delete(opts.StateDir); err != nil {
+		return err
 	}
 	return nil
 }

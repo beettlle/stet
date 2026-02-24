@@ -264,3 +264,29 @@ func TestAcquireLock_secondCallFailsWithErrLocked(t *testing.T) {
 		t.Errorf("second AcquireLock: got %v, want ErrLocked", err)
 	}
 }
+
+func TestDelete_removesFile(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := Save(dir, &Session{BaselineRef: "main", LastReviewedAt: "abc"}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	if err := Delete(dir); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+	got, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load after Delete: %v", err)
+	}
+	if got.BaselineRef != "" {
+		t.Errorf("Load after Delete: BaselineRef = %q, want empty (no session)", got.BaselineRef)
+	}
+}
+
+func TestDelete_missingFileSucceeds(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := Delete(dir); err != nil {
+		t.Fatalf("Delete(missing file): %v", err)
+	}
+}

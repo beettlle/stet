@@ -113,3 +113,16 @@ func Save(stateDir string, s *Session) error {
 	}
 	return nil
 }
+
+// Delete removes the session file from stateDir so there is no active session.
+// If the file does not exist, returns nil. Other errors are wrapped for the caller.
+func Delete(stateDir string) error {
+	path := filepath.Join(stateDir, sessionFilename)
+	if err := os.Remove(path); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return erruser.New("Could not remove session file.", err)
+	}
+	return nil
+}
