@@ -62,6 +62,14 @@ func findingsWriter() io.Writer {
 // errHintOut is the writer for recovery hints on start failure. Tests may replace it to capture output.
 var errHintOut io.Writer = os.Stderr
 
+// errForDetails returns the error to show in a "Details:" line (underlying cause when wrapped).
+func errForDetails(err error) error {
+	if u := errors.Unwrap(err); u != nil {
+		return u
+	}
+	return err
+}
+
 // activeFindings loads session from stateDir and returns findings not in DismissedIDs.
 func activeFindings(stateDir string) ([]findings.Finding, error) {
 	s, err := session.Load(stateDir)
@@ -369,11 +377,11 @@ func runStart(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		if errors.Is(err, ollama.ErrUnreachable) {
 			fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
-			fmt.Fprintf(os.Stderr, "Details: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Details: %v\n", errForDetails(err))
 			return errExit(2)
 		}
 		if errors.Is(err, ollama.ErrBadRequest) {
-			fmt.Fprintf(os.Stderr, "Ollama bad request at %s. %v\n", cfg.OllamaBaseURL, err)
+			fmt.Fprintf(os.Stderr, "Ollama bad request at %s. %v\n", cfg.OllamaBaseURL, errForDetails(err))
 			return errExit(2)
 		}
 		if errors.Is(err, run.ErrDirtyWorktree) {
@@ -659,11 +667,11 @@ func runRun(cmd *cobra.Command, args []string) error {
 		}
 		if errors.Is(err, ollama.ErrUnreachable) {
 			fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
-			fmt.Fprintf(os.Stderr, "Details: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Details: %v\n", errForDetails(err))
 			return errExit(2)
 		}
 		if errors.Is(err, ollama.ErrBadRequest) {
-			fmt.Fprintf(os.Stderr, "Ollama bad request at %s. %v\n", cfg.OllamaBaseURL, err)
+			fmt.Fprintf(os.Stderr, "Ollama bad request at %s. %v\n", cfg.OllamaBaseURL, errForDetails(err))
 			return errExit(2)
 		}
 		return err
@@ -840,11 +848,11 @@ func runRerun(cmd *cobra.Command, args []string) error {
 		}
 		if errors.Is(err, ollama.ErrUnreachable) {
 			fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
-			fmt.Fprintf(os.Stderr, "Details: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Details: %v\n", errForDetails(err))
 			return errExit(2)
 		}
 		if errors.Is(err, ollama.ErrBadRequest) {
-			fmt.Fprintf(os.Stderr, "Ollama bad request at %s. %v\n", cfg.OllamaBaseURL, err)
+			fmt.Fprintf(os.Stderr, "Ollama bad request at %s. %v\n", cfg.OllamaBaseURL, errForDetails(err))
 			return errExit(2)
 		}
 		return err
@@ -1273,11 +1281,11 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 	if _, err := client.Check(cmd.Context(), cfg.Model); err != nil {
 		if errors.Is(err, ollama.ErrUnreachable) {
 			fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
-			fmt.Fprintf(os.Stderr, "Details: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Details: %v\n", errForDetails(err))
 			return errExit(2)
 		}
 		if errors.Is(err, ollama.ErrBadRequest) {
-			fmt.Fprintf(os.Stderr, "Ollama bad request at %s. %v\n", cfg.OllamaBaseURL, err)
+			fmt.Fprintf(os.Stderr, "Ollama bad request at %s. %v\n", cfg.OllamaBaseURL, errForDetails(err))
 			return errExit(2)
 		}
 		return err
@@ -1292,11 +1300,11 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 	msg, err := commitmsg.Suggest(cmd.Context(), client, cfg.Model, diff, opts)
 	if err != nil {
 		if errors.Is(err, ollama.ErrUnreachable) {
-			fmt.Fprintf(os.Stderr, "Ollama unreachable. Details: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Ollama unreachable. Details: %v\n", errForDetails(err))
 			return errExit(2)
 		}
 		if errors.Is(err, ollama.ErrBadRequest) {
-			fmt.Fprintf(os.Stderr, "Ollama bad request. %v\n", err)
+			fmt.Fprintf(os.Stderr, "Ollama bad request. %v\n", errForDetails(err))
 			return errExit(2)
 		}
 		return err
@@ -1419,7 +1427,7 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 		}
 		if _, err := run.Start(cmd.Context(), startOpts); err != nil {
 			if errors.Is(err, ollama.ErrUnreachable) {
-				fmt.Fprintf(os.Stderr, "Ollama unreachable. Details: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Ollama unreachable. Details: %v\n", errForDetails(err))
 				return errExit(2)
 			}
 			if errors.Is(err, run.ErrDirtyWorktree) {
@@ -1440,7 +1448,7 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		if errors.Is(err, ollama.ErrUnreachable) {
-			fmt.Fprintf(os.Stderr, "Ollama unreachable. Details: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Ollama unreachable. Details: %v\n", errForDetails(err))
 			return errExit(2)
 		}
 		return err
@@ -1528,11 +1536,11 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		if errors.Is(err, ollama.ErrUnreachable) {
 			fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
-			fmt.Fprintf(os.Stderr, "Details: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Details: %v\n", errForDetails(err))
 			return errExit(2)
 		}
 		if errors.Is(err, ollama.ErrBadRequest) {
-			fmt.Fprintf(os.Stderr, "Ollama bad request at %s. %v\n", cfg.OllamaBaseURL, err)
+			fmt.Fprintf(os.Stderr, "Ollama bad request at %s. %v\n", cfg.OllamaBaseURL, errForDetails(err))
 			return errExit(2)
 		}
 		fmt.Fprintln(os.Stderr, err.Error())
@@ -1601,11 +1609,11 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		if errors.Is(err, ollama.ErrUnreachable) {
 			fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
-			fmt.Fprintf(os.Stderr, "Details: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Details: %v\n", errForDetails(err))
 			return errExit(2)
 		}
 		if errors.Is(err, ollama.ErrBadRequest) {
-			fmt.Fprintf(os.Stderr, "Ollama bad request at %s. %v\n", cfg.OllamaBaseURL, err)
+			fmt.Fprintf(os.Stderr, "Ollama bad request at %s. %v\n", cfg.OllamaBaseURL, errForDetails(err))
 			return errExit(2)
 		}
 		fmt.Fprintln(os.Stderr, err.Error())

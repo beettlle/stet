@@ -194,6 +194,9 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 			}
 			result, genErr := opts.Client.Generate(ctx, opts.Model, p.System, p.User, &requestOpts)
 			if genErr != nil {
+				if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+					opts.TraceOut.Printf("LLM request failed: %v\n", genErr)
+				}
 				return nil, nil, 0, 0, 0, erruser.New("Review failed for "+p.Hunk.FilePath+".", genErr)
 			}
 			list, usage, processErr := review.ProcessReviewResponse(ctx, result, p.Hunk, opts.Client, opts.Model, p.System, p.User, &requestOpts, opts.TraceOut)
@@ -230,6 +233,9 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 				for _, f := range batch {
 					keep, err := review.VerifyFinding(ctx, opts.Client, opts.CriticModel, f, p.Hunk.RawContent, nil)
 					if err != nil {
+						if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+							opts.TraceOut.Printf("Critic request failed: %v\n", err)
+						}
 						return nil, nil, 0, 0, 0, erruser.New("Critic failed for "+p.Hunk.FilePath+".", err)
 					}
 					if keep {
