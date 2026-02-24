@@ -89,6 +89,13 @@ type preparedPrompt struct {
 	Err    error
 }
 
+// genResult holds the result of a single Generate call for one hunk (used by the pipeline worker).
+type genResult struct {
+	index  int
+	result *ollama.GenerateResult
+	err    error
+}
+
 // reviewPipelineOpts holds inputs for runReviewPipeline.
 // RulesByFile is preloaded so preparers do not touch the loader concurrently.
 type reviewPipelineOpts struct {
@@ -119,10 +126,10 @@ type reviewPipelineOpts struct {
 	SuppressionExamples []string
 }
 
-// runReviewPipeline runs the review loop with parallel preparers: workers pull
-// hunk indices, prepare (prompt build, expand, RAG) and send to a channel; the
-// main loop consumes in index order and sends one Generate at a time. Last
-// request uses a short keep_alive so Ollama unloads the model after the run.
+// runReviewPipeline runs the review loop with parallel preparers and a pipelined
+// generate worker: as soon as one Generate returns, the next is started while the
+// main goroutine processes the previous result (parse, filters, critic). This
+// keeps the LLM busy and reduces idle gaps between requests.
 func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected []findings.Finding, findingPromptContext map[string]string, sumPrompt, sumCompletion int, sumDuration int64, err error) {
 	findingPromptContext = make(map[string]string)
 	total := len(opts.Hunks)
@@ -166,26 +173,28 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 		close(readyCh)
 	}()
 
+	// Phase 1: drain prepared prompts into slots so we can pipeline Generate with process.
 	slots := make([]*preparedPrompt, total)
-	nextNeeded := 0
 	for prep := range readyCh {
 		prep := prep
 		slots[prep.Index] = &prep
-		for nextNeeded < total && slots[nextNeeded] != nil {
-			p := slots[nextNeeded]
-			if p.Err != nil {
-				return nil, nil, 0, 0, 0, erruser.New("Review failed for "+p.Hunk.FilePath+".", p.Err)
-			}
-			if opts.StreamOut != nil {
-				tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", p.Index+1, total, p.Hunk.FilePath)})
-			}
-			if opts.Verbose {
-				fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", p.Index+1, total, p.Hunk.FilePath)
-			}
-			if opts.TraceOut != nil && opts.TraceOut.Enabled() {
-				opts.TraceOut.Section("Hunk " + fmt.Sprintf("%d/%d", p.Index+1, total) + ": " + p.Hunk.FilePath)
-				opts.TraceOut.Printf("strict_id=%s semantic_id=%s\n", hunkid.StrictHunkID(p.Hunk.FilePath, p.Hunk.RawContent), hunkid.SemanticHunkID(p.Hunk.FilePath, p.Hunk.RawContent))
-			}
+	}
+	for i := 0; i < total; i++ {
+		p := slots[i]
+		if p == nil {
+			return nil, nil, 0, 0, 0, erruser.New("Review failed: missing prepared prompt for hunk.", nil)
+		}
+		if p.Err != nil {
+			return nil, nil, 0, 0, 0, erruser.New("Review failed for "+p.Hunk.FilePath+".", p.Err)
+		}
+	}
+
+	// Phase 2: generate worker runs one Generate at a time; main loop processes each result and feeds the next prompt.
+	toWorker := make(chan *preparedPrompt, 1)
+	fromWorker := make(chan genResult, 1)
+	go func() {
+		defer close(fromWorker)
+		for p := range toWorker {
 			requestOpts := *opts.GenOpts
 			if p.Index+1 == total {
 				requestOpts.KeepAlive = keepAliveAfterRun
@@ -193,79 +202,102 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 				requestOpts.KeepAlive = keepAliveDuringRun
 			}
 			result, genErr := opts.Client.Generate(ctx, opts.Model, p.System, p.User, &requestOpts)
-			if genErr != nil {
-				if opts.TraceOut != nil && opts.TraceOut.Enabled() {
-					opts.TraceOut.Printf("LLM request failed: %v\n", genErr)
-				}
-				return nil, nil, 0, 0, 0, erruser.New("Review failed for "+p.Hunk.FilePath+".", genErr)
-			}
-			list, usage, processErr := review.ProcessReviewResponse(ctx, result, p.Hunk, opts.Client, opts.Model, p.System, p.User, &requestOpts, opts.TraceOut)
-			if processErr != nil {
-				return nil, nil, 0, 0, 0, erruser.New("Review failed for "+p.Hunk.FilePath+".", processErr)
-			}
-			if usage != nil {
-				sumPrompt += usage.PromptEvalCount
-				sumCompletion += usage.EvalCount
-				sumDuration += usage.EvalDurationNs
-			}
-			batch := findings.FilterAbstention(list, opts.MinKeep, opts.MinMaint)
+			fromWorker <- genResult{p.Index, result, genErr}
+		}
+	}()
+	defer close(toWorker)
+
+	toWorker <- slots[0]
+	for i := 0; i < total; i++ {
+		res := <-fromWorker
+		if res.err != nil {
 			if opts.TraceOut != nil && opts.TraceOut.Enabled() {
-				opts.TraceOut.Section("Post-filters")
-				opts.TraceOut.Printf("Abstention: %d -> %d\n", len(list), len(batch))
+				opts.TraceOut.Printf("LLM request failed: %v\n", res.err)
 			}
-			if opts.ApplyFP {
-				beforeFP := len(batch)
-				batch = findings.FilterFPKillList(batch)
-				if opts.TraceOut != nil && opts.TraceOut.Enabled() {
-					opts.TraceOut.Printf("FP kill list: %d -> %d\n", beforeFP, len(batch))
-				}
+			return nil, nil, 0, 0, 0, erruser.New("Review failed for "+opts.Hunks[res.index].FilePath+".", res.err)
+		}
+		p := slots[res.index]
+		if opts.StreamOut != nil {
+			tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "progress", "msg": fmt.Sprintf("Reviewing hunk %d/%d: %s", p.Index+1, total, p.Hunk.FilePath)})
+		}
+		if opts.Verbose {
+			fmt.Fprintf(os.Stderr, "Reviewing hunk %d/%d: %s\n", p.Index+1, total, p.Hunk.FilePath)
+		}
+		if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+			opts.TraceOut.Section("Hunk " + fmt.Sprintf("%d/%d", p.Index+1, total) + ": " + p.Hunk.FilePath)
+			opts.TraceOut.Printf("strict_id=%s semantic_id=%s\n", hunkid.StrictHunkID(p.Hunk.FilePath, p.Hunk.RawContent), hunkid.SemanticHunkID(p.Hunk.FilePath, p.Hunk.RawContent))
+		}
+		requestOpts := *opts.GenOpts
+		if p.Index+1 == total {
+			requestOpts.KeepAlive = keepAliveAfterRun
+		} else {
+			requestOpts.KeepAlive = keepAliveDuringRun
+		}
+		list, usage, processErr := review.ProcessReviewResponse(ctx, res.result, p.Hunk, opts.Client, opts.Model, p.System, p.User, &requestOpts, opts.TraceOut)
+		if processErr != nil {
+			return nil, nil, 0, 0, 0, erruser.New("Review failed for "+p.Hunk.FilePath+".", processErr)
+		}
+		if usage != nil {
+			sumPrompt += usage.PromptEvalCount
+			sumCompletion += usage.EvalCount
+			sumDuration += usage.EvalDurationNs
+		}
+		batch := findings.FilterAbstention(list, opts.MinKeep, opts.MinMaint)
+		if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+			opts.TraceOut.Section("Post-filters")
+			opts.TraceOut.Printf("Abstention: %d -> %d\n", len(list), len(batch))
+		}
+		if opts.ApplyFP {
+			beforeFP := len(batch)
+			batch = findings.FilterFPKillList(batch)
+			if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+				opts.TraceOut.Printf("FP kill list: %d -> %d\n", beforeFP, len(batch))
 			}
-			if hunkStart, hunkEnd, ok := expand.HunkLineRange(p.Hunk); ok {
-				beforeEvidence := len(batch)
-				batch = findings.FilterByHunkLines(batch, p.Hunk.FilePath, hunkStart, hunkEnd)
-				if opts.TraceOut != nil && opts.TraceOut.Enabled() {
-					opts.TraceOut.Printf("Evidence (hunk lines): %d -> %d\n", beforeEvidence, len(batch))
-				}
+		}
+		if hunkStart, hunkEnd, ok := expand.HunkLineRange(p.Hunk); ok {
+			beforeEvidence := len(batch)
+			batch = findings.FilterByHunkLines(batch, p.Hunk.FilePath, hunkStart, hunkEnd)
+			if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+				opts.TraceOut.Printf("Evidence (hunk lines): %d -> %d\n", beforeEvidence, len(batch))
 			}
-			if opts.CriticEnabled && opts.CriticModel != "" && len(batch) > 0 {
-				beforeCritic := len(batch)
-				criticOpts := &review.CriticOptions{RetryOnParseError: true}
-				if opts.CriticModel == opts.Model {
-					criticOpts.KeepAlive = keepAliveDuringRun
-				}
-				kept := batch[:0]
-				for _, f := range batch {
-					keep, err := review.VerifyFinding(ctx, opts.Client, opts.CriticModel, f, p.Hunk.RawContent, criticOpts)
-					if err != nil {
-						if opts.TraceOut != nil && opts.TraceOut.Enabled() {
-							opts.TraceOut.Printf("Critic request failed: %v\n", err)
-						}
-						return nil, nil, 0, 0, 0, erruser.New("Critic failed for "+p.Hunk.FilePath+".", err)
-					}
-					if keep {
-						kept = append(kept, f)
-					}
-				}
-				batch = kept
-				if opts.TraceOut != nil && opts.TraceOut.Enabled() {
-					opts.TraceOut.Printf("Critic: %d -> %d\n", beforeCritic, len(batch))
-				}
+		}
+		if opts.CriticEnabled && opts.CriticModel != "" && len(batch) > 0 {
+			beforeCritic := len(batch)
+			criticOpts := &review.CriticOptions{RetryOnParseError: true}
+			if opts.CriticModel == opts.Model {
+				criticOpts.KeepAlive = keepAliveDuringRun
 			}
-			findings.SetCursorURIs(opts.RepoRoot, batch)
-			hunkCtx := truncateForPromptContext(p.Hunk.RawContent, maxPromptContextStoreLen)
+			kept := batch[:0]
 			for _, f := range batch {
-				if f.ID != "" {
-					findingPromptContext[f.ID] = hunkCtx
+				keep, verr := review.VerifyFinding(ctx, opts.Client, opts.CriticModel, f, p.Hunk.RawContent, criticOpts)
+				if verr != nil {
+					if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+						opts.TraceOut.Printf("Critic request failed: %v\n", verr)
+					}
+					return nil, nil, 0, 0, 0, erruser.New("Critic failed for "+p.Hunk.FilePath+".", verr)
 				}
-				if opts.StreamOut != nil {
-					tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "finding", "data": f})
+				if keep {
+					kept = append(kept, f)
 				}
-				collected = append(collected, f)
 			}
-			nextNeeded++
-			if nextNeeded == total {
-				break
+			batch = kept
+			if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+				opts.TraceOut.Printf("Critic: %d -> %d\n", beforeCritic, len(batch))
 			}
+		}
+		findings.SetCursorURIs(opts.RepoRoot, batch)
+		hunkCtx := truncateForPromptContext(p.Hunk.RawContent, maxPromptContextStoreLen)
+		for _, f := range batch {
+			if f.ID != "" {
+				findingPromptContext[f.ID] = hunkCtx
+			}
+			if opts.StreamOut != nil {
+				tryWriteStreamLine(opts.StreamOut, map[string]interface{}{"type": "finding", "data": f})
+			}
+			collected = append(collected, f)
+		}
+		if i+1 < total {
+			toWorker <- slots[i+1]
 		}
 	}
 	return collected, findingPromptContext, sumPrompt, sumCompletion, sumDuration, nil
