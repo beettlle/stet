@@ -244,6 +244,7 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 					opts.TraceOut.Section("Hunk " + fmt.Sprintf("%d/%d", p.Index+1, total) + ": " + p.Hunk.FilePath)
 					opts.TraceOut.Printf("strict_id=%s semantic_id=%s\n", hunkid.StrictHunkID(p.Hunk.FilePath, p.Hunk.RawContent), hunkid.SemanticHunkID(p.Hunk.FilePath, p.Hunk.RawContent))
 				}
+				trySendNext()
 				requestOpts := *opts.GenOpts
 				if p.Index+1 == total {
 					requestOpts.KeepAlive = keepAliveAfterRun
@@ -338,6 +339,7 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 				opts.TraceOut.Section("Hunk " + fmt.Sprintf("%d/%d", p.Index+1, total) + ": " + p.Hunk.FilePath)
 				opts.TraceOut.Printf("strict_id=%s semantic_id=%s\n", hunkid.StrictHunkID(p.Hunk.FilePath, p.Hunk.RawContent), hunkid.SemanticHunkID(p.Hunk.FilePath, p.Hunk.RawContent))
 			}
+			trySendNext()
 			requestOpts := *opts.GenOpts
 			if p.Index+1 == total {
 				requestOpts.KeepAlive = keepAliveAfterRun
