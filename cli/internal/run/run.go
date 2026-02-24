@@ -221,7 +221,10 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 				if prepVal.Err != nil {
 					return nil, nil, 0, 0, 0, erruser.New("Review failed for "+prepVal.Hunk.FilePath+".", prepVal.Err)
 				}
-				trySendNext()
+				// Only send when at most one prompt is in flight (toWorker buffer 1): first send when nextSendIndex==0, later sends only after we've received the previous result (nextSendIndex <= processedCount).
+				if nextSendIndex <= processedCount {
+					trySendNext()
+				}
 			case res := <-fromWorker:
 				processedCount++
 				// Process res (same block as before) then trySendNext below
