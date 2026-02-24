@@ -109,7 +109,7 @@ type reviewPipelineOpts struct {
 	MinKeep, MinMaint         float64
 	ApplyFP                  bool
 	CriticEnabled            bool   // When true, run critic on each finding after post-filters; drops verdict "no".
-	CriticModel              string // Model name for critic (e.g. qwen2.5-coder:3b); used only when CriticEnabled.
+	CriticModel              string // Model name for critic; default qwen3-coder:30b (same as main); used only when CriticEnabled.
 	StreamOut                io.Writer
 	Verbose                  bool
 	TraceOut                 *trace.Tracer
@@ -229,9 +229,13 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 			}
 			if opts.CriticEnabled && opts.CriticModel != "" && len(batch) > 0 {
 				beforeCritic := len(batch)
+				criticOpts := &review.CriticOptions{RetryOnParseError: true}
+				if opts.CriticModel == opts.Model {
+					criticOpts.KeepAlive = keepAliveDuringRun
+				}
 				kept := batch[:0]
 				for _, f := range batch {
-					keep, err := review.VerifyFinding(ctx, opts.Client, opts.CriticModel, f, p.Hunk.RawContent, nil)
+					keep, err := review.VerifyFinding(ctx, opts.Client, opts.CriticModel, f, p.Hunk.RawContent, criticOpts)
 					if err != nil {
 						if opts.TraceOut != nil && opts.TraceOut.Enabled() {
 							opts.TraceOut.Printf("Critic request failed: %v\n", err)
@@ -533,7 +537,7 @@ type StartOptions struct {
 	Nitpicky bool
 	// CriticEnabled runs a second LLM pass on each finding (critic model); when true, findings the critic rejects are dropped.
 	CriticEnabled bool
-	// CriticModel is the model name for the critic (e.g. qwen2.5-coder:3b); used only when CriticEnabled and not DryRun.
+	// CriticModel is the model name for the critic; default qwen3-coder:30b (same as main) so one model stays loaded; used only when CriticEnabled and not DryRun.
 	CriticModel string
 	// Session-persisted options (from stet start flags); when set, stored in session.
 	PersistStrictness              *string

@@ -235,3 +235,27 @@ func TestVerifyFinding_noRetryWhenOptsDisableRetry(t *testing.T) {
 		t.Errorf("expected 1 call when retry disabled; got %d", client.callCount)
 	}
 }
+
+// recordOptsClient records the GenerateOptions passed to Generate for tests.
+type recordOptsClient struct {
+	response string
+	opts     *ollama.GenerateOptions
+}
+
+func (r *recordOptsClient) Generate(ctx context.Context, model, systemPrompt, userPrompt string, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error) {
+	r.opts = opts
+	return &ollama.GenerateResult{Response: r.response}, nil
+}
+
+func TestVerifyFinding_passesKeepAliveWhenSet(t *testing.T) {
+	ctx := context.Background()
+	client := &recordOptsClient{response: `{"verdict":"yes"}`}
+	opts := &CriticOptions{KeepAlive: -1}
+	_, err := VerifyFinding(ctx, client, "model", findings.Finding{File: "a.go", Line: 1, Severity: findings.SeverityError, Category: findings.CategoryBug, Message: "m"}, "code", opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if client.opts == nil || client.opts.KeepAlive != -1 {
+		t.Errorf("expected KeepAlive -1 when opts.KeepAlive set; got opts=%v", client.opts)
+	}
+}

@@ -24,6 +24,8 @@ type CriticOptions struct {
 	MaxHunkContentLen int
 	// RetryOnParseError when true retries the LLM call once on parse failure; then treat as no (drop finding).
 	RetryOnParseError bool
+	// KeepAlive, when set, is passed to Ollama GenerateOptions (e.g. -1 to keep model loaded). When nil, 0 is used so the critic model is unloaded after the call. Set when critic uses the same model as the main review to avoid unloading between hunks.
+	KeepAlive interface{}
 }
 
 // verdictResponse is the JSON shape expected from the critic model.
@@ -102,7 +104,10 @@ func VerifyFinding(ctx context.Context, client CriticClient, criticModel string,
 		retryParse = opts.RetryOnParseError
 	}
 	userPrompt := BuildCriticPrompt(f, hunkContent, maxHunk)
-	genOpts := &ollama.GenerateOptions{KeepAlive: 0} // Unload critic model after call.
+	genOpts := &ollama.GenerateOptions{KeepAlive: 0}
+	if opts != nil && opts.KeepAlive != nil {
+		genOpts.KeepAlive = opts.KeepAlive
+	}
 	result, genErr := client.Generate(ctx, criticModel, criticSystemPrompt, userPrompt, genOpts)
 	if genErr != nil {
 		return false, genErr
