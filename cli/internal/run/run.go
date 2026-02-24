@@ -108,6 +108,8 @@ type reviewPipelineOpts struct {
 	RulesByFile              map[string][]rules.CursorRule
 	MinKeep, MinMaint         float64
 	ApplyFP                  bool
+	CriticEnabled            bool   // When true, run critic on each finding after post-filters; drops verdict "no".
+	CriticModel              string // Model name for critic (e.g. llama3.2:1b); used only when CriticEnabled.
 	StreamOut                io.Writer
 	Verbose                  bool
 	TraceOut                 *trace.Tracer
@@ -218,6 +220,23 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 				batch = findings.FilterByHunkLines(batch, p.Hunk.FilePath, hunkStart, hunkEnd)
 				if opts.TraceOut != nil && opts.TraceOut.Enabled() {
 					opts.TraceOut.Printf("Evidence (hunk lines): %d -> %d\n", beforeEvidence, len(batch))
+				}
+			}
+			if opts.CriticEnabled && opts.CriticModel != "" && len(batch) > 0 {
+				beforeCritic := len(batch)
+				kept := batch[:0]
+				for _, f := range batch {
+					keep, err := review.VerifyFinding(ctx, opts.Client, opts.CriticModel, f, p.Hunk.RawContent, nil)
+					if err != nil {
+						return nil, nil, 0, 0, 0, erruser.New("Critic failed for "+p.Hunk.FilePath+".", err)
+					}
+					if keep {
+						kept = append(kept, f)
+					}
+				}
+				batch = kept
+				if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+					opts.TraceOut.Printf("Critic: %d -> %d\n", beforeCritic, len(batch))
 				}
 			}
 			findings.SetCursorURIs(opts.RepoRoot, batch)
@@ -504,6 +523,10 @@ type StartOptions struct {
 	ApplyFPKillList              *bool
 	// Nitpicky enables convention- and typo-aware review; when true, FP kill list is not applied.
 	Nitpicky bool
+	// CriticEnabled runs a second LLM pass on each finding (critic model); when true, findings the critic rejects are dropped.
+	CriticEnabled bool
+	// CriticModel is the model name for the critic (e.g. llama3.2:1b); used only when CriticEnabled and not DryRun.
+	CriticModel string
 	// Session-persisted options (from stet start flags); when set, stored in session.
 	PersistStrictness              *string
 	PersistRAGSymbolMaxDefinitions *int
@@ -557,6 +580,8 @@ type RunOptions struct {
 	MinConfidenceMaintainability float64
 	ApplyFPKillList              *bool
 	Nitpicky                     bool
+	CriticEnabled                bool
+	CriticModel                  string
 	// TraceOut, when non-nil, receives internal trace output. Used when --trace is set.
 	TraceOut io.Writer
 	// UseSearchReplaceFormat, when true, sends the hunk in search-replace style for testing.
@@ -886,6 +911,8 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 			MinKeep:                 minKeep,
 			MinMaint:                minMaint,
 			ApplyFP:                 applyFP,
+			CriticEnabled:          opts.CriticEnabled,
+			CriticModel:             opts.CriticModel,
 			StreamOut:               opts.StreamOut,
 			Verbose:                 opts.Verbose,
 			TraceOut:                tr,
@@ -1285,6 +1312,8 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 			MinKeep:                 minKeep,
 			MinMaint:                minMaint,
 			ApplyFP:                 applyFP,
+			CriticEnabled:          opts.CriticEnabled,
+			CriticModel:             opts.CriticModel,
 			StreamOut:               opts.StreamOut,
 			Verbose:                 opts.Verbose,
 			TraceOut:                trRun,

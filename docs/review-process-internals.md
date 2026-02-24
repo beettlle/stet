@@ -243,10 +243,11 @@ flowchart LR
 1. **Abstention:** `findings.FilterAbstention(list, minKeep, minMaint)` in [cli/internal/findings/abstention.go](cli/internal/findings/abstention.go) — drop if `confidence < minKeep`, or if `category == maintainability` and `confidence < minMaint`. Defaults (e.g. 0.8 and 0.9) come from config or strictness preset (strict, default, lenient). The "+" presets (strict+, default+, lenient+) use the same thresholds but do **not** apply the FP kill list.
 2. **FP kill list:** `findings.FilterFPKillList(list)` in [cli/internal/findings/fpkilllist.go](cli/internal/findings/fpkilllist.go) — drop if `Message` matches any built-in banned phrase (case-insensitive). Phrases include "Consider adding comments", "You might want to", etc. Skipped when nitpicky mode is enabled.
 3. **Evidence (hunk lines):** `findings.FilterByHunkLines(batch, hunk.FilePath, hunkStart, hunkEnd)` — drop findings whose line or range fall outside the current hunk's line range in the new file; reduces hallucinated line numbers. Caller obtains `hunkStart`, `hunkEnd` from `expand.HunkLineRange(hunk)`; if parsing fails, the filter is not applied. See [cli/internal/findings/evidence.go](cli/internal/findings/evidence.go).
+4. **Critic (optional):** When **critic** is enabled (config `critic_enabled`, env `STET_CRITIC_ENABLED`, or flag `--verify`), a second LLM pass runs on each remaining finding. The critic model (config `critic_model`, env `STET_CRITIC_MODEL`; default e.g. `llama3.2:1b`) is asked whether the finding is correct and actionable for the code; if the response verdict is "no", the finding is dropped. Implemented in [cli/internal/review/critic.go](cli/internal/review/critic.go). **Off by default.** Enabling the critic increases latency and token usage. When `--dry-run` is set, the critic is not run (canned findings only).
 
 ### 7.11 Cursor URIs and output
 
-- **URIs:** `findings.SetCursorURIs(repoRoot, batch)` so each finding has a `cursor_uri` for deep linking.
+- **URIs:** After the critic (when enabled), `findings.SetCursorURIs(repoRoot, batch)` so each finding has a `cursor_uri` for deep linking.
 - **Session:** For each finding with an ID, store truncated hunk content in `FindingPromptContext[ID]` (for later prompt shadows if the user dismisses).
 - **Stream:** If `StreamOut != nil`, write NDJSON lines: `{"type":"progress","msg":"..."}`, `{"type":"finding","data":&lt;finding&gt;}`, then `{"type":"done"}`.
 - **Accumulate:** All findings from the run are collected into the session's `Findings` (Start replaces; Run appends new findings).
@@ -364,6 +365,7 @@ Panel state is driven by the stream (start) and clear (finish); the extension do
 | RAG symbol resolution | [cli/internal/rag/rag.go](cli/internal/rag/rag.go) | ResolveSymbols (per-extension resolvers) |
 | ReviewHunk (LLM + parse + IDs) | [cli/internal/review/review.go](cli/internal/review/review.go), [parse.go](cli/internal/review/parse.go) | ReviewHunk, ParseFindingsResponse, AssignFindingIDs |
 | Abstention / FP kill list | [cli/internal/findings/abstention.go](cli/internal/findings/abstention.go), [fpkilllist.go](cli/internal/findings/fpkilllist.go) | FilterAbstention, FilterFPKillList, SetCursorURIs |
+| Critic (second-pass verification) | [cli/internal/review/critic.go](cli/internal/review/critic.go) | BuildCriticPrompt, ParseCriticVerdict, VerifyFinding |
 | History append / schema | [cli/internal/history/append.go](cli/internal/history/append.go), [schema.go](cli/internal/history/schema.go) | Record, UserAction, Dismissal, Append |
 | CLI commands | [cli/cmd/stet/main.go](cli/cmd/stet/main.go) | start, run, finish, status, list, dismiss, cleanup; activeFindings, writeFindings* |
 | Extension commands + stream | [extension/src/extension.ts](extension/src/extension.ts), [cli.ts](extension/src/cli.ts), [parse.ts](extension/src/parse.ts) | startReview (stream), spawnStet, spawnStetStream, parseStreamEvent |

@@ -16,6 +16,8 @@
 //   - STET_NITPICKY (enable nitpicky mode: 1/true/yes/on = true, 0/false/no/off = false).
 //   - STET_SUPPRESSION_ENABLED (history-based suppression: 1/true/yes/on = true, 0/false/no/off = false).
 //   - STET_SUPPRESSION_HISTORY_COUNT (max history records to scan for dismissals; non-negative integer).
+//   - STET_CRITIC_ENABLED (optional second-pass critic: 1/true/yes/on = true, 0/false/no/off = false).
+//   - STET_CRITIC_MODEL (model name for the critic, e.g. llama3.2:1b).
 package config
 
 import (
@@ -68,6 +70,10 @@ type Config struct {
 	SuppressionEnabled bool `toml:"suppression_enabled"`
 	// SuppressionHistoryCount is the max number of history records to scan for dismissals (0 = do not use history). Default 50.
 	SuppressionHistoryCount int `toml:"suppression_history_count"`
+	// CriticEnabled runs a second LLM pass (critic) on each finding; when true, findings the critic rejects are dropped. Default false.
+	CriticEnabled bool `toml:"critic_enabled"`
+	// CriticModel is the model name for the critic (e.g. llama3.2:1b). Used only when CriticEnabled. Enabling critic increases latency and token usage.
+	CriticModel string `toml:"critic_model"`
 }
 
 // Overrides represents optional CLI flag overrides. Non-nil pointer means
@@ -93,6 +99,8 @@ type Overrides struct {
 	Nitpicky                *bool
 	SuppressionEnabled       *bool
 	SuppressionHistoryCount  *int
+	CriticEnabled           *bool
+	CriticModel             *string
 }
 
 // LoadOptions configures Load. All fields are optional.
@@ -123,6 +131,7 @@ const (
 	_defaultRAGCallGraphMaxTokens = 0
 	_defaultStrictness             = "default"
 	_defaultSuppressionHistoryCount = 50
+	_defaultCriticModel            = "llama3.2:1b"
 )
 
 // validStrictness is the set of allowed strictness values (normalized lowercase).
@@ -173,6 +182,8 @@ func DefaultConfig() Config {
 		Nitpicky:                  false,
 		SuppressionEnabled:        true,
 		SuppressionHistoryCount:   _defaultSuppressionHistoryCount,
+		CriticEnabled:             false,
+		CriticModel:               _defaultCriticModel,
 	}
 }
 
@@ -255,6 +266,8 @@ func mergeFile(cfg *Config, path string) error {
 		Nitpicky                 *bool   `toml:"nitpicky"`
 		SuppressionEnabled       *bool   `toml:"suppression_enabled"`
 		SuppressionHistoryCount  *int64  `toml:"suppression_history_count"`
+		CriticEnabled            *bool   `toml:"critic_enabled"`
+		CriticModel              *string `toml:"critic_model"`
 	}
 	if _, err := toml.Decode(string(data), &file); err != nil {
 		return erruser.New("Invalid configuration in .review/config.toml.", err)
@@ -361,6 +374,12 @@ func mergeFile(cfg *Config, path string) error {
 		}
 		cfg.SuppressionHistoryCount = v
 	}
+	if file.CriticEnabled != nil {
+		cfg.CriticEnabled = *file.CriticEnabled
+	}
+	if file.CriticModel != nil && *file.CriticModel != "" {
+		cfg.CriticModel = *file.CriticModel
+	}
 	return nil
 }
 
@@ -404,6 +423,8 @@ const (
 	envNitpicky                 = "STET_NITPICKY"
 	envSuppressionEnabled       = "STET_SUPPRESSION_ENABLED"
 	envSuppressionHistoryCount  = "STET_SUPPRESSION_HISTORY_COUNT"
+	envCriticEnabled            = "STET_CRITIC_ENABLED"
+	envCriticModel              = "STET_CRITIC_MODEL"
 )
 
 func applyEnv(cfg *Config, env []string) error {
@@ -584,6 +605,16 @@ func applyEnv(cfg *Config, env []string) error {
 			return erruser.New("STET_SUPPRESSION_HISTORY_COUNT value out of range.", err)
 		}
 	}
+	if v, ok := vals[envCriticEnabled]; ok && v != "" {
+		b, err := parseBool(v)
+		if err != nil {
+			return erruser.New("STET_CRITIC_ENABLED must be 1/true/yes/on or 0/false/no/off.", err)
+		}
+		cfg.CriticEnabled = b
+	}
+	if v, ok := vals[envCriticModel]; ok && v != "" {
+		cfg.CriticModel = v
+	}
 	return nil
 }
 
@@ -680,5 +711,11 @@ func applyOverrides(cfg *Config, o *Overrides) {
 			v = 0
 		}
 		cfg.SuppressionHistoryCount = v
+	}
+	if o.CriticEnabled != nil {
+		cfg.CriticEnabled = *o.CriticEnabled
+	}
+	if o.CriticModel != nil && *o.CriticModel != "" {
+		cfg.CriticModel = *o.CriticModel
 	}
 }

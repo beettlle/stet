@@ -232,6 +232,7 @@ func newStartCmd() *cobra.Command {
 	cmd.Flags().Bool("rag-call-graph", false, "Enable RAG call-graph (callers/callees) for Go hunks; overrides config and env")
 	cmd.Flags().String("strictness", "", "Review strictness preset: strict, default, lenient, strict+, default+, lenient+ (overrides config and env)")
 	cmd.Flags().Bool("nitpicky", false, "Enable nitpicky mode: report typos, grammar, style, and convention violations; do not filter those findings")
+	cmd.Flags().Bool("verify", false, "Run critic (second-pass verification) on each finding; drops findings the critic rejects (increases latency and token usage)")
 	cmd.Flags().String("context", "", "Context window preset: 4k, 8k, 16k, 32k, 64k, 128k, 256k (sets both context_limit and num_ctx)")
 	cmd.Flags().Int("num-ctx", 0, "Context window size in tokens (0 = use config); overrides config and --context; sets both context_limit and num_ctx")
 	cmd.Flags().Bool("trace", false, "Print internal steps to stderr (partition, rules, RAG, prompts, LLM I/O)")
@@ -348,6 +349,8 @@ func runStart(cmd *cobra.Command, args []string) error {
 		MinConfidenceMaintainability:   minMaint,
 		ApplyFPKillList:                &applyFP,
 		Nitpicky:                       cfg.Nitpicky,
+		CriticEnabled:                  cfg.CriticEnabled,
+		CriticModel:                    cfg.CriticModel,
 		PersistStrictness:              persistStrictness,
 		PersistRAGSymbolMaxDefinitions: persistRAGDefs,
 		PersistRAGSymbolMaxTokens:      persistRAGTokens,
@@ -419,6 +422,7 @@ func addRunLikeFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool("rag-call-graph", false, "Enable RAG call-graph (callers/callees) for Go hunks; overrides config and env")
 	cmd.Flags().String("strictness", "", "Review strictness preset: strict, default, lenient, strict+, default+, lenient+ (overrides config and env)")
 	cmd.Flags().Bool("nitpicky", false, "Enable nitpicky mode: report typos, grammar, style, and convention violations; do not filter those findings")
+	cmd.Flags().Bool("verify", false, "Run critic (second-pass verification) on each finding; drops findings the critic rejects (increases latency and token usage)")
 	cmd.Flags().String("context", "", "Context window preset: 4k, 8k, 16k, 32k, 64k, 128k, 256k (sets both context_limit and num_ctx)")
 	cmd.Flags().Int("num-ctx", 0, "Context window size in tokens (0 = use config); overrides config and --context; sets both context_limit and num_ctx")
 	cmd.Flags().Bool("trace", false, "Print internal steps to stderr (partition, rules, RAG, prompts, LLM I/O)")
@@ -464,9 +468,10 @@ func overridesFromFlags(cmd *cobra.Command) (*config.Overrides, error) {
 	ragCallGraphChanged := cmd.Flags().Lookup("rag-call-graph") != nil && cmd.Flags().Lookup("rag-call-graph").Changed
 	strictnessChanged := cmd.Flags().Lookup("strictness") != nil && cmd.Flags().Lookup("strictness").Changed
 	nitpickyChanged := cmd.Flags().Lookup("nitpicky") != nil && cmd.Flags().Lookup("nitpicky").Changed
+	verifyChanged := cmd.Flags().Lookup("verify") != nil && cmd.Flags().Lookup("verify").Changed
 	contextChanged := cmd.Flags().Lookup("context") != nil && cmd.Flags().Lookup("context").Changed
 	numCtxChanged := cmd.Flags().Lookup("num-ctx") != nil && cmd.Flags().Lookup("num-ctx").Changed
-	if !defChanged && !tokChanged && !ragCallGraphChanged && !strictnessChanged && !nitpickyChanged && !contextChanged && !numCtxChanged {
+	if !defChanged && !tokChanged && !ragCallGraphChanged && !strictnessChanged && !nitpickyChanged && !verifyChanged && !contextChanged && !numCtxChanged {
 		return nil, nil
 	}
 	o := &config.Overrides{}
@@ -489,6 +494,10 @@ func overridesFromFlags(cmd *cobra.Command) (*config.Overrides, error) {
 	if nitpickyChanged {
 		v, _ := cmd.Flags().GetBool("nitpicky")
 		o.Nitpicky = &v
+	}
+	if verifyChanged {
+		v, _ := cmd.Flags().GetBool("verify")
+		o.CriticEnabled = &v
 	}
 	if numCtxChanged {
 		v, err := cmd.Flags().GetInt("num-ctx")
@@ -632,6 +641,8 @@ func runRun(cmd *cobra.Command, args []string) error {
 		MinConfidenceMaintainability: minMaint,
 		ApplyFPKillList:              &applyFP,
 		Nitpicky:                     effectiveNitpicky,
+		CriticEnabled:                cfg.CriticEnabled,
+		CriticModel:                  cfg.CriticModel,
 		TraceOut:                     traceOut,
 		UseSearchReplaceFormat:       getSearchReplaceFlag(cmd),
 		SuppressionEnabled:           cfg.SuppressionEnabled,
@@ -809,6 +820,8 @@ func runRerun(cmd *cobra.Command, args []string) error {
 		MinConfidenceMaintainability: minMaint,
 		ApplyFPKillList:              &applyFP,
 		Nitpicky:                     effectiveNitpicky,
+		CriticEnabled:                cfg.CriticEnabled,
+		CriticModel:                  cfg.CriticModel,
 		TraceOut:                     traceOut,
 		UseSearchReplaceFormat:       getSearchReplaceFlag(cmd),
 		ForceFullReview:             true,
