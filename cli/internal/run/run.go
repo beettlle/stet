@@ -193,10 +193,10 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 	}()
 	defer close(toWorker)
 
-	var nextSendIndex int   // next hunk index to send to worker (we have sent 0..nextSendIndex-1). Zero = no sends yet; first send when slots[0] is ready.
+	var nextSendIndex int   // index of next hunk to send (0-based). Hunks 0..nextSendIndex-1 already sent; nextSendIndex==0 means none sent yet. First send happens in prep branch when slots[0] is filled.
 	var processedCount int  // number of results processed
 	readyChOpen := true
-	// Invariant: send to toWorker whenever slots[nextSendIndex] becomes non-nil so the worker is never stuck waiting for the next prompt while main waits for the next result (avoids deadlock). toWorker has buffer 1 so we only send after the worker has consumed the previous send or when sending the first.
+	// Invariant: send to toWorker whenever slots[nextSendIndex] becomes non-nil so the worker is never stuck waiting for the next prompt while main waits for the next result (avoids deadlock). First prompt is sent when prep for index 0 arrives (prep branch calls trySendNext); no explicit "first send" needed.
 	trySendNext := func() {
 		if nextSendIndex < total && slots[nextSendIndex] != nil {
 			p := slots[nextSendIndex]
