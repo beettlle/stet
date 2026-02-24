@@ -174,6 +174,7 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 	}()
 
 	// Interleaved pipeline: send first Generate as soon as slot 0 is ready; overlap "process result" with "next Generate" by feeding the next prompt when we have it. No full drain so the LLM gets work immediately.
+	// slots and nextSendIndex are only accessed by this goroutine (main loop); prepare workers write to readyCh, LLM worker reads toWorker/writes fromWorker. No synchronization needed.
 	slots := make([]*preparedPrompt, total)
 	toWorker := make(chan *preparedPrompt, 1)
 	fromWorker := make(chan genResult, 1)
@@ -192,7 +193,7 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 	}()
 	defer close(toWorker)
 
-	var nextSendIndex int   // next hunk index to send to worker (we have sent 0..nextSendIndex-1)
+	var nextSendIndex int   // next hunk index to send to worker (we have sent 0..nextSendIndex-1). Zero = no sends yet; first send when slots[0] is ready.
 	var processedCount int  // number of results processed
 	readyChOpen := true
 	// Invariant: send to toWorker whenever slots[nextSendIndex] becomes non-nil so the worker is never stuck waiting for the next prompt while main waits for the next result (avoids deadlock). toWorker has buffer 1 so we only send after the worker has consumed the previous send or when sending the first.
