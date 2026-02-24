@@ -17,7 +17,7 @@
 //   - STET_SUPPRESSION_ENABLED (history-based suppression: 1/true/yes/on = true, 0/false/no/off = false).
 //   - STET_SUPPRESSION_HISTORY_COUNT (max history records to scan for dismissals; non-negative integer).
 //   - STET_CRITIC_ENABLED (optional second-pass critic: 1/true/yes/on = true, 0/false/no/off = false).
-//   - STET_CRITIC_MODEL (model name for the critic, e.g. llama3.2:1b).
+//   - STET_CRITIC_MODEL (model name for the critic, e.g. qwen2.5-coder:3b).
 package config
 
 import (
@@ -72,7 +72,7 @@ type Config struct {
 	SuppressionHistoryCount int `toml:"suppression_history_count"`
 	// CriticEnabled runs a second LLM pass (critic) on each finding; when true, findings the critic rejects are dropped. Default false.
 	CriticEnabled bool `toml:"critic_enabled"`
-	// CriticModel is the model name for the critic (e.g. llama3.2:1b). Used only when CriticEnabled. Enabling critic increases latency and token usage.
+	// CriticModel is the model name for the critic (e.g. qwen2.5-coder:3b). Used only when CriticEnabled. Enabling critic increases latency and token usage.
 	CriticModel string `toml:"critic_model"`
 }
 
@@ -131,7 +131,7 @@ const (
 	_defaultRAGCallGraphMaxTokens = 0
 	_defaultStrictness             = "default"
 	_defaultSuppressionHistoryCount = 50
-	_defaultCriticModel            = "llama3.2:1b"
+	_defaultCriticModel            = "qwen2.5-coder:3b"
 )
 
 // validStrictness is the set of allowed strictness values (normalized lowercase).

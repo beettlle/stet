@@ -109,7 +109,7 @@ type reviewPipelineOpts struct {
 	MinKeep, MinMaint         float64
 	ApplyFP                  bool
 	CriticEnabled            bool   // When true, run critic on each finding after post-filters; drops verdict "no".
-	CriticModel              string // Model name for critic (e.g. llama3.2:1b); used only when CriticEnabled.
+	CriticModel              string // Model name for critic (e.g. qwen2.5-coder:3b); used only when CriticEnabled.
 	StreamOut                io.Writer
 	Verbose                  bool
 	TraceOut                 *trace.Tracer
@@ -527,7 +527,7 @@ type StartOptions struct {
 	Nitpicky bool
 	// CriticEnabled runs a second LLM pass on each finding (critic model); when true, findings the critic rejects are dropped.
 	CriticEnabled bool
-	// CriticModel is the model name for the critic (e.g. llama3.2:1b); used only when CriticEnabled and not DryRun.
+	// CriticModel is the model name for the critic (e.g. qwen2.5-coder:3b); used only when CriticEnabled and not DryRun.
 	CriticModel string
 	// Session-persisted options (from stet start flags); when set, stored in session.
 	PersistStrictness              *string
