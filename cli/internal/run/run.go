@@ -195,7 +195,7 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 	var nextSendIndex int   // next hunk index to send to worker (we have sent 0..nextSendIndex-1)
 	var processedCount int  // number of results processed
 	readyChOpen := true
-	// Send next prompt only after we've received a result (worker consumed previous send). Exception: send the first as soon as slots[0] is ready. Sending from readyCh beyond the first would block on toWorker (buffer 1) while worker is in Generate and deadlock.
+	// Invariant: send to toWorker whenever slots[nextSendIndex] becomes non-nil so the worker is never stuck waiting for the next prompt while main waits for the next result (avoids deadlock). toWorker has buffer 1 so we only send after the worker has consumed the previous send or when sending the first.
 	trySendNext := func() {
 		if nextSendIndex < total && slots[nextSendIndex] != nil {
 			p := slots[nextSendIndex]
@@ -220,10 +220,7 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 				if prepVal.Err != nil {
 					return nil, nil, 0, 0, 0, erruser.New("Review failed for "+prepVal.Hunk.FilePath+".", prepVal.Err)
 				}
-				if nextSendIndex == 0 && slots[0] != nil {
-					toWorker <- slots[0]
-					nextSendIndex++
-				}
+				trySendNext()
 			case res := <-fromWorker:
 				processedCount++
 				// Process res (same block as before) then trySendNext below
