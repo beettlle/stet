@@ -196,8 +196,11 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 	var nextSendIndex int   // index of next hunk to send (0-based). Hunks 0..nextSendIndex-1 already sent; nextSendIndex==0 means none sent yet. First send happens in prep branch when slots[0] is filled.
 	var processedCount int  // number of results processed
 	readyChOpen := true
-	// Invariant: send to toWorker whenever slots[nextSendIndex] becomes non-nil so the worker is never stuck waiting for the next prompt while main waits for the next result (avoids deadlock). First prompt is sent when prep for index 0 arrives (prep branch calls trySendNext); no explicit "first send" needed.
+	// trySendNext sends the next prompt to the worker when the slot is ready. It enforces "at most one in flight" (toWorker buffer 1) so it is safe to call from both prep and result paths; duplicate or misplaced calls become no-ops.
 	trySendNext := func() {
+		if nextSendIndex > processedCount {
+			return
+		}
 		if nextSendIndex < total && slots[nextSendIndex] != nil {
 			p := slots[nextSendIndex]
 			if p.Err != nil {
@@ -227,7 +230,6 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 				}
 			case res := <-fromWorker:
 				processedCount++
-				// Process res (same block as before) then trySendNext below
 				if res.err != nil {
 					if opts.TraceOut != nil && opts.TraceOut.Enabled() {
 						opts.TraceOut.Printf("LLM request failed: %v\n", res.err)
@@ -245,7 +247,6 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 					opts.TraceOut.Section("Hunk " + fmt.Sprintf("%d/%d", p.Index+1, total) + ": " + p.Hunk.FilePath)
 					opts.TraceOut.Printf("strict_id=%s semantic_id=%s\n", hunkid.StrictHunkID(p.Hunk.FilePath, p.Hunk.RawContent), hunkid.SemanticHunkID(p.Hunk.FilePath, p.Hunk.RawContent))
 				}
-				trySendNext()
 				requestOpts := *opts.GenOpts
 				if p.Index+1 == total {
 					requestOpts.KeepAlive = keepAliveAfterRun
@@ -340,7 +341,6 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 				opts.TraceOut.Section("Hunk " + fmt.Sprintf("%d/%d", p.Index+1, total) + ": " + p.Hunk.FilePath)
 				opts.TraceOut.Printf("strict_id=%s semantic_id=%s\n", hunkid.StrictHunkID(p.Hunk.FilePath, p.Hunk.RawContent), hunkid.SemanticHunkID(p.Hunk.FilePath, p.Hunk.RawContent))
 			}
-			trySendNext()
 			requestOpts := *opts.GenOpts
 			if p.Index+1 == total {
 				requestOpts.KeepAlive = keepAliveAfterRun
