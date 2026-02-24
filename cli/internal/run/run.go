@@ -68,7 +68,7 @@ const (
 	keepAliveDuringRun = -1
 	// keepAliveAfterRun tells Ollama to unload the model after the last request (0 = when done); good stewardship.
 	keepAliveAfterRun = 0
-	// maxSuppressionExamples caps the number of history-based suppression examples injected into the system prompt (roadmap 9.1).
+	// maxSuppressionExamples caps the number of history records to consider for suppression; applied per-hunk (as many as fit in the token budget) in PrepareHunkPrompt (roadmap 9.1).
 	maxSuppressionExamples = 30
 )
 
@@ -115,6 +115,8 @@ type reviewPipelineOpts struct {
 	TraceOut                 *trace.Tracer
 	PromptShadows            []prompt.Shadow
 	UseSearchReplaceFormat   bool
+	// SuppressionExamples is the list of "do not report" examples from history; applied per-hunk (as many as fit in token budget). Nil when suppression disabled.
+	SuppressionExamples []string
 }
 
 // runReviewPipeline runs the review loop with parallel preparers: workers pull
@@ -150,7 +152,7 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 				}
 				hunk := opts.Hunks[i]
 				cursorRules := opts.RulesByFile[hunk.FilePath]
-				system, user, prepErr := review.PrepareHunkPrompt(ctx, opts.SystemBase, hunk, cursorRules, opts.RepoRoot, opts.EffectiveContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, opts.RAGCallGraphEnabled, opts.RAGCallersMax, opts.RAGCalleesMax, opts.RAGCallGraphMaxTokens, opts.UseSearchReplaceFormat, opts.TraceOut)
+				system, user, prepErr := review.PrepareHunkPrompt(ctx, opts.SystemBase, hunk, cursorRules, opts.RepoRoot, opts.EffectiveContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, opts.RAGCallGraphEnabled, opts.RAGCallersMax, opts.RAGCalleesMax, opts.RAGCallGraphMaxTokens, opts.UseSearchReplaceFormat, opts.SuppressionExamples, opts.TraceOut)
 				if prepErr != nil {
 					readyCh <- preparedPrompt{Index: i, Hunk: hunk, Err: prepErr}
 					continue
@@ -880,9 +882,11 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 		if opts.Nitpicky {
 			systemBase = prompt.AppendNitpickyInstructions(systemBase)
 		}
+		// Load suppression examples once; applied per-hunk (as many as fit in token budget) in PrepareHunkPrompt.
+		var suppressionExamples []string
 		if opts.SuppressionEnabled && opts.SuppressionHistoryCount > 0 {
 			if examples, err := history.SuppressionExamples(opts.StateDir, opts.SuppressionHistoryCount, maxSuppressionExamples); err == nil && len(examples) > 0 {
-				systemBase = prompt.AppendSuppressionExamples(systemBase, examples)
+				suppressionExamples = examples
 			}
 		}
 		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: effectiveNumCtx, KeepAlive: keepAliveDuringRun}
@@ -917,6 +921,7 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 			Verbose:                 opts.Verbose,
 			TraceOut:                tr,
 			UseSearchReplaceFormat:  opts.UseSearchReplaceFormat,
+			SuppressionExamples:     suppressionExamples,
 		})
 		if err != nil {
 			return RunStats{}, err
@@ -1280,9 +1285,11 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 		if opts.Nitpicky {
 			systemBase = prompt.AppendNitpickyInstructions(systemBase)
 		}
+		// Load suppression examples once; applied per-hunk (as many as fit in token budget) in PrepareHunkPrompt.
+		var suppressionExamples []string
 		if opts.SuppressionEnabled && opts.SuppressionHistoryCount > 0 {
 			if examples, err := history.SuppressionExamples(opts.StateDir, opts.SuppressionHistoryCount, maxSuppressionExamples); err == nil && len(examples) > 0 {
-				systemBase = prompt.AppendSuppressionExamples(systemBase, examples)
+				suppressionExamples = examples
 			}
 		}
 		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: effectiveNumCtx, KeepAlive: keepAliveDuringRun}
@@ -1318,6 +1325,7 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 			Verbose:                 opts.Verbose,
 			TraceOut:                trRun,
 			UseSearchReplaceFormat:  opts.UseSearchReplaceFormat,
+			SuppressionExamples:     suppressionExamples,
 		})
 		if err != nil {
 			return RunStats{}, err

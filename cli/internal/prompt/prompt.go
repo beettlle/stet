@@ -383,6 +383,29 @@ func AppendSuppressionExamples(systemPrompt string, examples []string) string {
 	return systemPrompt + b.String()
 }
 
+// EstimateSuppressionBlock returns the estimated token count for the suppression
+// block that would be produced for the last numExamples from examples (newest
+// first). Used for per-hunk budget so we only append as many examples as fit.
+// Returns 0 if numExamples <= 0 or examples is empty.
+func EstimateSuppressionBlock(examples []string, numExamples int) int {
+	if numExamples <= 0 || len(examples) == 0 {
+		return 0
+	}
+	if numExamples > len(examples) {
+		numExamples = len(examples)
+	}
+	// Same format as AppendSuppressionExamples: header + bullets for last N (newest).
+	start := len(examples) - numExamples
+	var b strings.Builder
+	b.WriteString(suppressionExamplesHeader)
+	for i := start; i < len(examples); i++ {
+		b.WriteString("- ")
+		b.WriteString(examples[i])
+		b.WriteString("\n")
+	}
+	return tokens.Estimate(b.String())
+}
+
 // UserPrompt builds the user-facing prompt for one hunk: file path and the
 // hunk content (context). Phase 3 uses only hunk content; no RAG or extra context.
 func UserPrompt(hunk diff.Hunk) string {

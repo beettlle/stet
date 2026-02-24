@@ -445,6 +445,35 @@ func TestAppendSuppressionExamples_nonEmpty_appendsSection(t *testing.T) {
 	}
 }
 
+func TestEstimateSuppressionBlock_zeroOrEmpty_returnsZero(t *testing.T) {
+	if got := EstimateSuppressionBlock(nil, 1); got != 0 {
+		t.Errorf("EstimateSuppressionBlock(nil, 1) = %d, want 0", got)
+	}
+	if got := EstimateSuppressionBlock([]string{"a:1: x"}, 0); got != 0 {
+		t.Errorf("EstimateSuppressionBlock(1 example, 0) = %d, want 0", got)
+	}
+	if got := EstimateSuppressionBlock([]string{}, 1); got != 0 {
+		t.Errorf("EstimateSuppressionBlock(empty, 1) = %d, want 0", got)
+	}
+}
+
+func TestEstimateSuppressionBlock_oneExample_positive(t *testing.T) {
+	examples := []string{"pkg/foo.go:42: Consider adding comments"}
+	got := EstimateSuppressionBlock(examples, 1)
+	if got <= 0 {
+		t.Errorf("EstimateSuppressionBlock(1 example) = %d, want positive", got)
+	}
+}
+
+func TestEstimateSuppressionBlock_twoExamples_largerThanOne(t *testing.T) {
+	examples := []string{"a.go:1: msg1", "b.go:2: longer message here"}
+	one := EstimateSuppressionBlock(examples, 1)
+	two := EstimateSuppressionBlock(examples, 2)
+	if two <= one {
+		t.Errorf("EstimateSuppressionBlock(2 examples) = %d should be > (1 example) = %d", two, one)
+	}
+}
+
 func TestAppendSymbolDefinitions_empty_unchanged(t *testing.T) {
 	userPrompt := "File: foo.go\n\ncontent"
 	got := AppendSymbolDefinitions(userPrompt, nil, 0)

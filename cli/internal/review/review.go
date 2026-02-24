@@ -60,15 +60,21 @@ func effectiveRAGTokenCap(contextLimit, basePromptTokens, responseReserve, ragMa
 	return max(0, effective)
 }
 
+// maxSuppressionExamplesPerHunk caps how many suppression examples can be
+// appended per hunk when using a token budget (per-hunk suppression).
+const maxSuppressionExamplesPerHunk = 30
+
 // PrepareHunkPrompt builds the system and user prompts for a single hunk from a
 // pre-built systemBase (SystemPrompt + InjectUserIntent + AppendPromptShadows +
 // AppendNitpickyInstructions). It appends Cursor rules for the hunk's file,
 // expands the hunk, optionally minifies (Go), builds the user prompt (unified or
-// search-replace when useSearchReplaceFormat), and runs RAG when enabled.
+// search-replace when useSearchReplaceFormat), appends up to maxSuppressionExamplesPerHunk
+// suppression examples when suppressionExamples is non-empty and contextLimit > 0
+// (only as many as fit in the remaining token budget), and runs RAG when enabled.
 // When ragCallGraphEnabled is true and the file is Go, call-graph (callers/callees)
 // is resolved and appended to the middle block; token cap is ragCallGraphMaxTokens
 // or half of effectiveRAGTokens when 0. Used by the pipeline to prepare the next hunk.
-func PrepareHunkPrompt(ctx context.Context, systemBase string, hunk diff.Hunk, ruleList []rules.CursorRule, repoRoot string, contextLimit int, ragMaxDefs, ragMaxTokens int, ragCallGraphEnabled bool, ragCallersMax, ragCalleesMax, ragCallGraphMaxTokens int, useSearchReplaceFormat bool, traceOut *trace.Tracer) (system, user string, err error) {
+func PrepareHunkPrompt(ctx context.Context, systemBase string, hunk diff.Hunk, ruleList []rules.CursorRule, repoRoot string, contextLimit int, ragMaxDefs, ragMaxTokens int, ragCallGraphEnabled bool, ragCallersMax, ragCalleesMax, ragCallGraphMaxTokens int, useSearchReplaceFormat bool, suppressionExamples []string, traceOut *trace.Tracer) (system, user string, err error) {
 	system = prompt.AppendCursorRules(systemBase, ruleList, hunk.FilePath, rules.MaxRuleTokens)
 	if useSearchReplaceFormat {
 		system = prompt.AppendSearchReplaceFormatNote(system)
@@ -128,6 +134,32 @@ func PrepareHunkPrompt(ctx context.Context, systemBase string, hunk diff.Hunk, r
 			traceOut.Printf("len=%d\n%s\n", len(user), user)
 		} else {
 			traceOut.Printf("len=%d (first %d chars)\n%s\n[truncated]\n", len(user), previewLen, user[:previewLen])
+		}
+	}
+	// Per-hunk suppression: append only as many examples as fit in the remaining token budget.
+	if len(suppressionExamples) > 0 && contextLimit > 0 {
+		baseNoSupp := tokens.Estimate(system + "\n" + user)
+		suppressionBudget := contextLimit - baseNoSupp - tokens.DefaultResponseReserve
+		if suppressionBudget > 0 {
+			maxN := maxSuppressionExamplesPerHunk
+			if len(suppressionExamples) < maxN {
+				maxN = len(suppressionExamples)
+			}
+			maxExamples := 0
+			for n := 1; n <= maxN; n++ {
+				if prompt.EstimateSuppressionBlock(suppressionExamples, n) <= suppressionBudget {
+					maxExamples = n
+				} else {
+					break
+				}
+			}
+			if maxExamples > 0 {
+				system = prompt.AppendSuppressionExamples(system, suppressionExamples[len(suppressionExamples)-maxExamples:])
+				if traceOut != nil && traceOut.Enabled() {
+					traceOut.Section("Suppression")
+					traceOut.Printf("Suppression: %d examples (budget %d tokens)\n", maxExamples, suppressionBudget)
+				}
+			}
 		}
 	}
 	basePromptTokens := tokens.Estimate(system + "\n" + user)
@@ -252,7 +284,8 @@ func ProcessReviewResponse(ctx context.Context, result *ollama.GenerateResult, h
 // (Sub-phase 6.8); zero ragMaxDefs disables it. ragCallGraphEnabled and
 // ragCallersMax/ragCalleesMax/ragCallGraphMaxTokens control optional call-graph (Go only).
 // When nitpicky is true, nitpicky-mode instructions are appended.
-func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir string, hunk diff.Hunk, generateOpts *ollama.GenerateOptions, userIntent *prompt.UserIntent, ruleList []rules.CursorRule, repoRoot string, contextLimit int, ragMaxDefs, ragMaxTokens int, ragCallGraphEnabled bool, ragCallersMax, ragCalleesMax, ragCallGraphMaxTokens int, promptShadows []prompt.Shadow, nitpicky bool, useSearchReplaceFormat bool, traceOut *trace.Tracer) ([]findings.Finding, *HunkUsage, error) {
+// suppressionExamples, when non-nil and non-empty, are applied per-hunk (as many as fit in the token budget).
+func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir string, hunk diff.Hunk, generateOpts *ollama.GenerateOptions, userIntent *prompt.UserIntent, ruleList []rules.CursorRule, repoRoot string, contextLimit int, ragMaxDefs, ragMaxTokens int, ragCallGraphEnabled bool, ragCallersMax, ragCalleesMax, ragCallGraphMaxTokens int, promptShadows []prompt.Shadow, nitpicky bool, useSearchReplaceFormat bool, suppressionExamples []string, traceOut *trace.Tracer) ([]findings.Finding, *HunkUsage, error) {
 	systemBase, err := prompt.SystemPrompt(stateDir)
 	if err != nil {
 		return nil, nil, fmt.Errorf("review: system prompt: %w", err)
@@ -290,7 +323,7 @@ func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir stri
 			traceOut.Printf("Nitpicky: disabled\n")
 		}
 	}
-	system, user, err := PrepareHunkPrompt(ctx, systemBase, hunk, ruleList, repoRoot, contextLimit, ragMaxDefs, ragMaxTokens, ragCallGraphEnabled, ragCallersMax, ragCalleesMax, ragCallGraphMaxTokens, useSearchReplaceFormat, traceOut)
+	system, user, err := PrepareHunkPrompt(ctx, systemBase, hunk, ruleList, repoRoot, contextLimit, ragMaxDefs, ragMaxTokens, ragCallGraphEnabled, ragCallersMax, ragCalleesMax, ragCallGraphMaxTokens, useSearchReplaceFormat, suppressionExamples, traceOut)
 	if err != nil {
 		return nil, nil, err
 	}

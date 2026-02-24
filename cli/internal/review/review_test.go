@@ -76,7 +76,7 @@ func TestReviewHunk_successFirstTry(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "a.go", RawContent: "code", Context: "code"}
 	ctx := context.Background()
 
-	list, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil)
+	list, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestReviewHunk_retryThenSuccess(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "b.go", RawContent: "x", Context: "x"}
 	ctx := context.Background()
 
-	list, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil)
+	list, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestReviewHunk_generateFails_returnsError(t *testing.T) {
 	dir := t.TempDir()
 	hunk := diff.Hunk{FilePath: "x.go", RawContent: "code", Context: "code"}
 	ctx := context.Background()
-	_, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil)
+	_, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil, nil)
 	if err == nil {
 		t.Fatal("ReviewHunk: want error when generate fails, got nil")
 	}
@@ -152,7 +152,7 @@ func TestReviewHunk_parseFailsTwice_returnsError(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "c.go", RawContent: "y", Context: "y"}
 	ctx := context.Background()
 
-	_, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil)
+	_, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil, nil)
 	if err == nil {
 		t.Fatal("ReviewHunk: want error when parse fails twice, got nil")
 	}
@@ -187,7 +187,7 @@ func TestReviewHunk_hunkWithExternalVariable_mockReturnsNoUndefinedFinding(t *te
 	}
 	ctx := context.Background()
 
-	list, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil)
+	list, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -239,7 +239,7 @@ func TestReviewHunk_injectsUserIntentIntoPrompt(t *testing.T) {
 	userIntent := &prompt.UserIntent{Branch: "main", CommitMsg: commitMsg}
 	ctx := context.Background()
 
-	_, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, userIntent, nil, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil)
+	_, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, userIntent, nil, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -313,7 +313,7 @@ func processData(input string) (int, error) {
 	}
 	ctx := context.Background()
 
-	_, _, err := ReviewHunk(ctx, client, "m", stateDir, hunk, nil, nil, nil, dir, 32768, 0, 0, false, 0, 0, 0, nil, false, false, nil)
+	_, _, err := ReviewHunk(ctx, client, "m", stateDir, hunk, nil, nil, nil, dir, 32768, 0, 0, false, 0, 0, 0, nil, false, false, nil, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -365,7 +365,7 @@ func TestReviewHunk_injectsCursorRulesIntoSystemPrompt(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	_, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, ruleList, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil)
+	_, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, ruleList, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -415,7 +415,7 @@ func TestReviewHunk_withRAG_injectsSymbolDefinitions(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "pkg/foo.go", RawContent: "+x := Bar()", Context: "+x := Bar()"}
 	ctx := context.Background()
 
-	_, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, dir, 0, 5, 0, false, 0, 0, 0, nil, false, false, nil)
+	_, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, dir, 0, 5, 0, false, 0, 0, 0, nil, false, false, nil, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -480,7 +480,7 @@ func TestReviewHunk_perHunkAdaptiveRAG_truncatesToFitContext(t *testing.T) {
 	client := ollama.NewClient(srv.URL, srv.Client())
 	ctx := context.Background()
 
-	_, _, err = ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, dir, contextLimit, 5, 0, false, 0, 0, 0, nil, false, false, nil)
+	_, _, err = ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, dir, contextLimit, 5, 0, false, 0, 0, 0, nil, false, false, nil, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -533,7 +533,7 @@ func TestReviewHunk_nitpickyTrue_appendsNitpickySection(t *testing.T) {
 	hunk := diff.Hunk{FilePath: "a.go", RawContent: "code", Context: "code"}
 	ctx := context.Background()
 
-	list, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, false, 0, 0, 0, nil, true, false, nil)
+	list, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, false, 0, 0, 0, nil, true, false, nil, nil)
 	if err != nil {
 		t.Fatalf("ReviewHunk: %v", err)
 	}
@@ -566,7 +566,7 @@ func TestPrepareHunkPrompt_callGraphDisabled_noCallGraphSection(t *testing.T) {
 		Context:    "",
 	}
 	ctx := context.Background()
-	_, user, err := PrepareHunkPrompt(ctx, "system", hunk, nil, dir, 32768, 0, 0, false, 3, 3, 0, false, nil)
+	_, user, err := PrepareHunkPrompt(ctx, "system", hunk, nil, dir, 32768, 0, 0, false, 3, 3, 0, false, nil, nil)
 	if err != nil {
 		t.Fatalf("PrepareHunkPrompt: %v", err)
 	}
@@ -588,12 +588,64 @@ func TestPrepareHunkPrompt_nonGoFile_noCallGraphSection(t *testing.T) {
 		Context:    "code",
 	}
 	ctx := context.Background()
-	_, user, err := PrepareHunkPrompt(ctx, "system", hunk, nil, dir, 32768, 0, 0, true, 3, 3, 0, false, nil)
+	_, user, err := PrepareHunkPrompt(ctx, "system", hunk, nil, dir, 32768, 0, 0, true, 3, 3, 0, false, nil, nil)
 	if err != nil {
 		t.Fatalf("PrepareHunkPrompt: %v", err)
 	}
 	if strings.Contains(user, "## Callers (upstream)") {
 		t.Errorf("non-Go file: user prompt must not contain ## Callers (upstream); got:\n%s", user)
+	}
+}
+
+// TestPrepareHunkPrompt_suppressionPerHunk asserts that when suppressionExamples
+// and a generous contextLimit are passed, the returned system prompt contains
+// the "Do not report issues similar to" section and the example text.
+func TestPrepareHunkPrompt_suppressionPerHunk(t *testing.T) {
+	hunk := diff.Hunk{
+		FilePath:   "pkg/foo.go",
+		RawContent: "@@ -1,1 +1,1 @@\n code\n",
+		Context:    "code",
+	}
+	examples := []string{"pkg/foo.go:42: Consider adding comments"}
+	ctx := context.Background()
+	system, _, err := PrepareHunkPrompt(ctx, "base", hunk, nil, "", 32768, 0, 0, false, 0, 0, 0, false, examples, nil)
+	if err != nil {
+		t.Fatalf("PrepareHunkPrompt: %v", err)
+	}
+	if !strings.Contains(system, "## Do not report issues similar to") {
+		t.Error("system prompt should contain suppression section header")
+	}
+	wantEx := "pkg/foo.go:42: Consider adding comments"
+	if !strings.Contains(system, wantEx) {
+		t.Errorf("system prompt should contain example %q", wantEx)
+	}
+}
+
+// TestPrepareHunkPrompt_suppressionBudgetCapsExamples asserts that with a very
+// small contextLimit the suppression budget is exhausted and zero or fewer
+// examples are included than with a large limit.
+func TestPrepareHunkPrompt_suppressionBudgetCapsExamples(t *testing.T) {
+	hunk := diff.Hunk{
+		FilePath:   "pkg/foo.go",
+		RawContent: "@@ -1,1 +1,1 @@\n code\n",
+		Context:    "code",
+	}
+	examples := []string{"a.go:1: msg1", "b.go:2: longer message here"}
+	ctx := context.Background()
+	// Tiny context: base prompt (system + user) alone leaves almost no budget.
+	systemSmall, _, err := PrepareHunkPrompt(ctx, "base", hunk, nil, "", 500, 0, 0, false, 0, 0, 0, false, examples, nil)
+	if err != nil {
+		t.Fatalf("PrepareHunkPrompt(small limit): %v", err)
+	}
+	systemLarge, _, err := PrepareHunkPrompt(ctx, "base", hunk, nil, "", 32768, 0, 0, false, 0, 0, 0, false, examples, nil)
+	if err != nil {
+		t.Fatalf("PrepareHunkPrompt(large limit): %v", err)
+	}
+	countBullets := func(s string) int { return strings.Count(s, "\n- ") }
+	smallN := countBullets(systemSmall)
+	largeN := countBullets(systemLarge)
+	if smallN > largeN {
+		t.Errorf("with small context limit expected fewer or equal suppression bullets than with large; got small=%d large=%d", smallN, largeN)
 	}
 }
 

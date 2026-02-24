@@ -19,6 +19,7 @@ import (
 	"stet/cli/internal/git"
 	"stet/cli/internal/history"
 	"stet/cli/internal/prompt"
+	"stet/cli/internal/review"
 	"stet/cli/internal/session"
 )
 
@@ -2285,9 +2286,10 @@ func TestRun_pipeline_multipleHunks_ordersFindingsAndOneGeneratePerHunk(t *testi
 	}
 }
 
-// TestSuppressionWiring_systemPromptContainsSection asserts that when SuppressionEnabled
-// and SuppressionHistoryCount > 0, the system prompt built for the pipeline includes
-// the "Do not report issues similar to" section with examples from history.
+// TestSuppressionWiring_systemPromptContainsSection asserts that when suppression
+// examples are loaded from history and passed to PrepareHunkPrompt (per-hunk
+// wiring), the returned system prompt contains the "Do not report issues similar to"
+// section with the example.
 func TestSuppressionWiring_systemPromptContainsSection(t *testing.T) {
 	t.Parallel()
 	stateDir := t.TempDir()
@@ -2314,12 +2316,17 @@ func TestSuppressionWiring_systemPromptContainsSection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SystemPrompt: %v", err)
 	}
-	systemBase = prompt.AppendSuppressionExamples(systemBase, examples)
-	if !strings.Contains(systemBase, "## Do not report issues similar to") {
+	hunk := diff.Hunk{FilePath: "pkg/foo.go", RawContent: "@@ -1,1 +1,1 @@\n code\n", Context: "code"}
+	ctx := context.Background()
+	system, _, err := review.PrepareHunkPrompt(ctx, systemBase, hunk, nil, "", 32768, 0, 0, false, 0, 0, 0, false, examples, nil)
+	if err != nil {
+		t.Fatalf("PrepareHunkPrompt: %v", err)
+	}
+	if !strings.Contains(system, "## Do not report issues similar to") {
 		t.Error("system prompt should contain suppression section header")
 	}
 	wantEx := "pkg/foo.go:42: Consider adding comments"
-	if !strings.Contains(systemBase, wantEx) {
+	if !strings.Contains(system, wantEx) {
 		t.Errorf("system prompt should contain example %q", wantEx)
 	}
 }
