@@ -196,6 +196,14 @@ func TestUserIntent_detachedHEAD(t *testing.T) {
 	}
 }
 
+func TestUserIntent_emptyRepoRoot(t *testing.T) {
+	t.Parallel()
+	_, _, err := UserIntent("")
+	if err == nil {
+		t.Error("UserIntent(empty repoRoot): expected error")
+	}
+}
+
 func TestRefExists_refDoesNotExist(t *testing.T) {
 	t.Parallel()
 	repo := initRepo(t)

@@ -26,7 +26,7 @@ func RevList(repoRoot, sinceRef, untilRef string) ([]string, error) {
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
 		msg := strings.TrimSpace(stderr.String())
-		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 128 {
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr != nil && exitErr.ExitCode() == 128 {
 			return nil, erruser.New("Invalid ref or commit.", fmt.Errorf("%w: %s", err, msg))
 		}
 		return nil, erruser.New("Could not list commits in range.", fmt.Errorf("%w: %s", err, msg))

@@ -4,13 +4,15 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestAddNote_and_GetNote(t *testing.T) {
 	t.Parallel()
 	repo := initRepo(t)
 	headSHA := runOut(t, repo, "git", "rev-parse", "HEAD")
-	body := `{"session_id":"s1","baseline_sha":"b","head_sha":"h","findings_count":2,"dismissals_count":1,"tool_version":"dev","finished_at":"2025-02-12T12:00:00Z"}`
+	now := time.Now().UTC().Format(time.RFC3339)
+	body := `{"session_id":"s1","baseline_sha":"b","head_sha":"h","findings_count":2,"dismissals_count":1,"tool_version":"dev","finished_at":"` + now + `"}`
 	if err := AddNote(repo, NotesRefStet, headSHA, body); err != nil {
 		t.Fatalf("AddNote: %v", err)
 	}
@@ -78,6 +80,29 @@ func TestGetNote_invalidArgs(t *testing.T) {
 	}
 	if _, err := GetNote(repo, NotesRefStet, ""); err == nil {
 		t.Error("GetNote(empty commitRef): expected error")
+	}
+}
+
+func TestAddNote_rejectsRefStartingWithDash(t *testing.T) {
+	t.Parallel()
+	repo := initRepo(t)
+	headSHA := runOut(t, repo, "git", "rev-parse", "HEAD")
+	if err := AddNote(repo, NotesRefStet, "--evil", "body"); err == nil {
+		t.Error("AddNote(commitRef starts with '-'): expected error")
+	}
+	if err := AddNote(repo, "-malicious", headSHA, "body"); err == nil {
+		t.Error("AddNote(notesRef starts with '-'): expected error")
+	}
+}
+
+func TestGetNote_rejectsRefStartingWithDash(t *testing.T) {
+	t.Parallel()
+	repo := initRepo(t)
+	if _, err := GetNote(repo, NotesRefStet, "--evil"); err == nil {
+		t.Error("GetNote(commitRef starts with '-'): expected error")
+	}
+	if _, err := GetNote(repo, "-malicious", "HEAD"); err == nil {
+		t.Error("GetNote(notesRef starts with '-'): expected error")
 	}
 }
 

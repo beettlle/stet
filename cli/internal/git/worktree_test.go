@@ -103,6 +103,9 @@ func TestIsAncestor(t *testing.T) {
 	}
 }
 
+// TestCreate verifies worktree creation, file checkout, and path structure.
+// No extra synchronization is needed: Create calls exec.Command.CombinedOutput,
+// which blocks until git-worktree-add finishes and the filesystem is consistent.
 func TestCreate(t *testing.T) {
 	repo := initRepo(t)
 	path, err := Create(repo, "", "HEAD~1")
@@ -121,6 +124,20 @@ func TestCreate(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(path, "f2.txt")); err == nil {
 		t.Error("f2.txt should not exist in baseline worktree")
+	}
+}
+
+func TestIsAncestor_emptyArgs(t *testing.T) {
+	t.Parallel()
+	repo := initRepo(t)
+	if _, err := IsAncestor("", "HEAD~1", "HEAD"); err == nil {
+		t.Error("IsAncestor(empty repoRoot): expected error")
+	}
+	if _, err := IsAncestor(repo, "", "HEAD"); err == nil {
+		t.Error("IsAncestor(empty ancestor): expected error")
+	}
+	if _, err := IsAncestor(repo, "HEAD~1", ""); err == nil {
+		t.Error("IsAncestor(empty descendant): expected error")
 	}
 }
 

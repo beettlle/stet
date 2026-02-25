@@ -7,6 +7,14 @@ import (
 	"strings"
 )
 
+// validateRef rejects refs that start with '-' to prevent git flag injection.
+func validateRef(name, value string) error {
+	if strings.HasPrefix(value, "-") {
+		return fmt.Errorf("git notes: %s must not start with '-'", name)
+	}
+	return nil
+}
+
 // NotesRefStet is the ref used for stet session notes (written on finish).
 const NotesRefStet = "refs/notes/stet"
 
@@ -19,7 +27,13 @@ func AddNote(repoRoot, notesRef, commitRef, body string) error {
 	if repoRoot == "" || notesRef == "" || commitRef == "" {
 		return fmt.Errorf("git notes: repo root, notes ref, and commit ref required")
 	}
-	cmd := exec.Command("git", "notes", "--ref="+notesRef, "add", "-f", "-m", body, commitRef)
+	if err := validateRef("notesRef", notesRef); err != nil {
+		return err
+	}
+	if err := validateRef("commitRef", commitRef); err != nil {
+		return err
+	}
+	cmd := exec.Command("git", "notes", "--ref="+notesRef, "add", "-f", "-m", body, "--", commitRef)
 	cmd.Dir = repoRoot
 	cmd.Env = minimalEnv()
 	out, err := cmd.CombinedOutput()
@@ -35,7 +49,13 @@ func GetNote(repoRoot, notesRef, commitRef string) (string, error) {
 	if repoRoot == "" || notesRef == "" || commitRef == "" {
 		return "", fmt.Errorf("git notes: repo root, notes ref, and commit ref required")
 	}
-	cmd := exec.Command("git", "notes", "--ref="+notesRef, "show", commitRef)
+	if err := validateRef("notesRef", notesRef); err != nil {
+		return "", err
+	}
+	if err := validateRef("commitRef", commitRef); err != nil {
+		return "", err
+	}
+	cmd := exec.Command("git", "notes", "--ref="+notesRef, "show", "--", commitRef)
 	cmd.Dir = repoRoot
 	cmd.Env = minimalEnv()
 	out, err := cmd.CombinedOutput()

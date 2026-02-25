@@ -7,21 +7,38 @@ import (
 func TestRevList_twoCommitsInRange(t *testing.T) {
 	t.Parallel()
 	repo := initRepo(t)
-	// Add third commit so HEAD~2..HEAD yields 2 SHAs.
+	// initRepo creates 2 commits (c1, c2). Record SHA before adding c3.
+	shaBeforeC3 := runOut(t, repo, "git", "rev-parse", "HEAD")
+
 	writeFile(t, repo, "f3.txt", "c\n")
 	run(t, repo, "git", "add", "f3.txt")
 	run(t, repo, "git", "commit", "-m", "c3")
-	shas, err := RevList(repo, "HEAD~2", "HEAD")
+
+	shaAfterC3 := runOut(t, repo, "git", "rev-parse", "HEAD")
+	if shaBeforeC3 == shaAfterC3 {
+		t.Fatal("commit c3 did not change HEAD; test setup broken")
+	}
+
+	// HEAD~2..HEAD spans c2 and c3 (the two most recent commits).
+	baselineSHA := runOut(t, repo, "git", "rev-parse", "HEAD~2")
+	shas, err := RevList(repo, baselineSHA, "HEAD")
 	if err != nil {
-		t.Fatalf("RevList HEAD~2..HEAD: %v", err)
+		t.Fatalf("RevList %s..HEAD: %v", baselineSHA[:8], err)
 	}
 	if len(shas) != 2 {
-		t.Errorf("RevList HEAD~2..HEAD: got %d SHAs, want 2", len(shas))
+		t.Fatalf("RevList: got %d SHAs, want 2", len(shas))
 	}
 	for i, s := range shas {
 		if len(s) != 40 {
 			t.Errorf("RevList SHA[%d] = %q, want 40-char hex", i, s)
 		}
+	}
+	// rev-list returns newest first; verify the returned SHAs match c3 and c2.
+	if shas[0] != shaAfterC3 {
+		t.Errorf("SHA[0] = %s, want c3 SHA %s", shas[0], shaAfterC3)
+	}
+	if shas[1] != shaBeforeC3 {
+		t.Errorf("SHA[1] = %s, want c2 SHA %s", shas[1], shaBeforeC3)
 	}
 }
 

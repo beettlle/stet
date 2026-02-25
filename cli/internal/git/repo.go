@@ -92,6 +92,9 @@ func RevParse(repoRoot, ref string) (string, error) {
 // Branch is from "git rev-parse --abbrev-ref HEAD" (returns "HEAD" when detached).
 // CommitMsg is from "git log -1 --format=%B HEAD". Both are trimmed.
 func UserIntent(repoRoot string) (branch, commitMsg string, err error) {
+	if repoRoot == "" {
+		return "", "", erruser.New("UserIntent: repo root required", nil)
+	}
 	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
 	cmd.Dir = repoRoot
 	cmd.Env = minimalEnv()
@@ -103,13 +106,13 @@ func UserIntent(repoRoot string) (branch, commitMsg string, err error) {
 	}
 	branch = strings.TrimSpace(stdout.String())
 
+	stdout.Reset()
+	stderr.Reset()
 	cmd = exec.Command("git", "log", "-1", "--format=%B", "HEAD")
 	cmd.Dir = repoRoot
 	cmd.Env = minimalEnv()
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	stdout.Reset()
-	stderr.Reset()
 	if err := cmd.Run(); err != nil {
 		return "", "", erruser.New("Could not read branch or commit message.", fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String())))
 	}

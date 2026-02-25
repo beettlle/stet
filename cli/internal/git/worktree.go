@@ -62,6 +62,9 @@ func revParseShort(repoRoot, ref string, n int) (string, error) {
 
 // IsAncestor returns true if ancestor is an ancestor of descendant in the repo.
 func IsAncestor(repoRoot, ancestor, descendant string) (bool, error) {
+	if repoRoot == "" || ancestor == "" || descendant == "" {
+		return false, erruser.New("IsAncestor: repo root, ancestor, and descendant required", nil)
+	}
 	cmd := exec.Command("git", "merge-base", "--is-ancestor", ancestor, descendant)
 	cmd.Dir = repoRoot
 	cmd.Env = minimalEnv()
@@ -72,7 +75,7 @@ func IsAncestor(repoRoot, ancestor, descendant string) (bool, error) {
 	if err == nil {
 		return true, nil
 	}
-	if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+	if exitErr, ok := err.(*exec.ExitError); ok && exitErr != nil && exitErr.ExitCode() == 1 {
 		return false, nil
 	}
 	return false, erruser.New("Could not check whether baseline is an ancestor of HEAD.", fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String())))
