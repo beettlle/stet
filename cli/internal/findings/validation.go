@@ -19,7 +19,9 @@ var (
 
 // Normalize mutates the finding in place: invalid severity is set to SeverityWarning,
 // invalid category is set to CategoryBug. Call Validate after Normalize to check
-// other constraints (message, file, confidence, range).
+// other constraints (message, file, confidence, range). After Normalize, Validate
+// will accept severity and category because those defaults are in validSeverities
+// and validCategories.
 func (f *Finding) Normalize() {
 	if f == nil {
 		return

@@ -53,8 +53,7 @@ func ParseFindingsResponse(jsonStr string, opts ...ParseOptions) ([]findings.Fin
 		return normalizeAndFilterFindings(wrapper.Findings, onDropped), nil
 	}
 	// Corrective fallback: some models return a single finding object instead of an array or wrapper.
-	// Normalize then validate (same as array path): unknown severity/category are coerced; validation
-	// still fails for other errors (e.g. empty message).
+	// Normalize so invalid severity/category are coerced before Validate (same as array path).
 	var single findings.Finding
 	if err := json.Unmarshal([]byte(jsonStr), &single); err != nil {
 		return nil, fmt.Errorf("parse findings: %w", err)
