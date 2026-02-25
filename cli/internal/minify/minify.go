@@ -36,6 +36,7 @@ func MinifyGoHunkContent(content string) string {
 			out = append(out, "")
 			continue
 		}
+		// len(line) >= 1 here: empty lines handled above.
 		prefix := line[0:1]
 		rest := line[1:]
 		rest = strings.TrimLeft(rest, " \t")
