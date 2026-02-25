@@ -23,6 +23,7 @@ import (
 	_ "stet/cli/internal/rag/java"   // register Java resolver
 	_ "stet/cli/internal/rag/swift"  // register Swift resolver
 	_ "stet/cli/internal/rag/js"     // register JavaScript/TypeScript resolver
+	_ "stet/cli/internal/rag/rust"   // register Rust resolver
 )
 
 func TestEffectiveRAGTokenCap(t *testing.T) {

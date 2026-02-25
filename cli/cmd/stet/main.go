@@ -33,6 +33,7 @@ import (
 	_ "stet/cli/internal/rag/java"   // register Java resolver
 	_ "stet/cli/internal/rag/js"     // register JavaScript/TypeScript resolver
 	_ "stet/cli/internal/rag/python" // register Python resolver
+	_ "stet/cli/internal/rag/rust"   // register Rust resolver
 	_ "stet/cli/internal/rag/swift"  // register Swift resolver
 )
 
