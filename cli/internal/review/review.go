@@ -139,7 +139,12 @@ func PrepareHunkPrompt(ctx context.Context, systemBase string, hunk diff.Hunk, r
 	// Per-hunk suppression: append only as many examples as fit in the remaining token budget.
 	if len(suppressionExamples) > 0 && contextLimit > 0 {
 		baseNoSupp := tokens.Estimate(system + "\n" + user)
-		suppressionBudget := contextLimit - baseNoSupp - tokens.DefaultResponseReserve
+		// Use int64 to avoid overflow when baseNoSupp + DefaultResponseReserve exceeds contextLimit.
+		suppSum := int64(baseNoSupp) + int64(tokens.DefaultResponseReserve)
+		suppressionBudget := 0
+		if suppSum >= 0 && suppSum < int64(contextLimit) {
+			suppressionBudget = int(int64(contextLimit) - suppSum)
+		}
 		if suppressionBudget > 0 {
 			maxN := maxSuppressionExamplesPerHunk
 			if len(suppressionExamples) < maxN {

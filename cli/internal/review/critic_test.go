@@ -248,14 +248,44 @@ func (r *recordOptsClient) Generate(ctx context.Context, model, systemPrompt, us
 }
 
 func TestVerifyFinding_passesKeepAliveWhenSet(t *testing.T) {
+	f := findings.Finding{File: "a.go", Line: 1, Severity: findings.SeverityError, Category: findings.CategoryBug, Message: "m"}
 	ctx := context.Background()
-	client := &recordOptsClient{response: `{"verdict":"yes"}`}
-	opts := &CriticOptions{KeepAlive: -1}
-	_, err := VerifyFinding(ctx, client, "model", findings.Finding{File: "a.go", Line: 1, Severity: findings.SeverityError, Category: findings.CategoryBug, Message: "m"}, "code", opts)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if client.opts == nil || client.opts.KeepAlive != -1 {
-		t.Errorf("expected KeepAlive -1 when opts.KeepAlive set; got opts=%v", client.opts)
-	}
+
+	t.Run("explicit_value_forwarded", func(t *testing.T) {
+		client := &recordOptsClient{response: `{"verdict":"yes"}`}
+		opts := &CriticOptions{KeepAlive: -1}
+		_, err := VerifyFinding(ctx, client, "model", f, "code", opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if client.opts == nil {
+			t.Fatal("expected GenerateOptions to be set")
+		}
+		got, ok := client.opts.KeepAlive.(int)
+		if !ok {
+			t.Fatalf("expected KeepAlive to be int; got %T", client.opts.KeepAlive)
+		}
+		if got != -1 {
+			t.Errorf("expected KeepAlive -1; got %d", got)
+		}
+	})
+
+	t.Run("nil_defaults_to_zero", func(t *testing.T) {
+		client := &recordOptsClient{response: `{"verdict":"yes"}`}
+		opts := &CriticOptions{KeepAlive: nil}
+		_, err := VerifyFinding(ctx, client, "model", f, "code", opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if client.opts == nil {
+			t.Fatal("expected GenerateOptions to be set")
+		}
+		got, ok := client.opts.KeepAlive.(int)
+		if !ok {
+			t.Fatalf("expected KeepAlive to be int when nil; got %T", client.opts.KeepAlive)
+		}
+		if got != 0 {
+			t.Errorf("expected default KeepAlive 0; got %d", got)
+		}
+	})
 }
