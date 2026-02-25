@@ -7,20 +7,17 @@ const mockUriFile = vi.fn();
 const mockUriParse = vi.fn();
 
 vi.mock("vscode", () => {
-  class Position {
-    constructor(public line: number, public character: number) {}
-  }
   class Range {
-    public start: Position;
-    public end: Position;
+    public start: { line: number; character: number };
+    public end: { line: number; character: number };
     constructor(
       startLine: number,
       startCharacter: number,
       endLine: number,
       endCharacter: number
     ) {
-      this.start = new Position(startLine, startCharacter);
-      this.end = new Position(endLine, endCharacter);
+      this.start = { line: startLine, character: startCharacter };
+      this.end = { line: endLine, character: endCharacter };
     }
   }
   return {

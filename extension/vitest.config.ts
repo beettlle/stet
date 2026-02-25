@@ -1,3 +1,4 @@
+/** Vitest configuration for the Stet extension test suite. */
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
