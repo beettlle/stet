@@ -1,6 +1,7 @@
 package findings
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -36,6 +37,9 @@ func TestResolveStrictness(t *testing.T) {
 				return
 			}
 			if tt.wantErr {
+				if err != nil && !strings.Contains(err.Error(), tt.s) {
+					t.Errorf("ResolveStrictness(%q): error should contain input: %v", tt.s, err)
+				}
 				return
 			}
 			if gotKeep != tt.wantKeep || gotMaint != tt.wantMaint {
