@@ -32,16 +32,21 @@ func SemanticHunkID(path, rawContent string) string {
 }
 
 // StableFindingID returns a deterministic ID for a finding from its location
-// and message. Use file:line when range is not used; use file:start:end when
-// rangeStart and rangeEnd are both > 0 and rangeStart <= rangeEnd. Message
-// stem is trimmed and internal whitespace collapsed. Used when assigning
-// tool-generated finding IDs (Phase 3).
+// and message. Use file:start:end when rangeStart and rangeEnd are both > 0
+// and rangeStart <= rangeEnd; otherwise fall back to file:line (clamped to 1
+// when line <= 0 so the hash is never built from a non-positive line number).
+// Message stem is trimmed and internal whitespace collapsed. Used when
+// assigning tool-generated finding IDs (Phase 3).
 func StableFindingID(file string, line int, rangeStart, rangeEnd int, message string) string {
 	var loc string
 	if rangeStart > 0 && rangeEnd > 0 && rangeStart <= rangeEnd {
 		loc = file + ":" + strconv.Itoa(rangeStart) + ":" + strconv.Itoa(rangeEnd)
 	} else {
-		loc = file + ":" + strconv.Itoa(line)
+		effectiveLine := line
+		if effectiveLine <= 0 {
+			effectiveLine = 1
+		}
+		loc = file + ":" + strconv.Itoa(effectiveLine)
 	}
 	stem := messageStem(message)
 	return hashString(loc + ":" + stem)

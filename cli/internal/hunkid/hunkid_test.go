@@ -264,6 +264,61 @@ func TestStableFindingID_LineUsedWhenRangeInvalid(t *testing.T) {
 	}
 }
 
+func TestStableFindingID_ZeroEdgeCases(t *testing.T) {
+	t.Parallel()
+	baseline := StableFindingID("f.go", 10, 0, 0, "msg")
+
+	t.Run("rangeStart_zero_rangeEnd_positive_falls_back_to_line", func(t *testing.T) {
+		t.Parallel()
+		got := StableFindingID("f.go", 10, 0, 5, "msg")
+		if got != baseline {
+			t.Errorf("rangeStart=0 rangeEnd=5 should fall back to line: %q != %q", got, baseline)
+		}
+	})
+
+	t.Run("rangeStart_positive_rangeEnd_zero_falls_back_to_line", func(t *testing.T) {
+		t.Parallel()
+		got := StableFindingID("f.go", 10, 5, 0, "msg")
+		if got != baseline {
+			t.Errorf("rangeStart=5 rangeEnd=0 should fall back to line: %q != %q", got, baseline)
+		}
+	})
+
+	t.Run("both_range_zero_falls_back_to_line", func(t *testing.T) {
+		t.Parallel()
+		got := StableFindingID("f.go", 10, 0, 0, "msg")
+		if got != baseline {
+			t.Errorf("both range zero should fall back to line: %q != %q", got, baseline)
+		}
+	})
+
+	t.Run("line_zero_clamped_to_one", func(t *testing.T) {
+		t.Parallel()
+		got := StableFindingID("f.go", 0, 0, 0, "msg")
+		want := StableFindingID("f.go", 1, 0, 0, "msg")
+		if got != want {
+			t.Errorf("line=0 should clamp to 1: %q != %q", got, want)
+		}
+	})
+
+	t.Run("line_negative_clamped_to_one", func(t *testing.T) {
+		t.Parallel()
+		got := StableFindingID("f.go", -5, 0, 0, "msg")
+		want := StableFindingID("f.go", 1, 0, 0, "msg")
+		if got != want {
+			t.Errorf("line=-5 should clamp to 1: %q != %q", got, want)
+		}
+	})
+
+	t.Run("negative_range_falls_back_to_line", func(t *testing.T) {
+		t.Parallel()
+		got := StableFindingID("f.go", 10, -1, 5, "msg")
+		if got != baseline {
+			t.Errorf("negative rangeStart should fall back to line: %q != %q", got, baseline)
+		}
+	})
+}
+
 func TestNormalizeCRLF(t *testing.T) {
 	t.Parallel()
 	if got := normalizeCRLF("a\r\nb"); got != "a\nb" {
