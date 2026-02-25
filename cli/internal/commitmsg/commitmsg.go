@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"unicode/utf8"
 
 	"stet/cli/internal/ollama"
 )
@@ -28,11 +29,24 @@ func Suggest(ctx context.Context, client *ollama.Client, model, diff string, opt
 		return "", errors.New("commitmsg: nil client")
 	}
 	if len(diff) > maxDiffChars {
-		diff = diff[:maxDiffChars] + "\n\n[truncated for context]"
+		diff = truncateUTF8(diff, maxDiffChars) + "\n\n[truncated for context]"
 	}
 	res, err := client.GeneratePlain(ctx, model, SystemPrompt, diff, opts)
 	if err != nil {
 		return "", err
 	}
 	return strings.TrimSpace(res.Response), nil
+}
+
+// truncateUTF8 returns s truncated to at most maxBytes without splitting a
+// multi-byte UTF-8 character. If the cut point falls inside a multi-byte
+// sequence, the function backs up to the start of that rune.
+func truncateUTF8(s string, maxBytes int) string {
+	if len(s) <= maxBytes {
+		return s
+	}
+	for maxBytes > 0 && !utf8.RuneStart(s[maxBytes]) {
+		maxBytes--
+	}
+	return s[:maxBytes]
 }
