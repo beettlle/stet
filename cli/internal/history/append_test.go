@@ -218,8 +218,8 @@ func TestAppend_rotationWritesGzipArchive(t *testing.T) {
 			t.Fatalf("Append %d: %v", i, err)
 		}
 	}
-	// Dropped line ("a") should be in history.jsonl.1.gz
-	archivePath := filepath.Join(dir, "history.jsonl.1.gz")
+	// Dropped line ("a") should be in the first rotated archive.
+	archivePath := filepath.Join(dir, historyGzPrefix+"1"+historyGzSuffix)
 	if _, err := os.Stat(archivePath); err != nil {
 		t.Fatalf("expected archive %s after rotation: %v", archivePath, err)
 	}

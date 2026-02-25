@@ -132,6 +132,10 @@ func parseArchiveNumber(mid string) (int, bool) {
 // Creates stateDir and the file if missing. If maxRecords > 0 and the file
 // has more than maxRecords lines after appending, the file is rotated to
 // keep only the last maxRecords lines (atomic write via temp + rename).
+//
+// Not concurrent-safe: there is a TOCTOU window between the file close and
+// the rotateIfNeeded read. This is acceptable because the CLI is
+// single-process; callers requiring concurrency must add external locking.
 func Append(stateDir string, record Record, maxRecords int) error {
 	if err := os.MkdirAll(stateDir, 0755); err != nil {
 		return erruser.New("Could not create state directory for history.", err)

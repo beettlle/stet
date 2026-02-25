@@ -208,6 +208,32 @@ func TestSuppressionExamples_zeroMaxReturnsNil(t *testing.T) {
 	}
 }
 
+func TestSuppressionExamples_lineZeroOmitsLineNumber(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, historyFilename)
+	rec := Record{
+		DiffRef: "HEAD",
+		ReviewOutput: []findings.Finding{
+			{ID: "f1", File: "pkg/foo.go", Line: 0, Severity: findings.SeverityWarning, Category: findings.CategoryBug, Confidence: 1.0, Message: "something off"},
+		},
+		UserAction: UserAction{
+			Dismissals: []Dismissal{{FindingID: "f1", Reason: ReasonFalsePositive}},
+		},
+	}
+	writeRecord(t, path, rec)
+	examples, err := SuppressionExamples(dir, 50, 30)
+	if err != nil {
+		t.Fatalf("SuppressionExamples: %v", err)
+	}
+	if len(examples) != 1 {
+		t.Fatalf("got %d examples, want 1", len(examples))
+	}
+	want := "pkg/foo.go: something off"
+	if examples[0] != want {
+		t.Errorf("example = %q, want %q (line number omitted for Line=0)", examples[0], want)
+	}
+}
+
 func writeRecord(t *testing.T, path string, rec Record) {
 	t.Helper()
 	b, err := json.Marshal(rec)

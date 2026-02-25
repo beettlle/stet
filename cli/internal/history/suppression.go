@@ -76,6 +76,9 @@ func SuppressionExamples(stateDir string, maxRecords, maxExamples int) ([]string
 	return raw[len(raw)-maxExamples:], nil
 }
 
+// formatExample produces a "file:line: message" string for a dismissed finding.
+// Returns "" for zero-value findings (no file and no message). Omits the line
+// number when Line is zero or negative to avoid misleading "file:0:" output.
 func formatExample(f findings.Finding) string {
 	if f.File == "" && f.Message == "" {
 		return ""
