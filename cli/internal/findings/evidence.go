@@ -16,6 +16,7 @@ package findings
 // (Line == 0 and no Range) → keep. Line only: keep iff in [hunkStart, hunkEnd].
 // Range: invalid (Start > End) → drop; else keep iff range overlaps hunk
 // (overlap: finding.Range.Start <= hunkEnd && finding.Range.End >= hunkStart).
+// Ranges are inclusive; touching at a single line (e.g. finding.End == hunkStart) counts as overlap.
 func FilterByHunkLines(list []Finding, filePath string, hunkStart, hunkEnd int) []Finding {
 	if len(list) == 0 {
 		return nil

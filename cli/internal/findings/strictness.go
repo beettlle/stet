@@ -52,6 +52,6 @@ func ResolveStrictness(s string) (minKeep, minMaint float64, applyFP bool, err e
 	case "lenient":
 		return 0.9, 0.95, applyFP, nil
 	default:
-		return DefaultMinConfidenceKeep, DefaultMinConfidenceMaintainability, true, nil
+		panic("unreachable: base validated by validStrictness")
 	}
 }
