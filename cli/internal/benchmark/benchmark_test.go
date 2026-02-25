@@ -113,6 +113,38 @@ func TestRun_handlesZeroPromptEvalDuration(t *testing.T) {
 	}
 }
 
+func TestRun_handlesAllZeroDurations(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"response":             `[]`,
+			"done":                 true,
+			"model":                "test",
+			"prompt_eval_count":    0,
+			"prompt_eval_duration": 0,
+			"eval_count":           0,
+			"eval_duration":        0,
+		})
+	}))
+	defer srv.Close()
+	client := ollama.NewClient(srv.URL, srv.Client())
+	ctx := context.Background()
+
+	got, err := Run(ctx, client, "test", nil)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if got.EvalRateTPS != 0 {
+		t.Errorf("EvalRateTPS = %.2f when all durations zero, want 0", got.EvalRateTPS)
+	}
+	if got.PromptEvalRateTPS != 0 {
+		t.Errorf("PromptEvalRateTPS = %.2f when all durations zero, want 0", got.PromptEvalRateTPS)
+	}
+	if got.EstimatedSecPerTypicalHunk != 0 {
+		t.Errorf("EstimatedSecPerTypicalHunk = %.2f when all durations zero, want 0", got.EstimatedSecPerTypicalHunk)
+	}
+}
+
 func TestRun_handlesZeroLoadDuration(t *testing.T) {
 	// Do not run in parallel: when load_duration is omitted/zero, should not crash.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

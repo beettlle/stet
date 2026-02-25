@@ -76,13 +76,21 @@ func resultToBenchmark(r *ollama.GenerateResult) *BenchmarkResult {
 		LoadDurationNs:       r.LoadDuration,
 		TotalDurationNs:      r.TotalDuration,
 	}
-	// Eval rate: tokens per second for generation
+	// Eval rate: tokens per second for generation.
+	// Guard: skip when duration is zero to avoid division by zero.
 	if r.EvalDuration > 0 && r.EvalCount > 0 {
-		out.EvalRateTPS = float64(r.EvalCount) / (float64(r.EvalDuration) / 1e9)
+		rate := float64(r.EvalCount) / (float64(r.EvalDuration) / 1e9)
+		if !math.IsNaN(rate) && !math.IsInf(rate, 0) {
+			out.EvalRateTPS = rate
+		}
 	}
-	// Prompt eval rate: tokens per second for prefill
+	// Prompt eval rate: tokens per second for prefill.
+	// Guard: skip when duration is zero to avoid division by zero.
 	if r.PromptEvalDuration > 0 && r.PromptEvalCount > 0 {
-		out.PromptEvalRateTPS = float64(r.PromptEvalCount) / (float64(r.PromptEvalDuration) / 1e9)
+		rate := float64(r.PromptEvalCount) / (float64(r.PromptEvalDuration) / 1e9)
+		if !math.IsNaN(rate) && !math.IsInf(rate, 0) {
+			out.PromptEvalRateTPS = rate
+		}
 	}
 	// Estimated time for typical hunk: prompt_time + output_time
 	if out.PromptEvalRateTPS > 0 {
