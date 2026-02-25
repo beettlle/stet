@@ -9,7 +9,7 @@ import (
 func TestNew_nilWriter_returnsTracer(t *testing.T) {
 	tr := New(nil)
 	if tr == nil {
-		t.Fatal("New(nil) returned nil")
+		t.Error("New(nil) returned nil")
 	}
 }
 

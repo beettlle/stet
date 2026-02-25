@@ -24,7 +24,7 @@ func (t *Tracer) Enabled() bool {
 
 // Section writes a section header: "\n[stet:trace] === name ===\n"
 func (t *Tracer) Section(name string) {
-	if !t.Enabled() {
+	if t == nil || t.w == nil {
 		return
 	}
 	fmt.Fprintf(t.w, "\n[stet:trace] === %s ===\n", name)
@@ -32,7 +32,7 @@ func (t *Tracer) Section(name string) {
 
 // Printf writes to the trace writer when enabled. Format and args are as in fmt.Printf.
 func (t *Tracer) Printf(format string, args ...interface{}) {
-	if !t.Enabled() {
+	if t == nil || t.w == nil {
 		return
 	}
 	fmt.Fprintf(t.w, format, args...)
