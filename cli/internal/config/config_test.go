@@ -15,7 +15,7 @@ func ptrStr(s string) *string { return &s }
 func ptrInt(n int) *int       { return &n }
 func ptrBool(b bool) *bool    { return &b }
 
-func TestDefaultConfig(t *testing.T) {
+func TestDefaultConfig_fieldsMatchExpectedDefaults(t *testing.T) {
 	t.Parallel()
 	c := DefaultConfig()
 	if c.Model != _defaultModel {

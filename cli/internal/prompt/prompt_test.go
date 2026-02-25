@@ -11,7 +11,7 @@ import (
 	"stet/cli/internal/rules"
 )
 
-func TestDefaultSystemPrompt_instructsActionability(t *testing.T) {
+func TestDefaultSystemPrompt_containsActionabilityAndHighConfidenceGuidance(t *testing.T) {
 	got := DefaultSystemPrompt
 	if !strings.Contains(got, "actionable") {
 		t.Errorf("default prompt should instruct actionable issues; missing 'actionable'")
