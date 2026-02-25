@@ -183,7 +183,7 @@ func TestPartition_semanticMatch(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	repo := initRepoGoComment(t)
-	// baseline=HEAD~2, lastReviewedAt=HEAD~1, head=HEAD. Reviewed = [original p.go hunk],
+	// baseline=HEAD~2, head=HEAD, lastReviewedAt=HEAD~1 → reviewed = [original p.go hunk],
 	// current = [p.go hunk with comment]. Semantic ID same → approved.
 	got, err := Partition(ctx, repo, "HEAD~2", "HEAD", "HEAD~1", nil)
 	if err != nil {
