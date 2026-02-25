@@ -39,8 +39,11 @@ func DiscoverRulesDirs(repoRoot string) ([]RulesDir, error) {
 		if base == ".cursor" {
 			rulesPath := filepath.Join(path, "rules")
 			if info, e := os.Stat(rulesPath); e == nil && info.IsDir() {
-				parent := filepath.Dir(path)
-				rel, _ := filepath.Rel(repoRoot, parent)
+			parent := filepath.Dir(path)
+			rel, relErr := filepath.Rel(repoRoot, parent)
+			if relErr != nil {
+				return filepath.SkipDir
+			}
 				rel = filepath.ToSlash(rel)
 				if rel == "." {
 					rel = ""

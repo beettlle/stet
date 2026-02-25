@@ -415,6 +415,27 @@ func TestLoader_RulesForFile_mergeAndFilter(t *testing.T) {
 	}
 }
 
+func TestFilterRules_nilGlobs_skipped(t *testing.T) {
+	rules := []CursorRule{
+		{Globs: nil, AlwaysApply: false, Content: "no globs"},
+		{Globs: []string{"*.go"}, Content: "Go rule"},
+	}
+	matched := FilterRules(rules, "main.go")
+	if len(matched) != 1 {
+		t.Fatalf("len(matched) = %d, want 1 (nil-globs rule skipped)", len(matched))
+	}
+	if matched[0].Content != "Go rule" {
+		t.Errorf("Content = %q, want %q", matched[0].Content, "Go rule")
+	}
+}
+
+func TestDiscoverRulesDirs_invalidRepoRoot_returnsError(t *testing.T) {
+	dirs, err := DiscoverRulesDirs("/nonexistent/path/that/does/not/exist")
+	if err == nil && len(dirs) != 0 {
+		t.Errorf("expected error or empty result for invalid repoRoot, got dirs=%v", dirs)
+	}
+}
+
 func TestLoader_noRulesDir_returnsNil(t *testing.T) {
 	repo := t.TempDir()
 	// No .cursor/rules at all

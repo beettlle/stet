@@ -184,6 +184,9 @@ func FilterRules(rules []CursorRule, targetFile string) []CursorRule {
 			out = append(out, r)
 			continue
 		}
+		if len(r.Globs) == 0 {
+			continue
+		}
 		for _, pat := range r.Globs {
 			patSlash := filepath.ToSlash(pat)
 			var name string
