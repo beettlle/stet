@@ -44,6 +44,36 @@ func TestSetCursorURIs_nonEmptyNotOverwritten(t *testing.T) {
 	}
 }
 
+func TestSetCursorURIs_nilRangeLineZero_noFragment(t *testing.T) {
+	t.Parallel()
+	repoRoot := t.TempDir()
+	list := []Finding{
+		{File: "pkg/foo.go", Line: 0, Severity: SeverityInfo, Category: CategoryStyle, Confidence: 1.0, Message: "file-level"},
+	}
+	SetCursorURIs(repoRoot, list)
+	if list[0].CursorURI == "" {
+		t.Fatal("CursorURI should be set")
+	}
+	if strings.Contains(list[0].CursorURI, "#") {
+		t.Errorf("CursorURI should have no fragment for line 0 + nil Range; got %q", list[0].CursorURI)
+	}
+}
+
+func TestSetCursorURIs_rangeStartZero_fallsBackToLine(t *testing.T) {
+	t.Parallel()
+	repoRoot := t.TempDir()
+	list := []Finding{
+		{File: "c.go", Line: 5, Range: &LineRange{Start: 0, End: 3}, Severity: SeverityWarning, Category: CategoryBug, Confidence: 1.0, Message: "z"},
+	}
+	SetCursorURIs(repoRoot, list)
+	if list[0].CursorURI == "" {
+		t.Fatal("CursorURI should be set")
+	}
+	if !strings.HasSuffix(list[0].CursorURI, "#L5") {
+		t.Errorf("CursorURI should fall back to Line when Range.Start is 0; got %q", list[0].CursorURI)
+	}
+}
+
 func TestSetCursorURIs_rangeUsedWhenPresent(t *testing.T) {
 	t.Parallel()
 	repoRoot := t.TempDir()

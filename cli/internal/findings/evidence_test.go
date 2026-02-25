@@ -90,7 +90,7 @@ func TestFilterByHunkLines(t *testing.T) {
 			},
 		},
 		{
-			name: "e_range_overlap_low_end_kept",
+			name: "e2_range_overlap_low_end_zero_start_kept",
 			input: []Finding{
 				{File: evidenceTestPath, Line: 1, Range: &LineRange{Start: 0, End: 2}, Severity: SeverityWarning, Category: CategoryBug, Confidence: 0.9, Message: "overlap low"},
 			},

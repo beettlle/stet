@@ -24,7 +24,7 @@ func SetCursorURIs(repoRoot string, list []Finding) {
 			line = list[i].Range.Start
 		}
 		if line > 0 {
-			if list[i].Range != nil && list[i].Range.End >= list[i].Range.Start {
+			if list[i].Range != nil && list[i].Range.Start > 0 && list[i].Range.End >= list[i].Range.Start {
 				uri += "#L" + strconv.Itoa(list[i].Range.Start) + "-" + strconv.Itoa(list[i].Range.End)
 			} else {
 				uri += "#L" + strconv.Itoa(line)

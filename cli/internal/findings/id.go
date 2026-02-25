@@ -15,8 +15,8 @@ const (
 	MinPrefixLen = 4
 )
 
-// ShortID returns an abbreviated form of id for human-facing display. If id is longer than ShortIDDisplayLen,
-// returns the first ShortIDDisplayLen characters; otherwise returns id unchanged.
+// ShortID returns a truncated prefix of id for human-facing display. If len(id) > ShortIDDisplayLen,
+// returns the first ShortIDDisplayLen characters; otherwise returns id unchanged (including empty).
 func ShortID(id string) string {
 	if len(id) <= ShortIDDisplayLen {
 		return id

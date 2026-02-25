@@ -64,8 +64,8 @@ func TestResolveFindingIDByPrefix(t *testing.T) {
 	})
 	t.Run("one_match_seven_chars", func(t *testing.T) {
 		t.Parallel()
-		// full3 has unique 7-char prefix "deadbee"
-		got, err := ResolveFindingIDByPrefix(list, full3[:7])
+		// full3[:ShortIDDisplayLen] == "deadbee"; unique among list entries.
+		got, err := ResolveFindingIDByPrefix(list, full3[:ShortIDDisplayLen])
 		if err != nil {
 			t.Fatalf("ResolveFindingIDByPrefix(list, 7-char) = _, %v", err)
 		}
