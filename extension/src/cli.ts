@@ -23,6 +23,7 @@ export interface SpawnStetStreamCallbacks {
  * @param args - CLI args, e.g. ["start", "--dry-run"] or ["run"]
  * @param options.cwd - Working directory (must be repo root)
  * @param options.cliPath - Optional path to stet binary (default "stet")
+ * @returns Promise resolving with { exitCode, stdout, stderr } after the process closes
  */
 export function spawnStet(
   args: string[],
@@ -87,6 +88,9 @@ export function spawnStetStream(
   const { onLine, onClose } = callbacks;
   return new Promise((resolve) => {
     const chunksErr: Buffer[] = [];
+    // Node.js streams guarantee that all "data" events are emitted before
+    // "close", so stdoutBuffer is never accessed concurrently despite being
+    // used in both the "data" and "close" handlers.
     let stdoutBuffer = "";
     let closed = false;
     const finish = (exitCode: number, stderr: string) => {

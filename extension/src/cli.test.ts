@@ -7,11 +7,17 @@ vi.mock("child_process", () => ({ spawn: vi.fn() }));
 type CloseCb = (code: number | null, signal: NodeJS.Signals | null) => void;
 type ErrorCb = (err: Error) => void;
 
-function getMockCallback<T>(value: unknown, label: string): T {
-  if (value === undefined || typeof value !== "function") {
-    throw new Error(`${label} callback not found or not a function`);
+/** Extracts the single callback registered for `event` on a vi.fn() mock, asserting exactly one exists. */
+function getEventCb<T>(onMock: ReturnType<typeof vi.fn>, event: string): T {
+  const matches = onMock.mock.calls.filter((c: [string, unknown]) => c[0] === event);
+  if (matches.length !== 1) {
+    throw new Error(`Expected exactly 1 "${event}" handler, got ${matches.length}`);
   }
-  return value as T;
+  const cb = matches[0][1];
+  if (typeof cb !== "function") {
+    throw new Error(`"${event}" handler is not a function`);
+  }
+  return cb as T;
 }
 
 describe("spawnStet", () => {
@@ -37,10 +43,7 @@ describe("spawnStet", () => {
       stdio: ["ignore", "pipe", "pipe"],
     });
 
-    const closeCb = getMockCallback<CloseCb>(
-      mockProc.on.mock.calls.find((c: [string, unknown]) => c[0] === "close")?.[1],
-      "close",
-    );
+    const closeCb = getEventCb<CloseCb>(mockProc.on, "close");
     // Simulate stdout data (callbacks registered by spawnStet)
     for (const call of mockProc.stdout.on.mock.calls) {
       if (call[0] === "data") call[1](Buffer.from('{"findings":[]}\n'));
@@ -80,10 +83,7 @@ describe("spawnStet", () => {
     mockSpawn.mockReturnValue(mockProc as never);
 
     const promise = spawnStet(["start"], { cwd: "/repo" });
-    const closeCb = getMockCallback<CloseCb>(
-      mockProc.on.mock.calls.find((c: [string, unknown]) => c[0] === "close")?.[1],
-      "close",
-    );
+    const closeCb = getEventCb<CloseCb>(mockProc.on, "close");
     for (const call of mockProc.stderr.on.mock.calls) {
       if (call[0] === "data") call[1](Buffer.from("Not a git repository\n"));
     }
@@ -103,10 +103,7 @@ describe("spawnStet", () => {
     mockSpawn.mockReturnValue(mockProc as never);
 
     const promise = spawnStet(["start"], { cwd: "/repo" });
-    const closeCb = getMockCallback<CloseCb>(
-      mockProc.on.mock.calls.find((c: [string, unknown]) => c[0] === "close")?.[1],
-      "close",
-    );
+    const closeCb = getEventCb<CloseCb>(mockProc.on, "close");
     closeCb(null, "SIGKILL");
 
     const result = await promise;
@@ -122,10 +119,7 @@ describe("spawnStet", () => {
     mockSpawn.mockReturnValue(mockProc as never);
 
     const promise = spawnStet(["start"], { cwd: "/repo" });
-    const errCb = getMockCallback<ErrorCb>(
-      mockProc.on.mock.calls.find((c: [string, unknown]) => c[0] === "error")?.[1],
-      "error",
-    );
+    const errCb = getEventCb<ErrorCb>(mockProc.on, "error");
     errCb(new Error("ENOENT: stet not found"));
 
     const result = await promise;
@@ -169,15 +163,11 @@ describe("spawnStetStream", () => {
       }
     );
 
-    const dataCb = mockProc.stdout.on.mock.calls.find((c: [string, unknown]) => c[0] === "data")?.[1] as (chunk: Buffer) => void;
-    if (!dataCb) throw new Error("data callback not found");
+    const dataCb = getEventCb<(chunk: Buffer) => void>(mockProc.stdout.on, "data");
     dataCb(Buffer.from('{"type":"progress","msg":"1 hunks to review"}\n'));
     dataCb(Buffer.from('{"type":"done"}\n'));
 
-    const closeCb = getMockCallback<CloseCb>(
-      mockProc.on.mock.calls.find((c: [string, unknown]) => c[0] === "close")?.[1],
-      "close",
-    );
+    const closeCb = getEventCb<CloseCb>(mockProc.on, "close");
     for (const call of mockProc.stderr.on.mock.calls) {
       if (call[0] === "data") (call[1] as (chunk: Buffer) => void)(Buffer.from(""));
     }
@@ -209,13 +199,9 @@ describe("spawnStetStream", () => {
       }
     );
 
-    const dataCb = mockProc.stdout.on.mock.calls.find((c: [string, unknown]) => c[0] === "data")?.[1] as (chunk: Buffer) => void;
-    if (!dataCb) throw new Error("data callback not found");
+    const dataCb = getEventCb<(chunk: Buffer) => void>(mockProc.stdout.on, "data");
     dataCb(Buffer.from('{"type":"done"}'));
-    const closeCb = getMockCallback<CloseCb>(
-      mockProc.on.mock.calls.find((c: [string, unknown]) => c[0] === "close")?.[1],
-      "close",
-    );
+    const closeCb = getEventCb<CloseCb>(mockProc.on, "close");
     closeCb(0, null);
 
     await promise;
@@ -253,10 +239,7 @@ describe("spawnStetStream", () => {
       }
     );
 
-    const closeCb = getMockCallback<CloseCb>(
-      mockProc.on.mock.calls.find((c: [string, unknown]) => c[0] === "close")?.[1],
-      "close",
-    );
+    const closeCb = getEventCb<CloseCb>(mockProc.on, "close");
     for (const call of mockProc.stderr.on.mock.calls) {
       if (call[0] === "data") (call[1] as (chunk: Buffer) => void)(Buffer.from("No active session\n"));
     }
