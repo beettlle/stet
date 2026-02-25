@@ -3,9 +3,9 @@ FROM mcr.microsoft.com/devcontainers/base:ubuntu-22.04
 USER vscode
 ENV HOME=/home/vscode
 
-# Remote install scripts: dev container only. Scripts from trusted sources
-# (usegitai.com, cursor.com). No checksum verification available from upstream;
-# risk accepted for development environment. Do not use in production images.
+# Remote install scripts (dev container only). Checksum verification omitted because
+# upstream (usegitai.com, cursor.com) does not publish checksums for these install
+# scripts; risk accepted for development environment only. Do not use in production.
 
 # Install Git AI (dev container only; script from usegitai.com)
 RUN curl -sSL -o /tmp/git-ai-install.sh https://usegitai.com/install.sh && \
