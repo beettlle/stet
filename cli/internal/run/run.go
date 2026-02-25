@@ -384,6 +384,9 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 				if opts.CriticModel == opts.Model {
 					criticOpts.KeepAlive = keepAliveDuringRun
 				}
+				// O(N) sequential LLM calls: one VerifyFinding per finding in the batch.
+				// The Ollama Generate API accepts a single prompt, so batch/multi-prompt
+				// verification is not possible without upstream API changes.
 				kept := batch[:0]
 				for _, f := range batch {
 					keep, verr := review.VerifyFinding(ctx, opts.Client, opts.CriticModel, f, p.Hunk.RawContent, criticOpts)
