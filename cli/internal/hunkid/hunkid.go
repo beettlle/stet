@@ -22,7 +22,7 @@ func StrictHunkID(path, rawContent string) string {
 
 // SemanticHunkID returns a deterministic ID that ignores comment and
 // whitespace-only differences. Language is derived from the file extension;
-// comments are stripped per language (Go, Python, JS/TS, Shell). Used to
+// comments are stripped per language (Go, Python, JS/TS, Shell, Rust). Used to
 // detect "same code, different formatting/comments" for auto-approve or
 // format-only review.
 func SemanticHunkID(path, rawContent string) string {
@@ -73,7 +73,7 @@ func hashString(s string) string {
 }
 
 // langFromPath returns a language key from the file path for comment stripping.
-// Supported: go, python, js, sh. Unknown extensions return "" (no comment strip).
+// Supported: go, python, js, sh, rust. Unknown extensions return "" (no comment strip).
 func langFromPath(path string) string {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
@@ -85,6 +85,8 @@ func langFromPath(path string) string {
 		return "js"
 	case ".sh", ".bash", ".zsh":
 		return "sh"
+	case ".rs":
+		return "rust"
 	default:
 		return ""
 	}
@@ -95,7 +97,7 @@ func langFromPath(path string) string {
 func codeOnly(content, lang string) string {
 	var stripped string
 	switch lang {
-	case "go", "js":
+	case "go", "js", "rust":
 		stripped = stripGoStyleComments(content)
 	case "python":
 		stripped = stripPythonComments(content)
@@ -108,7 +110,7 @@ func codeOnly(content, lang string) string {
 }
 
 // stripGoStyleComments removes // line comments and /* */ block comments.
-// Used for Go and JavaScript/TypeScript.
+// Used for Go, JavaScript/TypeScript, and Rust.
 func stripGoStyleComments(content string) string {
 	// Block comments first (non-greedy). (?s) makes . match newline.
 	blockRe := regexp.MustCompile(`(?s)/\*.*?\*/`)

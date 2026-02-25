@@ -151,6 +151,28 @@ func TestSemanticHunkID_Python(t *testing.T) {
 	}
 }
 
+func TestSemanticHunkID_Rust(t *testing.T) {
+	t.Parallel()
+	path := "src/lib.rs"
+	base := "fn f() { }"
+	withComment := "fn f() { }  // comment"
+	withWhitespace := "fn  f()  {  }"
+	semBase := SemanticHunkID(path, base)
+	semComment := SemanticHunkID(path, withComment)
+	semWhitespace := SemanticHunkID(path, withWhitespace)
+	if semBase != semComment {
+		t.Errorf("Rust: comment-only change should yield same semantic ID: %q != %q", semBase, semComment)
+	}
+	if semBase != semWhitespace {
+		t.Errorf("Rust: whitespace-only change should yield same semantic ID: %q != %q", semBase, semWhitespace)
+	}
+	strictBase := StrictHunkID(path, base)
+	strictComment := StrictHunkID(path, withComment)
+	if strictBase == strictComment {
+		t.Error("Rust: comment-only change should yield different strict ID")
+	}
+}
+
 func TestStableFindingID(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -348,6 +370,7 @@ func TestLangFromPath(t *testing.T) {
 		{"file.ts", "js"},
 		{"file.tsx", "js"},
 		{"script.sh", "sh"},
+		{"x.rs", "rust"},
 		{"file.xyz", ""},
 	}
 	for _, tt := range tests {
