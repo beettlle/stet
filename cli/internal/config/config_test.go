@@ -14,6 +14,8 @@ import (
 func ptrStr(s string) *string { return &s }
 func ptrInt(n int) *int       { return &n }
 func ptrBool(b bool) *bool    { return &b }
+func ptrDuration(d time.Duration) *time.Duration { return &d }
+func ptrFloat64(f float64) *float64 { return &f }
 
 func TestDefaultConfig_fieldsMatchExpectedDefaults(t *testing.T) {
 	t.Parallel()
@@ -228,6 +230,56 @@ func TestLoad_overridesRAGOptions(t *testing.T) {
 	}
 	if cfg.RAGSymbolMaxTokens != tok {
 		t.Errorf("RAGSymbolMaxTokens = %d, want %d", cfg.RAGSymbolMaxTokens, tok)
+	}
+}
+
+func TestLoad_allOverridesApplied(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ctx := context.Background()
+	timeout := 30 * time.Second
+	cfg, err := Load(ctx, LoadOptions{
+		RepoRoot:         dir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{},
+		Overrides: &Overrides{
+			Model:                   ptrStr("over-model"),
+			OllamaBaseURL:           ptrStr("http://over:11434"),
+			ContextLimit:            ptrInt(16384),
+			WarnThreshold:           ptrFloat64(0.8),
+			Timeout:                 ptrDuration(timeout),
+			StateDir:                ptrStr("/over/state"),
+			WorktreeRoot:            ptrStr("/over/wt"),
+			Temperature:             ptrFloat64(0.3),
+			NumCtx:                  ptrInt(16384),
+			OptimizerScript:         ptrStr("python3 over.py"),
+			RAGSymbolMaxDefinitions: ptrInt(15),
+			RAGSymbolMaxTokens:      ptrInt(1000),
+			RAGCallGraphEnabled:     ptrBool(true),
+			RAGCallersMax:           ptrInt(5),
+			RAGCalleesMax:           ptrInt(5),
+			RAGCallGraphMaxTokens:   ptrInt(2000),
+			Strictness:              ptrStr("strict"),
+			Nitpicky:                ptrBool(true),
+			SuppressionEnabled:      ptrBool(false),
+			SuppressionHistoryCount: ptrInt(25),
+			CriticEnabled:           ptrBool(true),
+			CriticModel:             ptrStr("critic-model"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Model != "over-model" || cfg.OllamaBaseURL != "http://over:11434" ||
+		cfg.ContextLimit != 16384 || cfg.WarnThreshold != 0.8 || cfg.Timeout != timeout ||
+		cfg.StateDir != "/over/state" || cfg.WorktreeRoot != "/over/wt" ||
+		cfg.Temperature != 0.3 || cfg.NumCtx != 16384 || cfg.OptimizerScript != "python3 over.py" ||
+		cfg.RAGSymbolMaxDefinitions != 15 || cfg.RAGSymbolMaxTokens != 1000 ||
+		!cfg.RAGCallGraphEnabled || cfg.RAGCallersMax != 5 || cfg.RAGCalleesMax != 5 ||
+		cfg.RAGCallGraphMaxTokens != 2000 || cfg.Strictness != "strict" || !cfg.Nitpicky ||
+		cfg.SuppressionEnabled || cfg.SuppressionHistoryCount != 25 ||
+		!cfg.CriticEnabled || cfg.CriticModel != "critic-model" {
+		t.Errorf("got %+v", cfg)
 	}
 }
 

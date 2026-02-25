@@ -34,7 +34,11 @@ func minifyUnifiedHunkContent(content string) string {
 			out = append(out, "")
 			continue
 		}
-		// len(line) >= 1 here: empty lines handled above.
+		if len(line) < 1 {
+			out = append(out, "")
+			continue
+		}
+		// len(line) >= 1 here: safe to slice line[0:1] and line[1:].
 		prefix := line[0:1]
 		rest := line[1:]
 		rest = strings.TrimLeft(rest, " \t")

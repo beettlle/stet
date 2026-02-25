@@ -124,6 +124,36 @@ func TestReviewHunk_retryThenSuccess(t *testing.T) {
 	}
 }
 
+// TestReviewHunk_rustFile_minifiesContext exercises the .rs minify path so Rust
+// hunks get whitespace reduction like Go. It does not assert on prompt content;
+// coverage confirms the branch is taken.
+func TestReviewHunk_rustFile_minifiesContext(t *testing.T) {
+	validResp := `[{"file":"lib.rs","line":1,"severity":"info","category":"style","message":"ok"}]`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": validResp, "done": true})
+	}))
+	defer srv.Close()
+
+	client := ollama.NewClient(srv.URL, srv.Client())
+	dir := t.TempDir()
+	raw := "@@ -1,2 +1,2 @@\n \tfn foo() {}\n+\tbar();"
+	hunk := diff.Hunk{FilePath: "src/lib.rs", RawContent: raw, Context: raw}
+	ctx := context.Background()
+
+	list, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil, nil)
+	if err != nil {
+		t.Fatalf("ReviewHunk: %v", err)
+	}
+	if len(list) != 1 || list[0].File != "lib.rs" {
+		t.Errorf("unexpected findings: %+v", list)
+	}
+}
+
 func TestReviewHunk_generateFails_returnsError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)

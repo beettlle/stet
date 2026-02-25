@@ -1,8 +1,14 @@
 package commitmsg
 
 import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"unicode/utf8"
+
+	"stet/cli/internal/ollama"
 )
 
 func TestTruncateUTF8_asciiOnly(t *testing.T) {
@@ -120,5 +126,49 @@ func TestTruncateUTF8_emptyString(t *testing.T) {
 	got := truncateUTF8("", 10)
 	if got != "" {
 		t.Errorf("got %q, want empty string", got)
+	}
+}
+
+func TestSuggest_nilClient_returnsError(t *testing.T) {
+	ctx := context.Background()
+	_, err := Suggest(ctx, nil, "m", "diff", nil)
+	if err == nil {
+		t.Fatal("Suggest with nil client: want error, got nil")
+	}
+}
+
+func TestSuggest_longDiffTruncatesAndSucceeds(t *testing.T) {
+	// Build a diff longer than maxDiffChars so Suggest truncates it.
+	chunk := "line of diff content\n"
+	n := (maxDiffChars / len(chunk)) + 2
+	longDiff := ""
+	for i := 0; i < n; i++ {
+		longDiff += chunk
+	}
+	if len(longDiff) <= maxDiffChars {
+		t.Fatalf("test diff len %d <= maxDiffChars %d", len(longDiff), maxDiffChars)
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"response": "feat: add feature",
+			"done":     true,
+		})
+	}))
+	defer srv.Close()
+
+	client := ollama.NewClient(srv.URL, srv.Client())
+	ctx := context.Background()
+	got, err := Suggest(ctx, client, "m", longDiff, nil)
+	if err != nil {
+		t.Fatalf("Suggest: %v", err)
+	}
+	if got != "feat: add feature" {
+		t.Errorf("got %q, want %q", got, "feat: add feature")
 	}
 }
