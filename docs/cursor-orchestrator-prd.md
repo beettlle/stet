@@ -1,6 +1,6 @@
 # Product Requirements Document: Cursor CLI Orchestrator
 
-**Working title:** Cursor CLI Orchestrator
+**Working title:** Cursor CLI Orchestrator (PEAL Plan-Execute-Address Loop)
 
 **One-line summary:** A standalone orchestrator that drives the Cursor CLI in three phases per task (plan, execute, stet+address) via separate invocations to avoid context exhaustion; it consumes a markdown feature plan and runs on all platforms Cursor supports.
 
