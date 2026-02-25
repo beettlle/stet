@@ -9,7 +9,27 @@ import (
 	"testing"
 )
 
-func initRepoDiff(t *testing.T) string {
+// testRepo holds a temp repo directory and the SHA of each commit so tests
+// reference explicit SHAs instead of brittle relative refs like HEAD~1.
+type testRepo struct {
+	dir     string
+	initSHA string // .gitignore commit
+	c1SHA   string // f1.txt commit
+	c2SHA   string // f2.txt commit
+}
+
+func gitHEAD(t *testing.T, dir string) string {
+	t.Helper()
+	cmd := exec.Command("git", "rev-parse", "HEAD")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("git rev-parse HEAD: %v", err)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func initRepoDiff(t *testing.T) testRepo {
 	t.Helper()
 	dir := t.TempDir()
 	runGit(t, dir, "git", "init")
@@ -17,14 +37,17 @@ func initRepoDiff(t *testing.T) string {
 	runGit(t, dir, "git", "config", "user.name", "Test")
 	writeFile(t, dir, ".gitignore", ".review\n")
 	runGit(t, dir, "git", "add", ".gitignore")
-	runGit(t, dir, "git", "commit", "-m", "gitignore")
+	runGit(t, dir, "git", "commit", "-m", "init")
+	initSHA := gitHEAD(t, dir)
 	writeFile(t, dir, "f1.txt", "a\n")
 	runGit(t, dir, "git", "add", "f1.txt")
-	runGit(t, dir, "git", "commit", "-m", "c1")
+	runGit(t, dir, "git", "commit", "-m", "add f1")
+	c1SHA := gitHEAD(t, dir)
 	writeFile(t, dir, "f2.txt", "b\n")
 	runGit(t, dir, "git", "add", "f2.txt")
-	runGit(t, dir, "git", "commit", "-m", "c2")
-	return dir
+	runGit(t, dir, "git", "commit", "-m", "add f2")
+	c2SHA := gitHEAD(t, dir)
+	return testRepo{dir: dir, initSHA: initSHA, c1SHA: c1SHA, c2SHA: c2SHA}
 }
 
 func runGit(t *testing.T, dir string, name string, args ...string) {
@@ -111,9 +134,9 @@ func TestHunks_emptyRepoRoot(t *testing.T) {
 func TestHunks_integration_twoCommits(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	repo := initRepoDiff(t)
-	// HEAD~1 = c1 (f1 only), HEAD = c2 (f1 + f2). Diff is f2.txt.
-	hunks, err := Hunks(ctx, repo, "HEAD~1", "HEAD", nil)
+	fix := initRepoDiff(t)
+	// c1 has f1.txt, c2 adds f2.txt. Diff c1..c2 is f2.txt only.
+	hunks, err := Hunks(ctx, fix.dir, fix.c1SHA, fix.c2SHA, nil)
 	if err != nil {
 		t.Fatalf("Hunks: %v", err)
 	}
@@ -134,29 +157,31 @@ func TestHunks_integration_twoCommits(t *testing.T) {
 func TestHunks_emptyDiff(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	repo := initRepoDiff(t)
-	hunks, err := Hunks(ctx, repo, "HEAD", "HEAD", nil)
+	fix := initRepoDiff(t)
+	hunks, err := Hunks(ctx, fix.dir, fix.c2SHA, fix.c2SHA, nil)
 	if err != nil {
 		t.Fatalf("Hunks: %v", err)
 	}
 	if len(hunks) != 0 {
-		t.Errorf("Hunks(HEAD, HEAD) = %d hunks, want 0", len(hunks))
+		t.Errorf("Hunks(same ref) = %d hunks, want 0", len(hunks))
 	}
 	if hunks != nil {
-		t.Errorf("Hunks(HEAD, HEAD) = %v, want nil slice", hunks)
+		t.Errorf("Hunks(same ref) = %v, want nil slice", hunks)
 	}
 }
 
 func TestHunks_excludeGenerated(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	repo := initRepoDiff(t)
-	writeFile(t, repo, "bar.go", "package p\n\nfunc Bar() {}\n")
-	writeFile(t, repo, "gen.pb.go", "package p\n// generated\n")
-	runGit(t, repo, "git", "add", "bar.go", "gen.pb.go")
-	runGit(t, repo, "git", "commit", "-m", "add bar and gen")
-	// Diff HEAD~1..HEAD: bar.go and gen.pb.go. Default exclusions drop gen.pb.go.
-	hunks, err := Hunks(ctx, repo, "HEAD~1", "HEAD", nil)
+	fix := initRepoDiff(t)
+	beforeSHA := fix.c2SHA
+	writeFile(t, fix.dir, "bar.go", "package p\n\nfunc Bar() {}\n")
+	writeFile(t, fix.dir, "gen.pb.go", "package p\n// generated\n")
+	runGit(t, fix.dir, "git", "add", "bar.go", "gen.pb.go")
+	runGit(t, fix.dir, "git", "commit", "-m", "add bar and gen")
+	afterSHA := gitHEAD(t, fix.dir)
+	// Diff beforeSHA..afterSHA: bar.go and gen.pb.go. Default exclusions drop gen.pb.go.
+	hunks, err := Hunks(ctx, fix.dir, beforeSHA, afterSHA, nil)
 	if err != nil {
 		t.Fatalf("Hunks: %v", err)
 	}
@@ -171,10 +196,10 @@ func TestHunks_excludeGenerated(t *testing.T) {
 func TestHunks_customExcludePatterns(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	repo := initRepoDiff(t)
-	// Diff HEAD~1..HEAD is f2.txt. Override to exclude *.txt.
+	fix := initRepoDiff(t)
+	// Diff c1..c2 is f2.txt. Override to exclude *.txt.
 	opts := &Options{ExcludePatterns: []string{"*.txt"}}
-	hunks, err := Hunks(ctx, repo, "HEAD~1", "HEAD", opts)
+	hunks, err := Hunks(ctx, fix.dir, fix.c1SHA, fix.c2SHA, opts)
 	if err != nil {
 		t.Fatalf("Hunks: %v", err)
 	}
@@ -186,10 +211,10 @@ func TestHunks_customExcludePatterns(t *testing.T) {
 func TestHunks_customExcludePatternsEmpty(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	repo := initRepoDiff(t)
+	fix := initRepoDiff(t)
 	// Empty ExcludePatterns means no exclusions (override defaults with empty list = no filter).
 	opts := &Options{ExcludePatterns: []string{}}
-	hunks, err := Hunks(ctx, repo, "HEAD~1", "HEAD", opts)
+	hunks, err := Hunks(ctx, fix.dir, fix.c1SHA, fix.c2SHA, opts)
 	if err != nil {
 		t.Fatalf("Hunks: %v", err)
 	}
