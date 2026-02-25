@@ -134,7 +134,8 @@ func lookupDefinitions(ctx context.Context, repoRoot, fromFile string, symbols [
 func gitGrepSymbol(ctx context.Context, repoRoot, symbol string) (absPath string, line int, lineContent string, err error) {
 	// Match: func Symbol, type Symbol, var Symbol, const Symbol. Use POSIX classes
 	// so git grep -E works on macOS/BSD (which do not support \b or \s).
-	pattern := `(func|type|var|const)[[:space:]]+` + regexp.QuoteMeta(symbol) + `[^a-zA-Z0-9_]`
+	// Trailing anchor includes $ so symbols at end-of-line are matched.
+	pattern := `(func|type|var|const)[[:space:]]+` + regexp.QuoteMeta(symbol) + `([^a-zA-Z0-9_]|$)`
 	ctx, cancel := context.WithTimeout(ctx, grepTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "git", "grep", "-n", "-E", pattern)
@@ -148,8 +149,12 @@ func gitGrepSymbol(ctx context.Context, repoRoot, symbol string) (absPath string
 		}
 		return "", 0, "", err
 	}
+	trimmed := strings.TrimSpace(string(out))
+	if trimmed == "" {
+		return "", 0, "", nil
+	}
 	// First line: "path:lineno:content". Use first two colons (path must not contain colons; content may).
-	first := strings.SplitN(strings.TrimSpace(string(out)), "\n", 2)[0]
+	first := strings.SplitN(trimmed, "\n", 2)[0]
 	idx := strings.Index(first, ":")
 	if idx == -1 {
 		return "", 0, "", nil
@@ -163,7 +168,10 @@ func gitGrepSymbol(ctx context.Context, repoRoot, symbol string) (absPath string
 	if idx2 == -1 {
 		return "", 0, "", nil
 	}
-	lineno, _ := strconv.Atoi(rest[:idx2])
+	lineno, errParse := strconv.Atoi(rest[:idx2])
+	if errParse != nil || lineno < 1 {
+		return "", 0, "", nil
+	}
 	lineContent = rest[idx2+1:]
 	absPath = filepath.Join(repoRoot, path)
 	return absPath, lineno, lineContent, nil

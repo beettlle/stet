@@ -133,6 +133,8 @@ func lookupDefinitions(ctx context.Context, repoRoot, fromFile string, symbols [
 func gitGrepSymbol(ctx context.Context, repoRoot, symbol string) (absPath string, line int, lineContent string, err error) {
 	quoted := regexp.QuoteMeta(symbol)
 	// Use POSIX [[:space:]] and [^a-zA-Z0-9_] so git grep -E works on macOS/BSD.
+	// The last alternative handles return-type methods including generics
+	// (e.g. "Map<String, Integer> myMethod(") via [A-Za-z0-9_<>,[:space:]]*.
 	pattern := `(class[[:space:]]+` + quoted + `[^a-zA-Z0-9_]|interface[[:space:]]+` + quoted + `[^a-zA-Z0-9_]|void[[:space:]]+` + quoted + `[[:space:]]*\(|[A-Za-z][A-Za-z0-9_<>,[:space:]]*[[:space:]]+` + quoted + `[[:space:]]*\()`
 	ctx, cancel := context.WithTimeout(ctx, grepTimeout)
 	defer cancel()
@@ -146,18 +148,28 @@ func gitGrepSymbol(ctx context.Context, repoRoot, symbol string) (absPath string
 		}
 		return "", 0, "", err
 	}
-	first := strings.SplitN(strings.TrimSpace(string(out)), "\n", 2)[0]
+	trimmed := strings.TrimSpace(string(out))
+	if trimmed == "" {
+		return "", 0, "", nil
+	}
+	first := strings.SplitN(trimmed, "\n", 2)[0]
 	idx := strings.Index(first, ":")
 	if idx == -1 {
 		return "", 0, "", nil
 	}
 	path := first[:idx]
+	if path == "" || strings.Contains(path, "..") {
+		return "", 0, "", nil
+	}
 	rest := first[idx+1:]
 	idx2 := strings.Index(rest, ":")
 	if idx2 == -1 {
 		return "", 0, "", nil
 	}
-	lineno, _ := strconv.Atoi(rest[:idx2])
+	lineno, errParse := strconv.Atoi(rest[:idx2])
+	if errParse != nil || lineno < 1 {
+		return "", 0, "", nil
+	}
 	lineContent = rest[idx2+1:]
 	absPath = filepath.Join(repoRoot, path)
 	return absPath, lineno, lineContent, nil

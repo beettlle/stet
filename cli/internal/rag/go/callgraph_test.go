@@ -14,6 +14,7 @@ import (
 )
 
 func TestResolveCallGraph_noEnclosingFunction_returnsNil(t *testing.T) {
+	// t.TempDir() registers automatic cleanup for dir and all files within it.
 	dir := t.TempDir()
 	path := filepath.Join(dir, "pkg", "code.go")
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
@@ -35,6 +36,7 @@ func TestResolveCallGraph_noEnclosingFunction_returnsNil(t *testing.T) {
 }
 
 func TestResolveCallGraph_badHunkHeader_returnsNil(t *testing.T) {
+	// t.TempDir() registers automatic cleanup.
 	dir := t.TempDir()
 	ctx := context.Background()
 	result, err := (&callGraphResolver{}).ResolveCallGraph(ctx, dir, "pkg/code.go", "no valid hunk header", rag.CallGraphOptions{})

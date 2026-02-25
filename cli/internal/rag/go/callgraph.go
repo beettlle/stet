@@ -100,7 +100,11 @@ func findCallers(ctx context.Context, repoRoot, hunkFilePath, funcName string, m
 		}
 		return nil, err
 	}
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	trimmed := strings.TrimSpace(string(out))
+	if trimmed == "" {
+		return nil, nil
+	}
+	lines := strings.Split(trimmed, "\n")
 	var defs []rag.Definition
 	for _, line := range lines {
 		if len(defs) >= max {
