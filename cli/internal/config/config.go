@@ -388,7 +388,7 @@ func parseDuration(s string) (time.Duration, error) {
 	if s == "" {
 		return 0, fmt.Errorf("empty duration")
 	}
-	// Try Go duration first (e.g. "5m", "30s")
+	// Try Go duration first (e.g. "15m", "30s")
 	d, err := time.ParseDuration(s)
 	if err == nil {
 		return d, nil
