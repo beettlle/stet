@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"syscall"
 	"testing"
+	"time"
 )
 
 func TestNewClient_normalizesBaseURL(t *testing.T) {
@@ -663,6 +664,50 @@ func TestClient_Check_connectionRefusedRetry(t *testing.T) {
 	}
 	if n := attempt.Load(); n < 3 {
 		t.Errorf("expected at least 3 attempts after connection refused, got %d", n)
+	}
+}
+
+func TestRetryTimeout_normalAttempt(t *testing.T) {
+	t.Parallel()
+	got := retryTimeout(10*time.Second, 1)
+	want := 20 * time.Second // 10s * (1<<1) = 20s
+	if got != want {
+		t.Errorf("retryTimeout(10s, 1) = %v, want %v", got, want)
+	}
+}
+
+func TestRetryTimeout_capsAtMaxRetryTimeout(t *testing.T) {
+	t.Parallel()
+	got := retryTimeout(10*time.Minute, 3)
+	if got != _maxRetryTimeout {
+		t.Errorf("retryTimeout(10m, 3) = %v, want capped at %v", got, _maxRetryTimeout)
+	}
+}
+
+func TestRetryTimeout_largeAttemptNoOverflow(t *testing.T) {
+	t.Parallel()
+	got := retryTimeout(10*time.Second, 100)
+	if got != _maxRetryTimeout {
+		t.Errorf("retryTimeout(10s, 100) = %v, want capped at %v", got, _maxRetryTimeout)
+	}
+	if got <= 0 {
+		t.Errorf("retryTimeout must be positive, got %v", got)
+	}
+}
+
+func TestRetryTimeout_zeroBaseFallsBackToDefault(t *testing.T) {
+	t.Parallel()
+	got := retryTimeout(0, 2)
+	if got != _defaultTimeout {
+		t.Errorf("retryTimeout(0, 2) = %v, want default %v", got, _defaultTimeout)
+	}
+}
+
+func TestRetryTimeout_negativeBaseFallsBackToDefault(t *testing.T) {
+	t.Parallel()
+	got := retryTimeout(-5*time.Second, 1)
+	if got != _defaultTimeout {
+		t.Errorf("retryTimeout(-5s, 1) = %v, want default %v", got, _defaultTimeout)
 	}
 }
 

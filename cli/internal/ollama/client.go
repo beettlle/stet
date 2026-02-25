@@ -281,6 +281,28 @@ func capContextLength(n int) int {
 	return n
 }
 
+// retryTimeout returns a scaled timeout for the given retry attempt, capping
+// at _maxRetryTimeout. Guards against integer overflow from large shift or
+// multiplication (e.g. if _maxRetries is ever increased).
+func retryTimeout(base time.Duration, attempt int) time.Duration {
+	if base <= 0 {
+		return _defaultTimeout
+	}
+	const maxShift = 30 // 1<<30 ≈ 1e9; larger shifts risk int64 overflow when multiplied
+	shift := attempt
+	if shift > maxShift {
+		shift = maxShift
+	}
+	scaled := base * time.Duration(1<<shift)
+	if scaled <= 0 || scaled < base {
+		return _maxRetryTimeout
+	}
+	if scaled > _maxRetryTimeout {
+		return _maxRetryTimeout
+	}
+	return scaled
+}
+
 // GenerateOptions holds model runtime options sent to Ollama /api/generate.
 // Zero values are sent as-is; omitempty is not used so the API receives explicit values.
 // KeepAlive is not sent inside options; it is sent at the top level of the request (see generateRequest).
@@ -384,11 +406,7 @@ func (c *Client) generateWithFormat(ctx context.Context, model, systemPrompt, us
 		req.Header.Set("Content-Type", "application/json")
 		client := c.httpClient
 		if attempt > 0 {
-			// Use a longer timeout on retries so slow-but-valid requests can succeed.
-			timeout := c.httpClient.Timeout * time.Duration(1<<attempt)
-			if timeout > _maxRetryTimeout {
-				timeout = _maxRetryTimeout
-			}
+			timeout := retryTimeout(c.httpClient.Timeout, attempt)
 			transport := c.httpClient.Transport
 			if transport == nil {
 				transport = http.DefaultTransport
