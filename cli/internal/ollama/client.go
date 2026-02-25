@@ -19,9 +19,10 @@ import (
 const _defaultTimeout = 10 * time.Second
 
 const (
-	_maxRetries     = 3
-	_initialBackoff = 1 * time.Second
-	_maxBackoff     = 16 * time.Second
+	_maxRetries       = 3
+	_initialBackoff   = 1 * time.Second
+	_maxBackoff       = 16 * time.Second
+	_maxRetryTimeout  = 30 * time.Minute // cap on per-request timeout when scaling on retry
 )
 
 // ErrUnreachable indicates the Ollama server could not be reached (connection refused, timeout, or 5xx).
@@ -381,7 +382,20 @@ func (c *Client) generateWithFormat(ctx context.Context, model, systemPrompt, us
 			return nil, fmt.Errorf("ollama generate request: %w", err)
 		}
 		req.Header.Set("Content-Type", "application/json")
-		resp, err := c.httpClient.Do(req)
+		client := c.httpClient
+		if attempt > 0 {
+			// Use a longer timeout on retries so slow-but-valid requests can succeed.
+			timeout := c.httpClient.Timeout * time.Duration(1<<attempt)
+			if timeout > _maxRetryTimeout {
+				timeout = _maxRetryTimeout
+			}
+			transport := c.httpClient.Transport
+			if transport == nil {
+				transport = http.DefaultTransport
+			}
+			client = &http.Client{Timeout: timeout, Transport: transport}
+		}
+		resp, err := client.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("ollama generate: %w", errors.Join(ErrUnreachable, err))
 			if !errors.Is(lastErr, ErrUnreachable) || attempt == _maxRetries {

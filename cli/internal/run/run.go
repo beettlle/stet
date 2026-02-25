@@ -58,7 +58,7 @@ var ErrDirtyWorktree = errors.New("working tree has uncommitted changes; commit 
 
 const (
 	dryRunMessage            = "Dry-run placeholder (CI)"
-	_defaultOllamaTimeout    = 5 * time.Minute
+	_defaultOllamaTimeout    = 15 * time.Minute
 	maxPromptContextStoreLen = 4096
 	// prepareBufferSize caps how many hunks are prepared ahead; keeps the LLM fed while bounding memory.
 	prepareBufferSize = 5

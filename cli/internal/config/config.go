@@ -120,7 +120,7 @@ const (
 	_defaultOllamaBaseURL = "http://localhost:11434"
 	_defaultContextLimit  = 32768
 	_defaultWarnThreshold = 0.9
-	_defaultTimeout       = 5 * time.Minute
+	_defaultTimeout       = 15 * time.Minute
 	_defaultTemperature          = 0.2
 	_defaultNumCtx               = 32768
 	_defaultRAGSymbolMaxDefs       = 10
