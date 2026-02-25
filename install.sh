@@ -74,9 +74,11 @@ install_via_download() {
 		return 1
 	fi
 	# Optional: verify checksum if checksums.txt exists for this release.
+	# Single fetch to avoid TOCTOU race between existence check and content read.
 	CHECKSUM_URL="https://github.com/${STET_REPO}/releases/download/${RELEASE_TAG}/checksums.txt"
-	if curl -sSfL -o /dev/null "$CHECKSUM_URL" 2>/dev/null; then
-		EXPECTED=$(curl -sSfL "$CHECKSUM_URL" | awk -v f="$BINARY_NAME" '$2 == f { print $1 }')
+	CHECKSUM_CONTENT=$(curl -sSfL "$CHECKSUM_URL" 2>/dev/null) || CHECKSUM_CONTENT=""
+	if [ -n "$CHECKSUM_CONTENT" ]; then
+		EXPECTED=$(echo "$CHECKSUM_CONTENT" | awk -v f="$BINARY_NAME" '$2 == f { print $1 }')
 		if [ -n "$EXPECTED" ]; then
 			if command -v sha256sum >/dev/null 2>&1; then
 				ACTUAL=$(sha256sum "$TMP_FILE" | awk '{ print $1 }')

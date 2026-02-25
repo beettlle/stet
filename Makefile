@@ -20,6 +20,8 @@ build:
 	GOOS=darwin GOARCH=arm64 go build -buildvcs=false $(BUILD_LDFLAGS) -o bin/stet-darwin-arm64 ./cli/cmd/stet
 
 # Build all release binaries into dist/ and generate checksums.txt.
+# The for-loop is a single shell recipe, so builds run sequentially even
+# under make -j.  This avoids races in the shared Go module/build cache.
 # Run: VERSION=v1.0.0 make release
 # Then upload dist/* to a GitHub Release for that tag.
 release:

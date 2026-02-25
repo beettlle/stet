@@ -75,37 +75,41 @@ try {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     Invoke-WebRequest -Uri $DOWNLOAD_URL -OutFile $tmpFile -UseBasicParsing -ErrorAction Stop
 } catch {
+    Remove-Item -Force -ErrorAction SilentlyContinue $tmpFile
     Write-Err "Download failed: $($_.Exception.Message)"
     Write-Host "Install from source: install Go, then: go install github.com/$STET_REPO/cli/cmd/stet@latest"
     Write-Host "Or clone the repo, run 'make release', and copy dist/$BINARY_NAME to a directory in your PATH."
     exit 1
 }
 
-if ((Get-Item $tmpFile).Length -le 0) {
-    Remove-Item -Force -ErrorAction SilentlyContinue $tmpFile
-    Write-Err "Downloaded file is empty."
-    exit 1
-}
-
-# Optional: verify checksum
-$CHECKSUM_URL = "https://github.com/$STET_REPO/releases/download/$STET_RELEASE_TAG/checksums.txt"
 try {
-    $resp = Invoke-WebRequest -Uri $CHECKSUM_URL -UseBasicParsing -ErrorAction Stop
-    $lines = $resp.Content -split "`n"
-    $line = $lines | Where-Object { $_ -match "^\s*([0-9a-fA-F]+)\s+$([regex]::Escape($BINARY_NAME))" } | Select-Object -First 1
-    if ($line -match "^\s*([0-9a-fA-F]+)\s+") {
-        $expected = $Matches[1].ToLower()
-        $actual = (Get-FileHash -Path $tmpFile -Algorithm SHA256).Hash.ToLower()
-        if ($expected -ne $actual) {
-            Write-Host "Warning: Checksum verification failed; continuing anyway." -ForegroundColor Yellow
-        }
+    if ((Get-Item $tmpFile).Length -le 0) {
+        Write-Err "Downloaded file is empty."
+        exit 1
     }
-} catch {
-    # No checksums or network error; skip verification
-}
 
-Move-Item -Force -Path $tmpFile -Destination $dest
-try { Unblock-File -Path $dest -ErrorAction SilentlyContinue } catch { }
+    # Optional: verify checksum
+    $CHECKSUM_URL = "https://github.com/$STET_REPO/releases/download/$STET_RELEASE_TAG/checksums.txt"
+    try {
+        $resp = Invoke-WebRequest -Uri $CHECKSUM_URL -UseBasicParsing -ErrorAction Stop
+        $lines = $resp.Content -split "`n"
+        $line = $lines | Where-Object { $_ -match "^\s*([0-9a-fA-F]+)\s+$([regex]::Escape($BINARY_NAME))" } | Select-Object -First 1
+        if ($line -match "^\s*([0-9a-fA-F]+)\s+") {
+            $expected = $Matches[1].ToLower()
+            $actual = (Get-FileHash -Path $tmpFile -Algorithm SHA256).Hash.ToLower()
+            if ($expected -ne $actual) {
+                Write-Host "Warning: Checksum verification failed; continuing anyway." -ForegroundColor Yellow
+            }
+        }
+    } catch {
+        # No checksums or network error; skip verification.
+    }
+
+    Move-Item -Force -Path $tmpFile -Destination $dest
+    try { Unblock-File -Path $dest -ErrorAction SilentlyContinue } catch { }
+} finally {
+    Remove-Item -Force -ErrorAction SilentlyContinue $tmpFile
+}
 
 Write-Success "Installed stet to $INSTALL_DIR"
 Write-Success "You can run 'stet' from the terminal if $INSTALL_DIR is in your PATH."
