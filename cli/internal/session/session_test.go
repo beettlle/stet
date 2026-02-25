@@ -145,21 +145,19 @@ func TestSaveLoad_roundtrip(t *testing.T) {
 		t.Errorf("LastReviewedAt = %q, want %q", got.LastReviewedAt, want.LastReviewedAt)
 	}
 	if len(got.DismissedIDs) != len(want.DismissedIDs) {
-		t.Errorf("DismissedIDs len = %d, want %d", len(got.DismissedIDs), len(want.DismissedIDs))
+		t.Fatalf("DismissedIDs len = %d, want %d", len(got.DismissedIDs), len(want.DismissedIDs))
 	}
 	for i := range want.DismissedIDs {
-		if i >= len(got.DismissedIDs) || got.DismissedIDs[i] != want.DismissedIDs[i] {
-			t.Errorf("DismissedIDs[%d] = %v, want %v", i, got.DismissedIDs, want.DismissedIDs)
-			break
+		if got.DismissedIDs[i] != want.DismissedIDs[i] {
+			t.Errorf("DismissedIDs[%d] = %q, want %q", i, got.DismissedIDs[i], want.DismissedIDs[i])
 		}
 	}
 	if len(got.PromptShadows) != len(want.PromptShadows) {
-		t.Errorf("PromptShadows len = %d, want %d", len(got.PromptShadows), len(want.PromptShadows))
+		t.Fatalf("PromptShadows len = %d, want %d", len(got.PromptShadows), len(want.PromptShadows))
 	}
 	for i := range want.PromptShadows {
-		if i >= len(got.PromptShadows) || got.PromptShadows[i] != want.PromptShadows[i] {
-			t.Errorf("PromptShadows[%d] = %+v, want %+v", i, got.PromptShadows, want.PromptShadows)
-			break
+		if got.PromptShadows[i] != want.PromptShadows[i] {
+			t.Errorf("PromptShadows[%d] = %+v, want %+v", i, got.PromptShadows[i], want.PromptShadows[i])
 		}
 	}
 }
