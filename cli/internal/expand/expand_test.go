@@ -1,6 +1,8 @@
 package expand
 
 import (
+	"go/ast"
+	"go/token"
 	"os"
 	"path/filepath"
 	"strings"
@@ -352,6 +354,27 @@ var x int = 1
 				t.Errorf("EnclosingFuncName() = (%q, %v), want (%q, %v)", gotName, gotOK, tt.wantName, tt.wantOK)
 			}
 		})
+	}
+}
+
+func TestFindEnclosingFunc_nilBody_skipped(t *testing.T) {
+	// A FuncDecl with Body == nil (forward/cgo declaration) must be skipped.
+	fset := token.NewFileSet()
+	file := fset.AddFile("test.go", fset.Base(), 100)
+	_ = file // registered in fset for position tracking
+
+	decl := &ast.FuncDecl{
+		Name: ast.NewIdent("ExternalFunc"),
+		Type: &ast.FuncType{Params: &ast.FieldList{}},
+		Body: nil, // forward declaration, no body
+	}
+	astFile := &ast.File{
+		Name:  ast.NewIdent("pkg"),
+		Decls: []ast.Decl{decl},
+	}
+	result := findEnclosingFunc(fset, astFile, 1, 1)
+	if result != nil {
+		t.Errorf("findEnclosingFunc returned non-nil for nil-body FuncDecl; want nil")
 	}
 }
 

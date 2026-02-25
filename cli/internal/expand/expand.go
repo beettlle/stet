@@ -221,7 +221,7 @@ func findEnclosingFunc(fset *token.FileSet, f *ast.File, startLine, endLine int)
 
 	for _, d := range f.Decls {
 		fn, ok := d.(*ast.FuncDecl)
-		if !ok {
+		if !ok || fn.Body == nil {
 			continue
 		}
 		pos := fset.Position(fn.Pos())
