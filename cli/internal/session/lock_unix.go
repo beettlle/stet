@@ -23,9 +23,13 @@ func AcquireLock(stateDir string) (release func(), err error) {
 	if err != nil {
 		return nil, fmt.Errorf("session lock: open %s: %w", path, err)
 	}
+	defer func() {
+		if release == nil {
+			_ = f.Close()
+		}
+	}()
 	err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
 	if err != nil {
-		_ = f.Close()
 		if errors.Is(err, syscall.EAGAIN) {
 			return nil, ErrLocked
 		}

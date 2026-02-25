@@ -52,6 +52,9 @@ func AcquireLock(stateDir string) (release func(), err error) {
 		if err != nil && errors.Is(err, _lockViolation) {
 			return nil, ErrLocked
 		}
+		if err == nil {
+			err = errors.New("LockFileEx failed")
+		}
 		return nil, fmt.Errorf("session lock: LockFileEx: %w", err)
 	}
 	release = func() {
