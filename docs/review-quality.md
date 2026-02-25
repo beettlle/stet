@@ -1,5 +1,7 @@
 # Review Quality and Actionability
 
+> **Status:** Active reference document. Contains prompt guidelines, curated false-positive patterns (updated as new patterns emerge), dismissal reason guidance, and an improvement backlog. Used by the optimizer and prompt shadow features.
+
 The PRD defines “actionable” and review goals in [PRD.md](PRD.md) §2 and §3f; this document expands with prompt guidelines and curated lessons (e.g. common false positives).
 
 ## What we mean by actionable

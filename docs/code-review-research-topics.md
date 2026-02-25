@@ -1,5 +1,7 @@
 # Code review research: reducing false positives and improving actionability
 
+> **Status:** Research survey complete. Serves as the index for topic-specific deep dives (context enrichment, calibration, defect-focused review). Updated as new research is reviewed.
+
 This document consolidates research from academic journals, arXiv, and early-release work on automated code review. The goal is to identify techniques, algorithms, and approaches that can improve the quality of reviews stet produces—especially reducing false positives and non-actionable feedback. Stet today is **diff/hunk-based** (one LLM call per hunk, with file path and hunk content only; no RAG or extra context). For stet-specific prompt guidelines and curated false positive patterns, see [review-quality.md](review-quality.md).
 
 ---

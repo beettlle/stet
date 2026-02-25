@@ -1,5 +1,7 @@
 # Research: Defect-Focused Review & Quality Plan for Stet
 
+> **Status:** Research complete. Phase 1 (defect-focused prompt) and Phase 4 (dismissal feedback, prompt shadows) are implemented. Phase 2 (RAG-Lite) is implemented. Phase 3 (self-critique / critic) is implemented as an optional `--verify` flag. CRScore-style evaluation is future work.
+
 For the full research map and other topics, see [code-review-research-topics.md](code-review-research-topics.md).
 
 ## Executive Summary

@@ -1,5 +1,7 @@
 # Phase 3 Remediation Plan
 
+> **Status:** Remediation complete. All issues (A: token estimation wiring, B: Ollama URL in error messages and upfront check, C: diff filter error handling) have been implemented and verified.
+
 This document consolidates issues from the Phase 0–3 brutal audit and the Doctor vs Start Ollama unreachable report. It is the single source of truth for a coding LLM to implement all fixes.
 
 ## 1. Overview

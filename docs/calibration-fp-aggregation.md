@@ -1,5 +1,7 @@
 # Research: Calibration, False Positive Mitigation, and Multi-Judge Aggregation for Stet
 
+> **Status:** Research complete. Phase 1 concepts (confidence field, FP kill list, evidence filter) are implemented in the CLI. Phases 2–3 (calibration from history, multi-judge aggregation) are future work.
+
 For the full research map and other topics, see [code-review-research-topics.md](code-review-research-topics.md).
 
 ## Executive Summary

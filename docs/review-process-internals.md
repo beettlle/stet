@@ -1,5 +1,7 @@
 # Stet Review Process: Internals
 
+> **Status:** Complete. Covers the full review lifecycle (start, run, finish, dismiss) including the pipelined execution model, all filters, and extension integration. The code is the source of truth; this doc summarizes and points to it.
+
 This document describes how a code review flows through Stet from start to finish: worktree creation, scope computation, diff and hunks, per-hunk review (prompts, filters, LLM), and how results are returned and persisted. It is intended for engineers who want to understand or modify the application internals. The **code is the source of truth**; this doc summarizes and points to it. To follow along while running a review, use **`--trace`** on `stet start` or `stet run`; it prints each internal step (partition, rules, RAG, prompts, LLM I/O) to stderr.
 
 ---

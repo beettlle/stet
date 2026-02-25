@@ -1,5 +1,7 @@
 # Research: Context Enrichment and Code Slicing for Stet
 
+> **Status:** Research complete. Tier 1 (commit intent via `git.UserIntent`) and Tier 2 (parent function via `expand.ExpandHunk` for Go) are implemented. Tier 3 (RAG symbol resolution) is implemented. Code slicing (dual slicing) is future work.
+
 For the full research map and other topics (false positives, actionability, calibration), see [code-review-research-topics.md](code-review-research-topics.md).
 
 ## Executive Summary
