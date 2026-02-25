@@ -24,7 +24,7 @@ describe("buildCopyForChatBlock", () => {
   it("uses range start-end in link text and L{start} in fragment when range is set", () => {
     const finding: Finding = {
       file: "pkg/main.go",
-      line: 5,
+      line: 3,
       range: { start: 5, end: 7 },
       severity: "error",
       category: "bug",

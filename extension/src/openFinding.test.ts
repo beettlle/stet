@@ -121,10 +121,16 @@ describe("openFinding", () => {
   });
 
   it("uses cursor_uri when present and parseable", async () => {
+    const strippedUri = {
+      scheme: "file",
+      fsPath: "/abs/path/main.go",
+      fragment: "",
+    };
     const parsedUri = {
       scheme: "file",
       fsPath: "/abs/path/main.go",
       fragment: "L10",
+      with: (_change: Record<string, string>) => strippedUri,
     };
     mockUriParse.mockReturnValue(parsedUri);
     mockShowTextDocument.mockResolvedValue({});
@@ -140,7 +146,7 @@ describe("openFinding", () => {
 
     expect(mockUriParse).toHaveBeenCalledWith("file:///abs/path/main.go#L10", true);
     expect(mockShowTextDocument).toHaveBeenCalledWith(
-      parsedUri,
+      strippedUri,
       expect.objectContaining({
         preview: false,
       })

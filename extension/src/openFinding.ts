@@ -47,10 +47,10 @@ export async function openFinding(
     try {
       const parsed = vscode.Uri.parse(finding.cursor_uri, true);
       if (parsed.scheme === "file" || parsed.scheme === "cursor") {
-        uri = parsed;
         selection = parsed.fragment
           ? rangeFromFragment(parsed.fragment)
           : undefined;
+        uri = parsed.with({ fragment: "" });
         if (!selection && finding.line !== undefined) {
           selection = new vscode.Range(
             finding.line - 1,

@@ -31,11 +31,12 @@ function categoryToTitle(category: Category): string {
 }
 
 /**
- * Line number (or range start) for the file link fragment. Fallback 1 if missing.
+ * Line number for the file link fragment. Prefers range.start so the fragment
+ * stays consistent with the label produced by linePartForLabel. Fallback 1 if missing.
  */
 function lineForFragment(finding: Finding): number {
-  if (finding.line !== undefined) return finding.line;
   if (finding.range?.start !== undefined) return finding.range.start;
+  if (finding.line !== undefined) return finding.line;
   return 1;
 }
 
