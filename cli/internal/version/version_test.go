@@ -3,10 +3,6 @@ package version
 import "testing"
 
 func TestString(t *testing.T) {
-	// Save and restore globals so tests don't affect each other.
-	savedVersion, savedCommit := Version, Commit
-	defer func() { Version, Commit = savedVersion, savedCommit }()
-
 	tests := []struct {
 		name    string
 		version string
@@ -20,6 +16,9 @@ func TestString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			saved := [2]string{Version, Commit}
+			t.Cleanup(func() { Version, Commit = saved[0], saved[1] })
+
 			Version, Commit = tt.version, tt.commit
 			got := String()
 			if got != tt.want {
