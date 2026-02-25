@@ -114,8 +114,14 @@ func PrepareHunkPrompt(ctx context.Context, systemBase string, hunk diff.Hunk, r
 			traceOut.Printf("Expand: not applied\n")
 		}
 	}
-	if filepath.Ext(hunk.FilePath) == ".go" {
-		minified := minify.MinifyGoHunkContent(hunk.RawContent)
+	ext := filepath.Ext(hunk.FilePath)
+	if ext == ".go" || ext == ".rs" {
+		var minified string
+		if ext == ".go" {
+			minified = minify.MinifyGoHunkContent(hunk.RawContent)
+		} else {
+			minified = minify.MinifyRustHunkContent(hunk.RawContent)
+		}
 		if strings.Contains(hunk.Context, "## Diff hunk") {
 			hunk.Context = strings.TrimSuffix(hunk.Context, hunk.RawContent) + minified
 		} else {
