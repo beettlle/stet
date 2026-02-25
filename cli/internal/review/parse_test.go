@@ -141,6 +141,21 @@ func TestParseFindingsResponse_arrayInvalidCategory_coerced(t *testing.T) {
 	}
 }
 
+func TestParseFindingsResponse_singleObject_invalidCategory_coerced(t *testing.T) {
+	// Single object with invalid category is normalized to bug and succeeds.
+	jsonStr := `{"file":"a.go","line":1,"severity":"warning","category":"unknown","confidence":1.0,"message":"some issue"}`
+	list, err := ParseFindingsResponse(jsonStr)
+	if err != nil {
+		t.Fatalf("ParseFindingsResponse: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("len(list) = %d, want 1 (coerced)", len(list))
+	}
+	if list[0].Category != findings.CategoryBug {
+		t.Errorf("category = %q, want %q (coerced from unknown)", list[0].Category, findings.CategoryBug)
+	}
+}
+
 func TestParseFindingsResponse_arrayTwoValidOneInvalid_dropsInvalid(t *testing.T) {
 	// Two valid findings and one invalid (empty message); invalid is dropped.
 	jsonStr := `[

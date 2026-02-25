@@ -161,6 +161,7 @@ func TestFindingValidate(t *testing.T) {
 		}, ""},
 		{"valid_documentation", func() Finding { f := validFinding(); f.Category = CategoryDocumentation; return f }(), ""},
 		{"valid_design", func() Finding { f := validFinding(); f.Category = CategoryDesign; return f }(), ""},
+		{"valid_accessibility", func() Finding { f := validFinding(); f.Category = CategoryAccessibility; return f }(), ""},
 		{"nil_finding", Finding{}, "finding is nil"},
 		{"missing_severity", func() Finding { f := validFinding(); f.Severity = ""; return f }(), "severity is required"},
 		{"missing_category", func() Finding { f := validFinding(); f.Category = ""; return f }(), "category is required"},

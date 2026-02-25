@@ -22,7 +22,7 @@ type ParseOptions struct {
 // the model returns one finding as an object instead of an array).
 // For array and wrapper responses, each finding is normalized (invalid severity→warning, invalid category→bug),
 // then validated; findings that still fail validation (e.g. empty message) are dropped.
-// Single-object fallback is strict: no coercion, validation failure returns an error.
+// Single-object fallback: normalize then validate (same coercion as array path); validation failure returns error.
 // File may be omitted and filled later from the hunk; line and range are optional (file-only
 // findings are valid). IDs are not set; use AssignFindingIDs after parsing.
 func ParseFindingsResponse(jsonStr string, opts ...ParseOptions) ([]findings.Finding, error) {
@@ -53,11 +53,13 @@ func ParseFindingsResponse(jsonStr string, opts ...ParseOptions) ([]findings.Fin
 		return normalizeAndFilterFindings(wrapper.Findings, onDropped), nil
 	}
 	// Corrective fallback: some models return a single finding object instead of an array or wrapper.
-	// Strict: no coercion; validation failure returns error.
+	// Normalize then validate (same as array path): unknown severity/category are coerced; validation
+	// still fails for other errors (e.g. empty message).
 	var single findings.Finding
 	if err := json.Unmarshal([]byte(jsonStr), &single); err != nil {
 		return nil, fmt.Errorf("parse findings: %w", err)
 	}
+	single.Normalize()
 	if verr := single.Validate(); verr != nil {
 		return nil, fmt.Errorf("parse findings: single object validation failed: %w", verr)
 	}

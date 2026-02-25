@@ -22,6 +22,7 @@ export const CATEGORIES = [
   "testing",
   "documentation",
   "design",
+  "accessibility",
 ] as const;
 export type Category = (typeof CATEGORIES)[number];
 

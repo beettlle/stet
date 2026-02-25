@@ -55,7 +55,7 @@ Respond with a single JSON array of findings. Each finding is an object with:
 - line (integer, optional if range is set): line number
 - range (object, optional): { "start": n, "end": n } for a line span
 - severity (string, required): one of "error" | "warning" | "info" | "nitpick"
-- category (string, required): one of "bug" | "security" | "correctness" | "performance" | "style" | "maintainability" | "best_practice" | "testing" | "documentation" | "design"
+- category (string, required): one of "bug" | "security" | "correctness" | "performance" | "style" | "maintainability" | "best_practice" | "testing" | "documentation" | "design" | "accessibility"
 - confidence (number, required): your certainty 0.0–1.0 (1.0 = definite defect, lower = possible issue)
 - message (string, required): review comment
 - suggestion (string, optional): suggested fix

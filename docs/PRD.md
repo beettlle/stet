@@ -301,7 +301,7 @@ Array of objects with at least:
 - `file`: path relative to repo root.
 - `line` or `range`: line number or `{ "start", "end" }`.
 - `severity` (required): one of `error | warning | info | nitpick`. The prompt must request this from the model.
-- `category` (required): one of `bug | security | performance | style | maintainability | testing | documentation | design`. For extension filtering; aligns with prompt strategies (§3d).
+- `category` (required): one of `bug | security | performance | style | maintainability | testing | documentation | design | accessibility`. For extension filtering; aligns with prompt strategies (§3d).
 - `message`: review comment text.
 - `suggestion` (optional): patch or snippet.
 - `cursor_uri`: `file:///path/to/file#L10` for deep linking.

@@ -27,6 +27,7 @@ const (
 	CategoryTesting         Category = "testing"
 	CategoryDocumentation   Category = "documentation"
 	CategoryDesign          Category = "design"
+	CategoryAccessibility   Category = "accessibility"
 )
 
 // LineRange represents a span of lines (start and end inclusive).

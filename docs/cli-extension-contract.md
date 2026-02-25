@@ -32,7 +32,7 @@ This document defines the output and exit-code contract between the Stet CLI and
   - **`line`** (number, optional): Line number.
   - **`range`** (object, optional): `{"start": n, "end": m}` for multi-line span.
   - **`severity`** (string): `"error"`, `"warning"`, `"info"`, or `"nitpick"`.
-  - **`category`** (string): Canonical set for Defect-Focused pipeline and extension: `"security"`, `"correctness"`, `"performance"`, `"maintainability"`, `"best_practice"`. Existing values (`"bug"`, `"style"`, `"testing"`, `"documentation"`, `"design"`) are retained for backward compatibility.
+  - **`category`** (string): Canonical set for Defect-Focused pipeline and extension: `"security"`, `"correctness"`, `"performance"`, `"maintainability"`, `"best_practice"`. Existing values (`"bug"`, `"style"`, `"testing"`, `"documentation"`, `"design"`, `"accessibility"`) are retained for backward compatibility.
   - **`confidence`** (number): Float 0.0–1.0; model’s certainty. CLI always emits this (default 1.0 when omitted from model output).
   - **`message`** (string): Description of the finding.
   - **`suggestion`** (string, optional): Suggested fix.
