@@ -111,12 +111,10 @@ export function activate(context: vscode.ExtensionContext): void {
                   void vscode.window.showErrorMessage("Stet: Invalid stream output from CLI.");
                 }
               },
-              onClose(exitCode, stderr) {
+              onClose(_exitCode, _stderr) {
+                // Only reset scanning indicator; error display is handled
+                // after the await so it runs exactly once.
                 findingsProvider.setScanning(false);
-                if (exitCode !== 0) {
-                  findingsProvider.setFindings([]);
-                  showCLIError(stderr, exitCode);
-                }
               },
             }
           );

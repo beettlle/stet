@@ -17,12 +17,13 @@ export async function runFinishReview(
 ): Promise<FinishReviewResult> {
   const result = await spawnStet(["finish"], { cwd });
   if (result.exitCode === 0) {
+    // Always attempt clear; if it throws, the CLI still succeeded so we
+    // return ok: true. The panel may be stale, but the review is finished.
     try {
       provider.clear();
     } catch (e: unknown) {
       const err = e instanceof Error ? e : new Error(String(e));
       console.error("Failed to clear findings panel:", err.message, err.stack ?? "");
-      // CLI succeeded; panel state may be stale but finish completed
     }
     return { ok: true, stderr: result.stderr, exitCode: 0 };
   }

@@ -58,7 +58,9 @@ export class FindingsTreeDataProvider
     const tooltip = new vscode.MarkdownString();
     tooltip.appendMarkdown(`**${finding.file}${linePart}**\n\n`);
     tooltip.appendMarkdown(`${finding.severity} · ${finding.category}\n\n`);
-    tooltip.appendMarkdown(finding.message);
+    if (finding.message) {
+      tooltip.appendMarkdown(finding.message);
+    }
 
     const payload: OpenFindingPayload = {
       file: finding.file,

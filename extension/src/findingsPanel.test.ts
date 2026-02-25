@@ -98,7 +98,7 @@ describe("FindingsTreeDataProvider", () => {
     provider.setScanning(false);
     const children = provider.getChildren(undefined);
     expect(children).toHaveLength(1);
-    expect(children[0]).toMatchObject({ kind: "finding", finding: finding1 });
+    expect(children[0]).toEqual({ kind: "finding", finding: finding1 });
   });
 
   it("getTreeItem for scanning returns item with Scanning label", () => {
@@ -131,7 +131,7 @@ describe("FindingsTreeDataProvider", () => {
     const provider = new FindingsTreeDataProvider();
     const item = provider.getTreeItem({ kind: "finding", finding: finding2 });
     expect(item.label).toBe("pkg/main.go:5-7");
-    expect(item.command!.arguments[0]).toMatchObject({
+    expect(item.command!.arguments[0]).toEqual({
       file: "pkg/main.go",
       line: 5,
       range: { start: 5, end: 7 },

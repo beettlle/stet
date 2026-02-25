@@ -56,8 +56,11 @@ describe("runFinishReview", () => {
     const result = await runFinishReview("/workspace", mockProvider as never);
 
     expect(mockProvider.clear).not.toHaveBeenCalled();
-    expect(result.ok).toBe(false);
-    expect(result.exitCode).toBe(2);
+    expect(result).toEqual({
+      ok: false,
+      stderr: "Ollama unreachable",
+      exitCode: 2,
+    });
   });
 
   it("returns ok true when clear throws (CLI succeeded)", async () => {
