@@ -1,5 +1,5 @@
-// Package stats provides impact reporting (volume, quality, energy) from
-// stet git notes and history.
+// Package stats (volume.go) aggregates review volume metrics (hunks, lines,
+// chars) from stet git notes across a ref range.
 package stats
 
 import (

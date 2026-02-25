@@ -1,3 +1,4 @@
+// Tests for model throughput benchmarking (tokens/s measurement).
 package benchmark
 
 import (

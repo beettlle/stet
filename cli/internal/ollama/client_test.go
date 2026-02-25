@@ -1,3 +1,4 @@
+// Tests for the Ollama HTTP client (health, model list, generate).
 package ollama
 
 import (

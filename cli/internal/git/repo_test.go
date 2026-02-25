@@ -1,3 +1,4 @@
+// Tests for repository discovery and status helpers.
 package git
 
 import (

@@ -1,3 +1,4 @@
+// Tests for false-positive kill-list filtering of findings.
 package findings
 
 import (

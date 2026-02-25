@@ -1,3 +1,4 @@
+// Tests for Cursor URI generation from finding file paths and line numbers.
 package findings
 
 import (

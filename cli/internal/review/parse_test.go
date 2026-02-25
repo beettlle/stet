@@ -1,3 +1,4 @@
+// Tests for LLM response parsing into structured findings.
 package review
 
 import (

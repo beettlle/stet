@@ -15,11 +15,11 @@ import (
 // Definition holds one symbol definition: file, line, signature, and optional
 // docstring for injection into the prompt.
 type Definition struct {
-	Symbol    string // name of the symbol
-	File      string // path relative to repo root
-	Line      int
-	Signature string // one or a few lines of declaration
-	Docstring string // optional comment above or inline
+	Symbol    string // Name of the symbol.
+	File      string // Path relative to repo root.
+	Line      int    // 1-based line number of the definition.
+	Signature string // One or a few lines of declaration.
+	Docstring string // Optional comment above or inline.
 }
 
 // ResolveOptions bounds symbol resolution: max definitions and optional token cap.
