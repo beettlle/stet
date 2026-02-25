@@ -67,5 +67,16 @@ func TestFindingNormalize_invalidCategory_coercedToBug(t *testing.T) {
 func TestFindingNormalize_nilNoop(t *testing.T) {
 	t.Parallel()
 	var f *Finding
-	f.Normalize() // must not panic
+	var panicked bool
+	func() {
+		defer func() {
+			if recover() != nil {
+				panicked = true
+			}
+		}()
+		f.Normalize()
+	}()
+	if panicked {
+		t.Fatal("Normalize on nil pointer must not panic")
+	}
 }

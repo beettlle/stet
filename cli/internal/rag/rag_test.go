@@ -15,6 +15,8 @@ func (mockResolver) ResolveSymbols(ctx context.Context, repoRoot, filePath, hunk
 	}, nil
 }
 
+// TestResolveSymbols_unknownExtension_returnsNil verifies that when no resolver is
+// registered for the extension, ResolveSymbols returns (nil, nil), not an empty slice.
 func TestResolveSymbols_unknownExtension_returnsNil(t *testing.T) {
 	ctx := context.Background()
 	defs, err := ResolveSymbols(ctx, "/repo", "src/file.xyz", "some content", ResolveOptions{MaxDefinitions: 5})
