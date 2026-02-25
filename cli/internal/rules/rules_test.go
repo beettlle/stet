@@ -15,7 +15,7 @@ func mustCreateRulesDir(t *testing.T, base, rel string) string {
 	return p
 }
 
-func TestParseMDC_globsString_contentParsed(t *testing.T) {
+func TestParseMDC_globsString(t *testing.T) {
 	content := "---\nglobs: \"*.ts\"\n---\nDo not use any.\n"
 	rule, ok := parseMDC(content)
 	if !ok {

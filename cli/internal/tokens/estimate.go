@@ -42,6 +42,7 @@ func WarnIfOver(promptTokens, responseReserve, contextLimit int, warnThreshold f
 	if promptTokens < 0 || responseReserve < 0 {
 		return ""
 	}
+	// Avoid overflow of promptTokens+responseReserve; check before adding.
 	if responseReserve > math.MaxInt-promptTokens {
 		return fmt.Sprintf("token estimate overflow (prompt %d + reserve %d)", promptTokens, responseReserve)
 	}

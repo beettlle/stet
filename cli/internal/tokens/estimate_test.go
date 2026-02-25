@@ -57,7 +57,7 @@ func TestWarnIfOver(t *testing.T) {
 		{"warn_threshold_zero_total_positive", 1, 0, 100, 0, false, []string{"exceeds", "0%"}},
 		{"warn_threshold_one_at_limit", 32768, 0, 32768, 1.0, false, []string{"32768", "100", "32768"}},
 		{"warn_threshold_one_under_limit", 32767, 0, 32768, 1.0, true, nil},
-		{"overflow_returns_warning", math.MaxInt, 1, 32768, 0.9, false, []string{"overflow", "prompt", "reserve"}},
+		{"overflow_returns_warning", math.MaxInt - 10, 20, 32768, 0.9, false, []string{"overflow", "prompt", "reserve"}},
 	}
 	for _, tt := range tests {
 		tt := tt
