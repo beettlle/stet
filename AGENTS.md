@@ -125,6 +125,10 @@ This project utilizes **Go** and **JavaScript/TypeScript**. Refer to the followi
 - **Standards:** `.cursor/rules/javascript-3-development-standards.mdc`
 - **Audit:** `.cursor/rules/javascript-3-brutal-audit.mdc`
 
+### Rust
+- **Standards:** `.cursor/rules/rust-development-standards.mdc`
+- **Audit:** `.cursor/rules/rust-brutal-audit.mdc`
+
 ## 🛠️ Project-Specific Instructions
 
 ### Development Environment
@@ -174,5 +178,6 @@ This project utilizes **Go** and **JavaScript/TypeScript**. Refer to the followi
 
 - **For Go code:** Run the steps in `.cursor/rules/go-1-21-brutal-audit.mdc`.
 - **For JS/TS code:** Run the steps in `.cursor/rules/javascript-3-brutal-audit.mdc`.
+- **For Rust code:** Run the steps in `.cursor/rules/rust-brutal-audit.mdc`.
 
 **To invoke:** Ask the agent to "Run the brutal audit" or "Verify this phase".
