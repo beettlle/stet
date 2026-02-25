@@ -3,6 +3,7 @@ package commitmsg
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"stet/cli/internal/ollama"
@@ -23,6 +24,9 @@ Do not wrap the first line. Do not use markdown, code blocks, or quotes.`
 // diff is the output of git diff (staged and/or unstaged). opts may be nil; a lower
 // temperature (e.g. 0.2) is recommended for more deterministic messages.
 func Suggest(ctx context.Context, client *ollama.Client, model, diff string, opts *ollama.GenerateOptions) (string, error) {
+	if client == nil {
+		return "", errors.New("commitmsg: nil client")
+	}
 	if len(diff) > maxDiffChars {
 		diff = diff[:maxDiffChars] + "\n\n[truncated for context]"
 	}

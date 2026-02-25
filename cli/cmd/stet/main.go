@@ -49,6 +49,11 @@ var getFindingsOut = defaultGetFindingsOut
 
 const hintBaselineRefResolution = "Hint: If you used HEAD~N, the repo may be shallow; try the commit SHA (e.g. stet start <sha>)."
 
+// _defaultCommitMsgNumCtx is the fallback context window size (in tokens) for commit message generation
+// when cfg.NumCtx is 0 (not configured). 32k is large enough for typical diffs while staying within
+// the default context of most models.
+const _defaultCommitMsgNumCtx = 32768
+
 // findingsWriter returns the writer for findings output, or os.Stdout if getFindingsOut() returns nil.
 // It never returns nil; callers may assume a non-nil writer.
 func findingsWriter() io.Writer {
@@ -1295,7 +1300,7 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 		NumCtx:      cfg.NumCtx,
 	}
 	if opts.NumCtx <= 0 {
-		opts.NumCtx = 32768
+		opts.NumCtx = _defaultCommitMsgNumCtx
 	}
 	msg, err := commitmsg.Suggest(cmd.Context(), client, cfg.Model, diff, opts)
 	if err != nil {
