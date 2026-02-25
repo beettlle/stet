@@ -188,7 +188,7 @@ func TestVolume_withGitAI_populatesGitAI(t *testing.T) {
 	note := `src/main.go
   abcd1234abcd1234 1-5
 ---
-{"schema_version":"authorship/3.0.0","base_commit_sha":"` + headSHA + `","prompts":{"abcd1234abcd1234":{"agent_id":{"tool":"cursor","id":"x","model":"y"},"messages":[],"total_additions":5,"total_deletions":0,"accepted_lines":5,"overriden_lines":0}}}`
+{"schema_version":"authorship/3.0.0","base_commit_sha":"` + headSHA + `","prompts":{"abcd1234abcd1234":{"agent_id":{"tool":"cursor","id":"x","model":"y"},"messages":[],"total_additions":5,"total_deletions":0,"accepted_lines":5,"overridden_lines":0}}}`
 	if err := git.AddNote(repo, git.NotesRefAI, headSHA, note); err != nil {
 		t.Fatalf("AddNote git-ai: %v", err)
 	}

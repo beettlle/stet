@@ -107,6 +107,29 @@ func TestEnergy_notesWithoutUsageFields(t *testing.T) {
 	}
 }
 
+func TestEnergy_wattsZero_noLocalEnergy(t *testing.T) {
+	t.Parallel()
+	repo := initRepo(t)
+	headSHA := runOut(t, repo, "git", "rev-parse", "HEAD")
+	note := `{"session_id":"s1","baseline_sha":"` + runOut(t, repo, "git", "rev-parse", "HEAD~1") + `","head_sha":"` + headSHA + `","findings_count":0,"dismissals_count":0,"tool_version":"test","finished_at":"2025-01-01T00:00:00Z","eval_duration_ns":3600000000000,"prompt_tokens":1000000,"completion_tokens":100000}`
+	if err := git.AddNote(repo, git.NotesRefStet, headSHA, note); err != nil {
+		t.Fatalf("AddNote: %v", err)
+	}
+	res, err := Energy(repo, "HEAD~1", "HEAD", 0, []CloudModel{{Name: "gpt-4o-mini", InPerMillion: 0.15, OutPerMillion: 0.60}})
+	if err != nil {
+		t.Fatalf("Energy: %v", err)
+	}
+	if res.LocalEnergyKWh != 0 {
+		t.Errorf("LocalEnergyKWh with watts=0: got %.4f, want 0", res.LocalEnergyKWh)
+	}
+	if res.TotalEvalDurationNs != 3600000000000 {
+		t.Errorf("TotalEvalDurationNs: got %d, want 3600000000000", res.TotalEvalDurationNs)
+	}
+	if cost := res.CloudCostAvoided["gpt-4o-mini"]; cost < 0.20 || cost > 0.22 {
+		t.Errorf("CloudCostAvoided[gpt-4o-mini]: got %.4f, want ~0.21", cost)
+	}
+}
+
 func TestEnergy_cloudModelPreset(t *testing.T) {
 	t.Parallel()
 	m, err := ParseCloudModel("gpt-4o-mini")

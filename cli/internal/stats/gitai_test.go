@@ -42,11 +42,11 @@ func TestGitAIMetrics_validNote(t *testing.T) {
 	note1 := `src/main.go
   abcd1234abcd1234 1-10
 ---
-{"schema_version":"authorship/3.0.0","base_commit_sha":"` + head1SHA + `","prompts":{"abcd1234abcd1234":{"agent_id":{"tool":"cursor","id":"x","model":"y"},"messages":[],"total_additions":10,"total_deletions":0,"accepted_lines":10,"overriden_lines":0}}}`
+{"schema_version":"authorship/3.0.0","base_commit_sha":"` + head1SHA + `","prompts":{"abcd1234abcd1234":{"agent_id":{"tool":"cursor","id":"x","model":"y"},"messages":[],"total_additions":10,"total_deletions":0,"accepted_lines":10,"overridden_lines":0}}}`
 	note2 := `src/lib.go
   efgh5678efgh5678 1-5,7
 ---
-{"schema_version":"authorship/3.0.0","base_commit_sha":"` + headSHA + `","prompts":{"efgh5678efgh5678":{"agent_id":{"tool":"cursor","id":"y","model":"z"},"messages":[],"total_additions":6,"total_deletions":0,"accepted_lines":6,"overriden_lines":0}}}`
+{"schema_version":"authorship/3.0.0","base_commit_sha":"` + headSHA + `","prompts":{"efgh5678efgh5678":{"agent_id":{"tool":"cursor","id":"y","model":"z"},"messages":[],"total_additions":6,"total_deletions":0,"accepted_lines":6,"overridden_lines":0}}}`
 	if err := git.AddNote(repo, git.NotesRefAI, head1SHA, note1); err != nil {
 		t.Fatalf("AddNote HEAD~1: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestParseGitAINote_multiplePrompts(t *testing.T) {
 src/b.go
   bbbb2222bbbb2222 1-3
 ---
-{"schema_version":"authorship/3.0.0","base_commit_sha":"abc","prompts":{"aaaa1111aaaa1111":{"accepted_lines":5,"total_additions":5,"total_deletions":0,"overriden_lines":0},"bbbb2222bbbb2222":{"accepted_lines":3,"total_additions":3,"total_deletions":0,"overriden_lines":0}}}`
+{"schema_version":"authorship/3.0.0","base_commit_sha":"abc","prompts":{"aaaa1111aaaa1111":{"accepted_lines":5,"total_additions":5,"total_deletions":0,"overridden_lines":0},"bbbb2222bbbb2222":{"accepted_lines":3,"total_additions":3,"total_deletions":0,"overridden_lines":0}}}`
 	lines, err := parseGitAINote(body)
 	if err != nil {
 		t.Fatalf("parseGitAINote: %v", err)

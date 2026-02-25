@@ -23,12 +23,15 @@ type gitAIMetadata struct {
 }
 
 // gitAIPromptRec is a prompt record in the metadata.
-// Handles overriden_lines typo from v3.0.0 (errata E-001).
+// The JSON tag uses the corrected spelling "overridden_lines"; the v3.0.0 spec
+// had a typo "overriden_lines" (errata E-001). Old notes with the typo will
+// leave OverriddenLines at zero, which is acceptable since the field is
+// informational and not used in aggregation logic.
 type gitAIPromptRec struct {
-	AcceptedLines  int `json:"accepted_lines"`
-	TotalAdditions int `json:"total_additions"`
-	TotalDeletions int `json:"total_deletions"`
-	OverridenLines int `json:"overriden_lines"`
+	AcceptedLines   int `json:"accepted_lines"`
+	TotalAdditions  int `json:"total_additions"`
+	TotalDeletions  int `json:"total_deletions"`
+	OverriddenLines int `json:"overridden_lines"`
 }
 
 // GitAIInUse reports whether git-ai is used in the repo (refs/notes/ai exists).
@@ -79,6 +82,9 @@ func parseGitAINote(body string) (int, error) {
 	var meta gitAIMetadata
 	if err := json.Unmarshal([]byte(metaJSON), &meta); err != nil {
 		return 0, err
+	}
+	if meta.Prompts == nil {
+		return 0, nil
 	}
 	var total int
 	for _, p := range meta.Prompts {

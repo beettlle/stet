@@ -74,17 +74,18 @@ func Quality(stateDir string) (*QualityResult, error) {
 		}
 		tokensReviewed += prompt + completion
 	}
-	// Rates with safe division.
+	// Rates with safe division; capped to [0, 1] for robustness against
+	// inconsistent history data (e.g. more dismissals than findings).
 	if res.TotalFindings > 0 {
-		res.DismissalRate = float64(res.TotalDismissed) / float64(res.TotalFindings)
-		res.AcceptanceRate = float64(res.TotalFindings-res.TotalDismissed) / float64(res.TotalFindings)
-		res.FalsePositiveRate = float64(res.DismissalsByReason[history.ReasonFalsePositive]) / float64(res.TotalFindings)
+		res.DismissalRate = min(float64(res.TotalDismissed)/float64(res.TotalFindings), 1.0)
+		res.AcceptanceRate = max(float64(res.TotalFindings-res.TotalDismissed)/float64(res.TotalFindings), 0.0)
+		res.FalsePositiveRate = min(float64(res.DismissalsByReason[history.ReasonFalsePositive])/float64(res.TotalFindings), 1.0)
 	}
 	if res.TotalDismissed > 0 {
-		res.Actionability = float64(res.DismissalsByReason[history.ReasonAlreadyCorrect]) / float64(res.TotalDismissed)
+		res.Actionability = min(float64(res.DismissalsByReason[history.ReasonAlreadyCorrect])/float64(res.TotalDismissed), 1.0)
 	}
 	if res.SessionsCount > 0 {
-		res.CleanCommitRate = float64(sessionsWithZeroFindings) / float64(res.SessionsCount)
+		res.CleanCommitRate = min(float64(sessionsWithZeroFindings)/float64(res.SessionsCount), 1.0)
 	}
 	if tokensReviewed > 0 && res.TotalFindings > 0 {
 		res.FindingDensity = float64(res.TotalFindings) / (float64(tokensReviewed) / 1000)

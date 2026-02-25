@@ -124,10 +124,13 @@ func Energy(repoRoot, sinceRef, untilRef string, watts int, cloudModels []CloudM
 		sumSec := float64(totalEvalNs) / 1e9
 		res.LocalEnergyKWh = (sumSec / 3600) * (float64(watts) / 1000)
 	}
-	// Cloud cost ($): (prompt/1e6)*in + (completion/1e6)*out per model
-	for _, m := range cloudModels {
-		cost := (float64(totalPrompt)/1e6)*m.InPerMillion + (float64(totalCompletion)/1e6)*m.OutPerMillion
-		res.CloudCostAvoided[m.Name] = cost
+	// Cloud cost ($): (prompt/1e6)*in + (completion/1e6)*out per model.
+	// Skip when no tokens were recorded to avoid storing meaningless $0 entries.
+	if totalPrompt > 0 || totalCompletion > 0 {
+		for _, m := range cloudModels {
+			cost := (float64(totalPrompt)/1e6)*m.InPerMillion + (float64(totalCompletion)/1e6)*m.OutPerMillion
+			res.CloudCostAvoided[m.Name] = cost
+		}
 	}
 	return res, nil
 }
