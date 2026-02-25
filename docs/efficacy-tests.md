@@ -1,5 +1,8 @@
 # Efficacy Tests for Stet
 
+**Status:** Living document
+**Parent PRD:** [docs/PRD.md](PRD.md)
+
 This document defines two categories of tests for evaluating Stet's code review quality, model performance, and user experience:
 
 1. **Automated tests** — Scriptable tests that a coding LLM can implement without human judgment. Each entry includes inputs, outputs, schemas, CLI invocations, and implementation steps.

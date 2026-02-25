@@ -32,7 +32,7 @@ This document defines the output and exit-code contract between the Stet CLI and
   - **`line`** (number, optional): Line number.
   - **`range`** (object, optional): `{"start": n, "end": m}` for multi-line span.
   - **`severity`** (string): `"error"`, `"warning"`, `"info"`, or `"nitpick"`.
-  - **`category`** (string): Canonical set for Defect-Focused pipeline and extension: `"security"`, `"correctness"`, `"performance"`, `"maintainability"`, `"best_practice"`. Existing values (`"bug"`, `"style"`, `"testing"`, `"documentation"`, `"design"`, `"accessibility"`) are retained for backward compatibility.
+  - **`category`** (string): Canonical set for Defect-Focused pipeline and extension: `"security"`, `"correctness"`, `"performance"`, `"maintainability"`, `"best_practice"`. Existing values (`"bug"`, `"style"`, `"testing"`, `"documentation"`, `"design"`, `"accessibility"`) are retained for backward compatibility. The `"accessibility"` category covers UI/UX accessibility concerns (e.g. missing labels, contrast, keyboard navigation); use it when the finding relates to assistive-technology or inclusive-design requirements.
   - **`confidence`** (number): Float 0.0–1.0; model’s certainty. CLI always emits this (default 1.0 when omitted from model output).
   - **`message`** (string): Description of the finding.
   - **`suggestion`** (string, optional): Suggested fix.
@@ -224,7 +224,7 @@ Use **`stet stats volume`** to report review volume over a ref range. It reads *
 
 Use **`stet stats quality`** to report review quality from **`.review/history.jsonl`**. It aggregates total findings, total dismissed, and per-reason breakdown, and outputs: dismissal rate, acceptance rate, false positive rate, actionability, clean commit rate, finding density (when token data is available), and category breakdown. Example: `stet stats quality` or `stet stats quality --format=json`. Metric definitions are in the implementation plan Phase 9 appendix ("Impact reporting metric definitions").
 
-Use **`stet stats energy`** to report local energy (kWh) and cloud cost avoided ($) from **`refs/notes/stet`**. It aggregates `eval_duration_ns`, `prompt_tokens`, and `completion_tokens`. Flags: `--watts=30` (assumed power draw in watts for local kWh calculation), `--cloud-model=NAME` (preset: `claude-sonnet`, `gpt-4o-mini`) or `--cloud-model=NAME:in_per_million:out_per_million` (custom), `--since`, `--until`, `--format`. Example: `stet stats energy --cloud-model=gpt-4o-mini` or `stet stats energy --cloud-model=my-model:1:2 --format=json`. Caveats: estimates only; model equivalence heuristic; local cost excludes electricity.
+Use **`stet stats energy`** to report local energy (kWh) and cloud cost avoided ($) from **`refs/notes/stet`**. It aggregates `eval_duration_ns`, `prompt_tokens`, and `completion_tokens`. Flags: `--watts=30` (assumed power draw in watts for local kWh calculation), `--cloud-model=NAME` (preset: `claude-sonnet`, `gpt-4o-mini`) or `--cloud-model=NAME:in_per_million:out_per_million` (custom), `--since`, `--until`, `--format`. Example: `stet stats energy --cloud-model=gpt-4o-mini` or `stet stats energy --cloud-model=my-model:1:2 --format=json`. Caveats: estimates only; model equivalence heuristic; local energy estimate excludes electricity cost.
 
 ## Review quality and actionability
 

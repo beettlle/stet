@@ -280,7 +280,7 @@ Phase 6 replaces the generic "RAG-lite" placeholder with the research-backed Def
 | Deliverable | Tests / coverage |
 |-------------|------------------|
 | `stet stats energy [--watts=30] [--cloud-model=NAME] [--cloud-model=NAME:in_per_million:out_per_million]`. Sum `eval_duration_ns` and `prompt_tokens`/`completion_tokens` from notes (or history). **Local energy:** `(sum_duration_sec / 3600) * (watts / 1000)` = kWh. **Cloud cost avoided:** `(prompt_tokens/1e6 * price_in) + (completion_tokens/1e6 * price_out)`. Built-in presets (e.g. `claude-sonnet`, `gpt-4o-mini`); custom via `NAME:3:15` (per-million). | Unit test: mock note data → correct kWh and cost. 77% project, no file &lt; 72%. |
-| Document caveats: estimate only; model equivalence heuristic; local cost excludes electricity. | Doc review. |
+| Document caveats: estimates only; model equivalence heuristic; local energy estimate excludes electricity cost. | Doc review. |
 
 #### Sub-phase 9.8: Optional git-ai integration
 
@@ -337,7 +337,7 @@ Canonical definitions for `stet stats` output:
 
 **Quality:** **Dismissal rate** = dismissed / findings; **Acceptance rate** = (findings - dismissed) / findings; **False positive rate** = dismissals with reason `false_positive` / findings; **Actionability** = already_correct / dismissed; **Clean commit rate** = sessions with 0 findings / total sessions; **Finding density** = findings / (tokens_reviewed/1000) when tokens available; **Category breakdown** from findings.
 
-**Savings:** **Local energy (kWh)** = (sum eval_duration_sec / 3600) × (watts / 1000); **Cloud cost avoided ($)** = (prompt_tokens/1e6 × price_in) + (completion_tokens/1e6 × price_out). Caveats: estimate only; model equivalence heuristic; local cost excludes electricity.
+**Savings:** **Local energy (kWh)** = (sum eval_duration_sec / 3600) × (watts / 1000); **Cloud cost avoided ($)** = (prompt_tokens/1e6 × price_in) + (completion_tokens/1e6 × price_out). Caveats: estimates only; model equivalence heuristic; local energy estimate excludes electricity cost.
 
 ---
 

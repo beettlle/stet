@@ -1,8 +1,9 @@
-# implementation-plan-refine.md
+# Implementation Plan: Stet Refine (Auto-Fix)
 
 This document outlines the implementation roadmap for the **Stet Refine (Auto-Fix)** feature. It extends the core Stet architecture to support automated code fixing.
 
 **Source of truth:** [docs/PRD-Refine.md](PRD-Refine.md)
+**Version:** 1.0 (initial draft). See git history for revisions.
 
 ---
 
