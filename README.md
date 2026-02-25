@@ -74,7 +74,12 @@ cd stet
 ./install.sh
 ```
 
-Or build only: `make build` then copy `bin/stet` to a directory in your PATH.
+Or build manually and copy the binary to a directory in your PATH:
+
+```bash
+make build
+cp bin/stet ~/.local/bin/
+```
 
 **Option 4 — Go install**
 
