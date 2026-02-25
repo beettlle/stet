@@ -57,8 +57,11 @@ func captureUsage() bool {
 var ErrDirtyWorktree = errors.New("working tree has uncommitted changes; commit or stash before starting")
 
 const (
-	dryRunMessage            = "Dry-run placeholder (CI)"
-	_defaultOllamaTimeout    = 15 * time.Minute
+	dryRunMessage         = "Dry-run placeholder (CI)"
+	// _defaultOllamaTimeout is the per-request HTTP timeout for Ollama calls.
+	// The ollama.Client doubles this on each retry attempt, capping at
+	// ollama._maxRetryTimeout (30 min) to avoid unbounded waits.
+	_defaultOllamaTimeout = 15 * time.Minute
 	maxPromptContextStoreLen = 4096
 	// prepareBufferSize caps how many hunks are prepared ahead; keeps the LLM fed while bounding memory.
 	prepareBufferSize = 5
@@ -852,6 +855,7 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 
 	// Upfront Ollama check when not dry-run so wrong URL fails before creating worktree (Phase 3 remediation).
 	// Reuse the same client (with configurable timeout) for the check and the review loop.
+	// On retries the client scales the timeout exponentially, capped at 30 min (see ollama.retryTimeout).
 	var ollamaClient *ollama.Client
 	if !opts.DryRun {
 		timeout := opts.Timeout
@@ -1399,6 +1403,7 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 		if timeout == 0 {
 			timeout = _defaultOllamaTimeout
 		}
+		// On retries the client scales the timeout exponentially, capped at 30 min (see ollama.retryTimeout).
 		client := ollama.NewClient(opts.OllamaBaseURL, &http.Client{Timeout: timeout})
 		// Upfront Ollama check so wrong URL fails before review loop (Phase 3 remediation).
 		if _, err := client.Check(ctx, opts.Model); err != nil {
