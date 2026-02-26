@@ -26,6 +26,7 @@ import (
 	"stet/cli/internal/ollama"
 	"stet/cli/internal/run"
 	"stet/cli/internal/session"
+	"stet/cli/internal/skill"
 	"stet/cli/internal/stats"
 	"stet/cli/internal/version"
 
@@ -207,6 +208,7 @@ func runCLI(args []string) int {
 	rootCmd.AddCommand(newOptimizeCmd())
 	rootCmd.AddCommand(newCommitMsgCmd())
 	rootCmd.AddCommand(newDoctorCmd())
+	rootCmd.AddCommand(newSkillCmd())
 	rootCmd.AddCommand(newBenchmarkCmd())
 	rootCmd.AddCommand(newStatsCmd())
 	rootCmd.SilenceUsage = true
@@ -1631,6 +1633,31 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Fprintln(os.Stdout, "Ollama OK")
 	fmt.Fprintf(os.Stdout, "Model: %s\n", cfg.Model)
+	return nil
+}
+
+func newSkillCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "skill",
+		Short: "Print Agent Skill Markdown for LLM integration",
+		Long:  "Prints a SKILL.md document (Agent Skills format) to stdout. Save it as SKILL.md in .claude/skills/stet-integration/ or paste into your LLM's skill system. Use -o to write to a file.",
+		RunE:  runSkill,
+	}
+	cmd.Flags().StringP("output", "o", "", "Write skill to file instead of stdout")
+	return cmd
+}
+
+func runSkill(cmd *cobra.Command, args []string) error {
+	content := skill.SKILL(version.String())
+	outPath, _ := cmd.Flags().GetString("output")
+	if outPath != "" {
+		if err := os.WriteFile(outPath, []byte(content), 0644); err != nil {
+			return erruser.New("Failed to write skill file.", err)
+		}
+		fmt.Fprintf(os.Stderr, "Wrote skill to %s\n", outPath)
+		return nil
+	}
+	fmt.Print(content)
 	return nil
 }
 

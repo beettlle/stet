@@ -199,6 +199,55 @@ func TestRunCLI_helpExitsZero(t *testing.T) {
 	}
 }
 
+func TestRunCLI_skillPrintsToStdout(t *testing.T) {
+	t.Parallel()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStdout := os.Stdout
+	os.Stdout = w
+	t.Cleanup(func() { os.Stdout = oldStdout })
+	got := runCLI([]string{"skill"})
+	_ = w.Close()
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	if got != 0 {
+		t.Errorf("runCLI(skill) = %d, want 0", got)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "name: stet-integration") {
+		t.Errorf("skill stdout must contain name: stet-integration; got:\n%s", out)
+	}
+	if !strings.Contains(out, "## Commands") {
+		t.Errorf("skill stdout must contain ## Commands; got:\n%s", out)
+	}
+	if !strings.Contains(out, "stet dismiss") {
+		t.Errorf("skill stdout must contain stet dismiss; got:\n%s", out)
+	}
+}
+
+func TestRunCLI_skillWriteToFile(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	outPath := dir + "/SKILL.md"
+	got := runCLI([]string{"skill", "--output", outPath})
+	if got != 0 {
+		t.Errorf("runCLI(skill -o %s) = %d, want 0", outPath, got)
+	}
+	data, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "name: stet-integration") {
+		t.Errorf("skill file must contain name: stet-integration; got:\n%s", content)
+	}
+	if !strings.Contains(content, "## Dismiss Reasons") {
+		t.Errorf("skill file must contain ## Dismiss Reasons; got:\n%s", content)
+	}
+}
+
 func TestRunCLI_startFromNonGitReturnsNonZero(t *testing.T) {
 	// Do not run in parallel: test changes process cwd.
 	dir := t.TempDir()

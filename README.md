@@ -97,6 +97,7 @@ The default install directory is `~/.local/bin` (Mac/Linux) or `%USERPROFILE%\.l
 | Command | Description |
 |---------|-------------|
 | `stet doctor` | Verify Ollama, Git, models |
+| `stet skill` | Print Agent Skill Markdown for LLM integration (e.g. save as SKILL.md in `.claude/skills/stet-integration/`) |
 | `stet benchmark` | Measure model throughput (tokens/s) for the configured model |
 | `stet commitmsg` | Generate a conventional git commit message from uncommitted changes (local LLM); `--commit` to commit with it, `--commit-and-review` to commit then run review |
 | `stet start [ref]` | Start review from baseline |
