@@ -303,6 +303,17 @@ func TestUnmarshalFinding(t *testing.T) {
 				}
 			},
 		},
+		{
+			name:    "valid_with_evidence_lines_string_whitespace",
+			jsonStr: `{"file":"r.go","line":1,"severity":"info","category":"style","confidence":1.0,"message":"m","evidence_lines":"  10 ,  12  "}`,
+			wantErr: false,
+			check: func(t *testing.T, f *Finding) {
+				t.Helper()
+				if len(f.EvidenceLines) != 2 || f.EvidenceLines[0] != 10 || f.EvidenceLines[1] != 12 {
+					t.Errorf("evidence_lines (from string with whitespace) = %v, want [10, 12]", f.EvidenceLines)
+				}
+			},
+		},
 	}
 	for _, tt := range tests {
 		tt := tt

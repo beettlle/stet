@@ -100,3 +100,4 @@ type Finding struct {
 	CursorURI     string     `json:"cursor_uri,omitempty"`
 	EvidenceLines EvidenceLines `json:"evidence_lines,omitempty"`
 }
+

@@ -34,10 +34,6 @@ func minifyUnifiedHunkContent(content string) string {
 			out = append(out, "")
 			continue
 		}
-		if len(line) < 1 {
-			out = append(out, "")
-			continue
-		}
 		// len(line) >= 1 here: safe to slice line[0:1] and line[1:].
 		prefix := line[0:1]
 		rest := line[1:]
@@ -59,8 +55,8 @@ func MinifyGoHunkContent(content string) string {
 }
 
 // MinifyRustHunkContent reduces whitespace in unified-diff hunk content for
-// Rust files using the same per-line rules as Go. Safe for Rust because
-// semantics are unchanged. Callers should only pass raw hunk content.
+// Rust files. Uses the same per-line rules as MinifyGoHunkContent. Safe for
+// Rust; callers should only pass raw hunk content.
 func MinifyRustHunkContent(content string) string {
 	return minifyUnifiedHunkContent(content)
 }
