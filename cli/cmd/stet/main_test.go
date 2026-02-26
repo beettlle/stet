@@ -228,12 +228,20 @@ func TestRunCLI_skillPrintsToStdout(t *testing.T) {
 }
 
 func TestRunCLI_skillWriteToFile(t *testing.T) {
-	t.Parallel()
+	// Do not run in parallel: test changes process cwd.
 	dir := t.TempDir()
-	outPath := dir + "/SKILL.md"
-	got := runCLI([]string{"skill", "--output", outPath})
+	outPath := filepath.Join(dir, "SKILL.md")
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	got := runCLI([]string{"skill", "--output", "SKILL.md"})
 	if got != 0 {
-		t.Errorf("runCLI(skill -o %s) = %d, want 0", outPath, got)
+		t.Errorf("runCLI(skill -o SKILL.md) from dir %s = %d, want 0", dir, got)
 	}
 	data, err := os.ReadFile(outPath)
 	if err != nil {
@@ -245,6 +253,24 @@ func TestRunCLI_skillWriteToFile(t *testing.T) {
 	}
 	if !strings.Contains(content, "## Dismiss Reasons") {
 		t.Errorf("skill file must contain ## Dismiss Reasons; got:\n%s", content)
+	}
+}
+
+func TestRunCLI_skillOutputPathOutsideCwdRejected(t *testing.T) {
+	// Do not run in parallel: test changes process cwd.
+	dir := t.TempDir()
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	// Path outside cwd (e.g. ../other/SKILL.md) must be rejected.
+	got := runCLI([]string{"skill", "--output", "../other/SKILL.md"})
+	if got == 0 {
+		t.Error("runCLI(skill -o ../other/SKILL.md) should fail when path is outside cwd")
 	}
 }
 

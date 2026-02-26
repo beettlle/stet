@@ -1651,10 +1651,25 @@ func runSkill(cmd *cobra.Command, args []string) error {
 	content := skill.SKILL(version.String())
 	outPath, _ := cmd.Flags().GetString("output")
 	if outPath != "" {
-		if err := os.WriteFile(outPath, []byte(content), 0644); err != nil {
+		absPath, err := filepath.Abs(outPath)
+		if err != nil {
+			return erruser.New("Invalid output path.", err)
+		}
+		cwd, err := os.Getwd()
+		if err != nil {
+			return erruser.New("Could not determine current directory.", err)
+		}
+		rel, err := filepath.Rel(cwd, absPath)
+		if err != nil {
+			return erruser.New("Invalid output path.", err)
+		}
+		if strings.HasPrefix(rel, "..") {
+			return erruser.New("Output path must be under the current directory. Use stdout redirection (e.g. stet skill > path) to write elsewhere.", nil)
+		}
+		if err := os.WriteFile(absPath, []byte(content), 0644); err != nil {
 			return erruser.New("Failed to write skill file.", err)
 		}
-		fmt.Fprintf(os.Stderr, "Wrote skill to %s\n", outPath)
+		fmt.Fprintf(os.Stderr, "Wrote skill to %s\n", absPath)
 		return nil
 	}
 	fmt.Print(content)
