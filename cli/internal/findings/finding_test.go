@@ -314,6 +314,22 @@ func TestUnmarshalFinding(t *testing.T) {
 				}
 			},
 		},
+		{
+			name:    "valid_with_evidence_lines_single_string",
+			jsonStr: `{"file":"s.go","line":1,"severity":"info","category":"style","confidence":1.0,"message":"m","evidence_lines":"  42  "}`,
+			wantErr: false,
+			check: func(t *testing.T, f *Finding) {
+				t.Helper()
+				if len(f.EvidenceLines) != 1 || f.EvidenceLines[0] != 42 {
+					t.Errorf("evidence_lines (single from string) = %v, want [42]", f.EvidenceLines)
+				}
+			},
+		},
+		{
+			name:    "evidence_lines_invalid_string_returns_error",
+			jsonStr: `{"file":"t.go","line":1,"severity":"info","category":"style","confidence":1.0,"message":"m","evidence_lines":"10, not-a-number"}`,
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		tt := tt

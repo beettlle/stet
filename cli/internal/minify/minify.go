@@ -34,7 +34,7 @@ func minifyUnifiedHunkContent(content string) string {
 			out = append(out, "")
 			continue
 		}
-		// len(line) >= 1 here: safe to slice line[0:1] and line[1:].
+		// Empty lines handled above; len(line) >= 1 so line[0:1] is safe.
 		prefix := line[0:1]
 		rest := line[1:]
 		rest = strings.TrimLeft(rest, " \t")
@@ -45,18 +45,16 @@ func minifyUnifiedHunkContent(content string) string {
 }
 
 // MinifyGoHunkContent reduces whitespace in unified-diff hunk content for Go
-// files: keeps the @@ header and each line's first character (space, -, +);
-// for the rest of each line, trims leading whitespace and collapses runs of
-// spaces to one. Preserves semantics; does not alter string or comment bodies.
-// Returns the original content on empty input or if the first line is not a
-// hunk header (e.g. expanded context); callers should only pass raw hunk content.
+// files. Keeps the @@ header and each line's first character (space, -, +); for
+// the rest of each line, trims leading whitespace and collapses runs of spaces
+// to one. Preserves semantics. Returns the original content on empty input or
+// if the first line is not a hunk header. Callers should only pass raw hunk content.
 func MinifyGoHunkContent(content string) string {
 	return minifyUnifiedHunkContent(content)
 }
 
-// MinifyRustHunkContent reduces whitespace in unified-diff hunk content for
-// Rust files. Uses the same per-line rules as MinifyGoHunkContent. Safe for
-// Rust; callers should only pass raw hunk content.
+// MinifyRustHunkContent applies the same per-line minification as MinifyGoHunkContent
+// for Rust files. Callers should only pass raw hunk content.
 func MinifyRustHunkContent(content string) string {
 	return minifyUnifiedHunkContent(content)
 }
