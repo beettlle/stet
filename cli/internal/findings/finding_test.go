@@ -74,7 +74,7 @@ func TestFindingRoundtripJSON(t *testing.T) {
 				Category:      CategoryBug,
 				Confidence:    1.0,
 				Message:       "m",
-				EvidenceLines: []int{10, 12},
+				EvidenceLines: EvidenceLines{10, 12},
 			},
 		},
 	}
@@ -289,6 +289,17 @@ func TestUnmarshalFinding(t *testing.T) {
 				t.Helper()
 				if len(f.EvidenceLines) != 2 || f.EvidenceLines[0] != 10 || f.EvidenceLines[1] != 12 {
 					t.Errorf("evidence_lines = %v, want [10, 12]", f.EvidenceLines)
+				}
+			},
+		},
+		{
+			name:    "valid_with_evidence_lines_string",
+			jsonStr: `{"file":"q.go","line":1,"severity":"info","category":"style","confidence":1.0,"message":"m","evidence_lines":"10, 12"}`,
+			wantErr: false,
+			check: func(t *testing.T, f *Finding) {
+				t.Helper()
+				if len(f.EvidenceLines) != 2 || f.EvidenceLines[0] != 10 || f.EvidenceLines[1] != 12 {
+					t.Errorf("evidence_lines (from string) = %v, want [10, 12]", f.EvidenceLines)
 				}
 			},
 		},

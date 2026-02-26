@@ -176,6 +176,11 @@ func gitGrepSymbol(ctx context.Context, repoRoot, symbol string) (absPath string
 	}
 	lineContent = rest[idx2+1:]
 	absPath = filepath.Join(repoRoot, path)
+	// Ensure resolved path is under repo root (defense in depth; matches Go resolver).
+	rel, errRel := filepath.Rel(repoRoot, absPath)
+	if errRel != nil || strings.HasPrefix(rel, "..") || rel == ".." {
+		return "", 0, "", nil
+	}
 	return absPath, lineno, lineContent, nil
 }
 

@@ -3,6 +3,12 @@
 // and CLI output.
 package findings
 
+import (
+	"encoding/json"
+	"strconv"
+	"strings"
+)
+
 // Severity is the severity level of a finding.
 type Severity string
 
@@ -36,6 +42,49 @@ type LineRange struct {
 	End   int `json:"end"`
 }
 
+// EvidenceLines is a slice of line numbers that support the finding. It
+// unmarshals from either a JSON array of integers or a comma-separated string,
+// so model output that uses a string for evidence_lines does not break parsing.
+type EvidenceLines []int
+
+// UnmarshalJSON implements json.Unmarshaler. It accepts an array of integers
+// or a single string of comma-separated line numbers (e.g. "10, 12").
+func (e *EvidenceLines) UnmarshalJSON(data []byte) error {
+	if len(data) == 0 {
+		*e = nil
+		return nil
+	}
+	var arr []int
+	if err := json.Unmarshal(data, &arr); err == nil {
+		*e = arr
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	s = strings.TrimSpace(s)
+	if s == "" {
+		*e = nil
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	out := make([]int, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		n, err := strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+		out = append(out, n)
+	}
+	*e = out
+	return nil
+}
+
 // Finding is a single code review finding with a stable id, location, severity,
 // category, confidence, message, and optional suggestion and cursor URI.
 type Finding struct {
@@ -49,5 +98,5 @@ type Finding struct {
 	Message    string     `json:"message"`
 	Suggestion    string     `json:"suggestion,omitempty"`
 	CursorURI     string     `json:"cursor_uri,omitempty"`
-	EvidenceLines []int      `json:"evidence_lines,omitempty"`
+	EvidenceLines EvidenceLines `json:"evidence_lines,omitempty"`
 }
