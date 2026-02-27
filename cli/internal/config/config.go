@@ -401,6 +401,13 @@ func parseDuration(s string) (time.Duration, error) {
 	return time.Duration(n) * time.Second, nil
 }
 
+// ParseDuration is an exported helper for parsing durations from configuration
+// and CLI flags. It accepts either Go duration strings (e.g. "15m", "30s") or
+// integer seconds (e.g. "900").
+func ParseDuration(s string) (time.Duration, error) {
+	return parseDuration(s)
+}
+
 // env key names for config
 const (
 	envModel         = "STET_MODEL"

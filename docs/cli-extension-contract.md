@@ -111,7 +111,7 @@ For optimizing toward **actionable findings**, see [Review quality and actionabi
 | `ollama_base_url` / `STET_OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API base URL. |
 | `context_limit` / `STET_CONTEXT_LIMIT` | 32768 | Token context limit for prompts. |
 | `warn_threshold` / `STET_WARN_THRESHOLD` | 0.9 | Warn when estimated tokens exceed this fraction of context limit. |
-| `timeout` / `STET_TIMEOUT` | 5m | Timeout for Ollama generate requests (Go duration or seconds). |
+| `timeout` / `STET_TIMEOUT` | 15m | Per-request timeout for Ollama generate requests (Go duration or integer seconds). Use **`--timeout`** on `stet start`, `stet run`, or `stet rerun` to override. |
 | `state_dir` / `STET_STATE_DIR` | (empty → `.review` in repo) | Directory for session, lock, history, optimized prompt. |
 | `worktree_root` / `STET_WORKTREE_ROOT` | (empty → `repo/.review/worktrees`) | Directory for stet worktrees. |
 | `temperature` / `STET_TEMPERATURE` | 0.2 | Sampling temperature (0–2). Passed to Ollama. |
@@ -128,6 +128,15 @@ RAG symbol options can also be set via **`--rag-symbol-max-definitions`** and **
 Strictness and RAG symbol options set on **`stet start`** are stored in the session. **`stet run`** uses those stored values when the corresponding flag is **not** set. Explicit flags on **`stet run`** override for that run only; the next run without flags again uses the session values from start.
 
 Context window can be set via **`--context`** (preset: 4k, 8k, 16k, 32k, 64k, 128k, 256k) or **`--num-ctx`** (exact tokens). Both set `context_limit` and `num_ctx`; if both flags are given, **`--num-ctx`** wins. Values set on **`stet start`** are stored in the session and used by **`stet run`** until **`stet finish`**. **`stet commitmsg`** also accepts **`--context`** and **`--num-ctx`** (for the message suggestion and for the review when **`--commit-and-review`** is used).
+
+### Long reviews and large context
+
+Using **`--context 256k`** or **128k** requires sufficient RAM/VRAM and can lead to long-running requests. If the review fails with a timeout (e.g. "context deadline exceeded"), try:
+
+- A smaller context: **`--context 32k`** (or **`--num-ctx 32768`**).
+- A higher per-request timeout: set **`STET_TIMEOUT`** (e.g. `export STET_TIMEOUT=45m`) or **`timeout`** in `.review/config.toml` (see [Config schema](#config-schema-full)), or use **`--timeout 45m`** on `stet start`, `stet run`, or `stet rerun`.
+
+The CLI shows a hint when a request times out; follow it to adjust timeout or context.
 
 ### RAG symbol options (tuning)
 

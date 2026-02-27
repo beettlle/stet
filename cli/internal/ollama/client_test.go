@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -726,4 +727,90 @@ func (r *connectionRefusedRoundTripper) RoundTrip(req *http.Request) (*http.Resp
 		return nil, &net.OpError{Op: "dial", Net: "tcp", Err: syscall.Errno(syscall.ECONNREFUSED)}
 	}
 	return r.base.RoundTrip(req)
+}
+
+// timeoutErrorRoundTripper always returns an error that wraps context.DeadlineExceeded.
+// Used to verify that client methods do not retry on timeout.
+type timeoutErrorRoundTripper struct {
+	attempt *atomic.Int32
+}
+
+func (r *timeoutErrorRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	r.attempt.Add(1)
+	return nil, fmt.Errorf("timeout: %w", context.DeadlineExceeded)
+}
+
+func TestClient_Generate_timeoutDoesNotRetry(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("server should not be reached on timeout")
+	}))
+	defer srv.Close()
+
+	var attempts atomic.Int32
+	rt := &timeoutErrorRoundTripper{attempt: &attempts}
+	httpClient := &http.Client{Transport: rt}
+	client := NewClient(srv.URL, httpClient)
+
+	ctx := context.Background()
+	_, err := client.Generate(ctx, "m", "sys", "user", nil)
+	if err == nil {
+		t.Fatal("Generate: want error on timeout, got nil")
+	}
+	if !errors.Is(err, ErrUnreachable) {
+		t.Errorf("Generate: error should wrap ErrUnreachable on timeout, got %v", err)
+	}
+	if n := attempts.Load(); n != 1 {
+		t.Errorf("Generate: timeout error should not be retried, got %d attempts", n)
+	}
+}
+
+func TestClient_Check_timeoutDoesNotRetry(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("server should not be reached on timeout")
+	}))
+	defer srv.Close()
+
+	var attempts atomic.Int32
+	rt := &timeoutErrorRoundTripper{attempt: &attempts}
+	httpClient := &http.Client{Transport: rt}
+	client := NewClient(srv.URL, httpClient)
+
+	ctx := context.Background()
+	_, err := client.Check(ctx, "any")
+	if err == nil {
+		t.Fatal("Check: want error on timeout, got nil")
+	}
+	if !errors.Is(err, ErrUnreachable) {
+		t.Errorf("Check: error should wrap ErrUnreachable on timeout, got %v", err)
+	}
+	if n := attempts.Load(); n != 1 {
+		t.Errorf("Check: timeout error should not be retried, got %d attempts", n)
+	}
+}
+
+func TestClient_Show_timeoutDoesNotRetry(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("server should not be reached on timeout")
+	}))
+	defer srv.Close()
+
+	var attempts atomic.Int32
+	rt := &timeoutErrorRoundTripper{attempt: &attempts}
+	httpClient := &http.Client{Transport: rt}
+	client := NewClient(srv.URL, httpClient)
+
+	ctx := context.Background()
+	_, err := client.Show(ctx, "m")
+	if err == nil {
+		t.Fatal("Show: want error on timeout, got nil")
+	}
+	if !errors.Is(err, ErrUnreachable) {
+		t.Errorf("Show: error should wrap ErrUnreachable on timeout, got %v", err)
+	}
+	if n := attempts.Load(); n != 1 {
+		t.Errorf("Show: timeout error should not be retried, got %d attempts", n)
+	}
 }

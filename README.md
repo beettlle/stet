@@ -116,6 +116,7 @@ The default install directory is `~/.local/bin` (Mac/Linux) or `%USERPROFILE%\.l
 
 - **`--nitpicky`** — Report style, typos, and grammar (config: `nitpicky = true` or `STET_NITPICKY=1`).
 - **`--trace`** — Print internal steps to stderr for debugging (`stet start --trace` or `stet run --trace`).
+- **`--timeout`** — Per-request timeout for long or large-context reviews (e.g. `stet start --timeout 45m`). See [CLI–Extension Contract](docs/cli-extension-contract.md#long-reviews-and-large-context).
 - **`stet benchmark --model MODEL`** — Benchmark a specific model instead of the configured one.
 - **`stet benchmark --warmup`** — Run a warmup call before measuring (load model, discard metrics).
 

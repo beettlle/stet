@@ -21,6 +21,10 @@ import (
 
 const maxExpandTokensCap = 4096
 
+// maxRAGTokensWhenContextLarge caps per-hunk RAG tokens when the model context limit
+// is very large so that a single hunk cannot consume most of a 128k/256k context window.
+const maxRAGTokensWhenContextLarge = 65536
+
 // HunkUsage holds per-hunk token and duration from Ollama (for history/analytics).
 type HunkUsage struct {
 	PromptEvalCount  int   // Prompt tokens for this hunk.
@@ -32,7 +36,8 @@ type HunkUsage struct {
 // When contextLimit <= 0, returns ragMaxTokens unchanged (no adaptive cap).
 // Otherwise: ragBudget = contextLimit - basePromptTokens - responseReserve;
 // when ragMaxTokens == 0 use ragBudget, when ragMaxTokens > 0 use min(ragBudget, ragMaxTokens);
-// result is clamped to >= 0.
+// result is clamped to >= 0. For very large context limits (e.g. 128k/256k), the cap is
+// further bounded so a single hunk cannot consume almost the full context window.
 func effectiveRAGTokenCap(contextLimit, basePromptTokens, responseReserve, ragMaxTokens int) int {
 	if contextLimit <= 0 {
 		return ragMaxTokens
@@ -57,12 +62,21 @@ func effectiveRAGTokenCap(contextLimit, basePromptTokens, responseReserve, ragMa
 	} else {
 		effective = min(ragBudget, ragMaxTokens)
 	}
+	// When contextLimit is very large (e.g. 128k/256k), prevent a single hunk
+	// from consuming almost the entire context window via RAG alone.
+	if contextLimit > 65536 && effective > maxRAGTokensWhenContextLarge {
+		effective = maxRAGTokensWhenContextLarge
+	}
 	return max(0, effective)
 }
 
 // maxSuppressionExamplesPerHunk caps how many suppression examples can be
 // appended per hunk when using a token budget (per-hunk suppression).
 const maxSuppressionExamplesPerHunk = 30
+
+// maxSuppressionTokensCap bounds the token budget used for suppression examples
+// so that the suppression block stays small even when contextLimit is very large.
+const maxSuppressionTokensCap = 8192
 
 // PrepareHunkPrompt builds the system and user prompts for a single hunk from a
 // pre-built systemBase (SystemPrompt + InjectUserIntent + AppendPromptShadows +
@@ -152,6 +166,9 @@ func PrepareHunkPrompt(ctx context.Context, systemBase string, hunk diff.Hunk, r
 			suppressionBudget = int(int64(contextLimit) - suppSum)
 		}
 		if suppressionBudget > 0 {
+			if suppressionBudget > maxSuppressionTokensCap {
+				suppressionBudget = maxSuppressionTokensCap
+			}
 			maxN := maxSuppressionExamplesPerHunk
 			if len(suppressionExamples) < maxN {
 				maxN = len(suppressionExamples)

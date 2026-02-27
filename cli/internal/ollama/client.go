@@ -104,6 +104,9 @@ func (c *Client) Check(ctx context.Context, model string) (*CheckResult, error) 
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("ollama tags: %w", errors.Join(ErrUnreachable, err))
+			if errors.Is(err, context.DeadlineExceeded) {
+				return nil, lastErr
+			}
 			if !errors.Is(lastErr, ErrUnreachable) || attempt == _maxRetries {
 				return nil, lastErr
 			}
@@ -196,6 +199,9 @@ func (c *Client) Show(ctx context.Context, model string) (*ShowResult, error) {
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("ollama show: %w", errors.Join(ErrUnreachable, err))
+			if errors.Is(err, context.DeadlineExceeded) {
+				return nil, lastErr
+			}
 			if !errors.Is(lastErr, ErrUnreachable) || attempt == _maxRetries {
 				return nil, lastErr
 			}
@@ -416,6 +422,9 @@ func (c *Client) generateWithFormat(ctx context.Context, model, systemPrompt, us
 		resp, err := client.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("ollama generate: %w", errors.Join(ErrUnreachable, err))
+			if errors.Is(err, context.DeadlineExceeded) {
+				return nil, lastErr
+			}
 			if !errors.Is(lastErr, ErrUnreachable) || attempt == _maxRetries {
 				return nil, lastErr
 			}

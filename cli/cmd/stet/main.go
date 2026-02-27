@@ -77,6 +77,16 @@ func errForDetails(err error) error {
 	return err
 }
 
+// printOllamaUnreachable prints a consistent unreachable message to stderr and, when the
+// error is a timeout (context.DeadlineExceeded), adds a hint to increase timeout or reduce context.
+func printOllamaUnreachable(cfg *config.Config, err error) {
+	fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
+	fmt.Fprintf(os.Stderr, "Details: %v\n", errForDetails(err))
+	if errors.Is(err, context.DeadlineExceeded) {
+		fmt.Fprintln(os.Stderr, "Hint: Request timed out. Try increasing STET_TIMEOUT (or timeout in config) or using a smaller --context (e.g. 32k).")
+	}
+}
+
 // activeFindings loads session from stateDir and returns findings not in DismissedIDs.
 func activeFindings(stateDir string) ([]findings.Finding, error) {
 	s, err := session.Load(stateDir)
@@ -251,6 +261,7 @@ func newStartCmd() *cobra.Command {
 	cmd.Flags().Bool("verify", false, "Run critic (second-pass verification) on each finding; drops findings the critic rejects (increases latency and token usage)")
 	cmd.Flags().String("context", "", "Context window preset: 4k, 8k, 16k, 32k, 64k, 128k, 256k (sets both context_limit and num_ctx)")
 	cmd.Flags().Int("num-ctx", 0, "Context window size in tokens (0 = use config); overrides config and --context; sets both context_limit and num_ctx")
+	cmd.Flags().String("timeout", "", "Per-request timeout (e.g. 30m, 1h, or integer seconds); overrides config and STET_TIMEOUT")
 	cmd.Flags().Bool("trace", false, "Print internal steps to stderr (partition, rules, RAG, prompts, LLM I/O)")
 	cmd.Flags().Bool("search-replace", false, "Use search-replace style diff in the prompt (experimental; compare token usage and finding quality)")
 	return cmd
@@ -384,8 +395,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 	stats, err := run.Start(cmd.Context(), opts)
 	if err != nil {
 		if errors.Is(err, ollama.ErrUnreachable) {
-			fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
-			fmt.Fprintf(os.Stderr, "Details: %v\n", errForDetails(err))
+			printOllamaUnreachable(cfg, err)
 			return errExit(2)
 		}
 		if errors.Is(err, ollama.ErrBadRequest) {
@@ -441,6 +451,7 @@ func addRunLikeFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool("verify", false, "Run critic (second-pass verification) on each finding; drops findings the critic rejects (increases latency and token usage)")
 	cmd.Flags().String("context", "", "Context window preset: 4k, 8k, 16k, 32k, 64k, 128k, 256k (sets both context_limit and num_ctx)")
 	cmd.Flags().Int("num-ctx", 0, "Context window size in tokens (0 = use config); overrides config and --context; sets both context_limit and num_ctx")
+	cmd.Flags().String("timeout", "", "Per-request timeout (e.g. 30m, 1h, or integer seconds); overrides config and STET_TIMEOUT")
 	cmd.Flags().Bool("trace", false, "Print internal steps to stderr (partition, rules, RAG, prompts, LLM I/O)")
 	cmd.Flags().Bool("search-replace", false, "Use search-replace style diff in the prompt (experimental; compare token usage and finding quality)")
 }
@@ -487,7 +498,8 @@ func overridesFromFlags(cmd *cobra.Command) (*config.Overrides, error) {
 	verifyChanged := cmd.Flags().Lookup("verify") != nil && cmd.Flags().Lookup("verify").Changed
 	contextChanged := cmd.Flags().Lookup("context") != nil && cmd.Flags().Lookup("context").Changed
 	numCtxChanged := cmd.Flags().Lookup("num-ctx") != nil && cmd.Flags().Lookup("num-ctx").Changed
-	if !defChanged && !tokChanged && !ragCallGraphChanged && !strictnessChanged && !nitpickyChanged && !verifyChanged && !contextChanged && !numCtxChanged {
+	timeoutChanged := cmd.Flags().Lookup("timeout") != nil && cmd.Flags().Lookup("timeout").Changed
+	if !defChanged && !tokChanged && !ragCallGraphChanged && !strictnessChanged && !nitpickyChanged && !verifyChanged && !contextChanged && !numCtxChanged && !timeoutChanged {
 		return nil, nil
 	}
 	o := &config.Overrides{}
@@ -533,6 +545,16 @@ func overridesFromFlags(cmd *cobra.Command) (*config.Overrides, error) {
 		}
 		o.ContextLimit = &n
 		o.NumCtx = &n
+	}
+	if timeoutChanged {
+		s, _ := cmd.Flags().GetString("timeout")
+		if s != "" {
+			d, err := config.ParseDuration(s)
+			if err != nil {
+				return nil, erruser.New("--timeout: invalid duration", err)
+			}
+			o.Timeout = &d
+		}
 	}
 	return o, nil
 }
@@ -674,8 +696,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 			return errExit(1)
 		}
 		if errors.Is(err, ollama.ErrUnreachable) {
-			fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
-			fmt.Fprintf(os.Stderr, "Details: %v\n", errForDetails(err))
+			printOllamaUnreachable(cfg, err)
 			return errExit(2)
 		}
 		if errors.Is(err, ollama.ErrBadRequest) {
@@ -855,8 +876,7 @@ func runRerun(cmd *cobra.Command, args []string) error {
 			return errExit(1)
 		}
 		if errors.Is(err, ollama.ErrUnreachable) {
-			fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
-			fmt.Fprintf(os.Stderr, "Details: %v\n", errForDetails(err))
+			printOllamaUnreachable(cfg, err)
 			return errExit(2)
 		}
 		if errors.Is(err, ollama.ErrBadRequest) {
@@ -1288,8 +1308,7 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 	client := ollama.NewClient(cfg.OllamaBaseURL, &http.Client{Timeout: timeout})
 	if _, err := client.Check(cmd.Context(), cfg.Model); err != nil {
 		if errors.Is(err, ollama.ErrUnreachable) {
-			fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
-			fmt.Fprintf(os.Stderr, "Details: %v\n", errForDetails(err))
+			printOllamaUnreachable(cfg, err)
 			return errExit(2)
 		}
 		if errors.Is(err, ollama.ErrBadRequest) {
@@ -1308,7 +1327,7 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 	msg, err := commitmsg.Suggest(cmd.Context(), client, cfg.Model, diff, opts)
 	if err != nil {
 		if errors.Is(err, ollama.ErrUnreachable) {
-			fmt.Fprintf(os.Stderr, "Ollama unreachable. Details: %v\n", errForDetails(err))
+			printOllamaUnreachable(cfg, err)
 			return errExit(2)
 		}
 		if errors.Is(err, ollama.ErrBadRequest) {
@@ -1435,7 +1454,7 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 		}
 		if _, err := run.Start(cmd.Context(), startOpts); err != nil {
 			if errors.Is(err, ollama.ErrUnreachable) {
-				fmt.Fprintf(os.Stderr, "Ollama unreachable. Details: %v\n", errForDetails(err))
+				printOllamaUnreachable(cfg, err)
 				return errExit(2)
 			}
 			if errors.Is(err, run.ErrDirtyWorktree) {
@@ -1456,7 +1475,7 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		if errors.Is(err, ollama.ErrUnreachable) {
-			fmt.Fprintf(os.Stderr, "Ollama unreachable. Details: %v\n", errForDetails(err))
+			printOllamaUnreachable(cfg, err)
 			return errExit(2)
 		}
 		return err
@@ -1543,8 +1562,7 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 	result, err := client.Check(cmd.Context(), model)
 	if err != nil {
 		if errors.Is(err, ollama.ErrUnreachable) {
-			fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
-			fmt.Fprintf(os.Stderr, "Details: %v\n", errForDetails(err))
+			printOllamaUnreachable(cfg, err)
 			return errExit(2)
 		}
 		if errors.Is(err, ollama.ErrBadRequest) {
@@ -1616,8 +1634,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	result, err := client.Check(cmd.Context(), cfg.Model)
 	if err != nil {
 		if errors.Is(err, ollama.ErrUnreachable) {
-			fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
-			fmt.Fprintf(os.Stderr, "Details: %v\n", errForDetails(err))
+			printOllamaUnreachable(cfg, err)
 			return errExit(2)
 		}
 		if errors.Is(err, ollama.ErrBadRequest) {

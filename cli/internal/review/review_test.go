@@ -46,6 +46,12 @@ func TestEffectiveRAGTokenCap(t *testing.T) {
 		{"adaptive_budget_300_rag_500", 3348, 1000, reserve, 500, 300},
 		{"base_plus_reserve_equals_limit", 12048, 10000, reserve, 0, 0},
 		{"base_plus_reserve_exceeds_limit", 10000, 10000, reserve, 500, 0},
+		// For very large context limits (e.g. 256k), per-hunk RAG tokens are capped
+		// so a single hunk cannot consume most of the context window.
+		{"large_context_uses_absolute_cap", 262144, 10000, reserve, 0, maxRAGTokensWhenContextLarge},
+		// When contextLimit is large but ragMaxTokens is smaller than the cap, the explicit
+		// ragMaxTokens still applies.
+		{"large_context_respects_ragMaxTokens", 262144, 10000, reserve, 1024, 1024},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -663,7 +669,6 @@ func TestPrepareHunkPrompt_suppressionBudgetCapsExamples(t *testing.T) {
 	}
 	examples := []string{"a.go:1: msg1", "b.go:2: longer message here"}
 	ctx := context.Background()
-	// Tiny context: base prompt (system + user) alone leaves almost no budget.
 	systemSmall, _, err := PrepareHunkPrompt(ctx, "base", hunk, nil, "", 500, 0, 0, false, 0, 0, 0, false, examples, nil)
 	if err != nil {
 		t.Fatalf("PrepareHunkPrompt(small limit): %v", err)
@@ -677,6 +682,40 @@ func TestPrepareHunkPrompt_suppressionBudgetCapsExamples(t *testing.T) {
 	largeN := countBullets(systemLarge)
 	if smallN > largeN {
 		t.Errorf("with small context limit expected fewer or equal suppression bullets than with large; got small=%d large=%d", smallN, largeN)
+	}
+}
+
+// TestPrepareHunkPrompt_suppressionBudgetCapBounded asserts that when contextLimit is
+// extremely large, the number of suppression examples does not keep growing with the
+// limit, i.e. the per-hunk suppression budget is bounded.
+func TestPrepareHunkPrompt_suppressionBudgetCapBounded(t *testing.T) {
+	hunk := diff.Hunk{
+		FilePath:   "pkg/foo.go",
+		RawContent: "@@ -1,1 +1,1 @@\n code\n",
+		Context:    "code",
+	}
+	// Use several examples so that, without a cap, more budget could allow more examples.
+	examples := []string{
+		"a.go:1: msg1",
+		"b.go:2: msg2",
+		"c.go:3: msg3",
+		"d.go:4: msg4",
+		"e.go:5: msg5",
+	}
+	ctx := context.Background()
+	systemLarge, _, err := PrepareHunkPrompt(ctx, "base", hunk, nil, "", 262144, 0, 0, false, 0, 0, 0, false, examples, nil)
+	if err != nil {
+		t.Fatalf("PrepareHunkPrompt(large limit): %v", err)
+	}
+	systemHuge, _, err := PrepareHunkPrompt(ctx, "base", hunk, nil, "", 524288, 0, 0, false, 0, 0, 0, false, examples, nil)
+	if err != nil {
+		t.Fatalf("PrepareHunkPrompt(huge limit): %v", err)
+	}
+	countBullets := func(s string) int { return strings.Count(s, "\n- ") }
+	largeN := countBullets(systemLarge)
+	hugeN := countBullets(systemHuge)
+	if hugeN != largeN {
+		t.Errorf("suppression examples should be bounded by cap; got large=%d bullets, huge=%d bullets", largeN, hugeN)
 	}
 }
 
