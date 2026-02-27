@@ -11,6 +11,7 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -400,6 +401,11 @@ func (c *Client) generateWithFormat(ctx context.Context, model, systemPrompt, us
 		return nil, fmt.Errorf("ollama generate request: %w", err)
 	}
 	url := c.baseURL + "/api/generate"
+	requestStart := time.Now()
+	debugOllama := func() bool {
+		v := strings.TrimSpace(strings.ToLower(os.Getenv("STET_DEBUG_OLLAMA")))
+		return v == "1" || v == "true"
+	}
 	var lastErr error
 	for attempt := 0; attempt <= _maxRetries; attempt++ {
 		if ctx.Err() != nil {
@@ -422,6 +428,13 @@ func (c *Client) generateWithFormat(ctx context.Context, model, systemPrompt, us
 		resp, err := client.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("ollama generate: %w", errors.Join(ErrUnreachable, err))
+			if debugOllama() {
+				reason := "connection/5xx"
+				if errors.Is(err, context.DeadlineExceeded) {
+					reason = "timeout"
+				}
+				fmt.Fprintf(os.Stderr, "stet: ollama generate attempt %d failed after %s (%s)\n", attempt+1, time.Since(requestStart).Round(time.Second), reason)
+			}
 			if errors.Is(err, context.DeadlineExceeded) {
 				return nil, lastErr
 			}
@@ -440,6 +453,13 @@ func (c *Client) generateWithFormat(ctx context.Context, model, systemPrompt, us
 			_, _ = io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 			lastErr = httpStatusError("ollama generate", resp.StatusCode)
+			if debugOllama() {
+				reason := "connection/5xx"
+				if errors.Is(lastErr, ErrBadRequest) {
+					reason = "bad request"
+				}
+				fmt.Fprintf(os.Stderr, "stet: ollama generate attempt %d failed after %s (%s)\n", attempt+1, time.Since(requestStart).Round(time.Second), reason)
+			}
 			if errors.Is(lastErr, ErrBadRequest) || attempt == _maxRetries {
 				return nil, lastErr
 			}
@@ -474,6 +494,9 @@ func (c *Client) generateWithFormat(ctx context.Context, model, systemPrompt, us
 	}
 	if lastErr == nil {
 		lastErr = errors.New("ollama generate: no response after retries")
+	}
+	if debugOllama() {
+		fmt.Fprintf(os.Stderr, "stet: ollama generate attempt %d failed after %s (no response after retries)\n", _maxRetries+1, time.Since(requestStart).Round(time.Second))
 	}
 	return nil, lastErr
 }

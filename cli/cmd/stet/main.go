@@ -79,8 +79,13 @@ func errForDetails(err error) error {
 
 // printOllamaUnreachable prints a consistent unreachable message to stderr and, when the
 // error is a timeout (context.DeadlineExceeded), adds a hint to increase timeout or reduce context.
+// If cfg is nil, the URL line is omitted (callers should pass config when available).
 func printOllamaUnreachable(cfg *config.Config, err error) {
-	fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", cfg.OllamaBaseURL)
+	baseURL := "Ollama"
+	if cfg != nil && cfg.OllamaBaseURL != "" {
+		baseURL = cfg.OllamaBaseURL
+	}
+	fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", baseURL)
 	fmt.Fprintf(os.Stderr, "Details: %v\n", errForDetails(err))
 	if errors.Is(err, context.DeadlineExceeded) {
 		fmt.Fprintln(os.Stderr, "Hint: Request timed out. Try increasing STET_TIMEOUT (or timeout in config) or using a smaller --context (e.g. 32k).")

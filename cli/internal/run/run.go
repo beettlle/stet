@@ -94,9 +94,10 @@ type preparedPrompt struct {
 
 // genResult holds the result of a single Generate call for one hunk (used by the pipeline worker).
 type genResult struct {
-	index  int
-	result *ollama.GenerateResult
-	err    error
+	index        int
+	result       *ollama.GenerateResult
+	err          error
+	WallDuration time.Duration
 }
 
 // reviewPipelineOpts holds inputs for runReviewPipeline.
@@ -190,8 +191,9 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 			} else {
 				requestOpts.KeepAlive = keepAliveDuringRun
 			}
+			start := time.Now()
 			result, genErr := opts.Client.Generate(ctx, opts.Model, p.System, p.User, &requestOpts)
-			fromWorker <- genResult{p.Index, result, genErr}
+			fromWorker <- genResult{p.Index, result, genErr, time.Since(start)}
 		}
 	}()
 	defer close(toWorker)
@@ -236,6 +238,11 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 				if res.err != nil {
 					if opts.TraceOut != nil && opts.TraceOut.Enabled() {
 						opts.TraceOut.Printf("LLM request failed: %v\n", res.err)
+						if p := slots[res.index]; p != nil {
+							opts.TraceOut.Printf("estimated_prompt_tokens=%d wall_duration_sec=%.1f\n", tokens.Estimate(p.System+"\n"+p.User), res.WallDuration.Seconds())
+						} else {
+							opts.TraceOut.Printf("wall_duration_sec=%.1f\n", res.WallDuration.Seconds())
+						}
 					}
 					return nil, nil, 0, 0, 0, erruser.New("Review failed for "+opts.Hunks[res.index].FilePath+".", res.err)
 				}
@@ -249,6 +256,7 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 				if opts.TraceOut != nil && opts.TraceOut.Enabled() {
 					opts.TraceOut.Section("Hunk " + fmt.Sprintf("%d/%d", p.Index+1, total) + ": " + p.Hunk.FilePath)
 					opts.TraceOut.Printf("strict_id=%s semantic_id=%s\n", hunkid.StrictHunkID(p.Hunk.FilePath, p.Hunk.RawContent), hunkid.SemanticHunkID(p.Hunk.FilePath, p.Hunk.RawContent))
+					opts.TraceOut.Printf("estimated_prompt_tokens=%d wall_duration_sec=%.1f\n", tokens.Estimate(p.System+"\n"+p.User), res.WallDuration.Seconds())
 				}
 				requestOpts := *opts.GenOpts
 				if p.Index+1 == total {
@@ -327,6 +335,11 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 			if res.err != nil {
 				if opts.TraceOut != nil && opts.TraceOut.Enabled() {
 					opts.TraceOut.Printf("LLM request failed: %v\n", res.err)
+					if p := slots[res.index]; p != nil {
+						opts.TraceOut.Printf("estimated_prompt_tokens=%d wall_duration_sec=%.1f\n", tokens.Estimate(p.System+"\n"+p.User), res.WallDuration.Seconds())
+					} else {
+						opts.TraceOut.Printf("wall_duration_sec=%.1f\n", res.WallDuration.Seconds())
+					}
 				}
 				return nil, nil, 0, 0, 0, erruser.New("Review failed for "+opts.Hunks[res.index].FilePath+".", res.err)
 			}
@@ -343,6 +356,7 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 			if opts.TraceOut != nil && opts.TraceOut.Enabled() {
 				opts.TraceOut.Section("Hunk " + fmt.Sprintf("%d/%d", p.Index+1, total) + ": " + p.Hunk.FilePath)
 				opts.TraceOut.Printf("strict_id=%s semantic_id=%s\n", hunkid.StrictHunkID(p.Hunk.FilePath, p.Hunk.RawContent), hunkid.SemanticHunkID(p.Hunk.FilePath, p.Hunk.RawContent))
+				opts.TraceOut.Printf("estimated_prompt_tokens=%d wall_duration_sec=%.1f\n", tokens.Estimate(p.System+"\n"+p.User), res.WallDuration.Seconds())
 			}
 			requestOpts := *opts.GenOpts
 			if p.Index+1 == total {

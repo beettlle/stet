@@ -361,7 +361,8 @@ func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir stri
 		if generateOpts != nil {
 			temp, numCtx = generateOpts.Temperature, generateOpts.NumCtx
 		}
-		traceOut.Printf("model=%s temperature=%g num_ctx=%d system_len=%d user_len=%d\n", model, temp, numCtx, len(system), len(user))
+		estimatedPromptTokens := tokens.Estimate(system + "\n" + user)
+		traceOut.Printf("model=%s temperature=%g num_ctx=%d system_len=%d user_len=%d estimated_prompt_tokens=%d\n", model, temp, numCtx, len(system), len(user), estimatedPromptTokens)
 	}
 	result, err := client.Generate(ctx, model, system, user, generateOpts)
 	if err != nil {
