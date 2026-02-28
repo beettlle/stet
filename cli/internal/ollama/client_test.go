@@ -199,15 +199,16 @@ func TestClient_Generate(t *testing.T) {
 		if body.Prompt != "user" {
 			t.Errorf("prompt = %q, want user", body.Prompt)
 		}
-		if body.Stream {
-			t.Error("stream should be false")
+		if !body.Stream {
+			t.Error("stream should be true")
 		}
 		if body.Format != "json" {
 			t.Errorf("format = %q, want json", body.Format)
 		}
 		w.WriteHeader(http.StatusOK)
-		out := map[string]interface{}{"response": wantResponse, "done": true}
-		_ = json.NewEncoder(w).Encode(out)
+		enc := json.NewEncoder(w)
+		_ = enc.Encode(map[string]interface{}{"response": "", "done": false})
+		_ = enc.Encode(map[string]interface{}{"response": wantResponse, "done": true})
 	}))
 	defer srv.Close()
 
@@ -245,7 +246,8 @@ func TestClient_Generate_withOptions_sendsOptionsInRequest(t *testing.T) {
 			t.Errorf("keep_alive should be omitted when opts.KeepAlive is not set, got %v", body.KeepAlive)
 		}
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": wantResponse, "done": true})
+		enc := json.NewEncoder(w)
+		_ = enc.Encode(map[string]interface{}{"response": wantResponse, "done": true})
 	}))
 	defer srv.Close()
 	client := NewClient(srv.URL, srv.Client())
@@ -286,7 +288,8 @@ func TestClient_Generate_withKeepAlive_sendsKeepAliveInRequest(t *testing.T) {
 		}
 		keepAliveSeen = body.KeepAlive
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": "[]", "done": true})
+		enc := json.NewEncoder(w)
+		_ = enc.Encode(map[string]interface{}{"response": "[]", "done": true})
 	}))
 	defer srv.Close()
 	client := NewClient(srv.URL, srv.Client())
@@ -337,7 +340,9 @@ func TestClient_Generate_returnsResponseMetadata(t *testing.T) {
 	wantTotalDur := int64(1750000000)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		enc := json.NewEncoder(w)
+		_ = enc.Encode(map[string]interface{}{"response": "", "done": false})
+		_ = enc.Encode(map[string]interface{}{
 			"response":               wantResponse,
 			"done":                   true,
 			"model":                  wantModel,

@@ -2,6 +2,7 @@
 package ollama
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -24,6 +25,7 @@ const (
 	_initialBackoff   = 1 * time.Second
 	_maxBackoff       = 16 * time.Second
 	_maxRetryTimeout  = 30 * time.Minute // cap on per-request timeout when scaling on retry
+	_maxResponseBytes = 10 * 1024 * 1024 // cap accumulated stream response to 10MB
 )
 
 // ErrUnreachable indicates the Ollama server could not be reached (connection refused, timeout, or 5xx).
@@ -310,6 +312,47 @@ func retryTimeout(base time.Duration, attempt int) time.Duration {
 	return scaled
 }
 
+// decodeStreamedGenerateResponse reads NDJSON lines from r (Ollama streaming response),
+// accumulates the response field, and returns the final chunk's generateResponse.
+// The Response field in the returned struct is the full accumulated string.
+// Returns an error if the stream ends without a chunk with done=true or on parse error.
+func decodeStreamedGenerateResponse(r io.Reader) (generateResponse, error) {
+	var acc strings.Builder
+	var final generateResponse
+	sawDone := false
+	scanner := bufio.NewScanner(r)
+	// Allow larger lines than default 64KB; cap total accumulated size at _maxResponseBytes.
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, _maxResponseBytes)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		var gen generateResponse
+		if err := json.Unmarshal([]byte(line), &gen); err != nil {
+			return generateResponse{}, fmt.Errorf("ollama generate: parse stream chunk: %w", err)
+		}
+		if acc.Len()+len(gen.Response) > _maxResponseBytes {
+			return generateResponse{}, fmt.Errorf("ollama generate: response exceeds %d bytes", _maxResponseBytes)
+		}
+		acc.WriteString(gen.Response)
+		if gen.Done {
+			gen.Response = acc.String()
+			final = gen
+			sawDone = true
+			break
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return generateResponse{}, fmt.Errorf("ollama generate: read stream: %w", err)
+	}
+	if !sawDone {
+		return generateResponse{}, errors.New("ollama generate: stream ended without done")
+	}
+	return final, nil
+}
+
 // GenerateOptions holds model runtime options sent to Ollama /api/generate.
 // Zero values are sent as-is; omitempty is not used so the API receives explicit values.
 // KeepAlive is not sent inside options; it is sent at the top level of the request (see generateRequest).
@@ -370,16 +413,17 @@ type GenerateResult struct {
 }
 
 // Generate sends a completion request to /api/generate with the given model,
-// system prompt, and user prompt. It uses stream: false and format: "json" so
-// the response is a single JSON string. opts may be nil (Ollama uses server/model
-// defaults). Retries on connection/5xx errors; 4xx returns ErrBadRequest.
+// system prompt, and user prompt. It uses stream: true and format: "json", accumulating
+// the streamed response so callers receive one full result. opts may be nil (Ollama uses
+// server/model defaults). Retries on connection/5xx errors; 4xx returns ErrBadRequest.
 func (c *Client) Generate(ctx context.Context, model, systemPrompt, userPrompt string, opts *GenerateOptions) (*GenerateResult, error) {
 	return c.generateWithFormat(ctx, model, systemPrompt, userPrompt, "json", opts)
 }
 
 // GeneratePlain sends a completion request to /api/generate with the given model,
-// system prompt, and user prompt. It uses stream: false and no JSON format so the
-// response is plain text (e.g. for commit messages). opts may be nil.
+// system prompt, and user prompt. It uses stream: true and no JSON format, accumulating
+// the streamed response so callers receive one full result (e.g. for commit messages).
+// opts may be nil.
 func (c *Client) GeneratePlain(ctx context.Context, model, systemPrompt, userPrompt string, opts *GenerateOptions) (*GenerateResult, error) {
 	return c.generateWithFormat(ctx, model, systemPrompt, userPrompt, "", opts)
 }
@@ -389,7 +433,7 @@ func (c *Client) generateWithFormat(ctx context.Context, model, systemPrompt, us
 		Model:   model,
 		System:  systemPrompt,
 		Prompt:  userPrompt,
-		Stream:  false,
+		Stream:  true,
 		Format:  format,
 		Options: opts,
 	}
@@ -466,11 +510,10 @@ func (c *Client) generateWithFormat(ctx context.Context, model, systemPrompt, us
 			}
 			continue
 		}
-		var gen generateResponse
-		err = json.NewDecoder(resp.Body).Decode(&gen)
-		resp.Body.Close()
+		defer resp.Body.Close()
+		gen, err := decodeStreamedGenerateResponse(resp.Body)
 		if err != nil {
-			return nil, fmt.Errorf("ollama generate: parse response: %w", err)
+			return nil, err
 		}
 		u := Usage{
 			PromptEvalCount:    gen.PromptEvalCount,
