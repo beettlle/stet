@@ -333,7 +333,9 @@ func decodeStreamedGenerateResponse(r io.Reader) (generateResponse, error) {
 		if err := json.Unmarshal([]byte(line), &gen); err != nil {
 			return generateResponse{}, fmt.Errorf("ollama generate: parse stream chunk: %w", err)
 		}
-		if acc.Len()+len(gen.Response) > _maxResponseBytes {
+		// Use int64 to avoid overflow when summing acc.Len() + len(gen.Response) on 32-bit.
+		total := int64(acc.Len()) + int64(len(gen.Response))
+		if total > int64(_maxResponseBytes) {
 			return generateResponse{}, fmt.Errorf("ollama generate: response exceeds %d bytes", _maxResponseBytes)
 		}
 		acc.WriteString(gen.Response)

@@ -246,8 +246,7 @@ func TestClient_Generate_withOptions_sendsOptionsInRequest(t *testing.T) {
 			t.Errorf("keep_alive should be omitted when opts.KeepAlive is not set, got %v", body.KeepAlive)
 		}
 		w.WriteHeader(http.StatusOK)
-		enc := json.NewEncoder(w)
-		_ = enc.Encode(map[string]interface{}{"response": wantResponse, "done": true})
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": wantResponse, "done": true})
 	}))
 	defer srv.Close()
 	client := NewClient(srv.URL, srv.Client())
