@@ -13,7 +13,7 @@ import (
 	"testing"
 
 	"stet/cli/internal/diff"
-	"stet/cli/internal/ollama"
+	"stet/cli/internal/llm"
 	"stet/cli/internal/prompt"
 	"stet/cli/internal/rules"
 	"stet/cli/internal/tokens"
@@ -78,7 +78,7 @@ func TestReviewHunk_successFirstTry(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := ollama.NewClient(srv.URL, srv.Client())
+	client, _ := llm.NewClient("ollama", srv.URL, srv.Client())
 	dir := t.TempDir()
 	hunk := diff.Hunk{FilePath: "a.go", RawContent: "code", Context: "code"}
 	ctx := context.Background()
@@ -113,7 +113,7 @@ func TestReviewHunk_retryThenSuccess(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := ollama.NewClient(srv.URL, srv.Client())
+	client, _ := llm.NewClient("ollama", srv.URL, srv.Client())
 	dir := t.TempDir()
 	hunk := diff.Hunk{FilePath: "b.go", RawContent: "x", Context: "x"}
 	ctx := context.Background()
@@ -145,7 +145,7 @@ func TestReviewHunk_rustFile_minifiesContext(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := ollama.NewClient(srv.URL, srv.Client())
+	client, _ := llm.NewClient("ollama", srv.URL, srv.Client())
 	dir := t.TempDir()
 	raw := "@@ -1,2 +1,2 @@\n \tfn foo() {}\n+\tbar();"
 	hunk := diff.Hunk{FilePath: "src/lib.rs", RawContent: raw, Context: raw}
@@ -165,7 +165,7 @@ func TestReviewHunk_generateFails_returnsError(t *testing.T) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}))
 	defer srv.Close()
-	client := ollama.NewClient(srv.URL, srv.Client())
+	client, _ := llm.NewClient("ollama", srv.URL, srv.Client())
 	dir := t.TempDir()
 	hunk := diff.Hunk{FilePath: "x.go", RawContent: "code", Context: "code"}
 	ctx := context.Background()
@@ -184,7 +184,7 @@ func TestReviewHunk_parseFailsTwice_returnsError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := ollama.NewClient(srv.URL, srv.Client())
+	client, _ := llm.NewClient("ollama", srv.URL, srv.Client())
 	dir := t.TempDir()
 	hunk := diff.Hunk{FilePath: "c.go", RawContent: "y", Context: "y"}
 	ctx := context.Background()
@@ -214,7 +214,7 @@ func TestReviewHunk_hunkWithExternalVariable_mockReturnsNoUndefinedFinding(t *te
 	}))
 	defer srv.Close()
 
-	client := ollama.NewClient(srv.URL, srv.Client())
+	client, _ := llm.NewClient("ollama", srv.URL, srv.Client())
 	dir := t.TempDir()
 	// Hunk uses processResult and data whose definitions are outside the hunk.
 	hunk := diff.Hunk{
@@ -270,7 +270,7 @@ func TestReviewHunk_injectsUserIntentIntoPrompt(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := ollama.NewClient(srv.URL, srv.Client())
+	client, _ := llm.NewClient("ollama", srv.URL, srv.Client())
 	dir := t.TempDir()
 	hunk := diff.Hunk{FilePath: "pkg.go", RawContent: "+x := 1", Context: "+x := 1"}
 	userIntent := &prompt.UserIntent{Branch: "main", CommitMsg: commitMsg}
@@ -340,7 +340,7 @@ func processData(input string) (int, error) {
 	}))
 	defer srv.Close()
 
-	client := ollama.NewClient(srv.URL, srv.Client())
+	client, _ := llm.NewClient("ollama", srv.URL, srv.Client())
 	stateDir := t.TempDir()
 	// Hunk at lines 4-7 in new file (inside processData; uses count declared at line 4)
 	hunk := diff.Hunk{
@@ -394,7 +394,7 @@ func TestReviewHunk_injectsCursorRulesIntoSystemPrompt(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := ollama.NewClient(srv.URL, srv.Client())
+	client, _ := llm.NewClient("ollama", srv.URL, srv.Client())
 	dir := t.TempDir()
 	hunk := diff.Hunk{FilePath: "test.js", RawContent: "code", Context: "code"}
 	ruleList := []rules.CursorRule{
@@ -448,7 +448,7 @@ func TestReviewHunk_withRAG_injectsSymbolDefinitions(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := ollama.NewClient(srv.URL, srv.Client())
+	client, _ := llm.NewClient("ollama", srv.URL, srv.Client())
 	hunk := diff.Hunk{FilePath: "pkg/foo.go", RawContent: "+x := Bar()", Context: "+x := Bar()"}
 	ctx := context.Background()
 
@@ -514,7 +514,7 @@ func TestReviewHunk_perHunkAdaptiveRAG_truncatesToFitContext(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := ollama.NewClient(srv.URL, srv.Client())
+	client, _ := llm.NewClient("ollama", srv.URL, srv.Client())
 	ctx := context.Background()
 
 	_, _, err = ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, dir, contextLimit, 5, 0, false, 0, 0, 0, nil, false, false, nil, nil)
@@ -565,7 +565,7 @@ func TestReviewHunk_nitpickyTrue_appendsNitpickySection(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := ollama.NewClient(srv.URL, srv.Client())
+	client, _ := llm.NewClient("ollama", srv.URL, srv.Client())
 	dir := t.TempDir()
 	hunk := diff.Hunk{FilePath: "a.go", RawContent: "code", Context: "code"}
 	ctx := context.Background()

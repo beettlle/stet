@@ -8,7 +8,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"stet/cli/internal/ollama"
+	"stet/cli/internal/llm"
 )
 
 func TestTruncateUTF8_asciiOnly(t *testing.T) {
@@ -162,7 +162,7 @@ func TestSuggest_longDiffTruncatesAndSucceeds(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := ollama.NewClient(srv.URL, srv.Client())
+	client, _ := llm.NewClient("ollama", srv.URL, srv.Client())
 	ctx := context.Background()
 	got, err := Suggest(ctx, client, "m", longDiff, nil)
 	if err != nil {

@@ -39,9 +39,11 @@ import (
 // Config holds all Stet configuration. Empty string or zero values for
 // StateDir/WorktreeRoot mean "use default behavior" (e.g. .review in repo).
 type Config struct {
-	Model         string        `toml:"model"`
-	OllamaBaseURL string        `toml:"ollama_base_url"`
-	ContextLimit  int           `toml:"context_limit"`
+	Model          string        `toml:"model"`
+	Provider       string        `toml:"provider"` // "ollama" or "openai"
+	OllamaBaseURL  string        `toml:"ollama_base_url"`
+	OpenAIBaseURL  string        `toml:"openai_base_url"`
+	ContextLimit   int           `toml:"context_limit"`
 	WarnThreshold float64       `toml:"warn_threshold"`
 	Timeout       time.Duration `toml:"timeout"`
 	StateDir      string        `toml:"state_dir"`
@@ -79,9 +81,11 @@ type Config struct {
 // Overrides represents optional CLI flag overrides. Non-nil pointer means
 // "override with this value". Used by future Cobra flags; tests pass explicitly.
 type Overrides struct {
-	Model         *string
-	OllamaBaseURL *string
-	ContextLimit  *int
+	Model          *string
+	Provider       *string
+	OllamaBaseURL  *string
+	OpenAIBaseURL  *string
+	ContextLimit   *int
 	WarnThreshold *float64
 	Timeout       *time.Duration
 	StateDir      *string
@@ -116,9 +120,11 @@ type LoadOptions struct {
 }
 
 const (
-	_defaultModel         = "qwen3-coder:30b"
-	_defaultOllamaBaseURL = "http://localhost:11434"
-	_defaultContextLimit  = 32768
+	_defaultModel          = "qwen3-coder:30b"
+	_defaultProvider       = "ollama"
+	_defaultOllamaBaseURL  = "http://localhost:11434"
+	_defaultOpenAIBaseURL  = "http://localhost:1234/v1"
+	_defaultContextLimit   = 32768
 	_defaultWarnThreshold = 0.9
 	_defaultTimeout       = 15 * time.Minute
 	_defaultTemperature          = 0.2
@@ -163,9 +169,11 @@ func int64ToInt(n int64) (int, error) {
 // DefaultConfig returns the default configuration (no I/O).
 func DefaultConfig() Config {
 	return Config{
-		Model:         _defaultModel,
-		OllamaBaseURL: _defaultOllamaBaseURL,
-		ContextLimit:  _defaultContextLimit,
+		Model:          _defaultModel,
+		Provider:       _defaultProvider,
+		OllamaBaseURL:  _defaultOllamaBaseURL,
+		OpenAIBaseURL:  _defaultOpenAIBaseURL,
+		ContextLimit:   _defaultContextLimit,
 		WarnThreshold: _defaultWarnThreshold,
 		Timeout:       _defaultTimeout,
 		StateDir:      "",
@@ -194,6 +202,29 @@ func (c Config) EffectiveStateDir(repoRoot string) string {
 		return c.StateDir
 	}
 	return filepath.Join(repoRoot, ".review")
+}
+
+// EffectiveLLMProvider returns the LLM provider (ollama or openai), normalized to lowercase.
+func (c Config) EffectiveLLMProvider() string {
+	p := strings.TrimSpace(strings.ToLower(c.Provider))
+	if p != "ollama" && p != "openai" {
+		return _defaultProvider
+	}
+	return p
+}
+
+// EffectiveLLMBaseURL returns the base URL for the effective provider.
+func (c Config) EffectiveLLMBaseURL() string {
+	if c.EffectiveLLMProvider() == "openai" {
+		if c.OpenAIBaseURL != "" {
+			return c.OpenAIBaseURL
+		}
+		return _defaultOpenAIBaseURL
+	}
+	if c.OllamaBaseURL != "" {
+		return c.OllamaBaseURL
+	}
+	return _defaultOllamaBaseURL
 }
 
 // Load loads configuration with precedence: defaults < global file < repo file < env < overrides.
@@ -247,7 +278,9 @@ func mergeFile(cfg *Config, path string) error {
 	}
 	var file struct {
 		Model            *string  `toml:"model"`
+		Provider         *string  `toml:"provider"`
 		OllamaBaseURL    *string  `toml:"ollama_base_url"`
+		OpenAIBaseURL    *string  `toml:"openai_base_url"`
 		ContextLimit     *int64   `toml:"context_limit"`
 		WarnThreshold    *float64 `toml:"warn_threshold"`
 		Timeout          *string  `toml:"timeout"`
@@ -275,8 +308,17 @@ func mergeFile(cfg *Config, path string) error {
 	if file.Model != nil && *file.Model != "" {
 		cfg.Model = *file.Model
 	}
+	if file.Provider != nil && *file.Provider != "" {
+		p := strings.TrimSpace(strings.ToLower(*file.Provider))
+		if p == "ollama" || p == "openai" {
+			cfg.Provider = p
+		}
+	}
 	if file.OllamaBaseURL != nil && *file.OllamaBaseURL != "" {
 		cfg.OllamaBaseURL = *file.OllamaBaseURL
+	}
+	if file.OpenAIBaseURL != nil && *file.OpenAIBaseURL != "" {
+		cfg.OpenAIBaseURL = *file.OpenAIBaseURL
 	}
 	if file.ContextLimit != nil && *file.ContextLimit > 0 {
 		v, err := int64ToInt(*file.ContextLimit)
@@ -432,6 +474,8 @@ const (
 	envSuppressionHistoryCount  = "STET_SUPPRESSION_HISTORY_COUNT"
 	envCriticEnabled            = "STET_CRITIC_ENABLED"
 	envCriticModel              = "STET_CRITIC_MODEL"
+	envProvider                 = "STET_PROVIDER"
+	envOpenAIBaseURL            = "STET_OPENAI_BASE_URL"
 )
 
 func applyEnv(cfg *Config, env []string) error {
@@ -448,8 +492,17 @@ func applyEnv(cfg *Config, env []string) error {
 	if v, ok := vals[envModel]; ok && v != "" {
 		cfg.Model = v
 	}
+	if v, ok := vals[envProvider]; ok && v != "" {
+		p := strings.TrimSpace(strings.ToLower(v))
+		if p == "ollama" || p == "openai" {
+			cfg.Provider = p
+		}
+	}
 	if v, ok := vals[envOllamaBaseURL]; ok && v != "" {
 		cfg.OllamaBaseURL = v
+	}
+	if v, ok := vals[envOpenAIBaseURL]; ok && v != "" {
+		cfg.OpenAIBaseURL = v
 	}
 	if v, ok := vals[envContextLimit]; ok && v != "" {
 		n, err := strconv.ParseInt(v, 10, 64)
@@ -644,8 +697,17 @@ func applyOverrides(cfg *Config, o *Overrides) {
 	if o.Model != nil {
 		cfg.Model = *o.Model
 	}
+	if o.Provider != nil && *o.Provider != "" {
+		p := strings.TrimSpace(strings.ToLower(*o.Provider))
+		if p == "ollama" || p == "openai" {
+			cfg.Provider = p
+		}
+	}
 	if o.OllamaBaseURL != nil {
 		cfg.OllamaBaseURL = *o.OllamaBaseURL
+	}
+	if o.OpenAIBaseURL != nil {
+		cfg.OpenAIBaseURL = *o.OpenAIBaseURL
 	}
 	if o.ContextLimit != nil {
 		cfg.ContextLimit = *o.ContextLimit

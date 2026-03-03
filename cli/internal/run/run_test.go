@@ -85,7 +85,8 @@ func TestStart_createsSessionAndWorktree(t *testing.T) {
 		Ref:           "HEAD~1",
 		DryRun:        true,
 		Model:         "",
-		OllamaBaseURL: "",
+		Provider: "ollama",
+		LLMBaseURL: "",
 	}
 	_, err := Start(ctx, opts)
 	if err != nil {
@@ -127,7 +128,8 @@ func TestStart_refEqualsHEAD_skipsWorktree(t *testing.T) {
 	stateDir := filepath.Join(repo, ".review")
 	opts := StartOptions{
 		RepoRoot: repo, StateDir: stateDir, WorktreeRoot: "", Ref: "HEAD", DryRun: true,
-		Model: "", OllamaBaseURL: "",
+		Model: "", Provider: "ollama",
+		LLMBaseURL: "",
 	}
 	_, err := Start(ctx, opts)
 	if err != nil {
@@ -162,7 +164,8 @@ func TestStart_refEqualsHEAD_withPersistStrictness_storesInSession(t *testing.T)
 	strictness := "strict"
 	opts := StartOptions{
 		RepoRoot: repo, StateDir: stateDir, WorktreeRoot: "", Ref: "HEAD", DryRun: true,
-		Model: "", OllamaBaseURL: "",
+		Model: "", Provider: "ollama",
+		LLMBaseURL: "",
 		PersistStrictness: &strictness,
 	}
 	if _, err := Start(ctx, opts); err != nil {
@@ -212,7 +215,8 @@ func TestStart_persistStrictnessAndRAG_storesInSession(t *testing.T) {
 		Ref:                        "HEAD~1",
 		DryRun:                     true,
 		Model:                      "",
-		OllamaBaseURL:              "",
+		Provider: "ollama",
+		LLMBaseURL:              "",
 		PersistStrictness:          &strictness,
 		PersistRAGSymbolMaxDefinitions: &ragDefs,
 		PersistRAGSymbolMaxTokens:      &ragTokens,
@@ -249,7 +253,8 @@ func TestStart_refEqualsHEAD_withPersistContext_storesInSession(t *testing.T) {
 		Ref:                 "HEAD",
 		DryRun:              true,
 		Model:               "",
-		OllamaBaseURL:       "",
+		Provider: "ollama",
+		LLMBaseURL:       "",
 		PersistContextLimit: &contextLimit,
 		PersistNumCtx:       &numCtx,
 	}
@@ -298,7 +303,8 @@ func TestStart_allowDirty_skipsCleanCheck(t *testing.T) {
 		DryRun:        true,
 		AllowDirty:    true,
 		Model:         "",
-		OllamaBaseURL: "",
+		Provider: "ollama",
+		LLMBaseURL: "",
 	}
 	_, err := Start(ctx, opts)
 	if err != nil {
@@ -332,7 +338,8 @@ func TestStart_allowDirty_warnsToStderr(t *testing.T) {
 		DryRun:        true,
 		AllowDirty:    true,
 		Model:         "",
-		OllamaBaseURL: "",
+		Provider: "ollama",
+		LLMBaseURL: "",
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -364,7 +371,8 @@ func TestStart_concurrentLockFails(t *testing.T) {
 		Ref:           "HEAD~1",
 		DryRun:        true,
 		Model:         "",
-		OllamaBaseURL: "",
+		Provider: "ollama",
+		LLMBaseURL: "",
 	}
 	_, err = Start(ctx, opts)
 	if err == nil {
@@ -647,7 +655,8 @@ func TestStart_dryRun_deterministicFindings(t *testing.T) {
 		Ref:           "HEAD~1",
 		DryRun:        true,
 		Model:         "",
-		OllamaBaseURL: "",
+		Provider: "ollama",
+		LLMBaseURL: "",
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -682,7 +691,8 @@ func TestStart_stream_emitsNDJSON(t *testing.T) {
 		Ref:           "HEAD~1",
 		DryRun:        true,
 		Model:         "",
-		OllamaBaseURL: "",
+		Provider: "ollama",
+		LLMBaseURL: "",
 		StreamOut:     &buf,
 	}
 	if _, err := Start(ctx, opts); err != nil {
@@ -744,7 +754,8 @@ func TestRun_dryRun_incremental(t *testing.T) {
 		Ref:           "HEAD~1",
 		DryRun:        true,
 		Model:         "",
-		OllamaBaseURL: "",
+		Provider: "ollama",
+		LLMBaseURL: "",
 	}
 	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -814,7 +825,8 @@ func TestRun_forceFullReview_partitionsAllHunks(t *testing.T) {
 		Ref:           "HEAD~1",
 		DryRun:        true,
 		Model:         "",
-		OllamaBaseURL: "",
+		Provider: "ollama",
+		LLMBaseURL: "",
 	}
 	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -863,7 +875,8 @@ func TestRun_replaceFindings(t *testing.T) {
 		Ref:           "HEAD~1",
 		DryRun:        true,
 		Model:         "",
-		OllamaBaseURL: "",
+		Provider: "ollama",
+		LLMBaseURL: "",
 	}
 	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -910,7 +923,8 @@ func TestStart_dryRun_noHunks(t *testing.T) {
 		Ref:           "HEAD",
 		DryRun:        true,
 		Model:         "",
-		OllamaBaseURL: "",
+		Provider: "ollama",
+		LLMBaseURL: "",
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -950,7 +964,8 @@ func TestStart_dryRun_multipleHunksSameFile_distinctIDs(t *testing.T) {
 		Ref:           "HEAD~1",
 		DryRun:        true,
 		Model:         "",
-		OllamaBaseURL: "",
+		Provider: "ollama",
+		LLMBaseURL: "",
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -988,7 +1003,8 @@ func TestRun_dryRun_withNewCommitAppendsFindings(t *testing.T) {
 		Ref:           "HEAD~1",
 		DryRun:        true,
 		Model:         "",
-		OllamaBaseURL: "",
+		Provider: "ollama",
+		LLMBaseURL: "",
 	}
 	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1230,7 +1246,8 @@ func TestRun_dismissedHunksNotSentToModel(t *testing.T) {
 		Ref:           "HEAD~1",
 		DryRun:        true,
 		Model:         "",
-		OllamaBaseURL: "",
+		Provider: "ollama",
+		LLMBaseURL: "",
 	}
 	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1282,7 +1299,8 @@ func TestRun_forceFullReview_skipsDismissedFilter(t *testing.T) {
 		Ref:           "HEAD~1",
 		DryRun:        true,
 		Model:         "",
-		OllamaBaseURL: "",
+		Provider: "ollama",
+		LLMBaseURL: "",
 	}
 	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1334,7 +1352,8 @@ func TestRun_autoDismiss_addressedFindingNotRereported(t *testing.T) {
 		Ref:           "HEAD~1",
 		DryRun:        true,
 		Model:         "",
-		OllamaBaseURL: "",
+		Provider: "ollama",
+		LLMBaseURL: "",
 	}
 	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1440,7 +1459,8 @@ func TestStart_withMockOllama(t *testing.T) {
 		Ref:           "HEAD~1",
 		DryRun:        false,
 		Model:         "m",
-		OllamaBaseURL: srv.URL,
+		Provider: "ollama",
+		LLMBaseURL: srv.URL,
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1498,7 +1518,8 @@ func TestStart_capturesOllamaUsage_whenNotDryRun(t *testing.T) {
 		Ref:           "HEAD~1",
 		DryRun:        false,
 		Model:         "m",
-		OllamaBaseURL: srv.URL,
+		Provider: "ollama",
+		LLMBaseURL: srv.URL,
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1568,7 +1589,8 @@ func TestFinish_writesUsageFields_whenCaptureUsageTrue(t *testing.T) {
 		Ref:           "HEAD~1",
 		DryRun:        false,
 		Model:         "m",
-		OllamaBaseURL: srv.URL,
+		Provider: "ollama",
+		LLMBaseURL: srv.URL,
 	}
 	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1641,7 +1663,8 @@ func TestFinish_omitsUsageFields_whenCaptureUsageFalse(t *testing.T) {
 		Ref:           "HEAD~1",
 		DryRun:        false,
 		Model:         "m",
-		OllamaBaseURL: srv.URL,
+		Provider: "ollama",
+		LLMBaseURL: srv.URL,
 	}
 	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1706,7 +1729,8 @@ func TestStart_abstentionFilter_dropsLowConfidence(t *testing.T) {
 		Ref:           "HEAD~1",
 		DryRun:        false,
 		Model:         "m",
-		OllamaBaseURL: srv.URL,
+		Provider: "ollama",
+		LLMBaseURL: srv.URL,
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1750,7 +1774,8 @@ func TestStart_abstentionFilter_dropsMaintainabilityUnderThreshold(t *testing.T)
 		Ref:           "HEAD~1",
 		DryRun:        false,
 		Model:         "m",
-		OllamaBaseURL: srv.URL,
+		Provider: "ollama",
+		LLMBaseURL: srv.URL,
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1794,7 +1819,8 @@ func TestStart_abstentionFilter_keepsHighConfidence(t *testing.T) {
 		Ref:           "HEAD~1",
 		DryRun:        false,
 		Model:         "m",
-		OllamaBaseURL: srv.URL,
+		Provider: "ollama",
+		LLMBaseURL: srv.URL,
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1844,7 +1870,8 @@ func TestStart_fpKillList_filtersBannedPhrase(t *testing.T) {
 		Ref:           "HEAD~1",
 		DryRun:        false,
 		Model:         "m",
-		OllamaBaseURL: srv.URL,
+		Provider: "ollama",
+		LLMBaseURL: srv.URL,
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1888,7 +1915,8 @@ func TestStart_strictPreset_keepsLowerConfidence(t *testing.T) {
 		Ref:                        "HEAD~1",
 		DryRun:                     false,
 		Model:                      "m",
-		OllamaBaseURL:              srv.URL,
+		Provider: "ollama",
+		LLMBaseURL:              srv.URL,
 		MinConfidenceKeep:         0.6,
 		MinConfidenceMaintainability: 0.7,
 		ApplyFPKillList:            ptrBool(true),
@@ -1938,7 +1966,8 @@ func TestStart_strictPlus_keepsBannedPhrase(t *testing.T) {
 		Ref:                        "HEAD~1",
 		DryRun:                     false,
 		Model:                      "m",
-		OllamaBaseURL:              srv.URL,
+		Provider: "ollama",
+		LLMBaseURL:              srv.URL,
 		MinConfidenceKeep:          0.8,
 		MinConfidenceMaintainability: 0.9,
 		ApplyFPKillList:            ptrBool(false),
@@ -1988,7 +2017,8 @@ func TestStart_nitpicky_keepsBannedPhrase(t *testing.T) {
 		Ref:                         "HEAD~1",
 		DryRun:                      false,
 		Model:                       "m",
-		OllamaBaseURL:               srv.URL,
+		Provider: "ollama",
+		LLMBaseURL:               srv.URL,
 		MinConfidenceKeep:           0.8,
 		MinConfidenceMaintainability: 0.9,
 		Nitpicky:                    true,
@@ -2037,7 +2067,8 @@ func TestStart_removesWorktreeOnFailure(t *testing.T) {
 		Ref:           "HEAD~1",
 		DryRun:        false,
 		Model:         "m",
-		OllamaBaseURL: srv.URL,
+		Provider: "ollama",
+		LLMBaseURL: srv.URL,
 	}
 	_, err := Start(ctx, opts)
 	if err == nil {
@@ -2109,7 +2140,8 @@ func TestStart_tokenWarningWhenOverThreshold(t *testing.T) {
 		Ref:           "HEAD~1",
 		DryRun:        false,
 		Model:         "m",
-		OllamaBaseURL: srv.URL,
+		Provider: "ollama",
+		LLMBaseURL: srv.URL,
 		ContextLimit:  100,
 		WarnThreshold: 0.9,
 	}
@@ -2172,7 +2204,8 @@ func TestRun_tokenWarningWhenOverThreshold(t *testing.T) {
 		Ref:           "HEAD~1",
 		DryRun:        true,
 		Model:         "",
-		OllamaBaseURL: "",
+		Provider: "ollama",
+		LLMBaseURL: "",
 	}
 	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -2187,7 +2220,8 @@ func TestRun_tokenWarningWhenOverThreshold(t *testing.T) {
 		StateDir:      stateDir,
 		DryRun:        false,
 		Model:         "m",
-		OllamaBaseURL: srv.URL,
+		Provider: "ollama",
+		LLMBaseURL: srv.URL,
 		ContextLimit:  100,
 		WarnThreshold: 0.9,
 	}
@@ -2252,7 +2286,8 @@ func TestRun_pipeline_multipleHunks_ordersFindingsAndOneGeneratePerHunk(t *testi
 		Ref:           "HEAD~1",
 		DryRun:        false,
 		Model:         "m",
-		OllamaBaseURL: srv.URL,
+		Provider: "ollama",
+		LLMBaseURL: srv.URL,
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)

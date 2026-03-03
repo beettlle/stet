@@ -28,6 +28,7 @@ import (
 	"stet/cli/internal/git"
 	"stet/cli/internal/history"
 	"stet/cli/internal/hunkid"
+	"stet/cli/internal/llm"
 	"stet/cli/internal/ollama"
 	"stet/cli/internal/prompt"
 	"stet/cli/internal/review"
@@ -103,7 +104,7 @@ type genResult struct {
 // reviewPipelineOpts holds inputs for runReviewPipeline.
 // RulesByFile is preloaded so preparers do not touch the loader concurrently.
 type reviewPipelineOpts struct {
-	Client                   *ollama.Client
+	Client                   llm.Client
 	Model                    string
 	Hunks                    []diff.Hunk
 	GenOpts                  *ollama.GenerateOptions
@@ -663,7 +664,7 @@ func filterHunksWithDismissedFindings(toReview []diff.Hunk, s *session.Session, 
 }
 
 // StartOptions configures Start. All fields are required except Ref (default "HEAD" by caller).
-// DryRun skips the LLM and injects canned findings. Model and OllamaBaseURL are used when DryRun is false.
+// DryRun skips the LLM and injects canned findings. Model, Provider, and LLMBaseURL are used when DryRun is false.
 // ContextLimit and WarnThreshold are used for token estimation warnings (Phase 3.2); zero values disable the warning.
 // Temperature and NumCtx are passed to Ollama /api/generate options.
 // Verbose, when true, prints progress to stderr (worktree, partition summary, per-hunk).
@@ -679,7 +680,8 @@ type StartOptions struct {
 	DryRun                  bool
 	AllowDirty              bool
 	Model                   string
-	OllamaBaseURL           string
+	Provider                string // "ollama" or "openai"
+	LLMBaseURL              string // base URL for the selected provider
 	ContextLimit            int
 	WarnThreshold           float64
 	Timeout                 time.Duration
@@ -730,7 +732,7 @@ type FinishOptions struct {
 
 // RunOptions configures Run. DryRun skips the LLM and injects canned findings.
 // ContextLimit and WarnThreshold are used for token estimation warnings (Phase 3.2); zero values disable the warning.
-// Temperature and NumCtx are passed to Ollama /api/generate options.
+// Temperature and NumCtx are passed to the LLM (Ollama or OpenAI-compat).
 // Verbose, when true, prints progress to stderr (partition summary, per-hunk).
 // RunOptions does not include WorktreeRoot because Run does not create or remove worktrees (only Finish does).
 // StreamOut, when non-nil, receives NDJSON events (progress, finding, done) one per line.
@@ -739,7 +741,8 @@ type RunOptions struct {
 	StateDir                     string
 	DryRun                       bool
 	Model                        string
-	OllamaBaseURL                string
+	Provider                     string // "ollama" or "openai"
+	LLMBaseURL                   string // base URL for the selected provider
 	ContextLimit                 int
 	WarnThreshold                float64
 	Timeout                      time.Duration
@@ -870,17 +873,20 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 		return RunStats{}, nil
 	}
 
-	// Upfront Ollama check when not dry-run so wrong URL fails before creating worktree (Phase 3 remediation).
+	// Upfront LLM check when not dry-run so wrong URL fails before creating worktree (Phase 3 remediation).
 	// Reuse the same client (with configurable timeout) for the check and the review loop.
-	// On retries the client scales the timeout exponentially, capped at 30 min (see ollama.retryTimeout).
-	var ollamaClient *ollama.Client
+	var llmClient llm.Client
 	if !opts.DryRun {
 		timeout := opts.Timeout
 		if timeout == 0 {
 			timeout = _defaultOllamaTimeout
 		}
-		ollamaClient = ollama.NewClient(opts.OllamaBaseURL, &http.Client{Timeout: timeout})
-		if _, err := ollamaClient.Check(ctx, opts.Model); err != nil {
+		var newErr error
+		llmClient, newErr = llm.NewClient(opts.Provider, opts.LLMBaseURL, &http.Client{Timeout: timeout})
+		if newErr != nil {
+			return RunStats{}, newErr
+		}
+		if _, err := llmClient.Check(ctx, opts.Model); err != nil {
 			return RunStats{}, err
 		}
 	}
@@ -1074,7 +1080,7 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 			}
 		}
 		collected, findingPromptContext, sumPrompt, sumCompletion, sumDuration, err = runReviewPipeline(ctx, reviewPipelineOpts{
-			Client:                  ollamaClient,
+			Client:                  llmClient,
 			Model:                   opts.Model,
 			Hunks:                   part.ToReview,
 			GenOpts:                 genOpts,
@@ -1421,8 +1427,11 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 			timeout = _defaultOllamaTimeout
 		}
 		// On retries the client scales the timeout exponentially, capped at 30 min (see ollama.retryTimeout).
-		client := ollama.NewClient(opts.OllamaBaseURL, &http.Client{Timeout: timeout})
-		// Upfront Ollama check so wrong URL fails before review loop (Phase 3 remediation).
+		client, clientErr := llm.NewClient(opts.Provider, opts.LLMBaseURL, &http.Client{Timeout: timeout})
+		if clientErr != nil {
+			return RunStats{}, clientErr
+		}
+		// Upfront LLM check so wrong URL fails before review loop (Phase 3 remediation).
 		if _, err := client.Check(ctx, opts.Model); err != nil {
 			return RunStats{}, err
 		}

@@ -11,6 +11,7 @@ import (
 	"stet/cli/internal/expand"
 	"stet/cli/internal/findings"
 	"stet/cli/internal/minify"
+	"stet/cli/internal/llm"
 	"stet/cli/internal/ollama"
 	"stet/cli/internal/prompt"
 	"stet/cli/internal/rag"
@@ -248,7 +249,7 @@ func PrepareHunkPrompt(ctx context.Context, systemBase string, hunk diff.Hunk, r
 
 // ProcessReviewResponse parses the LLM response, retries Generate once on parse
 // failure, then assigns finding IDs. Callers use this after client.Generate.
-func ProcessReviewResponse(ctx context.Context, result *ollama.GenerateResult, hunk diff.Hunk, client *ollama.Client, model, system, user string, generateOpts *ollama.GenerateOptions, traceOut *trace.Tracer) ([]findings.Finding, *HunkUsage, error) {
+func ProcessReviewResponse(ctx context.Context, result *ollama.GenerateResult, hunk diff.Hunk, client llm.Client, model, system, user string, generateOpts *ollama.GenerateOptions, traceOut *trace.Tracer) ([]findings.Finding, *HunkUsage, error) {
 	if result == nil {
 		return nil, nil, fmt.Errorf("review: process response: nil result")
 	}
@@ -313,7 +314,7 @@ func ProcessReviewResponse(ctx context.Context, result *ollama.GenerateResult, h
 // ragCallersMax/ragCalleesMax/ragCallGraphMaxTokens control optional call-graph (Go only).
 // When nitpicky is true, nitpicky-mode instructions are appended.
 // suppressionExamples, when non-nil and non-empty, are applied per-hunk (as many as fit in the token budget).
-func ReviewHunk(ctx context.Context, client *ollama.Client, model, stateDir string, hunk diff.Hunk, generateOpts *ollama.GenerateOptions, userIntent *prompt.UserIntent, ruleList []rules.CursorRule, repoRoot string, contextLimit int, ragMaxDefs, ragMaxTokens int, ragCallGraphEnabled bool, ragCallersMax, ragCalleesMax, ragCallGraphMaxTokens int, promptShadows []prompt.Shadow, nitpicky bool, useSearchReplaceFormat bool, suppressionExamples []string, traceOut *trace.Tracer) ([]findings.Finding, *HunkUsage, error) {
+func ReviewHunk(ctx context.Context, client llm.Client, model, stateDir string, hunk diff.Hunk, generateOpts *ollama.GenerateOptions, userIntent *prompt.UserIntent, ruleList []rules.CursorRule, repoRoot string, contextLimit int, ragMaxDefs, ragMaxTokens int, ragCallGraphEnabled bool, ragCallersMax, ragCalleesMax, ragCallGraphMaxTokens int, promptShadows []prompt.Shadow, nitpicky bool, useSearchReplaceFormat bool, suppressionExamples []string, traceOut *trace.Tracer) ([]findings.Finding, *HunkUsage, error) {
 	systemBase, err := prompt.SystemPrompt(stateDir)
 	if err != nil {
 		return nil, nil, fmt.Errorf("review: system prompt: %w", err)

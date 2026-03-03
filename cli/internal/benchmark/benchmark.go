@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 
+	"stet/cli/internal/llm"
 	"stet/cli/internal/ollama"
 	"stet/cli/internal/prompt"
 )
@@ -53,7 +54,7 @@ type BenchmarkResult struct {
 
 // Run executes a single benchmark run with a review-like prompt and returns metrics.
 // opts may be nil (Ollama uses server/model defaults). The model must already exist.
-func Run(ctx context.Context, client *ollama.Client, model string, opts *ollama.GenerateOptions) (*BenchmarkResult, error) {
+func Run(ctx context.Context, client llm.Client, model string, opts *ollama.GenerateOptions) (*BenchmarkResult, error) {
 	system := prompt.DefaultSystemPrompt
 	user := benchmarkUserPrompt
 	result, err := client.Generate(ctx, model, system, user, opts)

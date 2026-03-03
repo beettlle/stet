@@ -23,6 +23,7 @@ import (
 	"stet/cli/internal/findings"
 	"stet/cli/internal/git"
 	"stet/cli/internal/history"
+	"stet/cli/internal/llm"
 	"stet/cli/internal/ollama"
 	"stet/cli/internal/run"
 	"stet/cli/internal/session"
@@ -77,15 +78,24 @@ func errForDetails(err error) error {
 	return err
 }
 
-// printOllamaUnreachable prints a consistent unreachable message to stderr and, when the
+// printLLMUnreachable prints a consistent unreachable message to stderr and, when the
 // error is a timeout (context.DeadlineExceeded), adds a hint to increase timeout or reduce context.
-// If cfg is nil, the URL line is omitted (callers should pass config when available).
-func printOllamaUnreachable(cfg *config.Config, err error) {
-	baseURL := "Ollama"
-	if cfg != nil && cfg.OllamaBaseURL != "" {
-		baseURL = cfg.OllamaBaseURL
+// provider is "ollama" or "openai"; baseURL is the server URL used.
+func printLLMUnreachable(provider, baseURL string, err error) {
+	label := "LLM server"
+	if provider == "ollama" {
+		label = "Ollama"
+	} else if provider == "openai" {
+		label = "OpenAI-compat server (e.g. LM Studio)"
 	}
-	fmt.Fprintf(os.Stderr, "Ollama unreachable at %s. Is the server running? For local: ollama serve.\n", baseURL)
+	if baseURL == "" {
+		baseURL = "(no URL)"
+	}
+	fmt.Fprintf(os.Stderr, "%s unreachable at %s. Is the server running?", label, baseURL)
+	if provider == "ollama" {
+		fmt.Fprint(os.Stderr, " For local: ollama serve.")
+	}
+	fmt.Fprintln(os.Stderr)
 	fmt.Fprintf(os.Stderr, "Details: %v\n", errForDetails(err))
 	if errors.Is(err, context.DeadlineExceeded) {
 		fmt.Fprintln(os.Stderr, "Hint: Request timed out. Try increasing STET_TIMEOUT (or timeout in config) or using a smaller --context (e.g. 32k).")
@@ -267,6 +277,8 @@ func newStartCmd() *cobra.Command {
 	cmd.Flags().String("context", "", "Context window preset: 4k, 8k, 16k, 32k, 64k, 128k, 256k (sets both context_limit and num_ctx)")
 	cmd.Flags().Int("num-ctx", 0, "Context window size in tokens (0 = use config); overrides config and --context; sets both context_limit and num_ctx")
 	cmd.Flags().String("timeout", "", "Per-request timeout (e.g. 30m, 1h, or integer seconds); overrides config and STET_TIMEOUT")
+	cmd.Flags().String("provider", "", "LLM provider: ollama or openai (overrides config and STET_PROVIDER)")
+	cmd.Flags().String("openai-base-url", "", "OpenAI-compat server URL when provider=openai (e.g. http://localhost:1234/v1); overrides config and STET_OPENAI_BASE_URL")
 	cmd.Flags().Bool("trace", false, "Print internal steps to stderr (partition, rules, RAG, prompts, LLM I/O)")
 	cmd.Flags().Bool("search-replace", false, "Use search-replace style diff in the prompt (experimental; compare token usage and finding quality)")
 	return cmd
@@ -363,7 +375,8 @@ func runStart(cmd *cobra.Command, args []string) error {
 		DryRun:                         dryRun,
 		AllowDirty:                     allowDirty,
 		Model:                          cfg.Model,
-		OllamaBaseURL:                  cfg.OllamaBaseURL,
+		Provider:                       cfg.EffectiveLLMProvider(),
+		LLMBaseURL:                     cfg.EffectiveLLMBaseURL(),
 		ContextLimit:                   cfg.ContextLimit,
 		WarnThreshold:                  cfg.WarnThreshold,
 		Timeout:                        cfg.Timeout,
@@ -399,12 +412,12 @@ func runStart(cmd *cobra.Command, args []string) error {
 	}
 	stats, err := run.Start(cmd.Context(), opts)
 	if err != nil {
-		if errors.Is(err, ollama.ErrUnreachable) {
-			printOllamaUnreachable(cfg, err)
+		if errors.Is(err, llm.ErrUnreachable) {
+			printLLMUnreachable(cfg.EffectiveLLMProvider(), cfg.EffectiveLLMBaseURL(), err)
 			return errExit(2)
 		}
-		if errors.Is(err, ollama.ErrBadRequest) {
-			fmt.Fprintf(os.Stderr, "Ollama bad request at %s. %v\n", cfg.OllamaBaseURL, errForDetails(err))
+		if errors.Is(err, llm.ErrBadRequest) {
+			fmt.Fprintf(os.Stderr, "LLM bad request at %s. %v\n", cfg.EffectiveLLMBaseURL(), errForDetails(err))
 			return errExit(2)
 		}
 		if errors.Is(err, run.ErrDirtyWorktree) {
@@ -457,6 +470,8 @@ func addRunLikeFlags(cmd *cobra.Command) {
 	cmd.Flags().String("context", "", "Context window preset: 4k, 8k, 16k, 32k, 64k, 128k, 256k (sets both context_limit and num_ctx)")
 	cmd.Flags().Int("num-ctx", 0, "Context window size in tokens (0 = use config); overrides config and --context; sets both context_limit and num_ctx")
 	cmd.Flags().String("timeout", "", "Per-request timeout (e.g. 30m, 1h, or integer seconds); overrides config and STET_TIMEOUT")
+	cmd.Flags().String("provider", "", "LLM provider: ollama or openai (overrides config and STET_PROVIDER)")
+	cmd.Flags().String("openai-base-url", "", "OpenAI-compat server URL when provider=openai (e.g. http://localhost:1234/v1); overrides config and STET_OPENAI_BASE_URL")
 	cmd.Flags().Bool("trace", false, "Print internal steps to stderr (partition, rules, RAG, prompts, LLM I/O)")
 	cmd.Flags().Bool("search-replace", false, "Use search-replace style diff in the prompt (experimental; compare token usage and finding quality)")
 }
@@ -493,7 +508,7 @@ func parseContextPreset(s string) (int, error) {
 	}
 }
 
-// overridesFromFlags returns Overrides for RAG, strictness, nitpicky, and context when the corresponding flags were set (start/run both define these flags).
+// overridesFromFlags returns Overrides for RAG, strictness, nitpicky, context, provider, and openai-base-url when the corresponding flags were set (start/run both define these flags).
 func overridesFromFlags(cmd *cobra.Command) (*config.Overrides, error) {
 	defChanged := cmd.Flags().Lookup("rag-symbol-max-definitions") != nil && cmd.Flags().Lookup("rag-symbol-max-definitions").Changed
 	tokChanged := cmd.Flags().Lookup("rag-symbol-max-tokens") != nil && cmd.Flags().Lookup("rag-symbol-max-tokens").Changed
@@ -504,7 +519,9 @@ func overridesFromFlags(cmd *cobra.Command) (*config.Overrides, error) {
 	contextChanged := cmd.Flags().Lookup("context") != nil && cmd.Flags().Lookup("context").Changed
 	numCtxChanged := cmd.Flags().Lookup("num-ctx") != nil && cmd.Flags().Lookup("num-ctx").Changed
 	timeoutChanged := cmd.Flags().Lookup("timeout") != nil && cmd.Flags().Lookup("timeout").Changed
-	if !defChanged && !tokChanged && !ragCallGraphChanged && !strictnessChanged && !nitpickyChanged && !verifyChanged && !contextChanged && !numCtxChanged && !timeoutChanged {
+	providerChanged := cmd.Flags().Lookup("provider") != nil && cmd.Flags().Lookup("provider").Changed
+	openaiBaseURLChanged := cmd.Flags().Lookup("openai-base-url") != nil && cmd.Flags().Lookup("openai-base-url").Changed
+	if !defChanged && !tokChanged && !ragCallGraphChanged && !strictnessChanged && !nitpickyChanged && !verifyChanged && !contextChanged && !numCtxChanged && !timeoutChanged && !providerChanged && !openaiBaseURLChanged {
 		return nil, nil
 	}
 	o := &config.Overrides{}
@@ -560,6 +577,20 @@ func overridesFromFlags(cmd *cobra.Command) (*config.Overrides, error) {
 			}
 			o.Timeout = &d
 		}
+	}
+	if providerChanged {
+		s, _ := cmd.Flags().GetString("provider")
+		if s != "" {
+			p := strings.TrimSpace(strings.ToLower(s))
+			if p != "ollama" && p != "openai" {
+				return nil, erruser.New("--provider must be ollama or openai", nil)
+			}
+			o.Provider = &p
+		}
+	}
+	if openaiBaseURLChanged {
+		s, _ := cmd.Flags().GetString("openai-base-url")
+		o.OpenAIBaseURL = &s
 	}
 	return o, nil
 }
@@ -666,7 +697,8 @@ func runRun(cmd *cobra.Command, args []string) error {
 		StateDir:                     stateDir,
 		DryRun:                       dryRun,
 		Model:                        cfg.Model,
-		OllamaBaseURL:                cfg.OllamaBaseURL,
+		Provider:                     cfg.EffectiveLLMProvider(),
+		LLMBaseURL:                   cfg.EffectiveLLMBaseURL(),
 		ContextLimit:                 effectiveContextLimit,
 		WarnThreshold:                cfg.WarnThreshold,
 		Timeout:                      cfg.Timeout,
@@ -700,12 +732,12 @@ func runRun(cmd *cobra.Command, args []string) error {
 			fmt.Fprintln(os.Stderr, err.Error())
 			return errExit(1)
 		}
-		if errors.Is(err, ollama.ErrUnreachable) {
-			printOllamaUnreachable(cfg, err)
+		if errors.Is(err, llm.ErrUnreachable) {
+			printLLMUnreachable(cfg.EffectiveLLMProvider(), cfg.EffectiveLLMBaseURL(), err)
 			return errExit(2)
 		}
-		if errors.Is(err, ollama.ErrBadRequest) {
-			fmt.Fprintf(os.Stderr, "Ollama bad request at %s. %v\n", cfg.OllamaBaseURL, errForDetails(err))
+		if errors.Is(err, llm.ErrBadRequest) {
+			fmt.Fprintf(os.Stderr, "LLM bad request at %s. %v\n", cfg.EffectiveLLMBaseURL(), errForDetails(err))
 			return errExit(2)
 		}
 		return err
@@ -844,7 +876,8 @@ func runRerun(cmd *cobra.Command, args []string) error {
 		StateDir:                     stateDir,
 		DryRun:                       dryRun,
 		Model:                        cfg.Model,
-		OllamaBaseURL:                cfg.OllamaBaseURL,
+		Provider:                     cfg.EffectiveLLMProvider(),
+		LLMBaseURL:                   cfg.EffectiveLLMBaseURL(),
 		ContextLimit:                 effectiveContextLimit,
 		WarnThreshold:                cfg.WarnThreshold,
 		Timeout:                      cfg.Timeout,
@@ -880,12 +913,12 @@ func runRerun(cmd *cobra.Command, args []string) error {
 			fmt.Fprintln(os.Stderr, err.Error())
 			return errExit(1)
 		}
-		if errors.Is(err, ollama.ErrUnreachable) {
-			printOllamaUnreachable(cfg, err)
+		if errors.Is(err, llm.ErrUnreachable) {
+			printLLMUnreachable(cfg.EffectiveLLMProvider(), cfg.EffectiveLLMBaseURL(), err)
 			return errExit(2)
 		}
-		if errors.Is(err, ollama.ErrBadRequest) {
-			fmt.Fprintf(os.Stderr, "Ollama bad request at %s. %v\n", cfg.OllamaBaseURL, errForDetails(err))
+		if errors.Is(err, llm.ErrBadRequest) {
+			fmt.Fprintf(os.Stderr, "LLM bad request at %s. %v\n", cfg.EffectiveLLMBaseURL(), errForDetails(err))
 			return errExit(2)
 		}
 		return err
@@ -1310,14 +1343,17 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 	if timeout <= 0 {
 		timeout = 60 * time.Second
 	}
-	client := ollama.NewClient(cfg.OllamaBaseURL, &http.Client{Timeout: timeout})
+	client, err := llm.NewClient(cfg.EffectiveLLMProvider(), cfg.EffectiveLLMBaseURL(), &http.Client{Timeout: timeout})
+	if err != nil {
+		return err
+	}
 	if _, err := client.Check(cmd.Context(), cfg.Model); err != nil {
-		if errors.Is(err, ollama.ErrUnreachable) {
-			printOllamaUnreachable(cfg, err)
+		if errors.Is(err, llm.ErrUnreachable) {
+			printLLMUnreachable(cfg.EffectiveLLMProvider(), cfg.EffectiveLLMBaseURL(), err)
 			return errExit(2)
 		}
-		if errors.Is(err, ollama.ErrBadRequest) {
-			fmt.Fprintf(os.Stderr, "Ollama bad request at %s. %v\n", cfg.OllamaBaseURL, errForDetails(err))
+		if errors.Is(err, llm.ErrBadRequest) {
+			fmt.Fprintf(os.Stderr, "LLM bad request at %s. %v\n", cfg.EffectiveLLMBaseURL(), errForDetails(err))
 			return errExit(2)
 		}
 		return err
@@ -1331,12 +1367,12 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 	}
 	msg, err := commitmsg.Suggest(cmd.Context(), client, cfg.Model, diff, opts)
 	if err != nil {
-		if errors.Is(err, ollama.ErrUnreachable) {
-			printOllamaUnreachable(cfg, err)
+		if errors.Is(err, llm.ErrUnreachable) {
+			printLLMUnreachable(cfg.EffectiveLLMProvider(), cfg.EffectiveLLMBaseURL(), err)
 			return errExit(2)
 		}
-		if errors.Is(err, ollama.ErrBadRequest) {
-			fmt.Fprintf(os.Stderr, "Ollama bad request. %v\n", errForDetails(err))
+		if errors.Is(err, llm.ErrBadRequest) {
+			fmt.Fprintf(os.Stderr, "LLM bad request. %v\n", errForDetails(err))
 			return errExit(2)
 		}
 		return err
@@ -1399,7 +1435,8 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 		StateDir:                     stateDir,
 		DryRun:                       false,
 		Model:                        cfg.Model,
-		OllamaBaseURL:                cfg.OllamaBaseURL,
+		Provider:                     cfg.EffectiveLLMProvider(),
+		LLMBaseURL:                   cfg.EffectiveLLMBaseURL(),
 		ContextLimit:                 effectiveContextLimit,
 		WarnThreshold:                cfg.WarnThreshold,
 		Timeout:                      cfg.Timeout,
@@ -1434,7 +1471,8 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 			DryRun:                         false,
 			AllowDirty:                     true,
 			Model:                          cfg.Model,
-			OllamaBaseURL:                  cfg.OllamaBaseURL,
+			Provider:                       cfg.EffectiveLLMProvider(),
+			LLMBaseURL:                     cfg.EffectiveLLMBaseURL(),
 			ContextLimit:                   effectiveContextLimit,
 			WarnThreshold:                  cfg.WarnThreshold,
 			Timeout:                        cfg.Timeout,
@@ -1458,8 +1496,8 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 			SuppressionHistoryCount:       cfg.SuppressionHistoryCount,
 		}
 		if _, err := run.Start(cmd.Context(), startOpts); err != nil {
-			if errors.Is(err, ollama.ErrUnreachable) {
-				printOllamaUnreachable(cfg, err)
+			if errors.Is(err, llm.ErrUnreachable) {
+				printLLMUnreachable(cfg.EffectiveLLMProvider(), cfg.EffectiveLLMBaseURL(), err)
 				return errExit(2)
 			}
 			if errors.Is(err, run.ErrDirtyWorktree) {
@@ -1479,8 +1517,8 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 		if errors.Is(err, run.ErrNoSession) {
 			return err
 		}
-		if errors.Is(err, ollama.ErrUnreachable) {
-			printOllamaUnreachable(cfg, err)
+		if errors.Is(err, llm.ErrUnreachable) {
+			printLLMUnreachable(cfg.EffectiveLLMProvider(), cfg.EffectiveLLMBaseURL(), err)
 			return errExit(2)
 		}
 		return err
@@ -1563,22 +1601,29 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 	if model == "" {
 		model = cfg.Model
 	}
-	client := ollama.NewClient(cfg.OllamaBaseURL, nil)
+	client, clientErr := llm.NewClient(cfg.EffectiveLLMProvider(), cfg.EffectiveLLMBaseURL(), nil)
+	if clientErr != nil {
+		return clientErr
+	}
 	result, err := client.Check(cmd.Context(), model)
 	if err != nil {
-		if errors.Is(err, ollama.ErrUnreachable) {
-			printOllamaUnreachable(cfg, err)
+		if errors.Is(err, llm.ErrUnreachable) {
+			printLLMUnreachable(cfg.EffectiveLLMProvider(), cfg.EffectiveLLMBaseURL(), err)
 			return errExit(2)
 		}
-		if errors.Is(err, ollama.ErrBadRequest) {
-			fmt.Fprintf(os.Stderr, "Ollama bad request at %s. %v\n", cfg.OllamaBaseURL, errForDetails(err))
+		if errors.Is(err, llm.ErrBadRequest) {
+			fmt.Fprintf(os.Stderr, "LLM bad request at %s. %v\n", cfg.EffectiveLLMBaseURL(), errForDetails(err))
 			return errExit(2)
 		}
 		fmt.Fprintln(os.Stderr, err.Error())
 		return errExit(1)
 	}
 	if !result.ModelPresent {
-		fmt.Fprintf(os.Stderr, "Model %q not found. Pull it with: ollama pull %s\n", model, model)
+		hint := "Pull it with: ollama pull " + model
+		if cfg.EffectiveLLMProvider() == "openai" {
+			hint = "Load the model in LM Studio (or your OpenAI-compat server)."
+		}
+		fmt.Fprintf(os.Stderr, "Model %q not found. %s\n", model, hint)
 		return errExit(1)
 	}
 	opts := &ollama.GenerateOptions{
@@ -1635,22 +1680,29 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	client := ollama.NewClient(cfg.OllamaBaseURL, nil)
+	client, clientErr := llm.NewClient(cfg.EffectiveLLMProvider(), cfg.EffectiveLLMBaseURL(), nil)
+	if clientErr != nil {
+		return clientErr
+	}
 	result, err := client.Check(cmd.Context(), cfg.Model)
 	if err != nil {
-		if errors.Is(err, ollama.ErrUnreachable) {
-			printOllamaUnreachable(cfg, err)
+		if errors.Is(err, llm.ErrUnreachable) {
+			printLLMUnreachable(cfg.EffectiveLLMProvider(), cfg.EffectiveLLMBaseURL(), err)
 			return errExit(2)
 		}
-		if errors.Is(err, ollama.ErrBadRequest) {
-			fmt.Fprintf(os.Stderr, "Ollama bad request at %s. %v\n", cfg.OllamaBaseURL, errForDetails(err))
+		if errors.Is(err, llm.ErrBadRequest) {
+			fmt.Fprintf(os.Stderr, "LLM bad request at %s. %v\n", cfg.EffectiveLLMBaseURL(), errForDetails(err))
 			return errExit(2)
 		}
 		fmt.Fprintln(os.Stderr, err.Error())
 		return errExit(1)
 	}
 	if !result.ModelPresent {
-		fmt.Fprintf(os.Stderr, "Model %q not found. Pull it with: ollama pull %s\n", cfg.Model, cfg.Model)
+		hint := "Pull it with: ollama pull " + cfg.Model
+		if cfg.EffectiveLLMProvider() == "openai" {
+			hint = "Load the model in LM Studio (or your OpenAI-compat server)."
+		}
+		fmt.Fprintf(os.Stderr, "Model %q not found. %s\n", cfg.Model, hint)
 		return errExit(1)
 	}
 	fmt.Fprintln(os.Stdout, "Ollama OK")

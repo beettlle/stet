@@ -7,6 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"stet/cli/internal/llm"
 	"stet/cli/internal/ollama"
 )
 
@@ -24,7 +25,7 @@ Do not wrap the first line. Do not use markdown, code blocks, or quotes.`
 // Suggest asks the model to generate a commit message for the given unified diff.
 // diff is the output of git diff (staged and/or unstaged). opts may be nil; a lower
 // temperature (e.g. 0.2) is recommended for more deterministic messages.
-func Suggest(ctx context.Context, client *ollama.Client, model, diff string, opts *ollama.GenerateOptions) (string, error) {
+func Suggest(ctx context.Context, client llm.Client, model, diff string, opts *ollama.GenerateOptions) (string, error) {
 	if client == nil {
 		return "", errors.New("commitmsg: nil client")
 	}

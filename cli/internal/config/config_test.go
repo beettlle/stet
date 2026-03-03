@@ -23,8 +23,14 @@ func TestDefaultConfig_fieldsMatchExpectedDefaults(t *testing.T) {
 	if c.Model != _defaultModel {
 		t.Errorf("Model = %q, want %q", c.Model, _defaultModel)
 	}
+	if c.Provider != _defaultProvider {
+		t.Errorf("Provider = %q, want %q", c.Provider, _defaultProvider)
+	}
 	if c.OllamaBaseURL != _defaultOllamaBaseURL {
 		t.Errorf("OllamaBaseURL = %q, want %q", c.OllamaBaseURL, _defaultOllamaBaseURL)
+	}
+	if c.OpenAIBaseURL != _defaultOpenAIBaseURL {
+		t.Errorf("OpenAIBaseURL = %q, want %q", c.OpenAIBaseURL, _defaultOpenAIBaseURL)
 	}
 	if c.ContextLimit != _defaultContextLimit {
 		t.Errorf("ContextLimit = %d, want %d", c.ContextLimit, _defaultContextLimit)
@@ -69,7 +75,7 @@ func TestLoad_defaultsOnly(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 	want := DefaultConfig()
-	if cfg.Model != want.Model || cfg.OllamaBaseURL != want.OllamaBaseURL ||
+	if cfg.Model != want.Model || cfg.Provider != want.Provider || cfg.OllamaBaseURL != want.OllamaBaseURL || cfg.OpenAIBaseURL != want.OpenAIBaseURL ||
 		cfg.ContextLimit != want.ContextLimit || cfg.WarnThreshold != want.WarnThreshold ||
 		cfg.Timeout != want.Timeout || cfg.Temperature != want.Temperature || cfg.NumCtx != want.NumCtx {
 		t.Errorf("got %+v, want defaults %+v", cfg, want)

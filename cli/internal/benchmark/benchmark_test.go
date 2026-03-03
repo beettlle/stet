@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"stet/cli/internal/ollama"
+	"stet/cli/internal/llm"
 )
 
 func TestRun_returnsMetricsFromMockServer(t *testing.T) {
@@ -37,7 +37,7 @@ func TestRun_returnsMetricsFromMockServer(t *testing.T) {
 		})
 	}))
 	defer srv.Close()
-	client := ollama.NewClient(srv.URL, srv.Client())
+	client, _ := llm.NewClient("ollama", srv.URL, srv.Client())
 	ctx := context.Background()
 
 	got, err := Run(ctx, client, "qwen3-coder:30b", nil)
@@ -94,7 +94,7 @@ func TestRun_handlesZeroPromptEvalDuration(t *testing.T) {
 		})
 	}))
 	defer srv.Close()
-	client := ollama.NewClient(srv.URL, srv.Client())
+	client, _ := llm.NewClient("ollama", srv.URL, srv.Client())
 	ctx := context.Background()
 
 	got, err := Run(ctx, client, "test", nil)
@@ -128,7 +128,7 @@ func TestRun_handlesAllZeroDurations(t *testing.T) {
 		})
 	}))
 	defer srv.Close()
-	client := ollama.NewClient(srv.URL, srv.Client())
+	client, _ := llm.NewClient("ollama", srv.URL, srv.Client())
 	ctx := context.Background()
 
 	got, err := Run(ctx, client, "test", nil)
@@ -161,7 +161,7 @@ func TestRun_handlesZeroLoadDuration(t *testing.T) {
 		})
 	}))
 	defer srv.Close()
-	client := ollama.NewClient(srv.URL, srv.Client())
+	client, _ := llm.NewClient("ollama", srv.URL, srv.Client())
 	ctx := context.Background()
 
 	got, err := Run(ctx, client, "test", nil)
