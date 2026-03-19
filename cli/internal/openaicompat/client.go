@@ -208,10 +208,7 @@ func (c *Client) GenerateWithMessages(ctx context.Context, model string, message
 	if opts != nil {
 		temp = opts.Temperature
 	}
-	maxTokens := 4096
-	if opts != nil && opts.NumCtx > 0 && opts.NumCtx < 65536 {
-		maxTokens = opts.NumCtx
-	}
+	maxTokens := maxCompletionTokens(opts)
 	body := chatRequest{
 		Model:       model,
 		Messages:    msgs,
@@ -298,15 +295,22 @@ func (c *Client) GenerateWithMessages(ctx context.Context, model string, message
 	return nil, lastErr
 }
 
+// maxCompletionTokens returns the Chat Completions max_tokens value. NumCtx is the model context
+// window (Ollama num_ctx), not the completion cap; conflating them broke large --context values (e.g. 256k).
+func maxCompletionTokens(opts *ollama.GenerateOptions) int {
+	const defaultCap = 4096
+	if opts != nil && opts.MaxCompletionTokens > 0 {
+		return opts.MaxCompletionTokens
+	}
+	return defaultCap
+}
+
 func (c *Client) generate(ctx context.Context, model, systemPrompt, userPrompt string, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error) {
 	temp := 0.2
 	if opts != nil {
 		temp = opts.Temperature
 	}
-	maxTokens := 4096
-	if opts != nil && opts.NumCtx > 0 && opts.NumCtx < 65536 {
-		maxTokens = opts.NumCtx
-	}
+	maxTokens := maxCompletionTokens(opts)
 	body := chatRequest{
 		Model: model,
 		Messages: []message{

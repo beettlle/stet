@@ -129,6 +129,24 @@ func TestTruncateUTF8_emptyString(t *testing.T) {
 	}
 }
 
+func TestMaxDiffBytesForNumCtx(t *testing.T) {
+	tests := []struct {
+		numCtx int
+		want   int
+	}{
+		{0, defaultMaxDiffBytes},
+		{32768, defaultMaxDiffBytes},
+		{65536, 256 * 1024},
+		{131072, 384 * 1024},
+		{262144, 512 * 1024},
+	}
+	for _, tt := range tests {
+		if g := maxDiffBytesForNumCtx(tt.numCtx); g != tt.want {
+			t.Errorf("maxDiffBytesForNumCtx(%d) = %d, want %d", tt.numCtx, g, tt.want)
+		}
+	}
+}
+
 func TestSuggest_nilClient_returnsError(t *testing.T) {
 	ctx := context.Background()
 	_, err := Suggest(ctx, nil, "m", "diff", nil)
@@ -138,15 +156,15 @@ func TestSuggest_nilClient_returnsError(t *testing.T) {
 }
 
 func TestSuggest_longDiffTruncatesAndSucceeds(t *testing.T) {
-	// Build a diff longer than maxDiffChars so Suggest truncates it.
+	// Build a diff longer than defaultMaxDiffBytes so Suggest truncates it (nil opts -> 32 KiB cap).
 	chunk := "line of diff content\n"
-	n := (maxDiffChars / len(chunk)) + 2
+	n := (defaultMaxDiffBytes / len(chunk)) + 2
 	longDiff := ""
 	for i := 0; i < n; i++ {
 		longDiff += chunk
 	}
-	if len(longDiff) <= maxDiffChars {
-		t.Fatalf("test diff len %d <= maxDiffChars %d", len(longDiff), maxDiffChars)
+	if len(longDiff) <= defaultMaxDiffBytes {
+		t.Fatalf("test diff len %d <= defaultMaxDiffBytes %d", len(longDiff), defaultMaxDiffBytes)
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

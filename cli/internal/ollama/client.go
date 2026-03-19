@@ -364,10 +364,14 @@ type Message struct {
 // GenerateOptions holds model runtime options sent to Ollama /api/generate.
 // Zero values are sent as-is; omitempty is not used so the API receives explicit values.
 // KeepAlive is not sent inside options; it is sent at the top level of the request (see generateRequest).
+// MaxCompletionTokens is the OpenAI-compatible max new tokens (max_tokens). It is not sent to Ollama JSON;
+// zero means the openai client uses its default (4096).
 type GenerateOptions struct {
 	Temperature float64     `json:"temperature"`
 	NumCtx      int         `json:"num_ctx"`
 	KeepAlive   interface{} `json:"-"` // Top-level keep_alive; -1 = indefinitely, or string e.g. "60m"
+	// MaxCompletionTokens caps completion length for OpenAI-compat backends only; omitted from Ollama request body.
+	MaxCompletionTokens int `json:"-"`
 }
 
 type generateRequest struct {

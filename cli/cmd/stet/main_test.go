@@ -44,11 +44,20 @@ func TestRunCLI_doctorUnreachableExits2(t *testing.T) {
 	}
 	baseURL := "http://" + addr
 	orig := os.Getenv("STET_OLLAMA_BASE_URL")
+	origProvider, hadProvider := os.LookupEnv("STET_PROVIDER")
 	if err := os.Setenv("STET_OLLAMA_BASE_URL", baseURL); err != nil {
+		t.Fatalf("setenv: %v", err)
+	}
+	if err := os.Setenv("STET_PROVIDER", "ollama"); err != nil {
 		t.Fatalf("setenv: %v", err)
 	}
 	defer func() {
 		_ = os.Setenv("STET_OLLAMA_BASE_URL", orig)
+		if hadProvider {
+			_ = os.Setenv("STET_PROVIDER", origProvider)
+		} else {
+			_ = os.Unsetenv("STET_PROVIDER")
+		}
 	}()
 
 	// Capture stderr to assert underlying error is printed for troubleshooting.
@@ -86,7 +95,11 @@ func TestRunCLI_doctorModelNotFoundExits1(t *testing.T) {
 	defer srv.Close()
 	origURL := os.Getenv("STET_OLLAMA_BASE_URL")
 	origModel := os.Getenv("STET_MODEL")
+	origProvider, hadProvider := os.LookupEnv("STET_PROVIDER")
 	if err := os.Setenv("STET_OLLAMA_BASE_URL", srv.URL); err != nil {
+		t.Fatalf("setenv: %v", err)
+	}
+	if err := os.Setenv("STET_PROVIDER", "ollama"); err != nil {
 		t.Fatalf("setenv: %v", err)
 	}
 	if err := os.Setenv("STET_MODEL", "qwen3-coder:30b"); err != nil {
@@ -95,6 +108,11 @@ func TestRunCLI_doctorModelNotFoundExits1(t *testing.T) {
 	defer func() {
 		_ = os.Setenv("STET_OLLAMA_BASE_URL", origURL)
 		_ = os.Setenv("STET_MODEL", origModel)
+		if hadProvider {
+			_ = os.Setenv("STET_PROVIDER", origProvider)
+		} else {
+			_ = os.Unsetenv("STET_PROVIDER")
+		}
 	}()
 	if got := runCLI([]string{"doctor"}); got != 1 {
 		t.Errorf("runCLI(doctor) with model not in list = %d, want 1", got)
@@ -113,11 +131,20 @@ func TestRunCLI_benchmarkUnreachableExits2(t *testing.T) {
 	}
 	baseURL := "http://" + addr
 	orig := os.Getenv("STET_OLLAMA_BASE_URL")
+	origProvider, hadProvider := os.LookupEnv("STET_PROVIDER")
 	if err := os.Setenv("STET_OLLAMA_BASE_URL", baseURL); err != nil {
+		t.Fatalf("setenv: %v", err)
+	}
+	if err := os.Setenv("STET_PROVIDER", "ollama"); err != nil {
 		t.Fatalf("setenv: %v", err)
 	}
 	defer func() {
 		_ = os.Setenv("STET_OLLAMA_BASE_URL", orig)
+		if hadProvider {
+			_ = os.Setenv("STET_PROVIDER", origProvider)
+		} else {
+			_ = os.Unsetenv("STET_PROVIDER")
+		}
 	}()
 
 	got := runCLI([]string{"benchmark"})
@@ -154,7 +181,11 @@ func TestRunCLI_benchmarkWithMockReturnsZero(t *testing.T) {
 	defer srv.Close()
 	origURL := os.Getenv("STET_OLLAMA_BASE_URL")
 	origModel := os.Getenv("STET_MODEL")
+	origProvider, hadProvider := os.LookupEnv("STET_PROVIDER")
 	if err := os.Setenv("STET_OLLAMA_BASE_URL", srv.URL); err != nil {
+		t.Fatalf("setenv: %v", err)
+	}
+	if err := os.Setenv("STET_PROVIDER", "ollama"); err != nil {
 		t.Fatalf("setenv: %v", err)
 	}
 	if err := os.Setenv("STET_MODEL", "qwen3-coder:30b"); err != nil {
@@ -163,6 +194,11 @@ func TestRunCLI_benchmarkWithMockReturnsZero(t *testing.T) {
 	defer func() {
 		_ = os.Setenv("STET_OLLAMA_BASE_URL", origURL)
 		_ = os.Setenv("STET_MODEL", origModel)
+		if hadProvider {
+			_ = os.Setenv("STET_PROVIDER", origProvider)
+		} else {
+			_ = os.Unsetenv("STET_PROVIDER")
+		}
 	}()
 
 	r, w, err := os.Pipe()
@@ -1009,11 +1045,20 @@ func TestRunCLI_startWorktreeExistsPrintsHint(t *testing.T) {
 	}))
 	defer srv.Close()
 	origURL := os.Getenv("STET_OLLAMA_BASE_URL")
+	origProvider, hadProvider := os.LookupEnv("STET_PROVIDER")
 	if err := os.Setenv("STET_OLLAMA_BASE_URL", srv.URL); err != nil {
+		t.Fatalf("setenv: %v", err)
+	}
+	if err := os.Setenv("STET_PROVIDER", "ollama"); err != nil {
 		t.Fatalf("setenv: %v", err)
 	}
 	defer func() {
 		_ = os.Setenv("STET_OLLAMA_BASE_URL", origURL)
+		if hadProvider {
+			_ = os.Setenv("STET_PROVIDER", origProvider)
+		} else {
+			_ = os.Unsetenv("STET_PROVIDER")
+		}
 	}()
 
 	repo := initRepo(t)

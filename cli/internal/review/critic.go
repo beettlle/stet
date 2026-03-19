@@ -26,6 +26,8 @@ type CriticOptions struct {
 	RetryOnParseError bool
 	// KeepAlive, when set, is passed to Ollama GenerateOptions (e.g. -1 to keep model loaded). When nil, 0 is used so the critic model is unloaded after the call. Set when critic uses the same model as the main review to avoid unloading between hunks.
 	KeepAlive interface{}
+	// MaxCompletionTokens is passed to OpenAI-compat clients (max_tokens). Zero leaves the client default.
+	MaxCompletionTokens int
 }
 
 // verdictResponse is the JSON shape expected from the critic model.
@@ -107,6 +109,9 @@ func VerifyFinding(ctx context.Context, client CriticClient, criticModel string,
 	genOpts := &ollama.GenerateOptions{KeepAlive: 0}
 	if opts != nil && opts.KeepAlive != nil {
 		genOpts.KeepAlive = opts.KeepAlive
+	}
+	if opts != nil && opts.MaxCompletionTokens > 0 {
+		genOpts.MaxCompletionTokens = opts.MaxCompletionTokens
 	}
 	result, genErr := client.Generate(ctx, criticModel, criticSystemPrompt, userPrompt, genOpts)
 	if genErr != nil {

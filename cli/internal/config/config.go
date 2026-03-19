@@ -9,6 +9,7 @@
 //   - STET_MODEL, STET_OLLAMA_BASE_URL, STET_CONTEXT_LIMIT, STET_WARN_THRESHOLD,
 //   - STET_TIMEOUT (Go duration string or integer seconds), STET_STATE_DIR, STET_WORKTREE_ROOT,
 //   - STET_TEMPERATURE, STET_NUM_CTX (Ollama model runtime options; passed to /api/generate),
+//   - STET_MAX_COMPLETION_TOKENS (OpenAI-compat max_tokens / new-token cap; default 4096),
 //   - STET_OPTIMIZER_SCRIPT (command to run for stet optimize; e.g. python3 scripts/optimize.py).
 //   - STET_RAG_SYMBOL_MAX_DEFINITIONS, STET_RAG_SYMBOL_MAX_TOKENS (RAG-lite symbol lookup; Sub-phase 6.8).
 //   - STET_RAG_CALL_GRAPH_ENABLED, STET_RAG_CALLERS_MAX, STET_RAG_CALLEES_MAX, STET_RAG_CALL_GRAPH_MAX_TOKENS (RAG call-graph for Go).
@@ -51,6 +52,8 @@ type Config struct {
 	// Temperature and NumCtx are passed to Ollama /api/generate options (defaults: 0.2, 32768).
 	Temperature     float64 `toml:"temperature"`
 	NumCtx          int     `toml:"num_ctx"`
+	// MaxCompletionTokens is the OpenAI-compat completion cap (max_tokens). Ollama ignores it. Default 4096.
+	MaxCompletionTokens int `toml:"max_completion_tokens"`
 	OptimizerScript string `toml:"optimizer_script"` // Command for stet optimize (e.g. python3 scripts/optimize.py).
 	// RAGSymbolMaxDefinitions is the max number of symbol definitions to inject into the prompt (0 = disable). Default 10.
 	RAGSymbolMaxDefinitions int `toml:"rag_symbol_max_definitions"`
@@ -129,6 +132,7 @@ const (
 	_defaultTimeout       = 15 * time.Minute
 	_defaultTemperature          = 0.2
 	_defaultNumCtx               = 32768
+	_defaultMaxCompletionTokens  = 4096
 	_defaultRAGSymbolMaxDefs       = 10
 	_defaultRAGSymbolMaxTokens    = 0
 	_defaultRAGCallGraphEnabled   = false
@@ -180,6 +184,7 @@ func DefaultConfig() Config {
 		WorktreeRoot:  "",
 		Temperature:             _defaultTemperature,
 		NumCtx:                  _defaultNumCtx,
+		MaxCompletionTokens:     _defaultMaxCompletionTokens,
 		RAGSymbolMaxDefinitions: _defaultRAGSymbolMaxDefs,
 		RAGSymbolMaxTokens:      _defaultRAGSymbolMaxTokens,
 		RAGCallGraphEnabled:     _defaultRAGCallGraphEnabled,
@@ -288,6 +293,7 @@ func mergeFile(cfg *Config, path string) error {
 		WorktreeRoot     *string  `toml:"worktree_root"`
 		Temperature      *float64 `toml:"temperature"`
 		NumCtx           *int64   `toml:"num_ctx"`
+		MaxCompletionTokens *int64 `toml:"max_completion_tokens"`
 		OptimizerScript         *string `toml:"optimizer_script"`
 		RAGSymbolMaxDefinitions *int64  `toml:"rag_symbol_max_definitions"`
 		RAGSymbolMaxTokens      *int64  `toml:"rag_symbol_max_tokens"`
@@ -354,6 +360,13 @@ func mergeFile(cfg *Config, path string) error {
 		cfg.NumCtx = v
 	} else if file.NumCtx != nil && *file.NumCtx == 0 {
 		cfg.NumCtx = _defaultNumCtx
+	}
+	if file.MaxCompletionTokens != nil && *file.MaxCompletionTokens > 0 {
+		v, err := int64ToInt(*file.MaxCompletionTokens)
+		if err != nil {
+			return erruser.New("Configuration max_completion_tokens value out of range.", err)
+		}
+		cfg.MaxCompletionTokens = v
 	}
 	if file.OptimizerScript != nil {
 		cfg.OptimizerScript = *file.OptimizerScript
@@ -460,7 +473,8 @@ const (
 	envStateDir      = "STET_STATE_DIR"
 	envWorktreeRoot  = "STET_WORKTREE_ROOT"
 	envTemperature     = "STET_TEMPERATURE"
-	envNumCtx          = "STET_NUM_CTX"
+	envNumCtx                 = "STET_NUM_CTX"
+	envMaxCompletionTokens    = "STET_MAX_COMPLETION_TOKENS"
 	envOptimizerScript         = "STET_OPTIMIZER_SCRIPT"
 	envRAGSymbolMaxDefinitions = "STET_RAG_SYMBOL_MAX_DEFINITIONS"
 	envRAGSymbolMaxTokens      = "STET_RAG_SYMBOL_MAX_TOKENS"
@@ -558,6 +572,23 @@ func applyEnv(cfg *Config, env []string) error {
 			cfg.NumCtx, err = int64ToInt(n)
 			if err != nil {
 				return erruser.New("STET_NUM_CTX value out of range.", err)
+			}
+		}
+	}
+	if v, ok := vals[envMaxCompletionTokens]; ok && v != "" {
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return erruser.New("STET_MAX_COMPLETION_TOKENS must be a valid number.", err)
+		}
+		if n < 0 {
+			return erruser.New("STET_MAX_COMPLETION_TOKENS must be non-negative.", nil)
+		}
+		if n == 0 {
+			cfg.MaxCompletionTokens = _defaultMaxCompletionTokens
+		} else {
+			cfg.MaxCompletionTokens, err = int64ToInt(n)
+			if err != nil {
+				return erruser.New("STET_MAX_COMPLETION_TOKENS value out of range.", err)
 			}
 		}
 	}

@@ -382,6 +382,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 		Timeout:                        cfg.Timeout,
 		Temperature:                    cfg.Temperature,
 		NumCtx:                         cfg.NumCtx,
+		MaxCompletionTokens:            cfg.MaxCompletionTokens,
 		Verbose:                        verbose,
 		StreamOut:                      nil,
 		RAGSymbolMaxDefinitions:        cfg.RAGSymbolMaxDefinitions,
@@ -704,6 +705,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 		Timeout:                      cfg.Timeout,
 		Temperature:                  cfg.Temperature,
 		NumCtx:                       effectiveNumCtx,
+		MaxCompletionTokens:          cfg.MaxCompletionTokens,
 		Verbose:                      verbose,
 		StreamOut:                    nil,
 		RAGSymbolMaxDefinitions:      effectiveRAGDefs,
@@ -883,6 +885,7 @@ func runRerun(cmd *cobra.Command, args []string) error {
 		Timeout:                      cfg.Timeout,
 		Temperature:                  cfg.Temperature,
 		NumCtx:                       effectiveNumCtx,
+		MaxCompletionTokens:          cfg.MaxCompletionTokens,
 		Verbose:                      verbose,
 		StreamOut:                    nil,
 		RAGSymbolMaxDefinitions:      effectiveRAGDefs,
@@ -1359,8 +1362,9 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	opts := &ollama.GenerateOptions{
-		Temperature: 0.2,
-		NumCtx:      cfg.NumCtx,
+		Temperature:         0.2,
+		NumCtx:                cfg.NumCtx,
+		MaxCompletionTokens:   cfg.MaxCompletionTokens,
 	}
 	if opts.NumCtx <= 0 {
 		opts.NumCtx = _defaultCommitMsgNumCtx
@@ -1442,6 +1446,7 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 		Timeout:                      cfg.Timeout,
 		Temperature:                  cfg.Temperature,
 		NumCtx:                       effectiveNumCtx,
+		MaxCompletionTokens:          cfg.MaxCompletionTokens,
 		Verbose:                      true,
 		StreamOut:                    nil,
 		RAGSymbolMaxDefinitions:      cfg.RAGSymbolMaxDefinitions,
@@ -1478,6 +1483,7 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 			Timeout:                        cfg.Timeout,
 			Temperature:                   cfg.Temperature,
 			NumCtx:                         effectiveNumCtx,
+			MaxCompletionTokens:            cfg.MaxCompletionTokens,
 			Verbose:                        true,
 			StreamOut:                      nil,
 			RAGSymbolMaxDefinitions:        cfg.RAGSymbolMaxDefinitions,
@@ -1589,11 +1595,18 @@ func newBenchmarkCmd() *cobra.Command {
 	}
 	cmd.Flags().String("model", "", "Override model (default: from config)")
 	cmd.Flags().Bool("warmup", false, "Run warmup call before measuring (load model, discard metrics)")
+	cmd.Flags().String("context", "", "Context window preset: 4k, 8k, 16k, 32k, 64k, 128k, 256k (sets context_limit and num_ctx)")
+	cmd.Flags().Int("num-ctx", 0, "Context window size in tokens (0 = use config); overrides config and --context")
 	return cmd
 }
 
 func runBenchmark(cmd *cobra.Command, args []string) error {
-	cfg, err := config.Load(cmd.Context(), config.LoadOptions{RepoRoot: ""})
+	overrides, err := overridesFromFlags(cmd)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return errExit(1)
+	}
+	cfg, err := config.Load(cmd.Context(), config.LoadOptions{RepoRoot: "", Overrides: overrides})
 	if err != nil {
 		return err
 	}
@@ -1627,8 +1640,9 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 		return errExit(1)
 	}
 	opts := &ollama.GenerateOptions{
-		Temperature: cfg.Temperature,
-		NumCtx:      cfg.NumCtx,
+		Temperature:         cfg.Temperature,
+		NumCtx:              cfg.NumCtx,
+		MaxCompletionTokens: cfg.MaxCompletionTokens,
 	}
 	warmup, _ := cmd.Flags().GetBool("warmup")
 	if warmup {

@@ -11,7 +11,22 @@ import (
 	"stet/cli/internal/ollama"
 )
 
-const maxDiffChars = 32 * 1024
+// defaultMaxDiffBytes caps the unified diff size when num_ctx is unset or below 64k.
+const defaultMaxDiffBytes = 32 * 1024
+
+// maxDiffBytesForNumCtx scales the diff cap with model context (--context / num_ctx).
+func maxDiffBytesForNumCtx(numCtx int) int {
+	if numCtx <= 0 || numCtx < 65536 {
+		return defaultMaxDiffBytes
+	}
+	if numCtx >= 262144 {
+		return 512 * 1024
+	}
+	if numCtx >= 131072 {
+		return 384 * 1024
+	}
+	return 256 * 1024
+}
 
 // SystemPrompt instructs the model to produce a conventional git commit message.
 const SystemPrompt = `You generate conventional git commit messages from a unified diff.
@@ -29,8 +44,12 @@ func Suggest(ctx context.Context, client llm.Client, model, diff string, opts *o
 	if client == nil {
 		return "", errors.New("commitmsg: nil client")
 	}
-	if len(diff) > maxDiffChars {
-		diff = truncateUTF8(diff, maxDiffChars) + "\n\n[truncated for context]"
+	maxBytes := defaultMaxDiffBytes
+	if opts != nil && opts.NumCtx > 0 {
+		maxBytes = maxDiffBytesForNumCtx(opts.NumCtx)
+	}
+	if len(diff) > maxBytes {
+		diff = truncateUTF8(diff, maxBytes) + "\n\n[truncated for context]"
 	}
 	res, err := client.GeneratePlain(ctx, model, SystemPrompt, diff, opts)
 	if err != nil {

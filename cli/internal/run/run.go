@@ -296,6 +296,9 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 				if opts.CriticEnabled && opts.CriticModel != "" && len(batch) > 0 {
 					beforeCritic := len(batch)
 					criticOpts := &review.CriticOptions{RetryOnParseError: true}
+					if opts.GenOpts != nil {
+						criticOpts.MaxCompletionTokens = opts.GenOpts.MaxCompletionTokens
+					}
 					if opts.CriticModel == opts.Model {
 						criticOpts.KeepAlive = keepAliveDuringRun
 					}
@@ -396,6 +399,9 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 			if opts.CriticEnabled && opts.CriticModel != "" && len(batch) > 0 {
 				beforeCritic := len(batch)
 				criticOpts := &review.CriticOptions{RetryOnParseError: true}
+				if opts.GenOpts != nil {
+					criticOpts.MaxCompletionTokens = opts.GenOpts.MaxCompletionTokens
+				}
 				if opts.CriticModel == opts.Model {
 					criticOpts.KeepAlive = keepAliveDuringRun
 				}
@@ -666,7 +672,7 @@ func filterHunksWithDismissedFindings(toReview []diff.Hunk, s *session.Session, 
 // StartOptions configures Start. All fields are required except Ref (default "HEAD" by caller).
 // DryRun skips the LLM and injects canned findings. Model, Provider, and LLMBaseURL are used when DryRun is false.
 // ContextLimit and WarnThreshold are used for token estimation warnings (Phase 3.2); zero values disable the warning.
-// Temperature and NumCtx are passed to Ollama /api/generate options.
+// Temperature, NumCtx, and MaxCompletionTokens are passed to the LLM client (Ollama options / OpenAI max_tokens).
 // Verbose, when true, prints progress to stderr (worktree, partition summary, per-hunk).
 // AllowDirty, when true, skips the clean worktree check and proceeds with a warning.
 // StreamOut, when non-nil, receives NDJSON events (progress, finding, done) one per line.
@@ -687,6 +693,7 @@ type StartOptions struct {
 	Timeout                 time.Duration
 	Temperature             float64
 	NumCtx                  int
+	MaxCompletionTokens     int
 	Verbose                 bool
 	StreamOut               io.Writer
 	RAGSymbolMaxDefinitions int
@@ -732,7 +739,7 @@ type FinishOptions struct {
 
 // RunOptions configures Run. DryRun skips the LLM and injects canned findings.
 // ContextLimit and WarnThreshold are used for token estimation warnings (Phase 3.2); zero values disable the warning.
-// Temperature and NumCtx are passed to the LLM (Ollama or OpenAI-compat).
+// Temperature, NumCtx, and MaxCompletionTokens are passed to the LLM (Ollama or OpenAI-compat).
 // Verbose, when true, prints progress to stderr (partition summary, per-hunk).
 // RunOptions does not include WorktreeRoot because Run does not create or remove worktrees (only Finish does).
 // StreamOut, when non-nil, receives NDJSON events (progress, finding, done) one per line.
@@ -748,6 +755,7 @@ type RunOptions struct {
 	Timeout                      time.Duration
 	Temperature                  float64
 	NumCtx                       int
+	MaxCompletionTokens          int
 	Verbose                      bool
 	StreamOut                    io.Writer
 	RAGSymbolMaxDefinitions      int
@@ -1071,7 +1079,7 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 				suppressionExamples = examples
 			}
 		}
-		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: effectiveNumCtx, KeepAlive: keepAliveDuringRun}
+		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: effectiveNumCtx, MaxCompletionTokens: opts.MaxCompletionTokens, KeepAlive: keepAliveDuringRun}
 		rulesLoader := rules.NewLoader(opts.RepoRoot)
 		rulesByFile := make(map[string][]rules.CursorRule)
 		for _, h := range part.ToReview {
@@ -1481,7 +1489,7 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 				suppressionExamples = examples
 			}
 		}
-		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: effectiveNumCtx, KeepAlive: keepAliveDuringRun}
+		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: effectiveNumCtx, MaxCompletionTokens: opts.MaxCompletionTokens, KeepAlive: keepAliveDuringRun}
 		rulesLoader := rules.NewLoader(opts.RepoRoot)
 		rulesByFile := make(map[string][]rules.CursorRule)
 		for _, h := range toReview {

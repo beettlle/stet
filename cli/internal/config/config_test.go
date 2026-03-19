@@ -47,6 +47,9 @@ func TestDefaultConfig_fieldsMatchExpectedDefaults(t *testing.T) {
 	if c.NumCtx != _defaultNumCtx {
 		t.Errorf("NumCtx = %d, want %d", c.NumCtx, _defaultNumCtx)
 	}
+	if c.MaxCompletionTokens != _defaultMaxCompletionTokens {
+		t.Errorf("MaxCompletionTokens = %d, want %d", c.MaxCompletionTokens, _defaultMaxCompletionTokens)
+	}
 	if c.StateDir != "" || c.WorktreeRoot != "" {
 		t.Errorf("StateDir or WorktreeRoot non-empty: %q, %q", c.StateDir, c.WorktreeRoot)
 	}
@@ -77,7 +80,8 @@ func TestLoad_defaultsOnly(t *testing.T) {
 	want := DefaultConfig()
 	if cfg.Model != want.Model || cfg.Provider != want.Provider || cfg.OllamaBaseURL != want.OllamaBaseURL || cfg.OpenAIBaseURL != want.OpenAIBaseURL ||
 		cfg.ContextLimit != want.ContextLimit || cfg.WarnThreshold != want.WarnThreshold ||
-		cfg.Timeout != want.Timeout || cfg.Temperature != want.Temperature || cfg.NumCtx != want.NumCtx {
+		cfg.Timeout != want.Timeout || cfg.Temperature != want.Temperature || cfg.NumCtx != want.NumCtx ||
+		cfg.MaxCompletionTokens != want.MaxCompletionTokens {
 		t.Errorf("got %+v, want defaults %+v", cfg, want)
 	}
 }
