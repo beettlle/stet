@@ -28,6 +28,8 @@ type ParseOptions struct {
 // findings are valid). IDs are not set; use AssignFindingIDs after parsing.
 func ParseFindingsResponse(jsonStr string, opts ...ParseOptions) ([]findings.Finding, error) {
 	jsonStr = trimSpace(jsonStr)
+	jsonStr = stripMarkdownCodeFence(jsonStr)
+	jsonStr = trimSpace(jsonStr)
 	if jsonStr == "" {
 		return nil, fmt.Errorf("parse findings: empty response")
 	}
@@ -121,14 +123,54 @@ func normalizeAndFilterFindings(list []findings.Finding, onDropped func(int, str
 
 func trimSpace(s string) string {
 	start := 0
-	for start < len(s) && (s[start] == ' ' || s[start] == '\t' || s[start] == '\n') {
+	for start < len(s) && (s[start] == ' ' || s[start] == '\t' || s[start] == '\n' || s[start] == '\r') {
 		start++
 	}
 	end := len(s)
-	for end > start && (s[end-1] == ' ' || s[end-1] == '\t' || s[end-1] == '\n') {
+	for end > start && (s[end-1] == ' ' || s[end-1] == '\t' || s[end-1] == '\n' || s[end-1] == '\r') {
 		end--
 	}
 	return s[start:end]
+}
+
+const markdownFence = "```"
+
+// stripMarkdownCodeFence removes a leading/trailing Markdown fence if present (e.g. ```json ... ```).
+// Some OpenAI-compatible models (e.g. Qwen via LM Studio) wrap JSON arrays in fences despite instructions.
+func stripMarkdownCodeFence(s string) string {
+	s = strings.TrimSpace(s)
+	if !strings.HasPrefix(s, markdownFence) {
+		return s
+	}
+	inner := s[len(markdownFence):]
+	if nl := strings.IndexByte(inner, '\n'); nl >= 0 {
+		firstLine := strings.TrimSpace(inner[:nl])
+		if firstLine == "" || isLikelyFenceLanguageTag(firstLine) {
+			inner = inner[nl+1:]
+		}
+	}
+	inner = strings.TrimSpace(inner)
+	if idx := strings.LastIndex(inner, markdownFence); idx >= 0 {
+		inner = strings.TrimSpace(inner[:idx])
+	}
+	return inner
+}
+
+func isLikelyFenceLanguageTag(line string) bool {
+	if line == "" {
+		return true
+	}
+	if len(line) > 24 {
+		return false
+	}
+	for i := 0; i < len(line); i++ {
+		c := line[i]
+		isWord := (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_'
+		if !isWord {
+			return false
+		}
+	}
+	return true
 }
 
 // AssignFindingIDs sets ID on each finding using StableFindingID and validates.

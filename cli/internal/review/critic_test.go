@@ -145,6 +145,19 @@ func TestVerifyFinding_keepWhenYes(t *testing.T) {
 	}
 }
 
+func TestVerifyFinding_yesWithMarkdownFence(t *testing.T) {
+	ctx := context.Background()
+	client := &fakeCriticClient{response: "```json\n{\"verdict\":\"yes\",\"reason\":\"ok\"}\n```"}
+	f := findings.Finding{File: "a.go", Line: 1, Severity: findings.SeverityError, Category: findings.CategoryBug, Message: "bug"}
+	keep, err := VerifyFinding(ctx, client, "model", f, "code", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !keep {
+		t.Error("expected keep true when fenced JSON verdict is yes")
+	}
+}
+
 func TestVerifyFinding_dropWhenNo(t *testing.T) {
 	ctx := context.Background()
 	client := &fakeCriticClient{response: `{"verdict":"no","reason":"not actionable"}`}

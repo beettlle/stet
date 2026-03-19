@@ -46,6 +46,61 @@ func TestParseFindingsResponse_emptyArray(t *testing.T) {
 	}
 }
 
+func TestParseFindingsResponse_markdownFenceJsonLangEmptyArray(t *testing.T) {
+	raw := "```json\n[]\n```"
+	list, err := ParseFindingsResponse(raw)
+	if err != nil {
+		t.Fatalf("ParseFindingsResponse: %v", err)
+	}
+	if len(list) != 0 {
+		t.Errorf("len(list) = %d, want 0", len(list))
+	}
+}
+
+func TestParseFindingsResponse_markdownFenceNoLangEmptyArray(t *testing.T) {
+	raw := "```\n[]\n```"
+	list, err := ParseFindingsResponse(raw)
+	if err != nil {
+		t.Fatalf("ParseFindingsResponse: %v", err)
+	}
+	if len(list) != 0 {
+		t.Errorf("len(list) = %d, want 0", len(list))
+	}
+}
+
+func TestParseFindingsResponse_markdownFenceSingleLineArray(t *testing.T) {
+	raw := "```[]```"
+	list, err := ParseFindingsResponse(raw)
+	if err != nil {
+		t.Fatalf("ParseFindingsResponse: %v", err)
+	}
+	if len(list) != 0 {
+		t.Errorf("len(list) = %d, want 0", len(list))
+	}
+}
+
+func TestParseFindingsResponse_markdownFenceWrapperObject(t *testing.T) {
+	raw := "```json\n{\"findings\":[]}\n```"
+	list, err := ParseFindingsResponse(raw)
+	if err != nil {
+		t.Fatalf("ParseFindingsResponse: %v", err)
+	}
+	if len(list) != 0 {
+		t.Errorf("len(list) = %d, want 0", len(list))
+	}
+}
+
+func TestParseFindingsResponse_markdownFenceArrayWithFinding(t *testing.T) {
+	raw := "```json\n[{\"file\":\"a.go\",\"line\":1,\"severity\":\"warning\",\"category\":\"bug\",\"message\":\"x\"}]\n```"
+	list, err := ParseFindingsResponse(raw)
+	if err != nil {
+		t.Fatalf("ParseFindingsResponse: %v", err)
+	}
+	if len(list) != 1 || list[0].File != "a.go" {
+		t.Fatalf("got %+v", list)
+	}
+}
+
 func TestParseFindingsResponse_emptyWrapperObject(t *testing.T) {
 	// Input `{"findings":[]}` is valid; must parse as empty list, not fall through to single-object fallback.
 	list, err := ParseFindingsResponse(`{"findings":[]}`)

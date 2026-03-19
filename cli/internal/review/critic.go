@@ -75,6 +75,8 @@ func BuildCriticPrompt(f findings.Finding, hunkContent string, maxHunkLen int) s
 // Invalid JSON or missing verdict returns false (drop finding). Reason is ignored for the keep/drop decision.
 func ParseCriticVerdict(response string) (keep bool) {
 	response = strings.TrimSpace(response)
+	response = stripMarkdownCodeFence(response)
+	response = strings.TrimSpace(response)
 	if response == "" {
 		return false
 	}
@@ -140,6 +142,8 @@ type parsedVerdict struct {
 }
 
 func parseCriticVerdictWithParsed(response string) parsedVerdict {
+	response = strings.TrimSpace(response)
+	response = stripMarkdownCodeFence(response)
 	response = strings.TrimSpace(response)
 	if response == "" {
 		return parsedVerdict{keep: false, parsed: false}
