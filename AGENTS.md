@@ -140,6 +140,7 @@ This project utilizes **Go** and **JavaScript/TypeScript**. Refer to the followi
   - `cli/`: Go source code (main module).
   - `extension/`: TypeScript source for the Cursor/VSCode extension.
   - `docs/`: Project documentation.
+- **LLM backends:** Default is **Ollama** (`provider` / `STET_PROVIDER`). Optional **OpenAI-compatible** HTTP API (`openai_base_url` / `STET_OPENAI_BASE_URL`, `max_completion_tokens` / `STET_MAX_COMPLETION_TOKENS`). See [README.md](README.md) for a short user overview and [docs/cli-extension-contract.md](docs/cli-extension-contract.md) for the full configuration contract and precedence.
 
 ### Build and Run
 - **CLI (Go)**:

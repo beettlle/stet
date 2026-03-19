@@ -77,7 +77,7 @@ On `stet start` failure, the CLI may print one of the following hints to stderr 
 |------|--------|
 | **0** | Success; with `--output=json`/`--json`, stdout contains the findings JSON (or NDJSON when `--stream`). |
 | **1** | Usage error or other failure (e.g. not a git repo, no session, model not found). |
-| **2** | Ollama unreachable (server not running or not reachable). |
+| **2** | LLM unreachable (configured backend not running or not reachable) or **LLM bad request** (e.g. HTTP 4xx from the server). Applies to both Ollama and OpenAI-compat providers. |
 
 ## Other commands
 
@@ -107,15 +107,18 @@ For optimizing toward **actionable findings**, see [Review quality and actionabi
 
 | Key / env | Default | Description |
 |-----------|---------|-------------|
-| `model` / `STET_MODEL` | `qwen3-coder:30b` | Ollama model name. |
-| `ollama_base_url` / `STET_OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API base URL. |
+| `provider` / `STET_PROVIDER` | `ollama` | LLM backend: **`ollama`** or **`openai`** (OpenAI-compatible HTTP API, e.g. LM Studio local server). |
+| `model` / `STET_MODEL` | `qwen3-coder:30b` | Model name for the configured backend (Ollama tag or id your OpenAI-compat server expects). |
+| `ollama_base_url` / `STET_OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API base URL. Used when `provider` is **`ollama`**. |
+| `openai_base_url` / `STET_OPENAI_BASE_URL` | `http://localhost:1234/v1` | OpenAI-compatible API base URL (include `/v1` if your server uses that path). Used when `provider` is **`openai`**. |
+| `max_completion_tokens` / `STET_MAX_COMPLETION_TOKENS` | 4096 | **OpenAI-compat only:** maps to request **`max_tokens`** (completion/output cap). **Not** derived from `num_ctx` or context window. Ollama ignores this field. |
 | `context_limit` / `STET_CONTEXT_LIMIT` | 32768 | Token context limit for prompts. |
 | `warn_threshold` / `STET_WARN_THRESHOLD` | 0.9 | Warn when estimated tokens exceed this fraction of context limit. |
-| `timeout` / `STET_TIMEOUT` | 15m | Per-request timeout for Ollama generate requests (Go duration or integer seconds). Use **`--timeout`** on `stet start`, `stet run`, or `stet rerun` to override. |
+| `timeout` / `STET_TIMEOUT` | 15m | Per-request timeout for LLM HTTP requests (Go duration or integer seconds). Use **`--timeout`** on `stet start`, `stet run`, or `stet rerun` to override. |
 | `state_dir` / `STET_STATE_DIR` | (empty → `.review` in repo) | Directory for session, lock, history, optimized prompt. |
 | `worktree_root` / `STET_WORKTREE_ROOT` | (empty → `repo/.review/worktrees`) | Directory for stet worktrees. |
-| `temperature` / `STET_TEMPERATURE` | 0.2 | Sampling temperature (0–2). Passed to Ollama. |
-| `num_ctx` / `STET_NUM_CTX` | 32768 | Model context window size (tokens). Stet uses only configured (and env/flag/session) values; it does not bump context from Ollama. Passed to Ollama; 0 = use model default. |
+| `temperature` / `STET_TEMPERATURE` | 0.2 | Sampling temperature (0–2). Passed to the configured backend (Ollama generate options; OpenAI-compat where supported). |
+| `num_ctx` / `STET_NUM_CTX` | 32768 | Model context window size (tokens) for sizing prompts and warnings. For **Ollama**, also passed to `/api/generate` (0 = use model default). Stet does not bump context from the server; effective values come from config/env/flags/session. For **OpenAI-compat**, output length is capped by **`max_completion_tokens`**, not by `num_ctx`. |
 | `optimizer_script` / `STET_OPTIMIZER_SCRIPT` | (none) | Command for `stet optimize` (e.g. `python3 scripts/optimize.py`). |
 | `rag_symbol_max_definitions` / `STET_RAG_SYMBOL_MAX_DEFINITIONS` | 10 | Max symbol definitions to inject (0 = disable). |
 | `rag_symbol_max_tokens` / `STET_RAG_SYMBOL_MAX_TOKENS` | 0 | Max tokens for symbol-definitions block (0 = no cap). |
@@ -157,7 +160,7 @@ For each hunk, stet can look up symbols referenced in the hunk (functions, types
 
 ### Context window
 
-Stet does not bump context from Ollama. Effective context is config/env, overridden by **`--context`** or **`--num-ctx`** on the command line; on **`stet run`** and **`stet rerun`**, session values from **`stet start`** are used when those flags are not set. The same value is used for token warnings and for hunk expansion.
+Context limit and **`num_ctx`** come from config, environment, **`--context`** / **`--num-ctx`**, and session persistence. Token warnings and RAG budgeting use the configured context limit only (they are **not** bumped from Ollama **`/api/show`**; see `cli/internal/run/run.go`). On **`stet run`** and **`stet rerun`**, session values from **`stet start`** are used when those flags are not set. With **`provider = openai`**, completion output is capped by **`max_completion_tokens`** (OpenAI **`max_tokens`**), independent of **`num_ctx`** / **`--context`**.
 
 ## Working directory
 
@@ -241,10 +244,10 @@ A finding is **actionable** when the reported issue is real (not already fixed o
 
 ## Environment and pipelines
 
-For pipelines or multiple commands (e.g. `stet doctor ; stet start`), `STET_OLLAMA_BASE_URL`, `STET_TEMPERATURE`, `STET_NUM_CTX`, and other `STET_*` variables must be **exported** (or set in the shell before both commands) so every `stet` invocation sees the same config. Command-prefixed env (e.g. `VAR=value cmd1 ; cmd2`) only applies to the first command; the second process will not see that variable and may fall back to defaults (e.g. `http://localhost:11434`), which can cause "Ollama unreachable" even when the first command succeeded.
+For pipelines or multiple commands (e.g. `stet doctor ; stet start`), `STET_PROVIDER`, `STET_OLLAMA_BASE_URL`, `STET_OPENAI_BASE_URL`, `STET_TEMPERATURE`, `STET_NUM_CTX`, `STET_MAX_COMPLETION_TOKENS`, and other `STET_*` variables must be **exported** (or set in the shell before both commands) so every `stet` invocation sees the same config. Command-prefixed env (e.g. `VAR=value cmd1 ; cmd2`) only applies to the first command; the second process will not see that variable and may fall back to defaults (e.g. `http://localhost:11434` for Ollama), which can cause **exit code 2** (LLM unreachable) even when the first command succeeded.
 
 ## Usage (extension)
 
 1. Spawn the CLI with **`--quiet --json`** (or `--quiet --output=json`). For incremental panel updates, add **`--stream`** so stdout is NDJSON (one event per line). Example: `stet start --dry-run --quiet --json --stream` or `stet run --quiet --json --stream`, from the repository root.
 2. On exit code 0: if **not** streaming, read stdout and parse the single JSON object; use `findings` to populate the panel. If **streaming**, read stdout line-by-line; for each line parse the JSON object, and on `type: "progress"` show progress, on `type: "finding"` append the `data` finding and refresh the panel, on `type: "done"` stop scanning.
-3. On non-zero exit: read stderr for the error message; use exit code 2 to show a specific “Ollama unreachable” message if desired.
+3. On non-zero exit: read stderr for the error message; use exit code 2 to show a specific “LLM unreachable” or “bad request” message if desired (same code for Ollama and OpenAI-compat).

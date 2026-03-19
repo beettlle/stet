@@ -14,7 +14,7 @@ flowchart TB
     validate[Validate repo ref clean worktree]
     refCheck{ref equals HEAD?}
     exitEarly[Save session no worktree exit]
-    ollamaCheck[Ollama check unless dry-run]
+    llmCheck[LLM check unless dry-run]
     createWorktree[Create worktree save session]
     partition[Partition baseline HEAD to ToReview Approved]
     prepareHunks[Prepare hunks into buffer]
@@ -22,8 +22,8 @@ flowchart TB
     autoSave[Auto-dismiss save session stream done]
     validate --> refCheck
     refCheck -->|yes| exitEarly
-    refCheck -->|no| ollamaCheck
-    ollamaCheck --> createWorktree
+    refCheck -->|no| llmCheck
+    llmCheck --> createWorktree
     createWorktree --> partition
     partition --> prepareHunks
     prepareHunks --> mainLoop
@@ -46,7 +46,7 @@ flowchart TB
   end
 ```
 
-**In one paragraph:** The user (or extension) runs `stet start [ref]`. The CLI validates the repo and ref, creates a read-only worktree at the baseline ref, and saves a session. It computes which hunks to review by diffing `baseline..HEAD` and partitioning into "to-review" vs "already approved" using strict and semantic hunk IDs. Each to-review hunk goes through a pipeline: system prompt plus user intent, Cursor rules, optional nitpicky instructions (when `--nitpicky`), optional expand, user prompt, optional RAG, then Ollama, parse, abstention and FP kill list filters (FP kill list skipped when nitpicky), finding IDs and URIs. Findings are streamed (NDJSON) and stored in the session. Auto-dismiss marks previous findings that lie in re-reviewed hunks but were not re-reported. Later, `stet run` only reviews hunks that are new or changed since `last_reviewed_at`. Finish removes the worktree and writes a git note; status and list read from the session; dismiss adds a finding ID to the dismissed list and optionally records a reason and prompt shadow for future runs. Execution is pipelined: hunks are prepared (prompts, expand, RAG) in advance by worker goroutines into a bounded buffer, while the main loop sends one Ollama request at a time in hunk order and post-processes each response; the last request asks Ollama to unload the model to free memory.
+**In one paragraph:** The user (or extension) runs `stet start [ref]`. The CLI validates the repo and ref, creates a read-only worktree at the baseline ref, and saves a session. It computes which hunks to review by diffing `baseline..HEAD` and partitioning into "to-review" vs "already approved" using strict and semantic hunk IDs. Each to-review hunk goes through a pipeline: system prompt plus user intent, Cursor rules, optional nitpicky instructions (when `--nitpicky`), optional expand, user prompt, optional RAG, then the **LLM backend** (Ollama or an OpenAI-compatible HTTP server—see `llm.NewClient` in [cli/internal/llm/client.go](cli/internal/llm/client.go)), parse, abstention and FP kill list filters (FP kill list skipped when nitpicky), finding IDs and URIs. Findings are streamed (NDJSON) and stored in the session. Auto-dismiss marks previous findings that lie in re-reviewed hunks but were not re-reported. Later, `stet run` only reviews hunks that are new or changed since `last_reviewed_at`. Finish removes the worktree and writes a git note; status and list read from the session; dismiss adds a finding ID to the dismissed list and optionally records a reason and prompt shadow for future runs. Execution is pipelined: hunks are prepared (prompts, expand, RAG) in advance by worker goroutines into a bounded buffer, while the main loop sends one LLM request at a time in hunk order and post-processes each response; on **Ollama**, the last request uses a short `keep_alive` so the runtime can unload the model and free memory.
 
 ---
 
@@ -81,8 +81,8 @@ flowchart TB
   - `git.IsClean(repoRoot)` unless `AllowDirty` (then only a warning).
   - `session.AcquireLock(stateDir)` so only one start/run at a time.
   - `ref` defaults to `"HEAD"`; resolve to SHA via `git.RevParse`.
-- **Early exit:** If `sha == headSHA` (baseline is HEAD), no worktree is created and no Ollama call is made. Session is saved with `LastReviewedAt = headSHA` and the function returns.
-- **Ollama check:** Unless dry-run, `ollama.Client.Check(ctx, model)` is called so a wrong URL or missing model fails before creating the worktree. Then `client.Show(ctx, model)` is called to obtain the model's context length from Ollama `POST /api/show`; effective `num_ctx` and context limit for the run are set to the max of config and model value.
+- **Early exit:** If `sha == headSHA` (baseline is HEAD), no worktree is created and no LLM call is made. Session is saved with `LastReviewedAt = headSHA` and the function returns.
+- **LLM check:** Unless dry-run, `llm.NewClient(provider, baseURL)` builds an [cli/internal/llm.Client](cli/internal/llm/client.go) (Ollama or OpenAI-compat), then `Check(ctx, model)` runs so a wrong URL or missing model fails before creating the worktree. Implementations: [cli/internal/ollama](cli/internal/ollama), [cli/internal/openaicompat](cli/internal/openaicompat).
 - **Worktree:** `git.Create(repoRoot, worktreeRoot, ref)`; on any subsequent error in `Start`, a `defer` removes this worktree.
 - **Session:** `session.Save(stateDir, &s)` with `BaselineRef = sha`, `LastReviewedAt = ""`, `DismissedIDs = nil`.
 - **Partition:** `scope.Partition(ctx, repoRoot, sha, headSHA, "", nil)` — first run: empty `lastReviewedAt`, so all current hunks go to ToReview.
@@ -92,7 +92,7 @@ flowchart TB
 
 - **Entry:** Command `stet.startReview` in [extension/src/extension.ts](extension/src/extension.ts).
 - **Flow:** Resolves workspace folder as repo root (`getRepoRoot()`), sets the findings panel to "scanning," then calls `spawnStetStream(["start", "--dry-run", "--quiet", "--json", "--stream"], { cwd })` (see [extension/src/cli.ts](extension/src/cli.ts)).
-- **Important:** The extension currently uses **`--dry-run`**, so the CLI does not call Ollama; it uses canned findings (one per hunk) for fast feedback. Full LLM review is done by running `stet start` or `stet run` from the terminal without `--dry-run`.
+- **Important:** The extension currently uses **`--dry-run`**, so the CLI does not call the LLM; it uses canned findings (one per hunk) for fast feedback. Full LLM review is done by running `stet start` or `stet run` from the terminal without `--dry-run`.
 - **Stream handling:** Each stdout line is parsed with `parseStreamEvent(line)` in [extension/src/parse.ts](extension/src/parse.ts). Events: `progress`, `finding`, `done`. Findings are accumulated and the panel is updated on each `finding`; on `done` scanning stops. On non-zero exit or parse error, the panel is cleared and an error is shown.
 
 ---
@@ -232,8 +232,8 @@ flowchart LR
 
 ### 7.8 LLM call
 
-- **Ollama:** `client.Generate(ctx, model, system, user, genOpts)`. The `genOpts.NumCtx` and the `contextLimit` passed to `ReviewHunk` may have been upgraded from config using the model's reported context (see §3.1). On malformed JSON response, the generate call is retried once; on second parse failure an error is returned.
-- **keep_alive:** Each `/api/generate` request includes a top-level `keep_alive` (Ollama API). For all but the last hunk, stet sends a long duration (e.g. `-1` = keep loaded) so the model stays in memory across requests and load/unload spikes are avoided. For the **last** hunk, stet sends a short value (e.g. `0` = unload when done) so Ollama frees the model after the run; this keeps memory available for other processes.
+- **Generate:** `client.Generate` (or `GenerateWithMessages` when continuing a truncated prompt) on the `llm.Client`. **Ollama** uses `/api/generate`; **OpenAI-compat** uses the chat/completions-style API. `genOpts` carries temperature, `NumCtx` (Ollama runtime / prompt sizing), `MaxCompletionTokens` (OpenAI-compat **`max_tokens`**; ignored by Ollama), and Ollama-only `keep_alive`. The `contextLimit` passed into `ReviewHunk` for token warnings and RAG budgeting comes from configured/session values ([cli/internal/run/run.go](cli/internal/run/run.go)). On malformed JSON response, the generate call is retried once; on second parse failure an error is returned.
+- **keep_alive (Ollama only):** Each `/api/generate` request includes a top-level `keep_alive`. For all but the last hunk, stet sends a long duration (e.g. `-1` = keep loaded) so the model stays in memory across requests and load/unload spikes are avoided. For the **last** hunk, stet sends a short value (e.g. `0` = unload when done) so Ollama frees the model after the run; this keeps memory available for other processes.
 
 ### 7.9 Parse and assign IDs
 
@@ -271,7 +271,7 @@ So "fix and re-run" causes the old finding to disappear from the active list wit
 - **Entry:** `stet run` → `run.Run()` in [cli/internal/run/run.go](cli/internal/run/run.go).
 - **No worktree:** Run does not create or remove worktrees. It only loads the session and runs the review pipeline for the current partition.
 - **Partition:** `scope.Partition(ctx, opts.RepoRoot, s.BaselineRef, headSHA, s.LastReviewedAt, nil)`. Only hunks that are **new or changed** since `LastReviewedAt` are in ToReview.
-- **Same per-hunk pipeline:** Same prompts, expand, RAG, Ollama (or dry-run), parse, abstention, FP kill list, URIs.
+- **Same per-hunk pipeline:** Same prompts, expand, RAG, LLM backend (or dry-run), parse, abstention, FP kill list, URIs.
 - **Findings merge:** New findings from this run are in `newFindings`. Auto-dismiss logic runs (findings in reviewed hunks not re-reported get added to `DismissedIDs` and history). Then `s.Findings = append(s.Findings, newFindings...)`, `s.LastReviewedAt = headSHA`, and session is saved.
 
 | Aspect | Start | Run |

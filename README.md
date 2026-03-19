@@ -1,13 +1,13 @@
 # Stet
 
-Local code review, powered by your machine. No cloud. No API keys. No data leaves your machine. Uses the hardware you already have—no extra cost.
+Local code review, powered by your machine. **By default** Stet talks to [Ollama](https://ollama.com) on your computer: no cloud API keys required for that path, and prompts stay on your machine. Uses the hardware you already have—no extra cost.
 
 ## Why Stet
 
-- **Free:** Runs on your machine; no per-seat or per-request fees.
-- **Private:** No code, prompts, or findings sent off your machine.
+- **Free:** Default setup runs locally; no per-seat or per-request fees to the vendor for typical Ollama use.
+- **Private (default path):** With Ollama on localhost, code and prompts are not sent to a remote SaaS.
 - **Review-only:** Focused on review, not auto-fix; you decide what to change.
-- **Sustainable:** Uses your local hardware; no datacenter API calls.
+- **Sustainable:** Default setup uses your local hardware instead of datacenter APIs.
 
 ## About the Name
 
@@ -16,20 +16,22 @@ Local code review, powered by your machine. No cloud. No API keys. No data leave
 ## Prerequisites
 
 - [Git](https://git-scm.com/)
-- [Ollama](https://ollama.com) — install and run `ollama serve`
-- Suggested model: `ollama pull qwen3-coder:30b`. You can use a different model via `.review/config.toml` or `STET_MODEL` (e.g. `ollama pull qwen2.5-coder:32b` for a lighter option).
+- **Default LLM — Ollama:** Install [Ollama](https://ollama.com), run `ollama serve`, and pull a model (e.g. `ollama pull qwen3-coder:30b`). Override the model in `.review/config.toml` or with `STET_MODEL` (e.g. `qwen2.5-coder:32b`).
+- **Optional — OpenAI-compatible HTTP API:** See [OpenAI-compatible API (optional)](#openai-compatible-api-optional) below; no Ollama install required for that mode.
 
 ## Quick Start
 
-1. Install Ollama and pull the model (see Prerequisites).
+1. Set up your LLM (Ollama by default; see Prerequisites).
 2. Install stet (see Installation).
 3. From your repo root: `stet doctor` then `stet start`.
+
+`stet doctor` checks Git and reachability of your **configured** LLM (Ollama or OpenAI-compat base URL). On success it may still print `Ollama OK` even when `provider = "openai"`; use exit code **0** and the `Model:` line as the signal.
 
 ## Example workflow
 
 A typical review cycle on a branch with new commits:
 
-1. **Check environment** — Run `stet doctor` to verify Ollama and the model (optional but recommended once).
+1. **Check environment** — Run `stet doctor` to verify Git and the configured LLM endpoint (optional but recommended once).
 2. **Start the review** — Run `stet start` or `stet start HEAD~3` to review the last 3 commits; wait for the run to complete.
 3. **Inspect findings** — Use `stet status` or `stet list` to see findings and IDs. In the Cursor extension, use the findings panel and “Copy for chat.”
 4. **Triage** — Run `stet dismiss <id>` or `stet dismiss <id> <reason>` for findings you want to ignore (reasons: `false_positive`, `already_correct`, `wrong_suggestion`, `out_of_scope`); fix code as needed. For when to use each reason, see [Choosing a dismissal reason](docs/review-quality.md#choosing-a-dismissal-reason).
@@ -92,11 +94,25 @@ go install github.com/stet/stet/cli/cmd/stet@latest
 **PATH**  
 The default install directory is `~/.local/bin` (Mac/Linux) or `%USERPROFILE%\.local\bin` (Windows). Ensure it is in your PATH. For example, add to `~/.bashrc` or `~/.zshrc`: `export PATH="$HOME/.local/bin:$PATH"`.
 
+## OpenAI-compatible API (optional)
+
+Stet can use any server that exposes an **OpenAI-compatible** chat/completions HTTP API (for example **LM Studio**’s local server, or other gateways). Configure it in `.review/config.toml` (or your global Stet config) or with environment variables:
+
+| Setting | TOML key | Environment variable | Notes |
+|--------|----------|----------------------|--------|
+| Provider | `provider = "openai"` | `STET_PROVIDER=openai` | Default is `ollama`. |
+| Base URL | `openai_base_url = "http://127.0.0.1:1234/v1"` | `STET_OPENAI_BASE_URL` | Include the `/v1` prefix if your server uses it (LM Studio default is often port `1234`). |
+| Completion cap | `max_completion_tokens = 4096` | `STET_MAX_COMPLETION_TOKENS` | Sent as OpenAI **`max_tokens`** (how many tokens the model may *generate*). **Default 4096.** This is **separate** from the context window (`num_ctx`, `--context`, `STET_NUM_CTX`), which sizes the prompt; large `--context` does not automatically raise the completion cap. |
+
+**Privacy and keys:** Pointing at **localhost** keeps traffic on your machine (subject to that server’s behavior). Pointing at a **remote** vendor URL means prompts may leave your machine and you may need API keys as required by that server—Stet does not change those rules.
+
+Full precedence and every key are documented in the [CLI–Extension Contract](docs/cli-extension-contract.md#configuration).
+
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `stet doctor` | Verify Ollama, Git, models |
+| `stet doctor` | Verify Git and configured LLM reachability (Ollama or OpenAI-compat) |
 | `stet skill` | Print Agent Skill Markdown for LLM integration (e.g. save as SKILL.md in `.claude/skills/stet-integration/`) |
 | `stet benchmark` | Measure model throughput (tokens/s) for the configured model |
 | `stet commitmsg` | Generate a conventional git commit message from uncommitted changes (local LLM); `--commit` to commit with it, `--commit-and-review` to commit then run review |
