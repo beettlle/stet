@@ -22,6 +22,9 @@ import (
 
 const maxExpandTokensCap = 4096
 
+// maxContinuationRounds caps how many continuation requests we send when the response was truncated (DoneReason == "length").
+const maxContinuationRounds = 3
+
 // maxRAGTokensWhenContextLarge caps per-hunk RAG tokens when the model context limit
 // is very large so that a single hunk cannot consume most of a 128k/256k context window.
 const maxRAGTokensWhenContextLarge = 65536
@@ -269,22 +272,56 @@ func ProcessReviewResponse(ctx context.Context, result *ollama.GenerateResult, h
 	}
 	list, err := ParseFindingsResponse(result.Response, parseOpts...)
 	if err != nil {
-		result2, retryErr := client.Generate(ctx, model, system, user, generateOpts)
-		if retryErr != nil {
-			return nil, nil, fmt.Errorf("review: parse failed then retry generate failed: %w", retryErr)
+		if result.DoneReason == "length" {
+			parts := []string{result.Response}
+			sumPrompt, sumEval, sumDur := result.PromptEvalCount, result.EvalCount, result.EvalDuration
+			for round := 0; round < maxContinuationRounds; round++ {
+				messages := []ollama.Message{
+					{Role: "system", Content: system},
+					{Role: "user", Content: user},
+					{Role: "assistant", Content: parts[len(parts)-1]},
+					{Role: "user", Content: "Continue."},
+				}
+				next, contErr := client.GenerateWithMessages(ctx, model, messages, generateOpts)
+				if contErr != nil {
+					break
+				}
+				parts = append(parts, next.Response)
+				sumPrompt += next.PromptEvalCount
+				sumEval += next.EvalCount
+				sumDur += next.EvalDuration
+				if traceOut != nil && traceOut.Enabled() {
+					traceOut.Section("LLM continuation")
+					traceOut.Printf("round=%d done_reason=%s prompt_eval_count=%d eval_count=%d\n", round+1, next.DoneReason, next.PromptEvalCount, next.EvalCount)
+					traceOut.Printf("%s\n", next.Response)
+				}
+				if next.DoneReason != "length" {
+					break
+				}
+			}
+			list, err = MergeFindingsFromParts(parts, parseOpts...)
+			if err == nil {
+				usage = &HunkUsage{PromptEvalCount: sumPrompt, EvalCount: sumEval, EvalDurationNs: sumDur}
+			}
 		}
-		if result2 == nil {
-			return nil, nil, fmt.Errorf("review: generate retry: unexpected nil result")
-		}
-		if traceOut != nil && traceOut.Enabled() {
-			traceOut.Section("LLM response (raw) retry")
-			traceOut.Printf("model=%s prompt_eval_count=%d eval_count=%d eval_duration=%d\n", result2.Model, result2.PromptEvalCount, result2.EvalCount, result2.EvalDuration)
-			traceOut.Printf("%s\n", result2.Response)
-		}
-		usage = &HunkUsage{PromptEvalCount: result2.PromptEvalCount, EvalCount: result2.EvalCount, EvalDurationNs: result2.EvalDuration}
-		list, err = ParseFindingsResponse(result2.Response, parseOpts...)
 		if err != nil {
-			return nil, nil, fmt.Errorf("review: parse failed (after retry): %w", err)
+			result2, retryErr := client.Generate(ctx, model, system, user, generateOpts)
+			if retryErr != nil {
+				return nil, nil, fmt.Errorf("review: parse failed then retry generate failed: %w", retryErr)
+			}
+			if result2 == nil {
+				return nil, nil, fmt.Errorf("review: generate retry: unexpected nil result")
+			}
+			if traceOut != nil && traceOut.Enabled() {
+				traceOut.Section("LLM response (raw) retry")
+				traceOut.Printf("model=%s prompt_eval_count=%d eval_count=%d eval_duration=%d\n", result2.Model, result2.PromptEvalCount, result2.EvalCount, result2.EvalDuration)
+				traceOut.Printf("%s\n", result2.Response)
+			}
+			usage = &HunkUsage{PromptEvalCount: result2.PromptEvalCount, EvalCount: result2.EvalCount, EvalDurationNs: result2.EvalDuration}
+			list, err = ParseFindingsResponse(result2.Response, parseOpts...)
+			if err != nil {
+				return nil, nil, fmt.Errorf("review: parse failed (after retry): %w", err)
+			}
 		}
 	}
 	if traceOut != nil && traceOut.Enabled() {

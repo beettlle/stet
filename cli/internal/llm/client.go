@@ -19,6 +19,8 @@ type Client interface {
 	Check(ctx context.Context, model string) (*ollama.CheckResult, error)
 	Generate(ctx context.Context, model, systemPrompt, userPrompt string, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error)
 	GeneratePlain(ctx context.Context, model, systemPrompt, userPrompt string, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error)
+	// GenerateWithMessages sends a chat with message history (for continuation when truncated).
+	GenerateWithMessages(ctx context.Context, model string, messages []ollama.Message, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error)
 }
 
 // ErrUnreachable and ErrBadRequest are re-exported from ollama so callers can

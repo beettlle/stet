@@ -5,6 +5,7 @@ package review
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"stet/cli/internal/findings"
 	"stet/cli/internal/hunkid"
@@ -63,6 +64,41 @@ func ParseFindingsResponse(jsonStr string, opts ...ParseOptions) ([]findings.Fin
 		return nil, fmt.Errorf("parse findings: single object validation failed: %w", verr)
 	}
 	return []findings.Finding{single}, nil
+}
+
+// MergeFindingsFromParts combines multiple response parts (e.g. from continuation rounds) into one findings list.
+// Tries parsing the joined string first; if that fails, parses each part (wrapping in brackets if needed) and concatenates.
+func MergeFindingsFromParts(parts []string, opts ...ParseOptions) ([]findings.Finding, error) {
+	if len(parts) == 0 {
+		return nil, fmt.Errorf("merge findings: no parts")
+	}
+	combined := strings.TrimSpace(strings.Join(parts, "\n"))
+	if combined == "" {
+		return nil, fmt.Errorf("merge findings: empty after join")
+	}
+	if list, err := ParseFindingsResponse(combined, opts...); err == nil {
+		return list, nil
+	}
+	var all []findings.Finding
+	for _, p := range parts {
+		p = trimSpace(p)
+		if p == "" {
+			continue
+		}
+		list, err := ParseFindingsResponse(p, opts...)
+		if err != nil {
+			if !strings.HasPrefix(strings.TrimLeft(p, " \t\n"), "[") {
+				list, err = ParseFindingsResponse("["+p+"]", opts...)
+			}
+		}
+		if err == nil {
+			all = append(all, list...)
+		}
+	}
+	if len(all) == 0 {
+		return nil, fmt.Errorf("merge findings: no part parsed successfully")
+	}
+	return all, nil
 }
 
 // normalizeAndFilterFindings normalizes each finding in place (invalid enum→defaults), then

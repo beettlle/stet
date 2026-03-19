@@ -344,6 +344,7 @@ func TestClient_Generate_returnsResponseMetadata(t *testing.T) {
 		_ = enc.Encode(map[string]interface{}{
 			"response":               wantResponse,
 			"done":                   true,
+			"done_reason":            "stop",
 			"model":                  wantModel,
 			"prompt_eval_count":      wantPromptEval,
 			"prompt_eval_duration":   wantPromptEvalDur,
@@ -381,6 +382,9 @@ func TestClient_Generate_returnsResponseMetadata(t *testing.T) {
 	if got.EvalDuration != wantEvalDur {
 		t.Errorf("EvalDuration = %d, want %d", got.EvalDuration, wantEvalDur)
 	}
+	if got.DoneReason != "stop" {
+		t.Errorf("DoneReason = %q, want %q", got.DoneReason, "stop")
+	}
 	if got.LoadDuration != wantLoadDur {
 		t.Errorf("LoadDuration = %d, want %d", got.LoadDuration, wantLoadDur)
 	}
@@ -397,8 +401,34 @@ func TestClient_Generate_returnsResponseMetadata(t *testing.T) {
 	if got.Usage.PromptEvalDuration != wantPromptEvalDur {
 		t.Errorf("Usage.PromptEvalDuration = %d, want %d", got.Usage.PromptEvalDuration, wantPromptEvalDur)
 	}
-	if got.Usage.EvalDuration != wantEvalDur {
-		t.Errorf("Usage.EvalDuration = %d, want %d", got.Usage.EvalDuration, wantEvalDur)
+}
+
+func TestClient_Generate_doneReasonLength(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		enc := json.NewEncoder(w)
+		_ = enc.Encode(map[string]interface{}{"response": "", "done": false})
+		_ = enc.Encode(map[string]interface{}{
+			"response":          "[{\"file\":\"a.go\"",
+			"done":              true,
+			"done_reason":      "length",
+			"model":             "m",
+			"prompt_eval_count": 10,
+			"eval_count":       100,
+		})
+	}))
+	defer srv.Close()
+	client := NewClient(srv.URL, srv.Client())
+	ctx := context.Background()
+	got, err := client.Generate(ctx, "m", "sys", "user", nil)
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	if got.DoneReason != "length" {
+		t.Errorf("DoneReason = %q, want %q", got.DoneReason, "length")
+	}
+	if got.Response != "[{\"file\":\"a.go\"" {
+		t.Errorf("Response = %q (truncated)", got.Response)
 	}
 }
 

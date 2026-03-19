@@ -273,3 +273,80 @@ func TestAssignFindingIDs_withRange(t *testing.T) {
 		t.Error("ID should be set when using range")
 	}
 }
+
+func TestMergeFindingsFromParts_onePart(t *testing.T) {
+	parts := []string{`[{"file":"a.go","line":1,"severity":"warning","category":"style","message":"fix"}]`}
+	list, err := MergeFindingsFromParts(parts)
+	if err != nil {
+		t.Fatalf("MergeFindingsFromParts: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("len(list) = %d, want 1", len(list))
+	}
+	if list[0].File != "a.go" || list[0].Message != "fix" {
+		t.Errorf("finding: %+v", list[0])
+	}
+}
+
+func TestMergeFindingsFromParts_twoArrays(t *testing.T) {
+	parts := []string{
+		`[{"file":"a.go","line":1,"severity":"warning","category":"style","message":"first"}]`,
+		`[{"file":"b.go","line":2,"severity":"info","category":"maintainability","message":"second"}]`,
+	}
+	list, err := MergeFindingsFromParts(parts)
+	if err != nil {
+		t.Fatalf("MergeFindingsFromParts: %v", err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("len(list) = %d, want 2", len(list))
+	}
+	if list[0].Message != "first" || list[1].Message != "second" {
+		t.Errorf("messages: %q, %q", list[0].Message, list[1].Message)
+	}
+}
+
+func TestMergeFindingsFromParts_joinedParsesAsOne(t *testing.T) {
+	parts := []string{
+		`[{"file":"a.go","line":1,"severity":"warning","category":"style","message":"one"},`,
+		`{"file":"b.go","line":2,"severity":"info","category":"style","message":"two"}]`,
+	}
+	list, err := MergeFindingsFromParts(parts)
+	if err != nil {
+		t.Fatalf("MergeFindingsFromParts: %v", err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("len(list) = %d, want 2", len(list))
+	}
+	if list[0].Message != "one" || list[1].Message != "two" {
+		t.Errorf("messages: %q, %q", list[0].Message, list[1].Message)
+	}
+}
+
+func TestMergeFindingsFromParts_partialThenFull(t *testing.T) {
+	// First part is truncated (no closing bracket, unparseable); second part is valid array. Only second parses.
+	parts := []string{
+		`[{"file":"a.go","line":1,"severity":"warning","category":"style","message":"only"`, // truncated
+		`[{"file":"b.go","line":2,"severity":"info","category":"style","message":"second"}]`,
+	}
+	list, err := MergeFindingsFromParts(parts)
+	if err != nil {
+		t.Fatalf("MergeFindingsFromParts: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("len(list) = %d, want 1 (only second part parses)", len(list))
+	}
+	if list[0].Message != "second" || list[0].File != "b.go" {
+		t.Errorf("finding: %+v", list[0])
+	}
+}
+
+func TestMergeFindingsFromParts_empty_returnsError(t *testing.T) {
+	_, err := MergeFindingsFromParts(nil)
+	if err == nil {
+		t.Fatal("MergeFindingsFromParts(nil): want error, got nil")
+	}
+	_, err = MergeFindingsFromParts([]string{})
+	if err == nil {
+		t.Fatal("MergeFindingsFromParts([]): want error, got nil")
+	}
+}

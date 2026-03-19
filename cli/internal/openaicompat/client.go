@@ -176,6 +176,7 @@ type chatResponse struct {
 		Message struct {
 			Content string `json:"content"`
 		} `json:"message"`
+		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
 	Usage *struct {
 		PromptTokens    int `json:"prompt_tokens"`
@@ -192,6 +193,109 @@ func (c *Client) Generate(ctx context.Context, model, systemPrompt, userPrompt s
 // GeneratePlain is the same as Generate (OpenAI chat API does not distinguish format).
 func (c *Client) GeneratePlain(ctx context.Context, model, systemPrompt, userPrompt string, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error) {
 	return c.generate(ctx, model, systemPrompt, userPrompt, opts)
+}
+
+// GenerateWithMessages sends a chat completion with the given message history (for continuation).
+func (c *Client) GenerateWithMessages(ctx context.Context, model string, messages []ollama.Message, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error) {
+	if len(messages) == 0 {
+		return nil, fmt.Errorf("openai chat: messages required")
+	}
+	msgs := make([]message, len(messages))
+	for i, m := range messages {
+		msgs[i] = message{Role: m.Role, Content: m.Content}
+	}
+	temp := 0.2
+	if opts != nil {
+		temp = opts.Temperature
+	}
+	maxTokens := 4096
+	if opts != nil && opts.NumCtx > 0 && opts.NumCtx < 65536 {
+		maxTokens = opts.NumCtx
+	}
+	body := chatRequest{
+		Model:       model,
+		Messages:    msgs,
+		Temperature: temp,
+		Stream:      false,
+		MaxTokens:   maxTokens,
+	}
+	encoded, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("openai chat request: %w", err)
+	}
+	url := chatCompletionsURL(c.baseURL)
+	var lastErr error
+	for attempt := 0; attempt <= _maxRetries; attempt++ {
+		if ctx.Err() != nil {
+			return nil, fmt.Errorf("openai chat: %w", ctx.Err())
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(encoded))
+		if err != nil {
+			return nil, fmt.Errorf("openai chat request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("openai chat: %w", errors.Join(ollama.ErrUnreachable, err))
+			if errors.Is(err, context.DeadlineExceeded) {
+				return nil, lastErr
+			}
+			if attempt == _maxRetries {
+				return nil, lastErr
+			}
+			if !sleepWithBackoff(ctx, attempt) {
+				return nil, fmt.Errorf("openai chat: %w", ctx.Err())
+			}
+			continue
+		}
+		if resp == nil {
+			return nil, fmt.Errorf("openai chat: unexpected nil response")
+		}
+		if resp.StatusCode != http.StatusOK {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
+			lastErr = httpStatusError("openai chat", resp.StatusCode)
+			if errors.Is(lastErr, ollama.ErrBadRequest) || attempt == _maxRetries {
+				return nil, lastErr
+			}
+			if !sleepWithBackoff(ctx, attempt) {
+				return nil, fmt.Errorf("openai chat: %w", ctx.Err())
+			}
+			continue
+		}
+		limited := io.LimitReader(resp.Body, _maxResponseBytes)
+		var chat chatResponse
+		err = json.NewDecoder(limited).Decode(&chat)
+		resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("openai chat: parse response: %w", err)
+		}
+		content := ""
+		finishReason := ""
+		if len(chat.Choices) > 0 {
+			content = chat.Choices[0].Message.Content
+			finishReason = chat.Choices[0].FinishReason
+		}
+		promptTokens := 0
+		completionTokens := 0
+		if chat.Usage != nil {
+			promptTokens = chat.Usage.PromptTokens
+			completionTokens = chat.Usage.CompletionTokens
+		}
+		return &ollama.GenerateResult{
+			Response:           content,
+			Model:              model,
+			DoneReason:         finishReason,
+			Usage:              ollama.Usage{PromptEvalCount: promptTokens, EvalCount: completionTokens},
+			PromptEvalCount:    promptTokens,
+			EvalCount:          completionTokens,
+			PromptEvalDuration: 0,
+			EvalDuration:       0,
+			LoadDuration:       0,
+			TotalDuration:      0,
+		}, nil
+	}
+	return nil, lastErr
 }
 
 func (c *Client) generate(ctx context.Context, model, systemPrompt, userPrompt string, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error) {
@@ -265,8 +369,10 @@ func (c *Client) generate(ctx context.Context, model, systemPrompt, userPrompt s
 			return nil, fmt.Errorf("openai chat: parse response: %w", err)
 		}
 		content := ""
+		finishReason := ""
 		if len(chat.Choices) > 0 {
 			content = chat.Choices[0].Message.Content
+			finishReason = chat.Choices[0].FinishReason
 		}
 		promptTokens := 0
 		completionTokens := 0
@@ -277,6 +383,7 @@ func (c *Client) generate(ctx context.Context, model, systemPrompt, userPrompt s
 		return &ollama.GenerateResult{
 			Response:           content,
 			Model:              model,
+			DoneReason:         finishReason,
 			Usage:              ollama.Usage{PromptEvalCount: promptTokens, EvalCount: completionTokens},
 			PromptEvalCount:    promptTokens,
 			EvalCount:           completionTokens,

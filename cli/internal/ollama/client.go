@@ -355,6 +355,12 @@ func decodeStreamedGenerateResponse(r io.Reader) (generateResponse, error) {
 	return final, nil
 }
 
+// Message is a single chat message (role + content). Used for multi-turn continuation via GenerateWithMessages.
+type Message struct {
+	Role    string `json:"role"`    // "system", "user", or "assistant"
+	Content string `json:"content"`
+}
+
 // GenerateOptions holds model runtime options sent to Ollama /api/generate.
 // Zero values are sent as-is; omitempty is not used so the API receives explicit values.
 // KeepAlive is not sent inside options; it is sent at the top level of the request (see generateRequest).
@@ -377,6 +383,7 @@ type generateRequest struct {
 type generateResponse struct {
 	Response             string `json:"response"`
 	Done                 bool   `json:"done"`
+	DoneReason           string `json:"done_reason"`
 	Model                string `json:"model"`
 	PromptEvalCount      int    `json:"prompt_eval_count"`
 	PromptEvalDuration   int64  `json:"prompt_eval_duration"`
@@ -402,9 +409,11 @@ type Usage struct {
 // Duration fields are in nanoseconds (Ollama API convention). Eval rate (tokens/s) =
 // EvalCount / (EvalDuration / 1e9). Prompt eval rate = PromptEvalCount / (PromptEvalDuration / 1e9).
 // LoadDuration is model load time (cold start); TotalDuration is wall-clock.
+// DoneReason is set when done is true (e.g. "stop", "length"); used for continuation when "length".
 type GenerateResult struct {
 	Response           string
 	Model              string
+	DoneReason         string // Reason generation stopped (e.g. "stop", "length")
 	Usage              Usage // Token counts and eval durations from /api/generate
 	PromptEvalCount    int   // Input tokens processed (mirrors Usage for backward compatibility)
 	PromptEvalDuration int64 // Time to process prompt, ns
@@ -526,6 +535,7 @@ func (c *Client) generateWithFormat(ctx context.Context, model, systemPrompt, us
 		return &GenerateResult{
 			Response:           gen.Response,
 			Model:              gen.Model,
+			DoneReason:         gen.DoneReason,
 			Usage:              u,
 			PromptEvalCount:    gen.PromptEvalCount,
 			PromptEvalDuration: gen.PromptEvalDuration,
@@ -540,6 +550,190 @@ func (c *Client) generateWithFormat(ctx context.Context, model, systemPrompt, us
 	}
 	if debugOllama {
 		fmt.Fprintf(os.Stderr, "stet: ollama generate attempt %d failed after %s (no response after retries)\n", _maxRetries+1, time.Since(requestStart).Round(time.Second))
+	}
+	return nil, lastErr
+}
+
+// chatRequest is the body for POST /api/chat (multi-turn).
+type chatRequest struct {
+	Model     string     `json:"model"`
+	Messages  []Message  `json:"messages"`
+	Stream    bool       `json:"stream"`
+	Format    string     `json:"format,omitempty"`
+	Options   *GenerateOptions `json:"options,omitempty"`
+	KeepAlive interface{} `json:"keep_alive,omitempty"`
+}
+
+// chatStreamChunk is one NDJSON line from /api/chat stream.
+type chatStreamChunk struct {
+	Message            struct { Content string `json:"content"` } `json:"message"`
+	Done               bool   `json:"done"`
+	DoneReason         string `json:"done_reason"`
+	Model              string `json:"model"`
+	PromptEvalCount    int    `json:"prompt_eval_count"`
+	PromptEvalDuration int64  `json:"prompt_eval_duration"`
+	EvalCount          int    `json:"eval_count"`
+	EvalDuration      int64  `json:"eval_duration"`
+	LoadDuration       int64  `json:"load_duration"`
+	TotalDuration      int64  `json:"total_duration"`
+}
+
+// decodeStreamedChatResponse reads NDJSON from r (Ollama /api/chat stream),
+// accumulates message.content and returns the final chunk's metadata plus full content.
+func decodeStreamedChatResponse(r io.Reader) (content string, doneReason string, promptEvalCount, evalCount int, promptEvalDuration, evalDuration, loadDuration, totalDuration int64, model string, err error) {
+	var acc strings.Builder
+	var final chatStreamChunk
+	sawDone := false
+	scanner := bufio.NewScanner(r)
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, _maxResponseBytes)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		var chunk chatStreamChunk
+		if err := json.Unmarshal([]byte(line), &chunk); err != nil {
+			return "", "", 0, 0, 0, 0, 0, 0, "", fmt.Errorf("ollama chat: parse stream chunk: %w", err)
+		}
+		total := int64(acc.Len()) + int64(len(chunk.Message.Content))
+		if total > int64(_maxResponseBytes) {
+			return "", "", 0, 0, 0, 0, 0, 0, "", fmt.Errorf("ollama chat: response exceeds %d bytes", _maxResponseBytes)
+		}
+		acc.WriteString(chunk.Message.Content)
+		if chunk.Done {
+			final = chunk
+			final.Message.Content = acc.String()
+			sawDone = true
+			break
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return "", "", 0, 0, 0, 0, 0, 0, "", fmt.Errorf("ollama chat: read stream: %w", err)
+	}
+	if !sawDone {
+		return "", "", 0, 0, 0, 0, 0, 0, "", errors.New("ollama chat: stream ended without done")
+	}
+	return acc.String(), final.DoneReason, final.PromptEvalCount, final.EvalCount,
+		final.PromptEvalDuration, final.EvalDuration, final.LoadDuration, final.TotalDuration,
+		final.Model, nil
+}
+
+// GenerateWithMessages sends a multi-turn chat request to /api/chat and returns the assistant reply.
+// Used for continuation when the initial Generate was truncated (DoneReason == "length").
+func (c *Client) GenerateWithMessages(ctx context.Context, model string, messages []Message, opts *GenerateOptions) (*GenerateResult, error) {
+	if len(messages) == 0 {
+		return nil, fmt.Errorf("ollama chat: messages required")
+	}
+	body := chatRequest{
+		Model:    model,
+		Messages: messages,
+		Stream:   true,
+		Format:   "json",
+		Options:  opts,
+	}
+	if opts != nil && opts.KeepAlive != nil {
+		body.KeepAlive = opts.KeepAlive
+	}
+	encoded, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("ollama chat request: %w", err)
+	}
+	url := c.baseURL + "/api/chat"
+	requestStart := time.Now()
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("STET_DEBUG_OLLAMA")))
+	debugOllama := v == "1" || v == "true"
+	var lastErr error
+	for attempt := 0; attempt <= _maxRetries; attempt++ {
+		if ctx.Err() != nil {
+			return nil, fmt.Errorf("ollama chat: %w", ctx.Err())
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(encoded))
+		if err != nil {
+			return nil, fmt.Errorf("ollama chat request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		client := c.httpClient
+		if attempt > 0 {
+			timeout := retryTimeout(c.httpClient.Timeout, attempt)
+			transport := c.httpClient.Transport
+			if transport == nil {
+				transport = http.DefaultTransport
+			}
+			client = &http.Client{Timeout: timeout, Transport: transport}
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("ollama chat: %w", errors.Join(ErrUnreachable, err))
+			if debugOllama {
+				reason := "connection/5xx"
+				if errors.Is(err, context.DeadlineExceeded) {
+					reason = "timeout"
+				}
+				fmt.Fprintf(os.Stderr, "stet: ollama chat attempt %d failed after %s (%s)\n", attempt+1, time.Since(requestStart).Round(time.Second), reason)
+			}
+			if errors.Is(err, context.DeadlineExceeded) {
+				return nil, lastErr
+			}
+			if !errors.Is(lastErr, ErrUnreachable) || attempt == _maxRetries {
+				return nil, lastErr
+			}
+			if !sleepWithBackoff(ctx, attempt) {
+				return nil, fmt.Errorf("ollama chat: %w", ctx.Err())
+			}
+			continue
+		}
+		if resp == nil {
+			return nil, fmt.Errorf("ollama chat: unexpected nil response")
+		}
+		if resp.StatusCode != http.StatusOK {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
+			lastErr = httpStatusError("ollama chat", resp.StatusCode)
+			if debugOllama {
+				reason := "connection/5xx"
+				if errors.Is(lastErr, ErrBadRequest) {
+					reason = "bad request"
+				}
+				fmt.Fprintf(os.Stderr, "stet: ollama chat attempt %d failed after %s (%s)\n", attempt+1, time.Since(requestStart).Round(time.Second), reason)
+			}
+			if errors.Is(lastErr, ErrBadRequest) || attempt == _maxRetries {
+				return nil, lastErr
+			}
+			if !sleepWithBackoff(ctx, attempt) {
+				return nil, fmt.Errorf("ollama chat: %w", ctx.Err())
+			}
+			continue
+		}
+		content, doneReason, promptEvalCount, evalCount, promptEvalDur, evalDur, loadDur, totalDur, outModel, err := decodeStreamedChatResponse(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+		u := Usage{
+			PromptEvalCount:    promptEvalCount,
+			EvalCount:          evalCount,
+			PromptEvalDuration: promptEvalDur,
+			EvalDuration:       evalDur,
+		}
+		return &GenerateResult{
+			Response:           content,
+			Model:              outModel,
+			DoneReason:         doneReason,
+			Usage:              u,
+			PromptEvalCount:    promptEvalCount,
+			PromptEvalDuration: promptEvalDur,
+			EvalCount:          evalCount,
+			EvalDuration:       evalDur,
+			LoadDuration:       loadDur,
+			TotalDuration:      totalDur,
+		}, nil
+	}
+	if lastErr == nil {
+		lastErr = errors.New("ollama chat: no response after retries")
+	}
+	if debugOllama {
+		fmt.Fprintf(os.Stderr, "stet: ollama chat attempt %d failed after %s (no response after retries)\n", _maxRetries+1, time.Since(requestStart).Round(time.Second))
 	}
 	return nil, lastErr
 }

@@ -14,6 +14,7 @@ import (
 
 	"stet/cli/internal/diff"
 	"stet/cli/internal/llm"
+	"stet/cli/internal/ollama"
 	"stet/cli/internal/prompt"
 	"stet/cli/internal/rules"
 	"stet/cli/internal/tokens"
@@ -172,6 +173,75 @@ func TestReviewHunk_generateFails_returnsError(t *testing.T) {
 	_, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil, nil)
 	if err == nil {
 		t.Fatal("ReviewHunk: want error when generate fails, got nil")
+	}
+}
+
+// continuationFakeClient implements llm.Client for ProcessReviewResponse continuation tests.
+type continuationFakeClient struct {
+	generateWithMessagesResult *ollama.GenerateResult
+	generateResult             *ollama.GenerateResult // for retry path if used
+}
+
+func (c *continuationFakeClient) Check(ctx context.Context, model string) (*ollama.CheckResult, error) {
+	return &ollama.CheckResult{Reachable: true, ModelPresent: true}, nil
+}
+
+func (c *continuationFakeClient) Generate(ctx context.Context, model, systemPrompt, userPrompt string, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error) {
+	if c.generateResult != nil {
+		return c.generateResult, nil
+	}
+	return &ollama.GenerateResult{Response: "[]", DoneReason: "stop"}, nil
+}
+
+func (c *continuationFakeClient) GeneratePlain(ctx context.Context, model, systemPrompt, userPrompt string, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error) {
+	return c.Generate(ctx, model, systemPrompt, userPrompt, opts)
+}
+
+func (c *continuationFakeClient) GenerateWithMessages(ctx context.Context, model string, messages []ollama.Message, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error) {
+	if c.generateWithMessagesResult != nil {
+		return c.generateWithMessagesResult, nil
+	}
+	return &ollama.GenerateResult{Response: "[]", DoneReason: "stop"}, nil
+}
+
+func TestProcessReviewResponse_continuationWhenLength(t *testing.T) {
+	validContinuation := `[{"file":"a.go","line":1,"severity":"warning","category":"style","message":"fix"}]`
+	client := &continuationFakeClient{
+		generateWithMessagesResult: &ollama.GenerateResult{
+			Response:        validContinuation,
+			DoneReason:      "stop",
+			PromptEvalCount: 50,
+			EvalCount:       20,
+			EvalDuration:    1000,
+		},
+	}
+	truncatedResult := &ollama.GenerateResult{
+		Response:        `[{"file":"a.go"`, // truncated, unparseable
+		DoneReason:      "length",
+		PromptEvalCount: 100,
+		EvalCount:       2048,
+		EvalDuration:    5000,
+	}
+	hunk := diff.Hunk{FilePath: "a.go", RawContent: "code", Context: "code"}
+	ctx := context.Background()
+
+	list, usage, err := ProcessReviewResponse(ctx, truncatedResult, hunk, client, "m", "system", "user", nil, nil)
+	if err != nil {
+		t.Fatalf("ProcessReviewResponse: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("len(list) = %d, want 1 (from continuation)", len(list))
+	}
+	if list[0].Message != "fix" || list[0].File != "a.go" {
+		t.Errorf("finding: %+v", list[0])
+	}
+	if usage == nil {
+		t.Fatal("usage should be set")
+	}
+	wantPrompt := 100 + 50
+	wantEval := 2048 + 20
+	if usage.PromptEvalCount != wantPrompt || usage.EvalCount != wantEval {
+		t.Errorf("usage: prompt_eval=%d eval=%d, want %d and %d (aggregated)", usage.PromptEvalCount, usage.EvalCount, wantPrompt, wantEval)
 	}
 }
 
