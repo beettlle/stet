@@ -24,6 +24,7 @@ const (
 	_initialBackoff  = 1 * time.Second
 	_maxBackoff      = 16 * time.Second
 	_maxResponseBytes = 10 * 1024 * 1024
+	_maxHTTPErrorBodyBytes = 2048
 )
 
 // Client calls an OpenAI-compatible API. Zero value is not valid; use NewClient.
@@ -57,9 +58,32 @@ func chatCompletionsURL(baseURL string) string {
 	return baseURL + "/v1/chat/completions"
 }
 
-func httpStatusError(prefix string, statusCode int) error {
+// readErrorBodySnippet reads up to _maxHTTPErrorBodyBytes from a response body for stderr diagnostics.
+func readErrorBodySnippet(body io.ReadCloser) string {
+	if body == nil {
+		return ""
+	}
+	defer body.Close()
+	b, err := io.ReadAll(io.LimitReader(body, _maxHTTPErrorBodyBytes+1))
+	if err != nil {
+		return ""
+	}
+	s := strings.TrimSpace(string(b))
+	if len(s) > _maxHTTPErrorBodyBytes {
+		s = s[:_maxHTTPErrorBodyBytes] + "..."
+	}
+	return strings.ReplaceAll(s, "\n", " ")
+}
+
+func httpStatusError(prefix string, statusCode int, bodySnippet string) error {
 	if statusCode >= 400 && statusCode < 500 {
+		if bodySnippet != "" {
+			return fmt.Errorf("%s: %w: HTTP %d: %s", prefix, ollama.ErrBadRequest, statusCode, bodySnippet)
+		}
 		return fmt.Errorf("%s: %w: HTTP %d", prefix, ollama.ErrBadRequest, statusCode)
+	}
+	if bodySnippet != "" {
+		return fmt.Errorf("%s: %w: HTTP %d: %s", prefix, ollama.ErrUnreachable, statusCode, bodySnippet)
 	}
 	return fmt.Errorf("%s: %w: HTTP %d", prefix, ollama.ErrUnreachable, statusCode)
 }
@@ -119,9 +143,8 @@ func (c *Client) Check(ctx context.Context, model string) (*ollama.CheckResult, 
 			return nil, fmt.Errorf("openai models: unexpected nil response")
 		}
 		if resp.StatusCode != http.StatusOK {
-			_, _ = io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
-			lastErr = httpStatusError("openai models", resp.StatusCode)
+			snip := readErrorBodySnippet(resp.Body)
+			lastErr = httpStatusError("openai models", resp.StatusCode, snip)
 			if errors.Is(lastErr, ollama.ErrBadRequest) || attempt == _maxRetries {
 				return nil, lastErr
 			}
@@ -249,9 +272,8 @@ func (c *Client) GenerateWithMessages(ctx context.Context, model string, message
 			return nil, fmt.Errorf("openai chat: unexpected nil response")
 		}
 		if resp.StatusCode != http.StatusOK {
-			_, _ = io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
-			lastErr = httpStatusError("openai chat", resp.StatusCode)
+			snip := readErrorBodySnippet(resp.Body)
+			lastErr = httpStatusError("openai chat", resp.StatusCode, snip)
 			if errors.Is(lastErr, ollama.ErrBadRequest) || attempt == _maxRetries {
 				return nil, lastErr
 			}
@@ -354,9 +376,8 @@ func (c *Client) generate(ctx context.Context, model, systemPrompt, userPrompt s
 			return nil, fmt.Errorf("openai chat: unexpected nil response")
 		}
 		if resp.StatusCode != http.StatusOK {
-			_, _ = io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
-			lastErr = httpStatusError("openai chat", resp.StatusCode)
+			snip := readErrorBodySnippet(resp.Body)
+			lastErr = httpStatusError("openai chat", resp.StatusCode, snip)
 			if errors.Is(lastErr, ollama.ErrBadRequest) || attempt == _maxRetries {
 				return nil, lastErr
 			}

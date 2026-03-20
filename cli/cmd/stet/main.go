@@ -70,12 +70,12 @@ func findingsWriter() io.Writer {
 // errHintOut is the writer for recovery hints on start failure. Tests may replace it to capture output.
 var errHintOut io.Writer = os.Stderr
 
-// errForDetails returns the error to show in a "Details:" line (underlying cause when wrapped).
-func errForDetails(err error) error {
-	if u := errors.Unwrap(err); u != nil {
-		return u
+// formatLLMRejected writes one stderr line with provider, base URL, and full error chain for HTTP 4xx / client errors.
+func formatLLMRejected(w io.Writer, provider, baseURL string, err error) {
+	if baseURL == "" {
+		baseURL = "(no URL)"
 	}
-	return err
+	fmt.Fprintf(w, "LLM request rejected (%s at %s): %v\n", provider, baseURL, err)
 }
 
 // printLLMUnreachable prints a consistent unreachable message to stderr and, when the
@@ -96,7 +96,7 @@ func printLLMUnreachable(provider, baseURL string, err error) {
 		fmt.Fprint(os.Stderr, " For local: ollama serve.")
 	}
 	fmt.Fprintln(os.Stderr)
-	fmt.Fprintf(os.Stderr, "Details: %v\n", errForDetails(err))
+	fmt.Fprintf(os.Stderr, "Details: %v\n", err)
 	if errors.Is(err, context.DeadlineExceeded) {
 		fmt.Fprintln(os.Stderr, "Hint: Request timed out. Try increasing STET_TIMEOUT (or timeout in config) or using a smaller --context (e.g. 32k).")
 	}
@@ -418,7 +418,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 			return errExit(2)
 		}
 		if errors.Is(err, llm.ErrBadRequest) {
-			fmt.Fprintf(os.Stderr, "LLM bad request at %s. %v\n", cfg.EffectiveLLMBaseURL(), errForDetails(err))
+			formatLLMRejected(os.Stderr, cfg.EffectiveLLMProvider(), cfg.EffectiveLLMBaseURL(), err)
 			return errExit(2)
 		}
 		if errors.Is(err, run.ErrDirtyWorktree) {
@@ -739,7 +739,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 			return errExit(2)
 		}
 		if errors.Is(err, llm.ErrBadRequest) {
-			fmt.Fprintf(os.Stderr, "LLM bad request at %s. %v\n", cfg.EffectiveLLMBaseURL(), errForDetails(err))
+			formatLLMRejected(os.Stderr, cfg.EffectiveLLMProvider(), cfg.EffectiveLLMBaseURL(), err)
 			return errExit(2)
 		}
 		return err
@@ -921,7 +921,7 @@ func runRerun(cmd *cobra.Command, args []string) error {
 			return errExit(2)
 		}
 		if errors.Is(err, llm.ErrBadRequest) {
-			fmt.Fprintf(os.Stderr, "LLM bad request at %s. %v\n", cfg.EffectiveLLMBaseURL(), errForDetails(err))
+			formatLLMRejected(os.Stderr, cfg.EffectiveLLMProvider(), cfg.EffectiveLLMBaseURL(), err)
 			return errExit(2)
 		}
 		return err
@@ -1356,7 +1356,7 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 			return errExit(2)
 		}
 		if errors.Is(err, llm.ErrBadRequest) {
-			fmt.Fprintf(os.Stderr, "LLM bad request at %s. %v\n", cfg.EffectiveLLMBaseURL(), errForDetails(err))
+			formatLLMRejected(os.Stderr, cfg.EffectiveLLMProvider(), cfg.EffectiveLLMBaseURL(), err)
 			return errExit(2)
 		}
 		return err
@@ -1376,7 +1376,7 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 			return errExit(2)
 		}
 		if errors.Is(err, llm.ErrBadRequest) {
-			fmt.Fprintf(os.Stderr, "LLM bad request. %v\n", errForDetails(err))
+			formatLLMRejected(os.Stderr, cfg.EffectiveLLMProvider(), cfg.EffectiveLLMBaseURL(), err)
 			return errExit(2)
 		}
 		return err
@@ -1625,7 +1625,7 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 			return errExit(2)
 		}
 		if errors.Is(err, llm.ErrBadRequest) {
-			fmt.Fprintf(os.Stderr, "LLM bad request at %s. %v\n", cfg.EffectiveLLMBaseURL(), errForDetails(err))
+			formatLLMRejected(os.Stderr, cfg.EffectiveLLMProvider(), cfg.EffectiveLLMBaseURL(), err)
 			return errExit(2)
 		}
 		fmt.Fprintln(os.Stderr, err.Error())
@@ -1705,7 +1705,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 			return errExit(2)
 		}
 		if errors.Is(err, llm.ErrBadRequest) {
-			fmt.Fprintf(os.Stderr, "LLM bad request at %s. %v\n", cfg.EffectiveLLMBaseURL(), errForDetails(err))
+			formatLLMRejected(os.Stderr, cfg.EffectiveLLMProvider(), cfg.EffectiveLLMBaseURL(), err)
 			return errExit(2)
 		}
 		fmt.Fprintln(os.Stderr, err.Error())
@@ -1719,7 +1719,11 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(os.Stderr, "Model %q not found. %s\n", cfg.Model, hint)
 		return errExit(1)
 	}
-	fmt.Fprintln(os.Stdout, "Ollama OK")
+	if cfg.EffectiveLLMProvider() == "openai" {
+		fmt.Fprintln(os.Stdout, "OpenAI-compatible API OK")
+	} else {
+		fmt.Fprintln(os.Stdout, "Ollama OK")
+	}
 	fmt.Fprintf(os.Stdout, "Model: %s\n", cfg.Model)
 	return nil
 }

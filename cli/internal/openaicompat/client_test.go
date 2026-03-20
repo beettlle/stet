@@ -3,9 +3,11 @@ package openaicompat
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"stet/cli/internal/ollama"
@@ -97,5 +99,51 @@ func TestGenerate_maxTokensDefaultWhenMaxCompletionTokensZero(t *testing.T) {
 	mt, ok := gotBody["max_tokens"].(float64)
 	if !ok || int(mt) != 4096 {
 		t.Fatalf("max_tokens = %v, want 4096 default", gotBody["max_tokens"])
+	}
+}
+
+func TestCheck_modelsHTTP400IncludesBody(t *testing.T) {
+	const wantSub = `{"error":{"message":"model not found"}}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/models" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(wantSub + "\n"))
+	}))
+	defer srv.Close()
+	client := NewClient(srv.URL+"/v1", srv.Client())
+	_, err := client.Check(context.Background(), "m")
+	if err == nil {
+		t.Fatal("Check: want error")
+	}
+	if !errors.Is(err, ollama.ErrBadRequest) {
+		t.Errorf("errors.Is ErrBadRequest: %v", err)
+	}
+	s := err.Error()
+	if !strings.Contains(s, "HTTP 400") || !strings.Contains(s, wantSub) {
+		t.Fatalf("error should include status and body: %q", s)
+	}
+}
+
+func TestGenerate_HTTP400includesBody(t *testing.T) {
+	const wantSub = "context length exceeded"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":{"message":"` + wantSub + `"}}`))
+	}))
+	defer srv.Close()
+	client := NewClient(srv.URL+"/v1", srv.Client())
+	_, err := client.Generate(context.Background(), "m", "sys", "user", nil)
+	if err == nil {
+		t.Fatal("Generate: want error")
+	}
+	if !errors.Is(err, ollama.ErrBadRequest) {
+		t.Errorf("errors.Is ErrBadRequest: %v", err)
+	}
+	s := err.Error()
+	if !strings.Contains(s, "HTTP 400") || !strings.Contains(s, wantSub) {
+		t.Fatalf("error should include status and body: %q", s)
 	}
 }

@@ -21,18 +21,21 @@ import (
 const _defaultTimeout = 10 * time.Second
 
 const (
-	_maxRetries       = 3
-	_initialBackoff   = 1 * time.Second
-	_maxBackoff       = 16 * time.Second
-	_maxRetryTimeout  = 30 * time.Minute // cap on per-request timeout when scaling on retry
-	_maxResponseBytes = 10 * 1024 * 1024 // cap accumulated stream response to 10MB
+	_maxRetries            = 3
+	_initialBackoff        = 1 * time.Second
+	_maxBackoff            = 16 * time.Second
+	_maxRetryTimeout       = 30 * time.Minute // cap on per-request timeout when scaling on retry
+	_maxResponseBytes      = 10 * 1024 * 1024 // cap accumulated stream response to 10MB
+	_maxHTTPErrorBodyBytes = 2048
 )
 
-// ErrUnreachable indicates the Ollama server could not be reached (connection refused, timeout, or 5xx).
-var ErrUnreachable = errors.New("ollama server unreachable")
+// ErrUnreachable indicates the LLM server could not be reached (connection refused, timeout, or 5xx).
+// The message is provider-neutral; Ollama and OpenAI-compat clients both wrap this sentinel.
+var ErrUnreachable = errors.New("LLM server unreachable")
 
 // ErrBadRequest indicates the server responded with 4xx (bad request, not found, etc.). Not retried.
-var ErrBadRequest = errors.New("ollama bad request")
+// Shared by Ollama and OpenAI-compat adapters for errors.Is checks; message is provider-neutral.
+var ErrBadRequest = errors.New("LLM server returned client error (HTTP 4xx)")
 
 // Client calls the Ollama API. Zero value is not valid; use NewClient.
 type Client struct {
@@ -57,10 +60,33 @@ func NewClient(baseURL string, httpClient *http.Client) *Client {
 	return &Client{baseURL: baseURL, httpClient: httpClient}
 }
 
+// readHTTPErrorSnippet reads up to _maxHTTPErrorBodyBytes from a non-OK response body for diagnostics.
+func readHTTPErrorSnippet(body io.ReadCloser) string {
+	if body == nil {
+		return ""
+	}
+	defer body.Close()
+	b, err := io.ReadAll(io.LimitReader(body, _maxHTTPErrorBodyBytes+1))
+	if err != nil {
+		return ""
+	}
+	s := strings.TrimSpace(string(b))
+	if len(s) > _maxHTTPErrorBodyBytes {
+		s = s[:_maxHTTPErrorBodyBytes] + "..."
+	}
+	return strings.ReplaceAll(s, "\n", " ")
+}
+
 // httpStatusError returns the appropriate error for a non-2xx status. 4xx -> ErrBadRequest, 5xx -> ErrUnreachable.
-func httpStatusError(prefix string, statusCode int) error {
+func httpStatusError(prefix string, statusCode int, bodySnippet string) error {
 	if statusCode >= 400 && statusCode < 500 {
+		if bodySnippet != "" {
+			return fmt.Errorf("%s: %w: HTTP %d: %s", prefix, ErrBadRequest, statusCode, bodySnippet)
+		}
 		return fmt.Errorf("%s: %w: HTTP %d", prefix, ErrBadRequest, statusCode)
+	}
+	if bodySnippet != "" {
+		return fmt.Errorf("%s: %w: HTTP %d: %s", prefix, ErrUnreachable, statusCode, bodySnippet)
 	}
 	return fmt.Errorf("%s: %w: HTTP %d", prefix, ErrUnreachable, statusCode)
 }
@@ -122,9 +148,8 @@ func (c *Client) Check(ctx context.Context, model string) (*CheckResult, error) 
 			return nil, fmt.Errorf("ollama tags: unexpected nil response")
 		}
 		if resp.StatusCode != http.StatusOK {
-			_, _ = io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
-			lastErr = httpStatusError("ollama tags", resp.StatusCode)
+			snip := readHTTPErrorSnippet(resp.Body)
+			lastErr = httpStatusError("ollama tags", resp.StatusCode, snip)
 			if errors.Is(lastErr, ErrBadRequest) || attempt == _maxRetries {
 				return nil, lastErr
 			}
@@ -217,9 +242,8 @@ func (c *Client) Show(ctx context.Context, model string) (*ShowResult, error) {
 			return nil, fmt.Errorf("ollama show: unexpected nil response")
 		}
 		if resp.StatusCode != http.StatusOK {
-			_, _ = io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
-			lastErr = httpStatusError("ollama show", resp.StatusCode)
+			snip := readHTTPErrorSnippet(resp.Body)
+			lastErr = httpStatusError("ollama show", resp.StatusCode, snip)
 			if errors.Is(lastErr, ErrBadRequest) || attempt == _maxRetries {
 				return nil, lastErr
 			}
@@ -507,9 +531,8 @@ func (c *Client) generateWithFormat(ctx context.Context, model, systemPrompt, us
 			return nil, fmt.Errorf("ollama generate: unexpected nil response")
 		}
 		if resp.StatusCode != http.StatusOK {
-			_, _ = io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
-			lastErr = httpStatusError("ollama generate", resp.StatusCode)
+			snip := readHTTPErrorSnippet(resp.Body)
+			lastErr = httpStatusError("ollama generate", resp.StatusCode, snip)
 			if debugOllama {
 				reason := "connection/5xx"
 				if errors.Is(lastErr, ErrBadRequest) {
@@ -691,9 +714,8 @@ func (c *Client) GenerateWithMessages(ctx context.Context, model string, message
 			return nil, fmt.Errorf("ollama chat: unexpected nil response")
 		}
 		if resp.StatusCode != http.StatusOK {
-			_, _ = io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
-			lastErr = httpStatusError("ollama chat", resp.StatusCode)
+			snip := readHTTPErrorSnippet(resp.Body)
+			lastErr = httpStatusError("ollama chat", resp.StatusCode, snip)
 			if debugOllama {
 				reason := "connection/5xx"
 				if errors.Is(lastErr, ErrBadRequest) {
