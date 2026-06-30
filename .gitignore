@@ -30,6 +30,9 @@ extension/coverage/
 go.work
 go.work.sum
 
+#Python stuff
+scripts/__pycache__/
+
 # env file
 .env
 
@@ -37,6 +40,7 @@ go.work.sum
 .idea/
 .vscode/
 .cursor/
+.spine/
 
 # Dev container: .devcontainer/ and devcontainer.json are committed.
 # Add below any local devcontainer logs/cache if generated in-repo.
