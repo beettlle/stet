@@ -28,6 +28,8 @@ This document consolidates research from academic journals, arXiv, and early-rel
 
 For a consolidated strategy and implementation plan for context enrichment and code slicing in stet, see [context-enrichment-research.md](context-enrichment-research.md).
 
+For a comparative deep dive on graph-aware review context (pi-code-review-graph vs stet) and the derived engineering spec, see [pi-code-review-graph-research.md](pi-code-review-graph-research.md) and [graph-aware-review-implementation.md](graph-aware-review-implementation.md).
+
 ---
 
 ## 3. Actionability and what developers actually fix

@@ -47,6 +47,7 @@ scripts/__pycache__/
 
 # Project: review worktrees (see docs/PRD.md)
 .review/
+.worktrees/
 
 # OS
 .DS_Store
