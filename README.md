@@ -140,6 +140,8 @@ Full precedence and every key are documented in the [CLI–Extension Contract](d
 
 Use Stet inside Cursor (or VSCode) to view findings in a panel, jump to locations, copy to chat, and run "Finish review." The extension runs the CLI and displays results. Load the `extension` folder as an extension development workspace or install from a VSIX.
 
+By default, **Start review** runs a production review (`stet start` or incremental `stet run` when a session is active) with JSON streaming. Set **`stet.dryRun`** to `true` in workspace or user settings to use `--dry-run` instead (no LLM; useful for development or CI).
+
 ## Documentation
 
 - On `stet finish`, Stet records session metadata in a Git note (`refs/notes/stet`) for impact analytics and integration with tools like [git-ai](https://github.com/git-ai-project/git-ai).

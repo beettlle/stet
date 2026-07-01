@@ -1,6 +1,11 @@
 import { spawn } from "child_process";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { spawnStet, spawnStetStream } from "./cli";
+import {
+  buildReviewStreamArgs,
+  resolveReviewArgs,
+  spawnStet,
+  spawnStetStream,
+} from "./cli";
 
 vi.mock("child_process", () => ({ spawn: vi.fn() }));
 
@@ -250,5 +255,81 @@ describe("spawnStetStream", () => {
     expect(result.stderr).toBe("No active session\n");
     expect(capturedExitCode).toBe(1);
     expect(capturedStderr).toBe("No active session\n");
+  });
+});
+
+describe("buildReviewStreamArgs", () => {
+  it("returns production start args without dry-run by default", () => {
+    expect(buildReviewStreamArgs("start", false)).toEqual([
+      "start",
+      "--quiet",
+      "--json",
+      "--stream",
+    ]);
+  });
+
+  it("includes --dry-run when dryRun is true", () => {
+    expect(buildReviewStreamArgs("start", true)).toEqual([
+      "start",
+      "--dry-run",
+      "--quiet",
+      "--json",
+      "--stream",
+    ]);
+  });
+
+  it("builds run args for incremental review", () => {
+    expect(buildReviewStreamArgs("run", false)).toEqual([
+      "run",
+      "--quiet",
+      "--json",
+      "--stream",
+    ]);
+  });
+});
+
+describe("resolveReviewArgs", () => {
+  const mockSpawn = vi.mocked(spawn);
+
+  beforeEach(() => {
+    mockSpawn.mockClear();
+  });
+
+  async function resolveWithStatusExit(exitCode: number, options: { dryRun: boolean }) {
+    const mockProc = {
+      stdout: { on: vi.fn() },
+      stderr: { on: vi.fn() },
+      on: vi.fn(),
+    };
+    mockSpawn.mockReturnValue(mockProc as never);
+    const promise = resolveReviewArgs("/repo", options);
+    const closeCb = getEventCb<CloseCb>(mockProc.on, "close");
+    closeCb(exitCode, null);
+    return promise;
+  }
+
+  it("uses start when no active session", async () => {
+    const args = await resolveWithStatusExit(1, { dryRun: false });
+
+    expect(mockSpawn).toHaveBeenCalledWith("stet", ["status"], expect.any(Object));
+    expect(args).toEqual(["start", "--quiet", "--json", "--stream"]);
+  });
+
+  it("uses run when active session exists", async () => {
+    const args = await resolveWithStatusExit(0, { dryRun: false });
+
+    expect(args).toEqual(["run", "--quiet", "--json", "--stream"]);
+  });
+
+  it("includes --dry-run when configured", async () => {
+    const args = await resolveWithStatusExit(1, { dryRun: true });
+
+    expect(args).toEqual(["start", "--dry-run", "--quiet", "--json", "--stream"]);
+  });
+
+  it("uses run with dry-run when session is active", async () => {
+    const args = await resolveWithStatusExit(0, { dryRun: true });
+
+    expect(args).toEqual(["run", "--dry-run", "--quiet", "--json", "--stream"]);
   });
 });

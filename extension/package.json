@@ -63,6 +63,16 @@
           "name": "Findings"
         }
       ]
+    },
+    "configuration": {
+      "title": "Stet",
+      "properties": {
+        "stet.dryRun": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, run reviews with --dry-run (skips the LLM and emits deterministic findings for development or CI). Default is false (production review)."
+        }
+      }
     }
   },
   "scripts": {
