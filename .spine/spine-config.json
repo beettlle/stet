@@ -1,0 +1,81 @@
+{
+  "configVersion": 1,
+  "project": {
+    "name": "stet",
+    "description": ""
+  },
+  "paths": {
+    "tasksRoot": "spine-tasks"
+  },
+  "baseBranch": "main",
+  "testing": {
+    "build": "cd cli && go build ./... && cd ../extension && npm run compile",
+    "test": "cd cli && go test ./... -count=1 && cd ../extension && npm test",
+    "testWithCoverage": "cd cli && go test ./... -cover && cd ../extension && npm test"
+  },
+  "agents": {
+    "worker": {
+      "model": "cursor/auto",
+      "thinking": "high"
+    },
+    "reviewer": {
+      "model": "cursor/auto",
+      "thinking": "medium"
+    },
+    "supervisor": {
+      "model": "inherit",
+      "thinking": "off"
+    }
+  },
+  "lanes": {
+    "maxParallel": 3,
+    "queueExcess": true,
+    "workerBackend": "subprocess",
+    "workerOutputMaxBytes": 262144,
+    "workerOutputTailLines": 200,
+    "retainWorkerOutputOnSuccess": false,
+    "streamWorkerOutputLive": false,
+    "workerLiveLogMaxBytes": 262144,
+    "stallTimeoutMinutes": 120,
+    "stallGraceAfterProgressMinutes": 30,
+    "heartbeatIntervalMinutes": 10,
+    "progressSnapshotIntervalMinutes": 2,
+    "checkpointWarningMinutes": 10,
+    "extendGraceOnFileScope": false,
+    "autoCommitOnStall": false,
+    "cleanupWorktreesOnComplete": true
+  },
+  "dashboard": {
+    "port": 8109
+  },
+  "gates": {
+    "requireBeforeIntegrate": true,
+    "collectBuildEvidence": true,
+    "collectTestEvidence": true
+  },
+  "review": {
+    "requireFinalVerdict": true,
+    "maxFinalAttempts": 3
+  },
+  "handoff": {
+    "path": ".spine/handoff.md",
+    "autoWriteOn": []
+  },
+  "metrics": {
+    "enabled": true,
+    "path": ".spine/run-metrics.jsonl"
+  },
+  "contract": {
+    "mode": "required",
+    "legacyTaskIdPrefixes": [
+      "TP-"
+    ]
+  },
+  "worktreeSetupHook": "",
+  "worktreeSetupIgnorePaths": [],
+  "referenceDocs": [
+    "docs/constitution.md"
+  ],
+  "standards": [],
+  "neverLoad": []
+}

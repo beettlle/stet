@@ -33,11 +33,8 @@ Provide an **opt-out** (config/env/flag) so teams can keep explicit `stet finish
 ## File Scope
 
 - `cli/internal/run/run.go`
-- `cli/internal/run/run_test.go`
 - `cli/internal/config/config.go`
-- `cli/internal/config/config_test.go`
 - `cli/cmd/stet/main.go`
-- `cli/cmd/stet/main_test.go`
 - `extension/src/extension.ts`
 - `extension/src/finishReview.ts`
 - `extension/src/finishReview.test.ts`

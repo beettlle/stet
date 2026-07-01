@@ -40,7 +40,8 @@ scripts/__pycache__/
 .idea/
 .vscode/
 .cursor/
-.spine/
+.spine/*
+!.spine/spine-config.json
 
 # Dev container: .devcontainer/ and devcontainer.json are committed.
 # Add below any local devcontainer logs/cache if generated in-repo.

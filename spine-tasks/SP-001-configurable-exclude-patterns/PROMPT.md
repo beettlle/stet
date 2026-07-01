@@ -42,11 +42,9 @@ Implement [GitHub issue #1](https://github.com/beettlle/stet/issues/1): let user
 - `cli/internal/diff/diff.go`
 - `cli/internal/diff/diff_test.go`
 - `cli/internal/run/run.go`
-- `cli/internal/run/run_test.go` (if partition wiring needs coverage)
 - `cli/cmd/stet/main.go`
 - `cli/cmd/stet/main_test.go`
 - `docs/cli-extension-contract.md`
-- `docs/review-process-internals.md`
 
 ## Contract
 

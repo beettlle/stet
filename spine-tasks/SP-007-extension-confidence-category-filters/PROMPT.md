@@ -16,7 +16,7 @@ Filtering is display-only; session and CLI state unchanged.
 
 ## Dependencies
 
-- **SP-005**
+- **SP-006**
 
 ## Context to Read First
 

@@ -36,15 +36,10 @@ After port: `stet optimize` runs `scripts/optimize.py`, reads `.review/history.j
 
 - `scripts/optimize.py`
 - `scripts/optimizer/**`
-- `scripts/tests/test_optimize_integration.py`
-- `scripts/tests/test_history_loader.py`
-- `scripts/tests/test_rule_based.py`
-- `scripts/tests/test_prompt_validator.py`
-- `scripts/tests/fixtures/**`
+- `scripts/tests/**`
 - `optimizer-requirements.txt`
-- `specs/001-implement-sdre-docs/contracts/optimizer-sidecar.md` (port if missing on main)
+- `specs/001-implement-sdre-docs/contracts/optimizer-sidecar.md`
 - `docs/cli-extension-contract.md` (optimizer section only, if absent)
-- `.gitignore` (`.venv` / Python artifacts if needed)
 
 ## Contract
 
