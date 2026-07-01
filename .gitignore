@@ -65,3 +65,6 @@ extension/coverage
 .spine/batch-state.json
 .spine/batch-history.json
 .spine/run-metrics.jsonl
+
+# pi session metadata
+.pi/
