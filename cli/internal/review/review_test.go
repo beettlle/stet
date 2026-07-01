@@ -550,7 +550,7 @@ func TestReviewHunk_perHunkAdaptiveRAG_truncatesToFitContext(t *testing.T) {
 	}
 	gitAdd(t, dir, "pkg/foo.go")
 
-	system, err := prompt.SystemPrompt(dir)
+	system, err := prompt.SystemPrompt(dir, dir)
 	if err != nil {
 		t.Fatalf("SystemPrompt: %v", err)
 	}

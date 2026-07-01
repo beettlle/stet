@@ -76,7 +76,7 @@ func TestDefaultSystemPrompt_containsNegativeExamplesSection(t *testing.T) {
 
 func TestSystemPrompt_absentFile_returnsDefault(t *testing.T) {
 	dir := t.TempDir()
-	got, err := SystemPrompt(dir)
+	got, err := SystemPrompt(dir, "")
 	if err != nil {
 		t.Fatalf("SystemPrompt(%q): %v", dir, err)
 	}
@@ -101,7 +101,7 @@ func TestSystemPrompt_presentFile_returnsFileContents(t *testing.T) {
 	if err := os.WriteFile(path, []byte(custom), 0644); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
-	got, err := SystemPrompt(dir)
+	got, err := SystemPrompt(dir, "")
 	if err != nil {
 		t.Fatalf("SystemPrompt(%q): %v", dir, err)
 	}
@@ -110,8 +110,109 @@ func TestSystemPrompt_presentFile_returnsFileContents(t *testing.T) {
 	}
 }
 
+func TestSystemPrompt_repoPromptOnly_mergesWithDefault(t *testing.T) {
+	repo := t.TempDir()
+	reviewDir := filepath.Join(repo, ".review")
+	if err := os.MkdirAll(reviewDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	custom := "Always check error returns in this repo."
+	if err := os.WriteFile(filepath.Join(reviewDir, repoPromptFilename), []byte(custom), 0644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := SystemPrompt("", repo)
+	if err != nil {
+		t.Fatalf("SystemPrompt: %v", err)
+	}
+	if !strings.Contains(got, "JSON array") {
+		t.Error("repo prompt should merge with default, not replace it")
+	}
+	if !strings.Contains(got, repoPromptHeader) {
+		t.Errorf("repo prompt should include %q header", repoPromptHeader)
+	}
+	if !strings.Contains(got, custom) {
+		t.Errorf("repo prompt content missing: %q", custom)
+	}
+}
+
+func TestSystemPrompt_optimizedWinsOverRepoPrompt(t *testing.T) {
+	repo := t.TempDir()
+	stateDir := filepath.Join(repo, ".review")
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(stateDir, repoPromptFilename), []byte("REPO_ONLY"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	optimized := "OPTIMIZED_ONLY"
+	if err := os.WriteFile(filepath.Join(stateDir, optimizedPromptFilename), []byte(optimized), 0644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := SystemPrompt(stateDir, repo)
+	if err != nil {
+		t.Fatalf("SystemPrompt: %v", err)
+	}
+	if got != optimized {
+		t.Errorf("got %q, want optimized %q", got, optimized)
+	}
+	if strings.Contains(got, "REPO_ONLY") {
+		t.Error("optimized prompt should win over repo prompt")
+	}
+}
+
+func TestSystemPrompt_repoPromptMissing_returnsDefault(t *testing.T) {
+	repo := t.TempDir()
+	got, err := SystemPrompt("", repo)
+	if err != nil {
+		t.Fatalf("SystemPrompt: %v", err)
+	}
+	if got != DefaultSystemPrompt {
+		t.Error("missing repo prompt should return default")
+	}
+}
+
+func TestSystemPrompt_repoPromptUnreadable_fallsBackToDefault(t *testing.T) {
+	repo := t.TempDir()
+	reviewDir := filepath.Join(repo, ".review")
+	if err := os.MkdirAll(reviewDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(reviewDir, repoPromptFilename)
+	if err := os.Mkdir(path, 0755); err != nil {
+		t.Fatal(err)
+	}
+	got, err := SystemPrompt("", repo)
+	if err != nil {
+		t.Fatalf("SystemPrompt: unreadable repo prompt should fail open; got %v", err)
+	}
+	if got != DefaultSystemPrompt {
+		t.Error("unreadable repo prompt should fall back to default")
+	}
+}
+
+func TestSystemPrompt_repoPromptWhitespace_trimmed(t *testing.T) {
+	repo := t.TempDir()
+	reviewDir := filepath.Join(repo, ".review")
+	if err := os.MkdirAll(reviewDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(reviewDir, repoPromptFilename), []byte("  TRIM_REPO  \n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := SystemPrompt("", repo)
+	if err != nil {
+		t.Fatalf("SystemPrompt: %v", err)
+	}
+	if !strings.Contains(got, "TRIM_REPO") {
+		t.Errorf("trimmed repo content missing; got tail: ...%s", got[len(got)-80:])
+	}
+	if strings.Contains(got, "  TRIM_REPO  ") {
+		t.Error("repo prompt should be trimmed")
+	}
+}
+
 func TestSystemPrompt_emptyStateDir_returnsDefault(t *testing.T) {
-	got, err := SystemPrompt("")
+	got, err := SystemPrompt("", "")
 	if err != nil {
 		t.Fatalf("SystemPrompt(%q): %v", "", err)
 	}
@@ -121,14 +222,14 @@ func TestSystemPrompt_emptyStateDir_returnsDefault(t *testing.T) {
 }
 
 func TestSystemPromptSource_emptyStateDir_returnsDefault(t *testing.T) {
-	if got := SystemPromptSource(""); got != "default" {
+	if got := SystemPromptSource("", ""); got != "default" {
 		t.Errorf("SystemPromptSource(%q) = %q, want default", "", got)
 	}
 }
 
 func TestSystemPromptSource_absentFile_returnsDefault(t *testing.T) {
 	dir := t.TempDir()
-	if got := SystemPromptSource(dir); got != "default" {
+	if got := SystemPromptSource(dir, ""); got != "default" {
 		t.Errorf("SystemPromptSource(%q) with no file = %q, want default", dir, got)
 	}
 }
@@ -139,8 +240,39 @@ func TestSystemPromptSource_presentFile_returnsOptimized(t *testing.T) {
 	if err := os.WriteFile(path, []byte("x"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if got := SystemPromptSource(dir); got != "optimized" {
+	if got := SystemPromptSource(dir, ""); got != "optimized" {
 		t.Errorf("SystemPromptSource(%q) with file = %q, want optimized", dir, got)
+	}
+}
+
+func TestSystemPromptSource_repoPromptOnly_returnsRepo(t *testing.T) {
+	repo := t.TempDir()
+	reviewDir := filepath.Join(repo, ".review")
+	if err := os.MkdirAll(reviewDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(reviewDir, repoPromptFilename), []byte("repo rules"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if got := SystemPromptSource("", repo); got != "repo" {
+		t.Errorf("SystemPromptSource with repo prompt = %q, want repo", got)
+	}
+}
+
+func TestSystemPromptSource_optimizedWinsOverRepo(t *testing.T) {
+	repo := t.TempDir()
+	stateDir := filepath.Join(repo, ".review")
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(stateDir, repoPromptFilename), []byte("repo"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(stateDir, optimizedPromptFilename), []byte("opt"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if got := SystemPromptSource(stateDir, repo); got != "optimized" {
+		t.Errorf("SystemPromptSource = %q, want optimized", got)
 	}
 }
 
@@ -151,7 +283,7 @@ func TestSystemPrompt_fileWithWhitespace_trimmed(t *testing.T) {
 	if err := os.WriteFile(path, []byte(custom), 0644); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
-	got, err := SystemPrompt(dir)
+	got, err := SystemPrompt(dir, "")
 	if err != nil {
 		t.Fatalf("SystemPrompt(%q): %v", dir, err)
 	}
@@ -166,7 +298,7 @@ func TestSystemPrompt_fileExistsButUnreadable_returnsError(t *testing.T) {
 	if err := os.Mkdir(path, 0755); err != nil {
 		t.Fatalf("create dir as optimized path: %v", err)
 	}
-	_, err := SystemPrompt(dir)
+	_, err := SystemPrompt(dir, "")
 	if err == nil {
 		t.Fatal("SystemPrompt should return error when path exists but is not a readable file")
 	}

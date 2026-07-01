@@ -2400,7 +2400,7 @@ func TestSuppressionWiring_systemPromptContainsSection(t *testing.T) {
 	if len(examples) == 0 {
 		t.Fatal("SuppressionExamples: want at least one example")
 	}
-	systemBase, err := prompt.SystemPrompt(stateDir)
+	systemBase, err := prompt.SystemPrompt(stateDir, "")
 	if err != nil {
 		t.Fatalf("SystemPrompt: %v", err)
 	}

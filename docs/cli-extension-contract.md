@@ -93,11 +93,21 @@ The optional **`stet optimize`** command invokes an external script to improve t
 
 - **When to run**: e.g. weekly or after enough dismissals have been collected in `.review/history.jsonl`.
 - **Input**: The script reads `$STET_STATE_DIR/history.jsonl` and rotated `.gz` archives (see State storage and history below). The CLI sets **`STET_STATE_DIR`** to the effective state directory (typically `.review/` in the repo).
-- **Output**: When dismissals exist, the script writes `$STET_STATE_DIR/system_prompt_optimized.txt`. When that file exists, the CLI uses it as the system prompt for review (see Phase 3.3). Optimized prompts must request the same JSON finding shape (file, line, range, severity, category, confidence, message, suggestion, cursor_uri, and optional evidence_lines) so the CLI parser and validators continue to work. Empty history or zero dismissals → exit 0 with no output file.
+- **Output**: When dismissals exist, the script writes `$STET_STATE_DIR/system_prompt_optimized.txt`. When that file exists, the CLI uses it as the system prompt for review (see [System prompt precedence](#system-prompt-precedence)). Optimized prompts must request the same JSON finding shape (file, line, range, severity, category, confidence, message, suggestion, cursor_uri, and optional evidence_lines) so the CLI parser and validators continue to work. Empty history or zero dismissals → exit 0 with no output file.
 - **Configuration**: Set the command via **`STET_OPTIMIZER_SCRIPT`** or **`optimizer_script`** in repo/global config (e.g. `python3 scripts/optimize.py`). If unset, `stet optimize` exits 1 with a message asking you to configure it.
 - **Exit codes** (bundled sidecar): 0 = success or no-op (no dismissals); 1 = missing/unreadable history; 2 = prompt validation failure. The CLI propagates the script’s exit code when in 0–255.
 
 For optimizing toward **actionable findings**, see [Review quality and actionability](#review-quality-and-actionability) and [docs/review-quality.md](review-quality.md).
+
+## System prompt precedence
+
+The review system prompt is assembled in [cli/internal/prompt/prompt.go](cli/internal/prompt/prompt.go) with this precedence (highest wins):
+
+1. **`system_prompt_optimized.txt`** in the effective state directory (`$STET_STATE_DIR` or `.review/`). Written by `stet optimize`; when present, used as the full system prompt (repo and default prompts are skipped).
+2. **`.review/prompt.md`** at the **repository root** (always `repo/.review/prompt.md`, not under a custom `state_dir`). When present and no optimized file exists, its contents are **appended** to the built-in default prompt under a `## Repository review instructions` section. Missing or unreadable repo prompt falls back silently to the default alone.
+3. **Built-in default** — defect-focused review instructions and JSON finding schema (`DefaultSystemPrompt`).
+
+Trace output (`--trace`) reports the source as `optimized`, `repo`, or `default`.
 
 ## Configuration
 
@@ -182,7 +192,8 @@ State lives under `.review/` (or the path given by `state_dir`). Artifacts:
 - **`lock`** — Advisory lock for a single active session.
 - **`config.toml`** — Repo-level config (optional).
 - **`history.jsonl`** — Active feedback log for the optimizer and prompt shadowing (see below). Rotated-out lines may be written to **`history.jsonl.<n>.gz`** (e.g. `history.jsonl.1.gz`, `history.jsonl.2.gz`); at most 5 archives are kept.
-- **`system_prompt_optimized.txt`** — Written by `stet optimize`; used as system prompt when present.
+- **`system_prompt_optimized.txt`** — Written by `stet optimize`; used as system prompt when present (see [System prompt precedence](#system-prompt-precedence)).
+- **`prompt.md`** — Optional per-repo review instructions; merged with the default prompt when present (same precedence section). Path is always `repo/.review/prompt.md` regardless of custom `state_dir`.
 - **`worktrees/`** — Directory for stet worktrees (default `repo/.review/worktrees` or `worktree_root`). Each entry is `stet-<short-sha>`.
 
 The `.review/` directory is in `.gitignore` by default so state does not pollute version control; it can be removed from `.gitignore` if the team wants to commit state.
