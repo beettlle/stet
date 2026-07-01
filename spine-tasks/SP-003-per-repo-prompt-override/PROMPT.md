@@ -46,7 +46,7 @@ Implement PRD-configured **per-repo prompt override**: when `.review/prompt.md` 
 |-------|-------|
 | testCommand | `cd cli && go test ./internal/prompt/... ./internal/config/... ./internal/run/... -count=1` |
 | fileScopeMustChange | `cli/internal/prompt/prompt.go`, `cli/internal/prompt/prompt_test.go` |
-| fileScopeMustNotChange | `extension/**`, `scripts/**`, `spine-tasks/**` |
+| fileScopeMustNotChange | `extension/**`, `scripts/**` |
 | completionCriteria | `.review/prompt.md` loaded when present; precedence vs optimized/default tested and documented |
 
 ## Steps

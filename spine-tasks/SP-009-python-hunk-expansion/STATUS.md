@@ -1,4 +1,4 @@
-**Current Step:** Step 0: Design parser approach
+**Current Step:** Step 0: Design Python parser approach
 **Status:** Ready
 **Last Updated:** 2026-06-30
 **Review Level:** 2
@@ -8,18 +8,17 @@
 
 ---
 
-## Step 0: Design parser approach
+## Step 0: Design Python parser approach
 
 **Status:** Not Started
 
-- [ ] Parser technology choice
-- [ ] Extension list
+- [ ] Parser choice
 
-## Step 1: Implement JS/TS expansion
+## Step 1: Implement Python expansion
 
 **Status:** Not Started
 
-- [ ] expand_jsts.go + expand.go dispatch
+- [ ] expand_py.go + expand.go dispatch
 - [ ] Fixture tests
 
 ## Step 2: Testing and verification

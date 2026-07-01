@@ -42,8 +42,8 @@ Add **dismiss** capability to the Cursor extension: user can mark a finding as w
 | Field | Value |
 |-------|-------|
 | testCommand | `cd extension && npm run compile && npm test` |
-| fileScopeMustChange | `extension/src/findingsPanel.ts`, `extension/src/extension.ts` |
-| fileScopeMustNotChange | `cli/**`, `spine-tasks/**` |
+| fileScopeMustChange | `extension/src/findingsPanel.ts`, `extension/src/findingsPanel.test.ts` |
+| fileScopeMustNotChange | `cli/**` |
 | completionCriteria | Dismiss from panel calls CLI; finding removed from active list; reason passed when selected |
 
 ## Steps
@@ -89,3 +89,5 @@ Add **dismiss** capability to the Cursor extension: user can mark a finding as w
 ---
 
 ## Amendments (Added During Execution)
+
+**2026-07-01:** `fileScopeMustChange` narrowed to `findingsPanel*` — dismiss command may register in `extension.ts`; contract proof is panel deliverables. Removed `spine-tasks/**` from must-not-change.

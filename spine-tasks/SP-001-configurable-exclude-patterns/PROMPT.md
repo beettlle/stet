@@ -54,7 +54,7 @@ Implement [GitHub issue #1](https://github.com/beettlle/stet/issues/1): let user
 |-------|-------|
 | testCommand | `cd cli && go test ./... -cover` |
 | fileScopeMustChange | `cli/internal/config/config.go`, `cli/internal/diff/diff.go`, `cli/internal/run/run.go`, `cli/cmd/stet/main.go` |
-| fileScopeMustNotChange | `extension/**`, `.spine/**`, `spine-tasks/**` |
+| fileScopeMustNotChange | `extension/**`, `.spine/**`, `scripts/**` |
 | completionCriteria | Issue #1 acceptance criteria met; Go tests pass with project coverage thresholds |
 
 ## Steps

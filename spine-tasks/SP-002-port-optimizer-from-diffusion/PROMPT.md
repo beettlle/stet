@@ -52,7 +52,7 @@ After port: `stet optimize` runs `scripts/optimize.py`, reads `.review/history.j
 |-------|-------|
 | testCommand | `python3 -m pytest scripts/tests/test_optimize_integration.py scripts/tests/test_history_loader.py scripts/tests/test_rule_based.py scripts/tests/test_prompt_validator.py -q && cd cli && go test ./cmd/stet/... -run Optimize -count=1` |
 | fileScopeMustChange | `scripts/optimize.py`, `optimizer-requirements.txt` |
-| fileScopeMustNotChange | `cli/internal/run/**`, `extension/**`, `spine-tasks/**` |
+| fileScopeMustNotChange | `cli/**`, `extension/**` |
 | completionCriteria | Sidecar contract satisfied; empty history no-op exit 0; valid dismissals write optimized prompt; Go `stet optimize` integration tests pass |
 
 ## Steps

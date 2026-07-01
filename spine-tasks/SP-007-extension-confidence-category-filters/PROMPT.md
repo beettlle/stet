@@ -42,7 +42,7 @@ Filtering is display-only; session and CLI state unchanged.
 |-------|-------|
 | testCommand | `cd extension && npm run compile && npm test` |
 | fileScopeMustChange | `extension/src/findingsPanel.ts` |
-| fileScopeMustNotChange | `cli/**`, `spine-tasks/**` |
+| fileScopeMustNotChange | `cli/**` |
 | completionCriteria | User can set min confidence and category filter; panel hides/dims filtered findings; default shows all |
 
 ## Steps

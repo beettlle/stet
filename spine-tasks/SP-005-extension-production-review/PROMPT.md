@@ -45,7 +45,7 @@ Support configuration for dry-run (developer/CI mode) without making it the defa
 |-------|-------|
 | testCommand | `cd extension && npm run compile && npm test` |
 | fileScopeMustChange | `extension/src/extension.ts` |
-| fileScopeMustNotChange | `cli/**`, `scripts/**`, `spine-tasks/**` |
+| fileScopeMustNotChange | `cli/**`, `scripts/**` |
 | completionCriteria | Default startReview uses real CLI args (no dry-run); streaming panel updates; Ollama unreachable surfaces exit code 2 message |
 
 ## Steps

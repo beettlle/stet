@@ -1,18 +1,18 @@
-# Task: SP-008 — Multi-language hunk expansion (JS/TS and Python)
+# Task: SP-008 — JS/TS hunk expansion
 
 **Created:** 2026-06-30
-**Size:** L
+**Size:** M
 
 ## Review Level: 2
 
-**Assessment:** Extends Phase 6.4 beyond Go; parser choice and token caps need careful fail-open behavior.
-**Score:** 5/8 — Blast radius: 2, Pattern novelty: 2, Security: 0, Reversibility: 1
+**Assessment:** Extends Phase 6.4 for JS/TS only; parser choice and fail-open behavior need care.
+**Score:** 4/8 — Blast radius: 1, Pattern novelty: 2, Security: 0, Reversibility: 1
 
 ## Mission
 
-Close the **partial implementation** gap for hunk expansion: today `expand.ExpandHunk` only enriches **Go** files with enclosing-function context; non-Go hunks are unchanged. Add enclosing-scope expansion for **JavaScript/TypeScript** and **Python** using lightweight parsing (tree-sitter or stdlib-equivalent) with the same fail-open and token-truncation semantics as Go.
+Add enclosing-scope expansion for **JavaScript/TypeScript** hunks in `cli/internal/expand/`. Today only Go files get enclosing-function context. Implement JS/TS with the same fail-open and token-truncation semantics as Go.
 
-Out of scope: full tree-sitter for all languages, Rust/Java expansion (future tasks).
+**Out of scope:** Python (SP-009), Rust/Java, full tree-sitter for all languages.
 
 ## Dependencies
 
@@ -20,10 +20,9 @@ Out of scope: full tree-sitter for all languages, Rust/Java expansion (future ta
 
 ## Context to Read First
 
-- `cli/internal/expand/expand.go` — Go `ExpandHunk` reference implementation
+- `cli/internal/expand/expand.go` — Go `ExpandHunk` reference
 - `docs/implementation-plan.md` Phase 6.4
 - `docs/context-enrichment-research.md` Tier 2
-- `docs/rust-support-implementation.md` (Phase 3 expansion — not this task)
 
 ## Environment
 
@@ -31,52 +30,46 @@ Out of scope: full tree-sitter for all languages, Rust/Java expansion (future ta
 
 ## File Scope
 
-- `cli/internal/expand/expand.go`
-- `cli/internal/expand/expand_test.go`
-- New files under `cli/internal/expand/` if split by language (e.g. `expand_js.go`, `expand_py.go`)
-- `cli/internal/review/review.go` (only if expand call site needs language hook)
-- `docs/review-process-internals.md` (expansion section)
+- `cli/internal/expand/expand.go` (dispatch hook for JS/TS only)
+- `cli/internal/expand/expand_jsts.go` (new)
+- `cli/internal/expand/expand_test.go` (JS/TS fixtures only)
+- `docs/review-process-internals.md` (JS/TS expansion note)
 
 ## Contract
 
 | Field | Value |
 |-------|-------|
-| testCommand | `cd cli && go test ./internal/expand/... ./internal/review/... -count=1` |
-| fileScopeMustChange | `cli/internal/expand/expand.go` |
-| fileScopeMustNotChange | `extension/**`, `scripts/**`, `spine-tasks/**` |
-| completionCriteria | JS/TS and Python hunks inside a function receive expanded context; fail-open on parse errors; token truncation matches Go behavior |
+| testCommand | `cd cli && go test ./internal/expand/... -count=1 -run JSTS` |
+| fileScopeMustChange | `cli/internal/expand/expand_jsts.go` |
+| fileScopeMustNotChange | `extension/**`, `scripts/**`, `cli/internal/expand/expand_py.go` |
+| completionCriteria | JS/TS hunks inside a function receive expanded context; fail-open on parse errors |
 
 ## Steps
 
 ### Step 0: Design parser approach
 
-- [ ] Evaluate: tree-sitter via Go binding vs regex/line-based fallback for v1
-- [ ] Record choice in STATUS Discoveries; prefer fail-open like Go path
-- [ ] Define file extensions: `.js`, `.jsx`, `.ts`, `.tsx`, `.py`
+- [ ] Choose tree-sitter vs line-based fallback for v1; record in STATUS Discoveries
+- [ ] Extensions: `.js`, `.jsx`, `.ts`, `.tsx`
 
-### Step 1: JS/TS enclosing function expansion
+### Step 1: Implement JS/TS expansion
 
-- [ ] Implement expansion for JS/TS (function/class method enclosing hunk line range)
-- [ ] Unit tests with fixture files (hunk mid-function, hunk outside function → unchanged)
+- [ ] Add `expand_jsts.go` with enclosing function/class-method detection
+- [ ] Wire dispatch from `expand.go` for JS/TS extensions only
+- [ ] Unit tests: hunk mid-function, hunk outside function → unchanged
 
-### Step 2: Python enclosing function expansion
-
-- [ ] Implement expansion for `.py` (def/class method enclosing range)
-- [ ] Unit tests with fixtures
-
-### Step 3: Testing and verification
+### Step 2: Testing and verification
 
 > ZERO test failures allowed unless PROMPT documents a known baseline.
 
-- [ ] Run Contract `testCommand`
-- [ ] Document supported languages in `docs/review-process-internals.md`
-- [ ] Verify per-file coverage ≥ 72% on changed files
+- [ ] Run Contract `testCommand` (or full `go test ./internal/expand/...` if `-run JSTS` not used)
+- [ ] Document JS/TS in `docs/review-process-internals.md`
+- [ ] Per-file coverage ≥ 72% on changed expand files
 
 ## Completion Criteria
 
 - [ ] All steps complete
-- [ ] JS/TS and Python expansion with Go-parity fail-open semantics
-- [ ] Tests pass with coverage thresholds
+- [ ] JS/TS expansion with Go-parity fail-open semantics
+- [ ] Tests pass
 
 ## Git Commit Convention
 
@@ -84,12 +77,11 @@ Out of scope: full tree-sitter for all languages, Rust/Java expansion (future ta
 
 ## Do NOT
 
-- Add OpenCode backend
-- Implement cross-file impact (roadmap 10.1)
-- Block review on parse failure
+- Implement Python (SP-009)
+- Add OpenCode backend or cross-file impact
 
 ---
 
 ## Amendments (Added During Execution)
 
-**Note:** If this task exceeds stall budget, split follow-up as SP-009 for additional languages (Rust/Java).
+**2026-07-01:** Split from combined JS/TS+Python L task; Python moved to SP-009.

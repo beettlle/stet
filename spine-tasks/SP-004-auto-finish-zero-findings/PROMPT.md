@@ -48,8 +48,8 @@ Provide an **opt-out** (config/env/flag) so teams can keep explicit `stet finish
 | Field | Value |
 |-------|-------|
 | testCommand | `cd cli && go test ./internal/run/... ./internal/config/... ./cmd/stet/... -count=1 && cd ../extension && npm run compile && npm test` |
-| fileScopeMustChange | `cli/internal/run/run.go`, `cli/cmd/stet/main.go`, `extension/src/extension.ts` |
-| fileScopeMustNotChange | `scripts/**`, `spine-tasks/**` |
+| fileScopeMustChange | `extension/src/finishReview.ts`, `extension/src/finishReview.test.ts` |
+| fileScopeMustNotChange | `scripts/**` |
 | completionCriteria | Zero-findings run triggers finish path when enabled; opt-out works; explicit finish unchanged when findings exist |
 
 ## Steps
@@ -97,3 +97,5 @@ Provide an **opt-out** (config/env/flag) so teams can keep explicit `stet finish
 ---
 
 ## Amendments (Added During Execution)
+
+**2026-07-01:** `fileScopeMustChange` narrowed to `finishReview*` — CLI/extension wiring may touch `run.go` / `extension.ts` but contract proof is finish-review deliverables. Removed `spine-tasks/**` from must-not-change (workers update STATUS/.DONE).
