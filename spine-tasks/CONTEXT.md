@@ -1,20 +1,32 @@
 # stet — Context
 
-**Last Updated:** 2026-07-01
+**Last Updated:** 2026-06-30
 **Status:** Active
-**Next Task ID:** SP-001
+**Next Task ID:** SP-009
 
 ---
 
 ## Current State
 
-Greenfield pi-spine project. Add phase tables and task rows as you decompose work from the PRD.
+Backlog staged from gap analysis (extension, PRD, partial implementations). SP-001 in flight from GitHub issue #1. Optimizer work exists on `diffusion` branch — SP-002 ports it; do not reimplement.
 
-### Phase 0 — Bootstrap
+### Phase 1 — CLI core gaps
 
 | Task | Summary | Status | Deps |
 |------|---------|--------|------|
-| | | | |
+| SP-001 | Configurable file exclude patterns for review scope | Ready | — |
+| SP-002 | Port optimizer sidecar from diffusion branch | Ready | — |
+| SP-003 | Per-repo prompt override (`.review/prompt.md`) | Ready | — |
+| SP-004 | Auto-finish when zero findings | Ready | SP-005 |
+| SP-008 | Multi-language hunk expansion (JS/TS, Python) | Ready | — |
+
+### Phase 2 — Extension production UX
+
+| Task | Summary | Status | Deps |
+|------|---------|--------|------|
+| SP-005 | Extension production review path (real CLI, streaming) | Ready | — |
+| SP-006 | Extension dismiss findings | Ready | SP-005 |
+| SP-007 | Extension confidence and category filters | Ready | SP-005 |
 
 ---
 
@@ -28,3 +40,16 @@ Greenfield pi-spine project. Add phase tables and task rows as you decompose wor
 
 ---
 
+## Suggested batch waves
+
+| Wave | Tasks | Notes |
+|------|-------|-------|
+| 0 | SP-001 | Exclude patterns (already planned) |
+| 1 | SP-002, SP-003, SP-008 | Disjoint scopes; parallel OK |
+| 2 | SP-005 | Extension real review — unblocks SP-004/006/007 |
+| 3 | SP-006, SP-007 | Extension panel features (parallel) |
+| 4 | SP-004 | Auto-finish (CLI + extension; depends SP-005) |
+
+**Port note:** Before SP-002, diff `main..diffusion` for `scripts/optimize.py` and completed spine tasks SP-004/012/027 on that branch.
+
+---
