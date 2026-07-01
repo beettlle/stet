@@ -60,49 +60,36 @@ const (
 	maxExpandFileSize   = 1024 * 1024 // 1 MiB; skip expansion for larger files
 )
 
-// ExpandHunk enriches a hunk with enclosing function context for Go files.
-// When the hunk is inside a function, the full function body is fetched and
-// prepended to the prompt. Respects maxTokens by truncating; prioritizes
-// function signature. Returns the hunk unchanged on any error or for non-Go
-// files (fail open). repoRoot is the git repository root; file path is
-// relative to it.
+// ExpandHunk enriches a hunk with enclosing function context when supported.
+// Go and JavaScript/TypeScript (.js, .jsx, .ts, .tsx) files are expanded when
+// the hunk is inside a function or class method. Respects maxTokens by
+// truncating; prioritizes function signature. Returns the hunk unchanged on
+// any error or for unsupported files (fail open). repoRoot is the git
+// repository root; file path is relative to it.
 func ExpandHunk(repoRoot string, hunk diff.Hunk, maxTokens int) (diff.Hunk, error) {
 	if repoRoot == "" || hunk.FilePath == "" {
 		return hunk, nil
 	}
-	if filepath.Ext(hunk.FilePath) != goExt {
+	ext := filepath.Ext(hunk.FilePath)
+	switch {
+	case ext == goExt:
+		return expandGoHunk(repoRoot, hunk, maxTokens)
+	case isJSTSExt(ext):
+		return expandJSTSHunk(repoRoot, hunk, maxTokens)
+	default:
 		return hunk, nil
 	}
+}
+
+// expandGoHunk enriches a hunk with enclosing function context for Go files.
+func expandGoHunk(repoRoot string, hunk diff.Hunk, maxTokens int) (diff.Hunk, error) {
 	start, end, ok := HunkLineRange(hunk)
 	if !ok {
 		return hunk, nil
 	}
 
-	path := filepath.Join(repoRoot, filepath.FromSlash(hunk.FilePath))
-	path = filepath.Clean(path)
-	absRepo, err := filepath.Abs(repoRoot)
-	if err != nil {
-		return hunk, nil
-	}
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return hunk, nil
-	}
-	rel, err := filepath.Rel(absRepo, absPath)
-	if err != nil || strings.HasPrefix(rel, "..") || rel == ".." {
-		return hunk, nil // path escaped repo
-	}
-	path = absPath
-
-	info, err := os.Stat(path)
-	if err != nil {
-		return hunk, nil
-	}
-	if info.Size() > maxExpandFileSize {
-		return hunk, nil
-	}
-	src, err := readFile(path)
-	if err != nil {
+	src, path, ok := loadRepoSourceFile(repoRoot, hunk.FilePath)
+	if !ok {
 		return hunk, nil
 	}
 
@@ -139,6 +126,37 @@ func readFile(path string) ([]byte, error) {
 	return os.ReadFile(path)
 }
 
+// loadRepoSourceFile reads a repo-relative file under repoRoot when the path is
+// valid and within size limits. Returns source bytes and absolute path.
+func loadRepoSourceFile(repoRoot, filePath string) ([]byte, string, bool) {
+	path := filepath.Join(repoRoot, filepath.FromSlash(filePath))
+	path = filepath.Clean(path)
+	absRepo, err := filepath.Abs(repoRoot)
+	if err != nil {
+		return nil, "", false
+	}
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, "", false
+	}
+	rel, err := filepath.Rel(absRepo, absPath)
+	if err != nil || strings.HasPrefix(rel, "..") || rel == ".." {
+		return nil, "", false
+	}
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return nil, "", false
+	}
+	if info.Size() > maxExpandFileSize {
+		return nil, "", false
+	}
+	src, err := readFile(absPath)
+	if err != nil {
+		return nil, "", false
+	}
+	return src, absPath, true
+}
+
 // EnclosingFuncName returns the name of the function or method that contains
 // the given line range (1-based, inclusive) in the Go file at repoRoot/filePath.
 // For a function, returns e.g. "Foo"; for a method, returns e.g. "(*T).Foo".
@@ -151,30 +169,8 @@ func EnclosingFuncName(repoRoot, filePath string, startLine, endLine int) (funcN
 	if filepath.Ext(filePath) != goExt {
 		return "", false
 	}
-	path := filepath.Join(repoRoot, filepath.FromSlash(filePath))
-	path = filepath.Clean(path)
-	absRepo, err := filepath.Abs(repoRoot)
-	if err != nil {
-		return "", false
-	}
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return "", false
-	}
-	rel, err := filepath.Rel(absRepo, absPath)
-	if err != nil || strings.HasPrefix(rel, "..") || rel == ".." {
-		return "", false
-	}
-	path = absPath
-	info, err := os.Stat(path)
-	if err != nil {
-		return "", false
-	}
-	if info.Size() > maxExpandFileSize {
-		return "", false
-	}
-	src, err := readFile(path)
-	if err != nil {
+	src, path, ok := loadRepoSourceFile(repoRoot, filePath)
+	if !ok {
 		return "", false
 	}
 	fset := token.NewFileSet()
