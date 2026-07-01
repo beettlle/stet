@@ -8,7 +8,15 @@
 
 ## Current State
 
-Backlog staged from gap analysis (extension, PRD, partial implementations). SP-001 in flight from GitHub issue #1. Optimizer work exists on `diffusion` branch — SP-002 ports it; do not reimplement.
+Backlog staged from gap analysis (extension, PRD, partial implementations). Optimizer work exists on `diffusion` branch — SP-002 ports it; do not reimplement.
+
+### GitHub issues ([beettlle/stet](https://github.com/beettlle/stet/issues))
+
+| Issue | Type | Task | Status |
+|-------|------|------|--------|
+| [#1](https://github.com/beettlle/stet/issues/1) Configurable file exclude/include patterns | enhancement | SP-001 | Ready |
+
+No open **bug** issues as of 2026-06-30.
 
 ### Phase 1 — CLI core gaps
 
