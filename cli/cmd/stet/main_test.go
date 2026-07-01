@@ -414,6 +414,42 @@ func writeFile(t *testing.T, dir, name, content string) {
 	}
 }
 
+func TestRunCLI_startDryRunExcludePatterns(t *testing.T) {
+	// Do not run in parallel: test changes process cwd and stderr.
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = os.Chdir(orig)
+	}()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStderr := os.Stderr
+	os.Stderr = w
+	t.Cleanup(func() { os.Stderr = oldStderr })
+
+	got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--exclude=*.txt"})
+	_ = w.Close()
+	var stderr bytes.Buffer
+	_, _ = io.Copy(&stderr, r)
+	if got != 0 {
+		t.Fatalf("runCLI(start --exclude=*.txt) = %d, want 0; stderr:\n%s", got, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "Excluded from review: f2.txt") {
+		t.Errorf("stderr should list excluded f2.txt; got:\n%s", stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "Nothing to review") {
+		t.Errorf("stderr should say nothing to review when only hunk is excluded; got:\n%s", stderr.String())
+	}
+}
+
 func TestRunCLI_startFinishFromGitRepo(t *testing.T) {
 	// Do not run in parallel: test changes process cwd.
 	repo := initRepo(t)

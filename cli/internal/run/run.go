@@ -84,6 +84,30 @@ func truncateForPromptContext(s string, maxLen int) string {
 	return s[:maxLen] + "\n[truncated]"
 }
 
+// partitionWithSkipped runs scope.Partition and returns excluded file paths when patterns apply.
+func partitionWithSkipped(ctx context.Context, repoRoot, baselineRef, headRef, lastReviewedAt string, diffOpts *diff.Options) (scope.Result, []string, error) {
+	var skipped []string
+	opts := diffOpts
+	if opts == nil {
+		opts = &diff.Options{}
+	} else {
+		dup := *opts
+		opts = &dup
+	}
+	opts.SkippedPaths = &skipped
+	part, err := scope.Partition(ctx, repoRoot, baselineRef, headRef, lastReviewedAt, opts)
+	if err != nil {
+		return scope.Result{}, nil, err
+	}
+	return part, skipped, nil
+}
+
+func logExcludedPaths(w io.Writer, paths []string) {
+	for _, p := range paths {
+		fmt.Fprintf(w, "Excluded from review: %s\n", p)
+	}
+}
+
 // preparedPrompt holds a ready-to-send prompt for one hunk, or an error from preparation.
 type preparedPrompt struct {
 	System string
@@ -728,6 +752,8 @@ type StartOptions struct {
 	SuppressionEnabled bool
 	// SuppressionHistoryCount is the max history records to scan for dismissals (0 = do not use history).
 	SuppressionHistoryCount int
+	// DiffOpts configures file-level exclude patterns for scope.Partition. Nil uses built-in defaults only.
+	DiffOpts *diff.Options
 }
 
 // FinishOptions configures Finish.
@@ -782,6 +808,8 @@ type RunOptions struct {
 	SuppressionEnabled bool
 	// SuppressionHistoryCount is the max history records to scan for dismissals (0 = do not use history).
 	SuppressionHistoryCount int
+	// DiffOpts configures file-level exclude patterns for scope.Partition. Nil uses built-in defaults only.
+	DiffOpts *diff.Options
 }
 
 // RunStats holds token and duration totals for a single Start/Run invocation.
@@ -947,7 +975,7 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 		return RunStats{}, err
 	}
 
-	part, err := scope.Partition(ctx, opts.RepoRoot, sha, headSHA, "", nil)
+	part, skipped, err := partitionWithSkipped(ctx, opts.RepoRoot, sha, headSHA, "", opts.DiffOpts)
 	if err != nil {
 		return RunStats{}, erruser.New("Could not compute hunks to review.", err)
 	}
@@ -960,8 +988,16 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 			approvedN = len(part.Approved)
 		}
 		tr.Printf("ToReview=%d Approved=%d\n", len(part.ToReview), approvedN)
+		if len(skipped) > 0 {
+			for _, p := range skipped {
+				tr.Printf("Excluded: %s\n", p)
+			}
+		}
 		tr.Section("AGENTS.md")
 		tr.Printf("AGENTS.md: not used by stet (only .cursor/rules/ used).\n")
+	}
+	if opts.Verbose && len(skipped) > 0 {
+		logExcludedPaths(os.Stderr, skipped)
 	}
 	if opts.Verbose {
 		approvedN := 0
@@ -1335,7 +1371,7 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 	if opts.ForceFullReview {
 		lastReviewedAt = ""
 	}
-	part, err := scope.Partition(ctx, opts.RepoRoot, s.BaselineRef, headSHA, lastReviewedAt, nil)
+	part, skipped, err := partitionWithSkipped(ctx, opts.RepoRoot, s.BaselineRef, headSHA, lastReviewedAt, opts.DiffOpts)
 	if err != nil {
 		return RunStats{}, erruser.New("Could not compute hunks to review.", err)
 	}
@@ -1348,8 +1384,16 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 			approvedN = len(part.Approved)
 		}
 		trRun.Printf("ToReview=%d Approved=%d\n", len(part.ToReview), approvedN)
+		if len(skipped) > 0 {
+			for _, p := range skipped {
+				trRun.Printf("Excluded: %s\n", p)
+			}
+		}
 		trRun.Section("AGENTS.md")
 		trRun.Printf("AGENTS.md: not used by stet (only .cursor/rules/ used).\n")
+	}
+	if opts.Verbose && len(skipped) > 0 {
+		logExcludedPaths(os.Stderr, skipped)
 	}
 	toReview := part.ToReview
 	skippedDismissed := 0

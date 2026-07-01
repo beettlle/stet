@@ -1116,3 +1116,129 @@ func TestLoad_optimizerScriptFromTOML(t *testing.T) {
 		t.Errorf("OptimizerScript = %q, want python3 scripts/optimize.py", cfg.OptimizerScript)
 	}
 }
+
+func TestLoad_excludePatternsFromEnv(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	cfg, err := Load(ctx, LoadOptions{
+		Env: []string{"STET_EXCLUDE_PATTERNS=*.md, *.txt"},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(cfg.ExcludePatterns) != 2 || cfg.ExcludePatterns[0] != "*.md" || cfg.ExcludePatterns[1] != "*.txt" {
+		t.Errorf("ExcludePatterns = %v, want [*.md *.txt]", cfg.ExcludePatterns)
+	}
+}
+
+func TestLoad_excludePatternsReplaceFromEnv(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	cfg, err := Load(ctx, LoadOptions{
+		Env: []string{"STET_EXCLUDE_PATTERNS_REPLACE=true"},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !cfg.ExcludePatternsReplace {
+		t.Error("ExcludePatternsReplace = false, want true")
+	}
+}
+
+func TestLoad_excludePatternsInvalidReplaceEnv(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	_, err := Load(ctx, LoadOptions{
+		Env: []string{"STET_EXCLUDE_PATTERNS_REPLACE=maybe"},
+	})
+	if err == nil {
+		t.Fatal("Load: want error for invalid STET_EXCLUDE_PATTERNS_REPLACE")
+	}
+}
+
+func TestLoad_excludePatternsFromTOMLAndOverride(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	repoPath := filepath.Join(dir, ".review", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(repoPath), 0755); err != nil {
+		t.Fatal(err)
+	}
+	toml := `exclude_patterns = ["*.md"]
+exclude_patterns_replace = true`
+	if err := os.WriteFile(repoPath, []byte(toml), 0644); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	cfg, err := Load(ctx, LoadOptions{
+		RepoRoot: dir,
+		Env:      []string{},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(cfg.ExcludePatterns) != 1 || cfg.ExcludePatterns[0] != "*.md" {
+		t.Errorf("ExcludePatterns = %v, want [*.md]", cfg.ExcludePatterns)
+	}
+	if !cfg.ExcludePatternsReplace {
+		t.Error("ExcludePatternsReplace = false, want true")
+	}
+	cliPatterns := []string{"*.txt"}
+	cfg2, err := Load(ctx, LoadOptions{
+		RepoRoot: dir,
+		Env:      []string{},
+		Overrides: &Overrides{
+			ExcludePatterns: &cliPatterns,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Load with override: %v", err)
+	}
+	if len(cfg2.ExcludePatterns) != 1 || cfg2.ExcludePatterns[0] != "*.txt" {
+		t.Errorf("override ExcludePatterns = %v, want [*.txt]", cfg2.ExcludePatterns)
+	}
+}
+
+func TestLoad_noExcludeOverrideClearsConfigPatterns(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	repoPath := filepath.Join(dir, ".review", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(repoPath), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(repoPath, []byte(`exclude_patterns = ["*.md"]`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	noExclude := true
+	ctx := context.Background()
+	cfg, err := Load(ctx, LoadOptions{
+		RepoRoot: dir,
+		Env:      []string{},
+		Overrides: &Overrides{
+			NoExclude: &noExclude,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(cfg.ExcludePatterns) != 0 {
+		t.Errorf("ExcludePatterns = %v, want nil/empty after --no-exclude", cfg.ExcludePatterns)
+	}
+}
+
+func TestConfig_DiffOptions(t *testing.T) {
+	t.Parallel()
+	cfg := Config{
+		ExcludePatterns:        []string{"*.md"},
+		ExcludePatternsReplace: true,
+	}
+	opts := cfg.DiffOptions()
+	if opts == nil {
+		t.Fatal("DiffOptions() = nil")
+	}
+	if !opts.ExcludePatternsReplace {
+		t.Error("ExcludePatternsReplace = false, want true")
+	}
+	if len(opts.ExcludePatterns) != 1 || opts.ExcludePatterns[0] != "*.md" {
+		t.Errorf("ExcludePatterns = %v, want [*.md]", opts.ExcludePatterns)
+	}
+}

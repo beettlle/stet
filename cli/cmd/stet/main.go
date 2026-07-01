@@ -281,6 +281,7 @@ func newStartCmd() *cobra.Command {
 	cmd.Flags().String("openai-base-url", "", "OpenAI-compat server URL when provider=openai (e.g. http://localhost:1234/v1); overrides config and STET_OPENAI_BASE_URL")
 	cmd.Flags().Bool("trace", false, "Print internal steps to stderr (partition, rules, RAG, prompts, LLM I/O)")
 	cmd.Flags().Bool("search-replace", false, "Use search-replace style diff in the prompt (experimental; compare token usage and finding quality)")
+	addExcludeFlags(cmd)
 	return cmd
 }
 
@@ -407,6 +408,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 		UseSearchReplaceFormat:         getSearchReplaceFlag(cmd),
 		SuppressionEnabled:             cfg.SuppressionEnabled,
 		SuppressionHistoryCount:        cfg.SuppressionHistoryCount,
+		DiffOpts:                       cfg.DiffOptions(),
 	}
 	if stream {
 		opts.StreamOut = findingsWriter()
@@ -475,6 +477,13 @@ func addRunLikeFlags(cmd *cobra.Command) {
 	cmd.Flags().String("openai-base-url", "", "OpenAI-compat server URL when provider=openai (e.g. http://localhost:1234/v1); overrides config and STET_OPENAI_BASE_URL")
 	cmd.Flags().Bool("trace", false, "Print internal steps to stderr (partition, rules, RAG, prompts, LLM I/O)")
 	cmd.Flags().Bool("search-replace", false, "Use search-replace style diff in the prompt (experimental; compare token usage and finding quality)")
+	addExcludeFlags(cmd)
+}
+
+// addExcludeFlags registers exclude-pattern flags shared by start, run, and rerun.
+func addExcludeFlags(cmd *cobra.Command) {
+	cmd.Flags().StringSlice("exclude", nil, "Exclude hunks matching pattern (repeatable; merges with built-in exclusions unless exclude_patterns_replace is set)")
+	cmd.Flags().Bool("no-exclude", false, "Ignore config/env exclude_patterns for this run (built-in exclusions still apply)")
 }
 
 func newRunCmd() *cobra.Command {
@@ -522,7 +531,9 @@ func overridesFromFlags(cmd *cobra.Command) (*config.Overrides, error) {
 	timeoutChanged := cmd.Flags().Lookup("timeout") != nil && cmd.Flags().Lookup("timeout").Changed
 	providerChanged := cmd.Flags().Lookup("provider") != nil && cmd.Flags().Lookup("provider").Changed
 	openaiBaseURLChanged := cmd.Flags().Lookup("openai-base-url") != nil && cmd.Flags().Lookup("openai-base-url").Changed
-	if !defChanged && !tokChanged && !ragCallGraphChanged && !strictnessChanged && !nitpickyChanged && !verifyChanged && !contextChanged && !numCtxChanged && !timeoutChanged && !providerChanged && !openaiBaseURLChanged {
+	excludeChanged := cmd.Flags().Lookup("exclude") != nil && cmd.Flags().Lookup("exclude").Changed
+	noExcludeChanged := cmd.Flags().Lookup("no-exclude") != nil && cmd.Flags().Lookup("no-exclude").Changed
+	if !defChanged && !tokChanged && !ragCallGraphChanged && !strictnessChanged && !nitpickyChanged && !verifyChanged && !contextChanged && !numCtxChanged && !timeoutChanged && !providerChanged && !openaiBaseURLChanged && !excludeChanged && !noExcludeChanged {
 		return nil, nil
 	}
 	o := &config.Overrides{}
@@ -592,6 +603,14 @@ func overridesFromFlags(cmd *cobra.Command) (*config.Overrides, error) {
 	if openaiBaseURLChanged {
 		s, _ := cmd.Flags().GetString("openai-base-url")
 		o.OpenAIBaseURL = &s
+	}
+	if noExcludeChanged {
+		v, _ := cmd.Flags().GetBool("no-exclude")
+		o.NoExclude = &v
+	}
+	if excludeChanged {
+		v, _ := cmd.Flags().GetStringSlice("exclude")
+		o.ExcludePatterns = &v
 	}
 	return o, nil
 }
@@ -724,6 +743,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 		UseSearchReplaceFormat:       getSearchReplaceFlag(cmd),
 		SuppressionEnabled:           cfg.SuppressionEnabled,
 		SuppressionHistoryCount:      cfg.SuppressionHistoryCount,
+		DiffOpts:                     cfg.DiffOptions(),
 	}
 	if stream {
 		opts.StreamOut = findingsWriter()
@@ -768,7 +788,7 @@ func newRerunCmd() *cobra.Command {
 		Long: `Re-run a full review over all hunks (not just incremental). Requires an active session; run stet start first.
 
 Use --replace to replace session findings with only this run's results (default is to merge new findings with existing).
-Other flags (--dry-run, --json, --stream, --rag-symbol-*, --strictness, --nitpicky, --trace) behave like stet run.`,
+Other flags (--dry-run, --json, --stream, --rag-symbol-*, --strictness, --nitpicky, --exclude, --no-exclude, --trace) behave like stet run.`,
 		RunE: runRerun,
 	}
 	addRunLikeFlags(cmd)
@@ -906,6 +926,7 @@ func runRerun(cmd *cobra.Command, args []string) error {
 		ReplaceFindings:             replace,
 		SuppressionEnabled:          cfg.SuppressionEnabled,
 		SuppressionHistoryCount:     cfg.SuppressionHistoryCount,
+		DiffOpts:                    cfg.DiffOptions(),
 	}
 	if stream {
 		opts.StreamOut = findingsWriter()
@@ -1461,6 +1482,7 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 		Nitpicky:                     cfg.Nitpicky,
 		SuppressionEnabled:           cfg.SuppressionEnabled,
 		SuppressionHistoryCount:     cfg.SuppressionHistoryCount,
+		DiffOpts:                    cfg.DiffOptions(),
 	}
 	var persistContextLimit, persistNumCtx *int
 	if overrides != nil && (overrides.ContextLimit != nil || overrides.NumCtx != nil) {
@@ -1500,6 +1522,7 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 			PersistNumCtx:                  persistNumCtx,
 			SuppressionEnabled:            cfg.SuppressionEnabled,
 			SuppressionHistoryCount:       cfg.SuppressionHistoryCount,
+			DiffOpts:                      cfg.DiffOptions(),
 		}
 		if _, err := run.Start(cmd.Context(), startOpts); err != nil {
 			if errors.Is(err, llm.ErrUnreachable) {

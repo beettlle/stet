@@ -157,6 +157,9 @@ flowchart TB
 ### 6.3 File-level filters
 
 - **filterByPatterns** in [cli/internal/diff/diff.go](cli/internal/diff/diff.go): Exclude hunks whose `FilePath` matches the exclude list. Default patterns: `*.pb.go`, `*_generated.go`, `*.min.js`, `package-lock.json`, `go.sum`, `vendor/`, `coverage/` (and paths under them). Only **tracked** files appear in the diff (`.gitignore` is respected by Git).
+- **User exclude patterns:** Config key `exclude_patterns`, env `STET_EXCLUDE_PATTERNS` (comma-separated), and CLI `--exclude PATTERN` (repeatable) add patterns that **merge** with the built-in defaults unless `exclude_patterns_replace` / `STET_EXCLUDE_PATTERNS_REPLACE` is true. Precedence: CLI flags > env > repo config > global config > built-in defaults. **`--no-exclude`** on `stet start` / `stet run` / `stet rerun` ignores config/env user patterns for that run (built-in exclusions still apply).
+- **Incremental review:** Excluded hunks are omitted from the review set (not reviewed, not approved). When exclusions are lifted on a later `stet run`, matching hunks in `baseline..HEAD` that were never reviewed become **to-review**.
+- **Observability:** When exclusions apply, skipped file paths are printed to stderr as `Excluded from review: <path>` in verbose mode (default unless `--quiet` or JSON/stream output), and in `--trace` output under the Partition section.
 
 ---
 

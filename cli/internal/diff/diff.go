@@ -45,12 +45,16 @@ type Hunk struct {
 	Context    string // same as RawContent for pipeline output; used when building prompts
 }
 
-// Options configures the diff pipeline. Nil means use default exclusions.
+// Options configures the diff pipeline. Nil means use default exclusions only.
 type Options struct {
-	// ExcludePatterns overrides or extends the default generated-file patterns.
-	// Each entry is a filepath.Match-style pattern (e.g. "*.pb.go").
-	// If non-nil, only these patterns are used (defaults are not merged).
+	// ExcludePatterns are user-defined filepath.Match-style patterns (e.g. "*.md").
+	// When ExcludePatternsReplace is false (default), these merge with defaultExcludePatterns.
+	// When true, only ExcludePatterns are used; an empty list disables all exclusions.
 	ExcludePatterns []string
+	// ExcludePatternsReplace, when true, uses only ExcludePatterns (no merge with defaults).
+	ExcludePatternsReplace bool
+	// SkippedPaths, when non-nil, is filled with unique file paths excluded by pattern filtering.
+	SkippedPaths *[]string
 }
 
 // defaultExcludePatterns are applied when Options is nil or ExcludePatterns is nil.
@@ -75,10 +79,7 @@ func Hunks(ctx context.Context, repoRoot, baselineRef, headRef string, opts *Opt
 	if baselineRef == headRef {
 		return nil, nil
 	}
-	patterns := defaultExcludePatterns
-	if opts != nil && len(opts.ExcludePatterns) > 0 {
-		patterns = opts.ExcludePatterns
-	}
+	patterns := resolveExcludePatterns(opts)
 
 	out, err := runGitDiff(ctx, repoRoot, baselineRef, headRef)
 	if err != nil {
@@ -91,10 +92,72 @@ func Hunks(ctx context.Context, repoRoot, baselineRef, headRef string, opts *Opt
 	}
 
 	filtered := filterByPatterns(hunks, patterns)
+	if opts != nil && opts.SkippedPaths != nil {
+		*opts.SkippedPaths = skippedPaths(hunks, filtered)
+	}
 	if len(filtered) == 0 {
 		return nil, nil
 	}
 	return filtered, nil
+}
+
+// resolveExcludePatterns returns the effective exclude list for opts.
+// Nil opts uses built-in defaults only.
+func resolveExcludePatterns(opts *Options) []string {
+	if opts == nil {
+		return defaultExcludePatterns
+	}
+	user := opts.ExcludePatterns
+	if opts.ExcludePatternsReplace {
+		if len(user) == 0 {
+			return nil
+		}
+		return append([]string(nil), user...)
+	}
+	if len(user) == 0 {
+		return defaultExcludePatterns
+	}
+	return mergeExcludePatterns(defaultExcludePatterns, user)
+}
+
+func mergeExcludePatterns(defaults, user []string) []string {
+	seen := make(map[string]struct{}, len(defaults)+len(user))
+	out := make([]string, 0, len(defaults)+len(user))
+	for _, p := range defaults {
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
+	}
+	for _, p := range user {
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
+	}
+	return out
+}
+
+func skippedPaths(before, after []Hunk) []string {
+	kept := make(map[string]struct{}, len(after))
+	for _, h := range after {
+		kept[h.FilePath] = struct{}{}
+	}
+	var out []string
+	seen := make(map[string]struct{})
+	for _, h := range before {
+		if _, ok := kept[h.FilePath]; ok {
+			continue
+		}
+		if _, dup := seen[h.FilePath]; dup {
+			continue
+		}
+		seen[h.FilePath] = struct{}{}
+		out = append(out, h.FilePath)
+	}
+	return out
 }
 
 // CountHunkScope returns line and character counts across hunks by parsing

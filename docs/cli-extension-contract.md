@@ -123,10 +123,14 @@ For optimizing toward **actionable findings**, see [Review quality and actionabi
 | `rag_symbol_max_definitions` / `STET_RAG_SYMBOL_MAX_DEFINITIONS` | 10 | Max symbol definitions to inject (0 = disable). |
 | `rag_symbol_max_tokens` / `STET_RAG_SYMBOL_MAX_TOKENS` | 0 | Max tokens for symbol-definitions block (0 = no cap). |
 | `strictness` / `STET_STRICTNESS` | `default` | Review strictness preset: `strict`, `default`, `lenient`, or `strict+`, `default+`, `lenient+`. Controls confidence thresholds (strict = 0.6/0.7, default = 0.8/0.9, lenient = 0.9/0.95) and whether the false-positive kill list is applied. The "+" presets use the same thresholds but do not apply the FP kill list (more findings shown). |
+| `exclude_patterns` / `STET_EXCLUDE_PATTERNS` | (none) | Comma-separated filepath.Match patterns (e.g. `*.md,*.txt`) to skip from LLM review. Merges with built-in exclusions unless replace mode is set. |
+| `exclude_patterns_replace` / `STET_EXCLUDE_PATTERNS_REPLACE` | `false` | When true, use only `exclude_patterns` (no merge with built-in vendor/coverage/generated exclusions). |
 
 The + presets (strict+, default+, lenient+) show more findings by not filtering messages that match the built-in FP kill list.
 
 RAG symbol options can also be set via **`--rag-symbol-max-definitions`** and **`--rag-symbol-max-tokens`** on `stet start` and `stet run`; when set, they override config and env. Strictness can also be set via **`--strictness`** on `stet start` and `stet run`; when set, it overrides config and env.
+
+**Exclude patterns:** Set via config/env above, or per run with repeatable **`--exclude PATTERN`** on `stet start`, `stet run`, and `stet rerun` (overrides config/env for that run). Use **`--no-exclude`** to ignore config/env exclude patterns for one run (built-in exclusions still apply). Skipped paths are logged to stderr in verbose mode and in `--trace` output.
 
 Strictness and RAG symbol options set on **`stet start`** are stored in the session. **`stet run`** uses those stored values when the corresponding flag is **not** set. Explicit flags on **`stet run`** override for that run only; the next run without flags again uses the session values from start.
 

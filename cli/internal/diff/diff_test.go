@@ -197,7 +197,7 @@ func TestHunks_customExcludePatterns(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	fix := initRepoDiff(t)
-	// Diff c1..c2 is f2.txt. Override to exclude *.txt.
+	// Diff c1..c2 is f2.txt. User pattern excludes *.txt (merged with defaults).
 	opts := &Options{ExcludePatterns: []string{"*.txt"}}
 	hunks, err := Hunks(ctx, fix.dir, fix.c1SHA, fix.c2SHA, opts)
 	if err != nil {
@@ -208,18 +208,82 @@ func TestHunks_customExcludePatterns(t *testing.T) {
 	}
 }
 
+func TestHunks_customExcludePatternsReplace(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	fix := initRepoDiff(t)
+	beforeSHA := fix.c2SHA
+	writeFile(t, fix.dir, "bar.go", "package p\n")
+	writeFile(t, fix.dir, "gen.pb.go", "package p\n// generated\n")
+	runGit(t, fix.dir, "git", "add", "bar.go", "gen.pb.go")
+	runGit(t, fix.dir, "git", "commit", "-m", "add bar and gen")
+	afterSHA := gitHEAD(t, fix.dir)
+	// Replace mode with bar.go only: gen.pb.go is NOT excluded.
+	opts := &Options{ExcludePatterns: []string{"bar.go"}, ExcludePatternsReplace: true}
+	hunks, err := Hunks(ctx, fix.dir, beforeSHA, afterSHA, opts)
+	if err != nil {
+		t.Fatalf("Hunks: %v", err)
+	}
+	if len(hunks) != 1 {
+		t.Fatalf("len(hunks) = %d, want 1 (gen.pb.go kept when replace mode uses only bar.go)", len(hunks))
+	}
+	if hunks[0].FilePath != "gen.pb.go" {
+		t.Errorf("FilePath = %q, want gen.pb.go", hunks[0].FilePath)
+	}
+}
+
 func TestHunks_customExcludePatternsEmpty(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	fix := initRepoDiff(t)
-	// Empty ExcludePatterns means no exclusions (override defaults with empty list = no filter).
+	// Empty ExcludePatterns in merge mode keeps built-in defaults; f2.txt is not a default exclusion.
 	opts := &Options{ExcludePatterns: []string{}}
 	hunks, err := Hunks(ctx, fix.dir, fix.c1SHA, fix.c2SHA, opts)
 	if err != nil {
 		t.Fatalf("Hunks: %v", err)
 	}
 	if len(hunks) != 1 {
-		t.Fatalf("len(hunks) = %d, want 1 when ExcludePatterns is empty", len(hunks))
+		t.Fatalf("len(hunks) = %d, want 1 when ExcludePatterns is empty in merge mode", len(hunks))
+	}
+}
+
+func TestResolveExcludePatterns_mergeKeepsDefaults(t *testing.T) {
+	t.Parallel()
+	got := resolveExcludePatterns(&Options{ExcludePatterns: []string{"*.md"}})
+	if len(got) <= len(defaultExcludePatterns) {
+		t.Fatalf("merge: got %d patterns, want more than defaults alone (%d)", len(got), len(defaultExcludePatterns))
+	}
+	foundMD := false
+	for _, p := range got {
+		if p == "*.md" {
+			foundMD = true
+			break
+		}
+	}
+	if !foundMD {
+		t.Errorf("merge result missing *.md: %v", got)
+	}
+}
+
+func TestResolveExcludePatterns_replaceEmptyDisablesAll(t *testing.T) {
+	t.Parallel()
+	got := resolveExcludePatterns(&Options{ExcludePatternsReplace: true})
+	if got != nil {
+		t.Errorf("replace with empty user list: got %v, want nil (no exclusions)", got)
+	}
+}
+
+func TestSkippedPaths(t *testing.T) {
+	t.Parallel()
+	before := []Hunk{
+		{FilePath: "a.go"},
+		{FilePath: "b.md"},
+		{FilePath: "b.md"},
+	}
+	after := []Hunk{{FilePath: "a.go"}}
+	got := skippedPaths(before, after)
+	if len(got) != 1 || got[0] != "b.md" {
+		t.Errorf("skippedPaths = %v, want [b.md]", got)
 	}
 }
 

@@ -19,6 +19,8 @@
 //   - STET_SUPPRESSION_HISTORY_COUNT (max history records to scan for dismissals; non-negative integer).
 //   - STET_CRITIC_ENABLED (optional second-pass critic: 1/true/yes/on = true, 0/false/no/off = false).
 //   - STET_CRITIC_MODEL (model name for the critic; default qwen3-coder:30b, same as main model).
+//   - STET_EXCLUDE_PATTERNS (comma-separated filepath.Match patterns to skip from review; merges with built-in defaults unless replace is set).
+//   - STET_EXCLUDE_PATTERNS_REPLACE (1/true/yes/on = use only STET_EXCLUDE_PATTERNS, not built-in defaults).
 package config
 
 import (
@@ -34,6 +36,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
+	"stet/cli/internal/diff"
 	"stet/cli/internal/erruser"
 )
 
@@ -79,6 +82,10 @@ type Config struct {
 	CriticEnabled bool `toml:"critic_enabled"`
 	// CriticModel is the model name for the critic. Default matches main model (qwen3-coder:30b) so one model stays loaded on memory-constrained machines; set to a different model to use a separate critic model (loads a second model). Used only when CriticEnabled.
 	CriticModel string `toml:"critic_model"`
+	// ExcludePatterns are filepath.Match patterns for hunks to skip from LLM review (e.g. "*.md").
+	ExcludePatterns []string `toml:"exclude_patterns"`
+	// ExcludePatternsReplace, when true, uses only ExcludePatterns (no merge with built-in defaults).
+	ExcludePatternsReplace bool `toml:"exclude_patterns_replace"`
 }
 
 // Overrides represents optional CLI flag overrides. Non-nil pointer means
@@ -108,6 +115,9 @@ type Overrides struct {
 	SuppressionHistoryCount  *int
 	CriticEnabled           *bool
 	CriticModel             *string
+	ExcludePatterns         *[]string
+	ExcludePatternsReplace  *bool
+	NoExclude               *bool
 }
 
 // LoadOptions configures Load. All fields are optional.
@@ -209,6 +219,14 @@ func (c Config) EffectiveStateDir(repoRoot string) string {
 	return filepath.Join(repoRoot, ".review")
 }
 
+// DiffOptions returns diff.Options for the resolved exclude pattern configuration.
+func (c Config) DiffOptions() *diff.Options {
+	return &diff.Options{
+		ExcludePatterns:        append([]string(nil), c.ExcludePatterns...),
+		ExcludePatternsReplace: c.ExcludePatternsReplace,
+	}
+}
+
 // EffectiveLLMProvider returns the LLM provider (ollama or openai), normalized to lowercase.
 func (c Config) EffectiveLLMProvider() string {
 	p := strings.TrimSpace(strings.ToLower(c.Provider))
@@ -307,6 +325,8 @@ func mergeFile(cfg *Config, path string) error {
 		SuppressionHistoryCount  *int64  `toml:"suppression_history_count"`
 		CriticEnabled            *bool   `toml:"critic_enabled"`
 		CriticModel              *string `toml:"critic_model"`
+		ExcludePatterns          *[]string `toml:"exclude_patterns"`
+		ExcludePatternsReplace   *bool   `toml:"exclude_patterns_replace"`
 	}
 	if _, err := toml.Decode(string(data), &file); err != nil {
 		return erruser.New("Invalid configuration in .review/config.toml.", err)
@@ -435,6 +455,12 @@ func mergeFile(cfg *Config, path string) error {
 	if file.CriticModel != nil && *file.CriticModel != "" {
 		cfg.CriticModel = *file.CriticModel
 	}
+	if file.ExcludePatterns != nil {
+		cfg.ExcludePatterns = append([]string(nil), (*file.ExcludePatterns)...)
+	}
+	if file.ExcludePatternsReplace != nil {
+		cfg.ExcludePatternsReplace = *file.ExcludePatternsReplace
+	}
 	return nil
 }
 
@@ -488,6 +514,8 @@ const (
 	envSuppressionHistoryCount  = "STET_SUPPRESSION_HISTORY_COUNT"
 	envCriticEnabled            = "STET_CRITIC_ENABLED"
 	envCriticModel              = "STET_CRITIC_MODEL"
+	envExcludePatterns          = "STET_EXCLUDE_PATTERNS"
+	envExcludePatternsReplace   = "STET_EXCLUDE_PATTERNS_REPLACE"
 	envProvider                 = "STET_PROVIDER"
 	envOpenAIBaseURL            = "STET_OPENAI_BASE_URL"
 )
@@ -706,7 +734,32 @@ func applyEnv(cfg *Config, env []string) error {
 	if v, ok := vals[envCriticModel]; ok && v != "" {
 		cfg.CriticModel = v
 	}
+	if v, ok := vals[envExcludePatterns]; ok {
+		cfg.ExcludePatterns = parsePatternList(v)
+	}
+	if v, ok := vals[envExcludePatternsReplace]; ok && v != "" {
+		b, err := parseBool(v)
+		if err != nil {
+			return erruser.New("STET_EXCLUDE_PATTERNS_REPLACE must be 1/true/yes/on or 0/false/no/off.", err)
+		}
+		cfg.ExcludePatternsReplace = b
+	}
 	return nil
+}
+
+func parsePatternList(s string) []string {
+	if strings.TrimSpace(s) == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // parseBool parses common boolean env values: 1/true/yes/on = true, 0/false/no/off = false (case-insensitive).
@@ -817,5 +870,15 @@ func applyOverrides(cfg *Config, o *Overrides) {
 	}
 	if o.CriticModel != nil && *o.CriticModel != "" {
 		cfg.CriticModel = *o.CriticModel
+	}
+	if o.NoExclude != nil && *o.NoExclude {
+		cfg.ExcludePatterns = nil
+		cfg.ExcludePatternsReplace = false
+	}
+	if o.ExcludePatterns != nil {
+		cfg.ExcludePatterns = append([]string(nil), (*o.ExcludePatterns)...)
+	}
+	if o.ExcludePatternsReplace != nil {
+		cfg.ExcludePatternsReplace = *o.ExcludePatternsReplace
 	}
 }
