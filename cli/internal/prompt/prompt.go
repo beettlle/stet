@@ -25,6 +25,11 @@ type UserIntent struct {
 
 const optimizedPromptFilename = "system_prompt_optimized.txt"
 
+const repoPromptDir = ".review"
+const repoPromptFilename = "prompt.md"
+
+const repoPromptHeader = "## Repository review instructions\n\n"
+
 // DefaultSystemPrompt instructs the model to perform defect-focused code review
 // (System 2 / Chain-of-Thought) and return a single JSON array of findings.
 // Schema matches findings.Finding (without id; the tool assigns IDs). Used when
@@ -64,35 +69,61 @@ Respond with a single JSON array of findings. Each finding is an object with:
 
 Set confidence to how sure you are for each finding. Return only the JSON array, no other text. Example: [{"file":"pkg.go","line":10,"severity":"warning","category":"style","confidence":0.9,"message":"Use consistent naming"}]`
 
-// SystemPrompt returns the system prompt for the review model. If
-// stateDir/system_prompt_optimized.txt exists and is readable, its contents
-// (trimmed) are returned; otherwise DefaultSystemPrompt is returned.
-// Missing file (IsNotExist) returns default with nil error; any other read
-// error (e.g. permission denied) is returned so the user can see it.
-func SystemPrompt(stateDir string) (string, error) {
-	if stateDir == "" {
-		return DefaultSystemPrompt, nil
-	}
-	path := filepath.Join(stateDir, optimizedPromptFilename)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return DefaultSystemPrompt, nil
+// SystemPrompt returns the system prompt for the review model with precedence:
+// optimized (stateDir/system_prompt_optimized.txt) > repo (.review/prompt.md
+// under repoRoot merged with default) > DefaultSystemPrompt. Repo prompt is
+// appended to the default prompt under "## Repository review instructions".
+// Missing or unreadable repo prompt falls back without error. Missing optimized
+// file falls back to repo/default; any other optimized read error is returned.
+func SystemPrompt(stateDir, repoRoot string) (string, error) {
+	if stateDir != "" {
+		path := filepath.Join(stateDir, optimizedPromptFilename)
+		data, err := os.ReadFile(path)
+		if err == nil {
+			return strings.TrimSpace(string(data)), nil
 		}
-		return "", erruser.New("Could not read system prompt file.", err)
+		if !os.IsNotExist(err) {
+			return "", erruser.New("Could not read system prompt file.", err)
+		}
 	}
-	return strings.TrimSpace(string(data)), nil
+	return systemPromptWithRepo(repoRoot), nil
 }
 
-// SystemPromptSource returns "optimized" if stateDir contains system_prompt_optimized.txt, otherwise "default".
-// Used for trace output only.
-func SystemPromptSource(stateDir string) string {
-	if stateDir == "" {
-		return "default"
+func systemPromptWithRepo(repoRoot string) string {
+	base := DefaultSystemPrompt
+	repoContent, ok := readRepoPrompt(repoRoot)
+	if !ok || repoContent == "" {
+		return base
 	}
-	path := filepath.Join(stateDir, optimizedPromptFilename)
-	if _, err := os.Stat(path); err == nil {
-		return "optimized"
+	return base + "\n\n" + repoPromptHeader + repoContent
+}
+
+// readRepoPrompt loads repoRoot/.review/prompt.md. Fail-open: missing or
+// unreadable file returns ("", false).
+func readRepoPrompt(repoRoot string) (string, bool) {
+	if repoRoot == "" {
+		return "", false
+	}
+	path := filepath.Join(repoRoot, repoPromptDir, repoPromptFilename)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", false
+	}
+	return strings.TrimSpace(string(data)), true
+}
+
+// SystemPromptSource returns "optimized" when stateDir contains
+// system_prompt_optimized.txt, "repo" when repoRoot/.review/prompt.md exists
+// (and optimized is absent), otherwise "default". Used for trace output only.
+func SystemPromptSource(stateDir, repoRoot string) string {
+	if stateDir != "" {
+		path := filepath.Join(stateDir, optimizedPromptFilename)
+		if _, err := os.Stat(path); err == nil {
+			return "optimized"
+		}
+	}
+	if content, ok := readRepoPrompt(repoRoot); ok && content != "" {
+		return "repo"
 	}
 	return "default"
 }

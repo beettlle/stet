@@ -352,13 +352,13 @@ func ProcessReviewResponse(ctx context.Context, result *ollama.GenerateResult, h
 // When nitpicky is true, nitpicky-mode instructions are appended.
 // suppressionExamples, when non-nil and non-empty, are applied per-hunk (as many as fit in the token budget).
 func ReviewHunk(ctx context.Context, client llm.Client, model, stateDir string, hunk diff.Hunk, generateOpts *ollama.GenerateOptions, userIntent *prompt.UserIntent, ruleList []rules.CursorRule, repoRoot string, contextLimit int, ragMaxDefs, ragMaxTokens int, ragCallGraphEnabled bool, ragCallersMax, ragCalleesMax, ragCallGraphMaxTokens int, promptShadows []prompt.Shadow, nitpicky bool, useSearchReplaceFormat bool, suppressionExamples []string, traceOut *trace.Tracer) ([]findings.Finding, *HunkUsage, error) {
-	systemBase, err := prompt.SystemPrompt(stateDir)
+	systemBase, err := prompt.SystemPrompt(stateDir, repoRoot)
 	if err != nil {
 		return nil, nil, fmt.Errorf("review: system prompt: %w", err)
 	}
 	if traceOut != nil && traceOut.Enabled() {
 		traceOut.Section("System prompt")
-		traceOut.Printf("source=%s len=%d\n", prompt.SystemPromptSource(stateDir), len(systemBase))
+		traceOut.Printf("source=%s len=%d\n", prompt.SystemPromptSource(stateDir, repoRoot), len(systemBase))
 	}
 	if userIntent != nil && (userIntent.Branch != "" || userIntent.CommitMsg != "") {
 		systemBase = prompt.InjectUserIntent(systemBase, userIntent.Branch, userIntent.CommitMsg)

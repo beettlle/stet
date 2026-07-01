@@ -1122,7 +1122,7 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 		}
 		// Token estimation: warn once if any hunk's prompt would exceed context threshold (Phase 3.2).
 		if effectiveContextLimit > 0 && opts.WarnThreshold > 0 {
-			systemPrompt, err := prompt.SystemPrompt(opts.StateDir)
+			systemPrompt, err := prompt.SystemPrompt(opts.StateDir, opts.RepoRoot)
 			if err != nil {
 				return RunStats{}, err
 			}
@@ -1142,7 +1142,7 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 				fmt.Fprintln(os.Stderr, w)
 			}
 		}
-		systemBase, err := prompt.SystemPrompt(opts.StateDir)
+		systemBase, err := prompt.SystemPrompt(opts.StateDir, opts.RepoRoot)
 		if err != nil {
 			return RunStats{}, err
 		}
@@ -1544,7 +1544,7 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 		}
 		// Token estimation: warn once if any hunk's prompt would exceed context threshold (Phase 3.2).
 		if effectiveContextLimit > 0 && opts.WarnThreshold > 0 {
-			systemPrompt, err := prompt.SystemPrompt(opts.StateDir)
+			systemPrompt, err := prompt.SystemPrompt(opts.StateDir, opts.RepoRoot)
 			if err != nil {
 				return RunStats{}, err
 			}
@@ -1564,7 +1564,7 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 				fmt.Fprintln(os.Stderr, w)
 			}
 		}
-		systemBase, err := prompt.SystemPrompt(opts.StateDir)
+		systemBase, err := prompt.SystemPrompt(opts.StateDir, opts.RepoRoot)
 		if err != nil {
 			return RunStats{}, err
 		}
