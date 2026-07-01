@@ -58,3 +58,9 @@ Thumbs.db
 *.swp
 *.swo
 extension/coverage
+
+# pi-spine runtime
+.spine/runtime/
+.spine/batch-state.json
+.spine/batch-history.json
+.spine/run-metrics.jsonl
