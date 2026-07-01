@@ -65,3 +65,27 @@ func Partition(ctx context.Context, repoRoot, baselineRef, headRef, lastReviewed
 	}
 	return Result{ToReview: toReview, Approved: approved}, nil
 }
+
+// PromotePendingExcluded moves hunks for pendingPaths from Approved to ToReview.
+// pendingPaths lists files that were excluded by pattern and not yet LLM-reviewed;
+// when exclusions are lifted, Partition may mark them Approved because they appear
+// in baseline..lastReviewedAt — this corrects that.
+func PromotePendingExcluded(part Result, pendingPaths []string) Result {
+	if len(pendingPaths) == 0 {
+		return part
+	}
+	pending := make(map[string]struct{}, len(pendingPaths))
+	for _, p := range pendingPaths {
+		pending[p] = struct{}{}
+	}
+	var stillApproved []diff.Hunk
+	for _, h := range part.Approved {
+		if _, ok := pending[h.FilePath]; ok {
+			part.ToReview = append(part.ToReview, h)
+		} else {
+			stillApproved = append(stillApproved, h)
+		}
+	}
+	part.Approved = stillApproved
+	return part
+}

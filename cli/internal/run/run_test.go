@@ -742,6 +742,59 @@ func TestStart_stream_emitsNDJSON(t *testing.T) {
 	}
 }
 
+func TestRun_excludeLift_reviewsPreviouslySkipped(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	excludeTxt := &diff.Options{ExcludePatterns: []string{"*.txt"}}
+	startOpts := StartOptions{
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       true,
+		DiffOpts:     excludeTxt,
+	}
+	if _, err := Start(ctx, startOpts); err != nil {
+		t.Fatalf("Start with exclude: %v", err)
+	}
+	s0, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	if len(s0.PendingExcludedPaths) == 0 {
+		t.Fatalf("PendingExcludedPaths = %v, want non-empty after excluded start", s0.PendingExcludedPaths)
+	}
+	if len(s0.Findings) != 0 {
+		t.Fatalf("Findings len = %d, want 0 when all hunks excluded", len(s0.Findings))
+	}
+	runOpts := RunOptions{RepoRoot: repo, StateDir: stateDir, DryRun: true, DiffOpts: nil}
+	if _, err := Run(ctx, runOpts); err != nil {
+		t.Fatalf("Run after lifting exclusions: %v", err)
+	}
+	s1, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session after run: %v", err)
+	}
+	if len(s1.Findings) == 0 {
+		t.Fatal("Findings: want non-empty after lifting exclusions and reviewing skipped paths")
+	}
+	var hasF2 bool
+	for _, f := range s1.Findings {
+		if f.File == "f2.txt" {
+			hasF2 = true
+			break
+		}
+	}
+	if !hasF2 {
+		t.Errorf("Findings = %+v, want finding for previously excluded f2.txt", s1.Findings)
+	}
+	if len(s1.PendingExcludedPaths) != 0 {
+		t.Errorf("PendingExcludedPaths = %v, want empty after f2.txt reviewed", s1.PendingExcludedPaths)
+	}
+}
+
 func TestRun_dryRun_incremental(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

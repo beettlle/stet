@@ -55,6 +55,9 @@ type Session struct {
 	LastRunPromptTokens     int64 `json:"last_run_prompt_tokens,omitempty"`
 	LastRunCompletionTokens int64 `json:"last_run_completion_tokens,omitempty"`
 	LastRunEvalDurationNs   int64 `json:"last_run_eval_duration_ns,omitempty"`
+	// PendingExcludedPaths lists file paths skipped by exclude patterns and not yet LLM-reviewed.
+	// When exclusions are lifted, these paths are promoted back to to-review.
+	PendingExcludedPaths []string `json:"pending_excluded_paths,omitempty"`
 }
 
 // Load reads the session from stateDir/session.json. If the file does not

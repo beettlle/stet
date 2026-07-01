@@ -255,3 +255,44 @@ func TestPartition_strictMatch(t *testing.T) {
 		t.Error("approved hunk RawContent should match reviewed (strict match)")
 	}
 }
+
+func TestPromotePendingExcluded_excludeLift(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepoScope(t)
+	excludeTxt := &diff.Options{ExcludePatterns: []string{"*.txt"}}
+	// First run with exclusions: no hunks to review (all .txt files skipped).
+	first, err := Partition(ctx, repo, "HEAD~2", "HEAD", "", excludeTxt)
+	if err != nil {
+		t.Fatalf("Partition first run: %v", err)
+	}
+	if len(first.ToReview) != 0 {
+		t.Fatalf("first run with exclude: len(ToReview) = %d, want 0", len(first.ToReview))
+	}
+	// Simulate start advancing last_reviewed_at to HEAD while f2.txt stayed excluded.
+	lifted, err := Partition(ctx, repo, "HEAD~2", "HEAD", "HEAD", nil)
+	if err != nil {
+		t.Fatalf("Partition lift: %v", err)
+	}
+	if len(lifted.ToReview) != 0 {
+		t.Fatalf("without promote: len(ToReview) = %d, want 0 (bug: f2.txt incorrectly Approved)", len(lifted.ToReview))
+	}
+	got := PromotePendingExcluded(lifted, []string{"f2.txt"})
+	if len(got.ToReview) != 1 {
+		t.Fatalf("after promote: len(ToReview) = %d, want 1", len(got.ToReview))
+	}
+	if got.ToReview[0].FilePath != "f2.txt" {
+		t.Errorf("ToReview[0].FilePath = %q, want f2.txt", got.ToReview[0].FilePath)
+	}
+	if len(got.Approved) != 1 || got.Approved[0].FilePath != "f1.txt" {
+		t.Errorf("Approved = %v, want only f1.txt", filePaths(got.Approved))
+	}
+}
+
+func filePaths(hunks []diff.Hunk) []string {
+	out := make([]string, len(hunks))
+	for i, h := range hunks {
+		out[i] = h.FilePath
+	}
+	return out
+}

@@ -64,14 +64,15 @@
 |------|---------|--------|
 | 2026-07-01 | Prior `diff.Options.ExcludePatterns` **replaced** defaults when non-empty; empty list disabled all filtering | Changed to merge-by-default; `exclude_patterns_replace` opts out of merge |
 | 2026-07-01 | `STET_EXCLUDE_PATTERNS` uses comma-separated list (consistent with project env style) | Documented in contract |
-| 2026-07-01 | Two `scope.Partition` call sites in `run.go` (Start and Run) | Both wired via `partitionWithSkipped` |
+| 2026-07-01 | Exclude lift bug | Partition marked skipped hunks Approved after lift; fixed with `session.pending_excluded_paths` |
 
 ## Execution Log
 
 | Date | Event | Detail |
 |------|-------|--------|
 | 2026-07-01 | Step 0–4 | Implemented config/env/CLI, diff merge semantics, run wiring, docs, tests |
-| 2026-07-01 | Tests | `cd cli && go test ./... -cover` — all packages pass |
+| 2026-07-01 | Review REVISE | Fixed exclude lift: `pending_excluded_paths` in session + `PromotePendingExcluded` |
+| 2026-07-01 | Tests | `cd cli && go test ./... -cover` — all packages pass; extension `npm test` — 67 tests pass |
 
 ## Blockers
 

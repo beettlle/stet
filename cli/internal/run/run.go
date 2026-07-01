@@ -108,6 +108,46 @@ func logExcludedPaths(w io.Writer, paths []string) {
 	}
 }
 
+func mergePendingExcluded(existing, skipped []string) []string {
+	if len(skipped) == 0 {
+		return existing
+	}
+	seen := make(map[string]struct{}, len(existing)+len(skipped))
+	out := make([]string, 0, len(existing)+len(skipped))
+	for _, p := range existing {
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
+	}
+	for _, p := range skipped {
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
+	}
+	return out
+}
+
+func removeReviewedFromPending(pending []string, reviewed []diff.Hunk) []string {
+	if len(pending) == 0 || len(reviewed) == 0 {
+		return pending
+	}
+	reviewedPaths := make(map[string]struct{}, len(reviewed))
+	for _, h := range reviewed {
+		reviewedPaths[h.FilePath] = struct{}{}
+	}
+	out := pending[:0]
+	for _, p := range pending {
+		if _, ok := reviewedPaths[p]; !ok {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 // preparedPrompt holds a ready-to-send prompt for one hunk, or an error from preparation.
 type preparedPrompt struct {
 	System string
@@ -979,6 +1019,8 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 	if err != nil {
 		return RunStats{}, erruser.New("Could not compute hunks to review.", err)
 	}
+	pending := mergePendingExcluded(nil, skipped)
+	part = scope.PromotePendingExcluded(part, pending)
 	tr := trace.New(opts.TraceOut)
 	if tr.Enabled() {
 		tr.Section("Partition")
@@ -1016,6 +1058,7 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 			fmt.Fprintln(os.Stderr, "Nothing to review.")
 		}
 		s.LastReviewedAt = headSHA
+		s.PendingExcludedPaths = pending
 		if err := session.Save(opts.StateDir, &s); err != nil {
 			return RunStats{}, err
 		}
@@ -1171,6 +1214,7 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 	s.Findings = collected
 	s.FindingPromptContext = findingPromptContext
 	s.LastReviewedAt = headSHA
+	s.PendingExcludedPaths = removeReviewedFromPending(pending, part.ToReview)
 	if captureUsage() {
 		s.LastRunPromptTokens = int64(sumPrompt)
 		s.LastRunCompletionTokens = int64(sumCompletion)
@@ -1375,6 +1419,8 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 	if err != nil {
 		return RunStats{}, erruser.New("Could not compute hunks to review.", err)
 	}
+	pending := mergePendingExcluded(s.PendingExcludedPaths, skipped)
+	part = scope.PromotePendingExcluded(part, pending)
 	trRun := trace.New(opts.TraceOut)
 	if trRun.Enabled() {
 		trRun.Section("Partition")
@@ -1420,6 +1466,7 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 			fmt.Fprintln(os.Stderr, "Nothing to review.")
 		}
 		s.LastReviewedAt = headSHA
+		s.PendingExcludedPaths = pending
 		if saveErr := session.Save(opts.StateDir, &s); saveErr != nil {
 			return RunStats{}, saveErr
 		}
@@ -1627,6 +1674,7 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 	}
 
 	s.LastReviewedAt = headSHA
+	s.PendingExcludedPaths = removeReviewedFromPending(pending, toReview)
 	if err := session.Save(opts.StateDir, &s); err != nil {
 		return RunStats{}, err
 	}
