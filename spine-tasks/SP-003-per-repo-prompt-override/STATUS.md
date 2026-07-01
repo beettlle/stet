@@ -1,5 +1,5 @@
-**Current Step:** Step 3: Testing and verification
-**Status:** In Progress
+**Current Step:** Complete
+**Status:** Complete
 **Last Updated:** 2026-07-01
 **Review Level:** 2
 **Review Counter:** 0
@@ -33,10 +33,10 @@
 
 ## Step 3: Testing and verification
 
-**Status:** In Progress
+**Status:** Complete
 
-- [ ] Run test command
-- [ ] Coverage check
+- [x] Run test command
+- [x] Coverage check (prompt 90.3%, run 70.1%, config 65.5%)
 
 ---
 
@@ -60,6 +60,7 @@
 | Date | Event | Detail |
 |------|-------|--------|
 | 2026-07-01 | Step 0–2 | Implemented loader, tests, contract docs |
+| 2026-07-01 | Step 3 | `go test ./internal/prompt/... ./internal/config/... ./internal/run/...` pass; extension npm test pass |
 
 ## Blockers
 
