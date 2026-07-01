@@ -1,0 +1,2 @@
+{"id": "live-000001", "file": "src/auth/login.go", "hunk": "@@ -10,3 +10,5 @@\n context\n-old\n+new", "source": "live", "repo": "stet"}
+{"id": "live-000002", "file": "extension/src/review.ts", "hunk": "@@ -5,1 +5,1 @@\n-x\n+y", "source": "live", "repo": "stet"}

@@ -1,0 +1,2 @@
+# SDRE optimizer V0 — stdlib only (Phase 0).
+# Optional later: dspy-ai (deferred until M4 ≥ 5% precision lift)
