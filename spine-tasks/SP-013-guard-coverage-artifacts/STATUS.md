@@ -1,6 +1,6 @@
-**Current Step:** Step 0: Define check behavior
-**Status:** Ready
-**Last Updated:** 2026-07-01
+**Current Step:** Complete
+**Status:** Complete
+**Last Updated:** 2026-07-02
 **Review Level:** 1
 **Review Counter:** 0
 **Iteration:** 0
@@ -10,24 +10,25 @@
 
 ## Step 0: Define check behavior
 
-**Status:** Not Started
+**Status:** Complete
 
-- [ ] Tracked-path check via git ls-files
-- [ ] Untracked dirty policy
-- [ ] Record in Discoveries
+- [x] Tracked-path check via `git ls-files extension/coverage` — FAIL with listed paths if non-empty
+- [x] Untracked dirty policy — WARN only (informational); never fail on untracked coverage output
+- [x] Record in Discoveries
 
 ## Step 1: Implement script and AGENTS.md hook
 
-**Status:** Not Started
+**Status:** Complete
 
-- [ ] scripts/check-untracked-coverage.sh
-- [ ] AGENTS.md Testing section
+- [x] scripts/check-untracked-coverage.sh
+- [x] AGENTS.md Testing section
 
 ## Step 2: Testing and verification
 
-**Status:** Not Started
+**Status:** Complete
 
-- [ ] Contract testCommand PASS
+- [x] Contract testCommand PASS
+- [x] Verified script fails when `extension/coverage/lcov.info` force-tracked (simulated, not committed)
 
 ---
 
@@ -42,12 +43,15 @@
 | Date | Finding | Impact |
 |------|---------|--------|
 | 2026-07-01 | Tracked extension/coverage caused spine DirtyWorktree | Motivation for SP-013 |
+| 2026-07-02 | Script uses `git ls-files extension/coverage` for tracked check; `git ls-files --others` / directory probe for untracked WARN | Contract behavior |
+| 2026-07-02 | Gitignored coverage dirs do not appear in `git status --porcelain`; WARN uses `find` fallback | Post-test warn works |
 
 ## Execution Log
 
 | Date | Event | Detail |
 |------|-------|--------|
-| | | |
+| 2026-07-02 | Step 0–1 | Defined check behavior; added script and AGENTS.md hook |
+| 2026-07-02 | Step 2 | Contract testCommand PASS (85 tests); fail-path verified with `git add -f` simulation |
 
 ## Blockers
 

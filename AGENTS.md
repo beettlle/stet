@@ -162,6 +162,7 @@ This project utilizes **Go** and **JavaScript/TypeScript**. Refer to the followi
 - **Run Tests:**
   - Go: `go test ./... -cover`
   - Extension: `npm test` (Vitest)
+- **Coverage artifact guard:** After extension `npm test` (and before spine batches), run `bash scripts/check-untracked-coverage.sh` from the repo root. The script fails if any path under `extension/coverage/` is tracked in git; untracked coverage output is expected and only warned.
 
 ### PR and Commit Guidelines
 - **Source of Truth:** All implementation MUST follow `docs/PRD.md` and `docs/implementation-plan.md`.
