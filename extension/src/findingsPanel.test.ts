@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Finding } from "./contract";
-import { FindingsTreeDataProvider, runDismissFinding } from "./findingsPanel";
+import {
+  countHiddenByFilter,
+  FindingsTreeDataProvider,
+  passesFindingFilters,
+  runDismissFinding,
+} from "./findingsPanel";
 
 const mockCreateTreeView = vi.fn();
 const mockSpawnStet = vi.fn();
@@ -72,6 +77,83 @@ const finding2: Finding = {
   message: "Possible nil dereference",
   cursor_uri: "file:///repo/pkg/main.go#L5",
 };
+const lowConfidenceFinding: Finding = {
+  id: "lowconf000001",
+  file: "src/low.ts",
+  line: 1,
+  severity: "info",
+  category: "maintainability",
+  confidence: 0.5,
+  message: "Low confidence note",
+};
+const securityFinding: Finding = {
+  id: "sec0000000001",
+  file: "src/auth.ts",
+  line: 3,
+  severity: "error",
+  category: "security",
+  confidence: 0.95,
+  message: "SQL injection risk",
+};
+
+describe("passesFindingFilters", () => {
+  it("passes all findings when minConfidence is 0 and no category allowlist", () => {
+    expect(passesFindingFilters(finding1, { minConfidence: 0 })).toBe(true);
+    expect(passesFindingFilters(lowConfidenceFinding, { minConfidence: 0 })).toBe(
+      true
+    );
+  });
+
+  it("rejects findings below minConfidence", () => {
+    expect(
+      passesFindingFilters(lowConfidenceFinding, { minConfidence: 0.8 })
+    ).toBe(false);
+    expect(passesFindingFilters(finding2, { minConfidence: 0.8 })).toBe(true);
+  });
+
+  it("rejects findings outside category allowlist", () => {
+    expect(
+      passesFindingFilters(finding1, {
+        minConfidence: 0,
+        categories: ["security"],
+      })
+    ).toBe(false);
+    expect(
+      passesFindingFilters(securityFinding, {
+        minConfidence: 0,
+        categories: ["security"],
+      })
+    ).toBe(true);
+  });
+
+  it("applies both confidence and category filters", () => {
+    const borderline: Finding = {
+      ...securityFinding,
+      confidence: 0.7,
+    };
+    expect(
+      passesFindingFilters(borderline, {
+        minConfidence: 0.8,
+        categories: ["security"],
+      })
+    ).toBe(false);
+  });
+});
+
+describe("countHiddenByFilter", () => {
+  it("counts findings that fail filters", () => {
+    const findings = [finding1, finding2, lowConfidenceFinding, securityFinding];
+    expect(
+      countHiddenByFilter(findings, { minConfidence: 0.8 })
+    ).toBe(1);
+    expect(
+      countHiddenByFilter(findings, {
+        minConfidence: 0,
+        categories: ["security"],
+      })
+    ).toBe(3);
+  });
+});
 
 describe("FindingsTreeDataProvider", () => {
   it("returns one scanning node when scanning is true", () => {
@@ -161,6 +243,37 @@ describe("FindingsTreeDataProvider", () => {
     const children = provider.getChildren(undefined);
     expect(children).toHaveLength(1);
     expect(children[0]).toEqual({ kind: "finding", finding: finding2 });
+  });
+
+  it("hides findings below minConfidence", () => {
+    const provider = new FindingsTreeDataProvider();
+    provider.setFindings([finding1, lowConfidenceFinding]);
+    provider.setFilters({ minConfidence: 0.8 });
+    const children = provider.getChildren(undefined);
+    expect(children).toHaveLength(1);
+    expect(children[0]).toEqual({ kind: "finding", finding: finding1 });
+    expect(provider.getHiddenByFilterCount()).toBe(1);
+  });
+
+  it("hides findings outside category allowlist", () => {
+    const provider = new FindingsTreeDataProvider();
+    provider.setFindings([finding1, securityFinding]);
+    provider.setFilters({ minConfidence: 0, categories: ["security"] });
+    const children = provider.getChildren(undefined);
+    expect(children).toHaveLength(1);
+    expect(children[0]).toEqual({ kind: "finding", finding: securityFinding });
+    expect(provider.getHiddenByFilterCount()).toBe(1);
+  });
+
+  it("sets tree view message when findings are hidden", () => {
+    const treeView = { message: undefined as string | undefined };
+    const provider = new FindingsTreeDataProvider();
+    provider.attachTreeView(treeView as never);
+    provider.setFindings([finding1, lowConfidenceFinding]);
+    provider.setFilters({ minConfidence: 0.8 });
+    expect(treeView.message).toBe("1 hidden by filter");
+    provider.setFilters({ minConfidence: 0 });
+    expect(treeView.message).toBeUndefined();
   });
 });
 
