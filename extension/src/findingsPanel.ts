@@ -1,7 +1,41 @@
 import * as vscode from "vscode";
 
 import { spawnStet } from "./cli";
-import type { Finding } from "./contract";
+import type { Category, Finding } from "./contract";
+
+/** Display-only filters for the findings panel (session data unchanged). */
+export interface FindingFilters {
+  minConfidence: number;
+  /** When set and non-empty, only these categories are shown. */
+  categories?: Category[];
+}
+
+export const DEFAULT_FINDING_FILTERS: FindingFilters = {
+  minConfidence: 0,
+};
+
+/** Returns true when a finding should appear in the panel. */
+export function passesFindingFilters(
+  finding: Finding,
+  filters: FindingFilters
+): boolean {
+  if (finding.confidence < filters.minConfidence) {
+    return false;
+  }
+  const allowlist = filters.categories;
+  if (allowlist !== undefined && allowlist.length > 0) {
+    return allowlist.includes(finding.category);
+  }
+  return true;
+}
+
+/** Count findings hidden by the active display filters. */
+export function countHiddenByFilter(
+  findings: Finding[],
+  filters: FindingFilters
+): number {
+  return findings.filter((f) => !passesFindingFilters(f, filters)).length;
+}
 
 /** Dismissal reasons aligned with CLI (`stet dismiss <id> [reason]`). */
 export const DISMISSAL_REASONS = [
@@ -43,6 +77,36 @@ export class FindingsTreeDataProvider
 
   private findings: Finding[] = [];
   private scanning = false;
+  private filters: FindingFilters = { ...DEFAULT_FINDING_FILTERS };
+  private treeView: vscode.TreeView<TreeItemModel> | undefined;
+
+  attachTreeView(treeView: vscode.TreeView<TreeItemModel>): void {
+    this.treeView = treeView;
+    this.updateFilterMessage();
+  }
+
+  setFilters(filters: FindingFilters): void {
+    this.filters = filters;
+    this.updateFilterMessage();
+    this._onDidChangeTreeData.fire();
+  }
+
+  getFilters(): FindingFilters {
+    return this.filters;
+  }
+
+  getHiddenByFilterCount(): number {
+    return countHiddenByFilter(this.findings, this.filters);
+  }
+
+  private updateFilterMessage(): void {
+    if (this.treeView === undefined) {
+      return;
+    }
+    const hidden = this.getHiddenByFilterCount();
+    this.treeView.message =
+      hidden > 0 ? `${hidden} hidden by filter` : undefined;
+  }
 
   getChildren(element?: TreeItemModel): TreeItemModel[] {
     if (element !== undefined) {
@@ -54,7 +118,9 @@ export class FindingsTreeDataProvider
     if (this.findings.length === 0) {
       return [];
     }
-    return this.findings.map((finding) => ({ kind: "finding", finding }));
+    return this.findings
+      .filter((finding) => passesFindingFilters(finding, this.filters))
+      .map((finding) => ({ kind: "finding", finding }));
   }
 
   getTreeItem(element: TreeItemModel): vscode.TreeItem {
@@ -105,6 +171,7 @@ export class FindingsTreeDataProvider
   setFindings(findings: Finding[]): void {
     this.findings = findings;
     this.scanning = false;
+    this.updateFilterMessage();
     this._onDidChangeTreeData.fire();
   }
 
@@ -130,9 +197,10 @@ export function createFindingsPanel(
   _context: vscode.ExtensionContext
 ): FindingsTreeDataProvider {
   const provider = new FindingsTreeDataProvider();
-  void vscode.window.createTreeView(VIEW_ID, {
+  const treeView = vscode.window.createTreeView(VIEW_ID, {
     treeDataProvider: provider,
   });
+  provider.attachTreeView(treeView);
   return provider;
 }
 

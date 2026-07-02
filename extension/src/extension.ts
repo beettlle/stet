@@ -5,6 +5,7 @@ import { buildCopyForChatBlock } from "./copyForChat";
 import {
   createFindingsPanel,
   DISMISSAL_REASONS,
+  type FindingFilters,
   runDismissFinding,
 } from "./findingsPanel";
 import { runFinishReview, maybeAutoFinishAfterReview } from "./finishReview";
@@ -12,12 +13,32 @@ import type { TreeItemModel } from "./findingsPanel";
 import { openFinding } from "./openFinding";
 import type { OpenFindingPayload } from "./openFinding";
 import type { Finding } from "./contract";
+import { CATEGORIES, type Category } from "./contract";
 import { parseStreamEvent } from "./parse";
 
 function getRepoRoot(): string | null {
   const folders = vscode.workspace.workspaceFolders;
   if (!folders || folders.length === 0) return null;
   return folders[0].uri.fsPath;
+}
+
+function readFindingFilters(): FindingFilters {
+  const config = vscode.workspace.getConfiguration("stet");
+  const minConfidence = config.get<number>("minConfidence", 0);
+  const rawCategories = config.get<string[]>("categories", []);
+  const categories = rawCategories.filter((c): c is Category =>
+    (CATEGORIES as readonly string[]).includes(c)
+  );
+  return {
+    minConfidence,
+    categories: categories.length > 0 ? categories : undefined,
+  };
+}
+
+function applyFindingFilters(
+  provider: ReturnType<typeof createFindingsPanel>
+): void {
+  provider.setFilters(readFindingFilters());
 }
 
 /**
@@ -38,6 +59,17 @@ function showCLIError(stderr: string, exitCode: number): void {
 
 export function activate(context: vscode.ExtensionContext): void {
   const findingsProvider = createFindingsPanel(context);
+  applyFindingFilters(findingsProvider);
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (
+        e.affectsConfiguration("stet.minConfidence") ||
+        e.affectsConfiguration("stet.categories")
+      ) {
+        applyFindingFilters(findingsProvider);
+      }
+    })
+  );
   context.subscriptions.push(
     vscode.commands.registerCommand("stet.openFinding", async (payload: OpenFindingPayload) => {
       const root = getRepoRoot();
