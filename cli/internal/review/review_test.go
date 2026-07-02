@@ -18,6 +18,7 @@ import (
 	"stet/cli/internal/prompt"
 	"stet/cli/internal/rules"
 	"stet/cli/internal/tokens"
+	"stet/cli/internal/trace"
 
 	_ "stet/cli/internal/rag/go"     // register Go resolver for RAG tests
 	_ "stet/cli/internal/rag/python" // register Python resolver
@@ -789,6 +790,14 @@ func TestPrepareHunkPrompt_suppressionBudgetCapBounded(t *testing.T) {
 	}
 }
 
+func TestProcessReviewResponse_nilResult(t *testing.T) {
+	t.Parallel()
+	_, _, err := ProcessReviewResponse(context.Background(), nil, diff.Hunk{FilePath: "a.go"}, nil, "m", "", "", nil, nil)
+	if err == nil {
+		t.Fatal("expected error for nil result")
+	}
+}
+
 func initGitRepo(t *testing.T, dir string) {
 	t.Helper()
 	cmd := exec.Command("git", "init")
@@ -820,6 +829,78 @@ func gitAdd(t *testing.T, dir, path string) {
 	cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_SYSTEM=/dev/null")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git commit: %v\n%s", err, out)
+	}
+}
+
+func TestPrepareHunkPrompt_searchReplaceFormat(t *testing.T) {
+	t.Parallel()
+	hunk := diff.Hunk{
+		FilePath:   "a.go",
+		RawContent: "@@ -1,1 +1,2 @@\n+line\n",
+		Context:    "line",
+	}
+	ctx := context.Background()
+	system, user, err := PrepareHunkPrompt(ctx, "base", hunk, nil, "", 0, 0, 0, false, 0, 0, 0, true, nil, nil)
+	if err != nil {
+		t.Fatalf("PrepareHunkPrompt: %v", err)
+	}
+	if !strings.Contains(system, "search/replace") && !strings.Contains(system, "SEARCH") {
+		t.Errorf("search-replace format note missing from system: %q", system)
+	}
+	if user == "" {
+		t.Error("user prompt should be non-empty")
+	}
+}
+
+func TestReviewHunk_withTraceOut(t *testing.T) {
+	t.Parallel()
+	validResp := `[{"file":"a.go","line":1,"severity":"info","category":"style","message":"ok"}]`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/tags" {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"models": []map[string]interface{}{{"name": "m"}}})
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": validResp, "done": true})
+	}))
+	defer srv.Close()
+	client, err := llm.NewClient("ollama", srv.URL, srv.Client())
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	stateDir := t.TempDir()
+	hunk := diff.Hunk{FilePath: "a.go", RawContent: "@@ -1,1 +1,1 @@\n code\n", Context: "code"}
+	var traceBuf strings.Builder
+	tr := trace.New(&traceBuf)
+	list, usage, err := ReviewHunk(context.Background(), client, "m", stateDir, hunk, nil, nil, nil, "", 8192, 0, 0, false, 0, 0, 0, nil, false, false, nil, tr)
+	if err != nil {
+		t.Fatalf("ReviewHunk: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("findings len = %d, want 1", len(list))
+	}
+	if usage == nil {
+		t.Error("want usage")
+	}
+	if traceBuf.Len() == 0 {
+		t.Error("trace output should be non-empty when trace enabled")
+	}
+}
+
+func TestProcessReviewResponse_validJSON(t *testing.T) {
+	t.Parallel()
+	result := &ollama.GenerateResult{Response: `[{"file":"x.go","line":2,"severity":"warning","category":"correctness","message":"bug"}]`}
+	hunk := diff.Hunk{FilePath: "x.go", RawContent: "@@ -1,1 +1,1 @@\n"}
+	list, usage, err := ProcessReviewResponse(context.Background(), result, hunk, nil, "", "", "", nil, nil)
+	if err != nil {
+		t.Fatalf("ProcessReviewResponse: %v", err)
+	}
+	if len(list) != 1 || list[0].Message != "bug" {
+		t.Errorf("got %+v", list)
+	}
+	if usage == nil {
+		t.Fatal("want usage struct")
 	}
 }
 

@@ -18,6 +18,8 @@ import (
 	"stet/cli/internal/findings"
 	"stet/cli/internal/git"
 	"stet/cli/internal/history"
+	"stet/cli/internal/llm"
+	"stet/cli/internal/ollama"
 	"stet/cli/internal/prompt"
 	"stet/cli/internal/review"
 	"stet/cli/internal/session"
@@ -2511,5 +2513,178 @@ func TestActiveFindingCount_excludesDismissed(t *testing.T) {
 	want := len(s.Findings) - 1
 	if count != want {
 		t.Errorf("ActiveFindingCount = %d, want %d", count, want)
+	}
+}
+
+func TestTruncateForPromptContext(t *testing.T) {
+	t.Parallel()
+	short := "hello"
+	if got := truncateForPromptContext(short, 10); got != short {
+		t.Errorf("short string: got %q", got)
+	}
+	long := strings.Repeat("x", 20)
+	got := truncateForPromptContext(long, 10)
+	if len(got) <= 10 || !strings.Contains(got, "[truncated]") {
+		t.Errorf("truncated: got len %d, want truncation marker", len(got))
+	}
+	if truncateForPromptContext("x", 0) != "x" {
+		t.Error("maxLen 0 should return unchanged")
+	}
+}
+
+func TestLogExcludedPaths(t *testing.T) {
+	t.Parallel()
+	var buf bytes.Buffer
+	logExcludedPaths(&buf, []string{"a.go", "b.go"})
+	out := buf.String()
+	if !strings.Contains(out, "a.go") || !strings.Contains(out, "b.go") {
+		t.Errorf("output = %q", out)
+	}
+}
+
+func TestMergePendingExcluded(t *testing.T) {
+	t.Parallel()
+	got := mergePendingExcluded([]string{"a.go"}, []string{"b.go", "a.go"})
+	if len(got) != 2 {
+		t.Fatalf("len = %d, want 2", len(got))
+	}
+	if mergePendingExcluded(nil, nil) != nil {
+		t.Error("nil inputs should return nil when skipped empty")
+	}
+	if got := mergePendingExcluded([]string{"x"}, nil); len(got) != 1 || got[0] != "x" {
+		t.Errorf("no skipped: got %v", got)
+	}
+}
+
+func TestWriteStreamLine_andTryWriteStreamLine(t *testing.T) {
+	t.Parallel()
+	var buf bytes.Buffer
+	if err := writeStreamLine(&buf, map[string]string{"type": "progress"}); err != nil {
+		t.Fatalf("writeStreamLine: %v", err)
+	}
+	if !strings.HasSuffix(buf.String(), "\n") {
+		t.Error("want trailing newline")
+	}
+	tryWriteStreamLine(&buf, map[string]int{"n": 1})
+}
+
+func TestRunPromptShadows(t *testing.T) {
+	t.Parallel()
+	if runPromptShadows(nil) != nil {
+		t.Error("nil session should return nil")
+	}
+	s := &session.Session{PromptShadows: []session.PromptShadow{
+		{FindingID: "f1", PromptContext: "ctx"},
+	}}
+	out := runPromptShadows(s)
+	if len(out) != 1 || out[0].FindingID != "f1" {
+		t.Errorf("got %+v", out)
+	}
+}
+
+func TestCaptureUsage(t *testing.T) {
+	old := os.Getenv("STET_CAPTURE_USAGE")
+	defer func() {
+		if old == "" {
+			os.Unsetenv("STET_CAPTURE_USAGE")
+		} else {
+			os.Setenv("STET_CAPTURE_USAGE", old)
+		}
+	}()
+	for _, v := range []string{"0", "false", "no", "off"} {
+		os.Setenv("STET_CAPTURE_USAGE", v)
+		if captureUsage() {
+			t.Errorf("captureUsage(%q) = true, want false", v)
+		}
+	}
+	os.Setenv("STET_CAPTURE_USAGE", "true")
+	if !captureUsage() {
+		t.Error("captureUsage(true) = false, want true")
+	}
+	os.Unsetenv("STET_CAPTURE_USAGE")
+	if !captureUsage() {
+		t.Error("default should be true")
+	}
+}
+
+func TestRemoveReviewedFromPending(t *testing.T) {
+	t.Parallel()
+	hunk := diff.Hunk{FilePath: "done.go"}
+	got := removeReviewedFromPending([]string{"done.go", "pending.go"}, []diff.Hunk{hunk})
+	if len(got) != 1 || got[0] != "pending.go" {
+		t.Errorf("got %v", got)
+	}
+}
+
+func TestTryWriteStreamLine_logsOnError(t *testing.T) {
+	t.Parallel()
+	tryWriteStreamLine(&failWriter{}, map[string]string{"x": "y"})
+}
+
+type failWriter struct{}
+
+func (failWriter) Write([]byte) (int, error) { return 0, errors.New("write failed") }
+
+func TestRunReviewPipeline_emptyHunks(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	collected, fpc, sp, sc, sd, err := runReviewPipeline(ctx, reviewPipelineOpts{})
+	if err != nil {
+		t.Fatalf("runReviewPipeline: %v", err)
+	}
+	if collected != nil || len(fpc) != 0 || sp != 0 || sc != 0 || sd != 0 {
+		t.Errorf("empty hunks: collected=%v fpc=%v sp=%d sc=%d sd=%d", collected, fpc, sp, sc, sd)
+	}
+}
+
+func TestRunReviewPipeline_singleHunkWithStream(t *testing.T) {
+	validResp := `[{"file":"a.go","line":1,"severity":"info","category":"style","message":"pipeline-unit"}]`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		enc := json.NewEncoder(w)
+		_ = enc.Encode(map[string]interface{}{"response": validResp, "done": true})
+	}))
+	defer srv.Close()
+
+	client, err := llm.NewClient("ollama", srv.URL, srv.Client())
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	stateDir := t.TempDir()
+	systemBase, err := prompt.SystemPrompt(stateDir, "")
+	if err != nil {
+		t.Fatalf("SystemPrompt: %v", err)
+	}
+	var stream bytes.Buffer
+	hunk := diff.Hunk{FilePath: "a.go", RawContent: "@@ -1 +1 @@\npackage main\n", Context: "package main\n"}
+	ctx := context.Background()
+	collected, fpc, _, _, _, err := runReviewPipeline(ctx, reviewPipelineOpts{
+		Client:                client,
+		Model:                 "m",
+		Hunks:                 []diff.Hunk{hunk},
+		GenOpts:               &ollama.GenerateOptions{},
+		SystemBase:            systemBase,
+		RepoRoot:              "",
+		EffectiveContextLimit: 32768,
+		StreamOut:             &stream,
+	})
+	if err != nil {
+		t.Fatalf("runReviewPipeline: %v", err)
+	}
+	if len(collected) != 1 {
+		t.Fatalf("collected len = %d, want 1", len(collected))
+	}
+	if collected[0].Message != "pipeline-unit" {
+		t.Errorf("message = %q", collected[0].Message)
+	}
+	if len(fpc) != 1 {
+		t.Errorf("findingPromptContext len = %d, want 1", len(fpc))
+	}
+	if !strings.Contains(stream.String(), `"type":"progress"`) {
+		t.Errorf("stream output missing progress: %q", stream.String())
 	}
 }

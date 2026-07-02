@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -14,11 +15,13 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"stet/cli/internal/config"
 	"stet/cli/internal/findings"
 	"stet/cli/internal/git"
 	"stet/cli/internal/history"
+	"stet/cli/internal/run"
 	"stet/cli/internal/session"
 )
 
@@ -2475,3 +2478,434 @@ func TestParseContextPreset(t *testing.T) {
 		})
 	}
 }
+
+func TestErrExit_Error(t *testing.T) {
+	t.Parallel()
+	if got := errExit(2).Error(); got != "exit 2" {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestFormatLLMRejected(t *testing.T) {
+	t.Parallel()
+	var buf bytes.Buffer
+	formatLLMRejected(&buf, "openai", "http://localhost:1234/v1", errors.New("bad request"))
+	out := buf.String()
+	if !strings.Contains(out, "openai") || !strings.Contains(out, "bad request") {
+		t.Errorf("output = %q", out)
+	}
+}
+
+func TestPrintLLMUnreachable_timeoutHint(t *testing.T) {
+	var stderr bytes.Buffer
+	orig := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+	defer func() { os.Stderr = orig }()
+	printLLMUnreachable("ollama", "http://localhost:11434", context.DeadlineExceeded)
+	_ = w.Close()
+	_, _ = stderr.ReadFrom(r)
+}
+
+func TestWriteFindingsHuman_singleFinding(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	s := session.Session{
+		BaselineRef: "abc",
+		Findings: []findings.Finding{
+			{ID: "finding-id-1234", File: "a.go", Line: 10, Severity: findings.SeverityWarning, Category: findings.CategoryBug, Confidence: 1.0, Message: "fix me"},
+		},
+	}
+	if err := session.Save(dir, &s); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	if err := writeFindingsHuman(&buf, dir, nil); err != nil {
+		t.Fatalf("writeFindingsHuman: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "a.go:10") || !strings.Contains(out, "fix me") || !strings.Contains(out, "1 finding.") {
+		t.Errorf("output = %q", out)
+	}
+}
+
+func TestWriteFindingsHuman_withStats(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	s := session.Session{
+		BaselineRef: "abc",
+		Findings: []findings.Finding{
+			{ID: "f1", File: "a.go", Line: 1, Severity: findings.SeverityInfo, Category: findings.CategoryStyle, Confidence: 1.0, Message: "m1"},
+			{ID: "f2", File: "b.go", Line: 2, Severity: findings.SeverityInfo, Category: findings.CategoryStyle, Confidence: 1.0, Message: "m2"},
+		},
+	}
+	if err := session.Save(dir, &s); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	stats := &run.RunStats{EvalDurationNs: 1_000_000_000, PromptTokens: 100, CompletionTokens: 50}
+	if err := writeFindingsHuman(&buf, dir, stats); err != nil {
+		t.Fatalf("writeFindingsHuman: %v", err)
+	}
+	if !strings.Contains(buf.String(), "tokens/sec") {
+		t.Errorf("output = %q", buf.String())
+	}
+}
+
+func TestWriteFindingsWithIDs_usesRangeStart(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	start := 5
+	s := session.Session{
+		BaselineRef: "abc",
+		Findings: []findings.Finding{
+			{ID: "f1", File: "a.go", Line: 1, Range: &findings.LineRange{Start: start, End: 7}, Severity: findings.SeverityInfo, Category: findings.CategoryStyle, Confidence: 1.0, Message: "m"},
+		},
+	}
+	if err := session.Save(dir, &s); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	if err := writeFindingsWithIDs(&buf, dir); err != nil {
+		t.Fatalf("writeFindingsWithIDs: %v", err)
+	}
+	if !strings.Contains(buf.String(), "a.go:5") {
+		t.Errorf("output = %q", buf.String())
+	}
+}
+
+func TestRunCLI_commitMsgPrintsSuggestion(t *testing.T) {
+	repo := initRepo(t)
+	writeFile(t, repo, "change.txt", "new\n")
+	runGit(t, repo, "git", "add", "change.txt")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/tags") || strings.HasSuffix(r.URL.Path, "/models") {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"models": []map[string]interface{}{{"name": "m"}}})
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"response":"feat: add change","done":true}` + "\n"))
+	}))
+	defer srv.Close()
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	origURL := os.Getenv("STET_OLLAMA_BASE_URL")
+	_ = os.Setenv("STET_OLLAMA_BASE_URL", srv.URL)
+	t.Cleanup(func() { _ = os.Setenv("STET_OLLAMA_BASE_URL", origURL) })
+	var stdout bytes.Buffer
+	origOut := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	t.Cleanup(func() { os.Stdout = origOut })
+	if got := runCLI([]string{"commitmsg"}); got != 0 {
+		t.Fatalf("runCLI(commitmsg) = %d, want 0", got)
+	}
+	_ = w.Close()
+	_, _ = stdout.ReadFrom(r)
+}
+
+func TestOverridesFromFlags_noFlagsNil(t *testing.T) {
+	cmd := newStartCmd()
+	o, err := overridesFromFlags(cmd)
+	if err != nil {
+		t.Fatalf("overridesFromFlags: %v", err)
+	}
+	if o != nil {
+		t.Errorf("got %+v, want nil", o)
+	}
+}
+
+func TestOverridesFromFlags_providerOpenAIAndTimeout(t *testing.T) {
+	cmd := newStartCmd()
+	if err := cmd.Flags().Set("provider", "openai"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("openai-base-url", "http://lm:1234/v1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("timeout", "90s"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("context", "32k"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("rag-call-graph", "true"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("verify", "true"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("exclude", "*.md"); err != nil {
+		t.Fatal(err)
+	}
+	o, err := overridesFromFlags(cmd)
+	if err != nil {
+		t.Fatalf("overridesFromFlags: %v", err)
+	}
+	if o == nil || o.Provider == nil || *o.Provider != "openai" {
+		t.Fatalf("provider override: %+v", o)
+	}
+	if o.OpenAIBaseURL == nil || *o.OpenAIBaseURL != "http://lm:1234/v1" {
+		t.Errorf("openai base url: %+v", o)
+	}
+	if o.Timeout == nil || *o.Timeout != 90*time.Second {
+		t.Errorf("timeout: %+v", o)
+	}
+	if o.ContextLimit == nil || *o.ContextLimit != 32768 {
+		t.Errorf("context: %+v", o)
+	}
+	if o.RAGCallGraphEnabled == nil || !*o.RAGCallGraphEnabled {
+		t.Errorf("rag call graph: %+v", o)
+	}
+	if o.CriticEnabled == nil || !*o.CriticEnabled {
+		t.Errorf("critic: %+v", o)
+	}
+	if o.ExcludePatterns == nil || len(*o.ExcludePatterns) != 1 {
+		t.Errorf("exclude: %+v", o)
+	}
+}
+
+func TestOverridesFromFlags_invalidProvider(t *testing.T) {
+	cmd := newStartCmd()
+	if err := cmd.Flags().Set("provider", "bad"); err != nil {
+		t.Fatal(err)
+	}
+	_, err := overridesFromFlags(cmd)
+	if err == nil {
+		t.Fatal("expected error for invalid provider")
+	}
+}
+
+func TestRunCLI_statsQualityHumanInRepo(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	if got := runCLI([]string{"stats", "quality"}); got != 0 {
+		t.Fatalf("runCLI(stats quality) = %d, want 0", got)
+	}
+}
+
+func TestRunCLI_statsEnergyHumanInRepo(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	if got := runCLI([]string{"stats", "energy"}); got != 0 {
+		t.Fatalf("runCLI(stats energy) = %d, want 0", got)
+	}
+}
+
+func TestRunCLI_runAfterStartDryRun(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+		t.Fatalf("start = %d", got)
+	}
+	if got := runCLI([]string{"run", "--dry-run"}); got != 0 {
+		t.Fatalf("run = %d", got)
+	}
+}
+
+func TestRunCLI_rerunAfterStartDryRun(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+		t.Fatalf("start = %d", got)
+	}
+	if got := runCLI([]string{"rerun", "--dry-run"}); got != 0 {
+		t.Fatalf("rerun = %d", got)
+	}
+}
+
+func TestWriteFindingsJSON_writeError(t *testing.T) {
+	t.Parallel()
+	err := writeFindingsJSON(&failWriteCloser{}, t.TempDir())
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestFormatLLMRejected_emptyBaseURL(t *testing.T) {
+	t.Parallel()
+	var buf bytes.Buffer
+	formatLLMRejected(&buf, "ollama", "", errors.New("rejected"))
+	if !strings.Contains(buf.String(), "(no URL)") {
+		t.Errorf("output = %q", buf.String())
+	}
+}
+
+func TestWriteFindingsHuman_multipleFindingsNoStats(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	s := session.Session{
+		BaselineRef: "abc",
+		Findings: []findings.Finding{
+			{ID: "f1", File: "a.go", Line: 1, Severity: findings.SeverityInfo, Category: findings.CategoryStyle, Confidence: 1.0, Message: "m1"},
+			{ID: "f2", File: "b.go", Line: 2, Severity: findings.SeverityWarning, Category: findings.CategoryBug, Confidence: 1.0, Message: "m2"},
+		},
+	}
+	if err := session.Save(dir, &s); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	if err := writeFindingsHuman(&buf, dir, nil); err != nil {
+		t.Fatalf("writeFindingsHuman: %v", err)
+	}
+	if !strings.Contains(buf.String(), "2 finding(s).") {
+		t.Errorf("output = %q", buf.String())
+	}
+}
+
+func TestRunCLI_commitMsgNoChangesExits1(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	if got := runCLI([]string{"commitmsg"}); got != 1 {
+		t.Errorf("runCLI(commitmsg) with no changes = %d, want 1", got)
+	}
+}
+
+func TestRunCLI_commitMsgUnreachableLLMExits2(t *testing.T) {
+	repo := initRepo(t)
+	writeFile(t, repo, "x.txt", "change\n")
+	runGit(t, repo, "git", "add", "x.txt")
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	origURL := os.Getenv("STET_OLLAMA_BASE_URL")
+	_ = os.Setenv("STET_OLLAMA_BASE_URL", "http://127.0.0.1:1")
+	t.Cleanup(func() { _ = os.Setenv("STET_OLLAMA_BASE_URL", origURL) })
+	if got := runCLI([]string{"commitmsg"}); got != 2 {
+		t.Errorf("runCLI(commitmsg) unreachable = %d, want 2", got)
+	}
+}
+
+func TestRunCLI_doctorReachableExits0(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"models":[{"name":"qwen3-coder:30b"}]}`))
+	}))
+	defer srv.Close()
+	origURL := os.Getenv("STET_OLLAMA_BASE_URL")
+	origModel := os.Getenv("STET_MODEL")
+	_ = os.Setenv("STET_OLLAMA_BASE_URL", srv.URL)
+	_ = os.Setenv("STET_MODEL", "qwen3-coder:30b")
+	t.Cleanup(func() {
+		_ = os.Setenv("STET_OLLAMA_BASE_URL", origURL)
+		_ = os.Setenv("STET_MODEL", origModel)
+	})
+	if got := runCLI([]string{"doctor"}); got != 0 {
+		t.Errorf("runCLI(doctor) reachable = %d, want 0", got)
+	}
+}
+
+func TestFindingsWriter_nilUsesStdout(t *testing.T) {
+	old := getFindingsOut
+	getFindingsOut = func() io.Writer { return nil }
+	t.Cleanup(func() { getFindingsOut = old })
+	w := findingsWriter()
+	if w == nil {
+		t.Fatal("findingsWriter should never return nil")
+	}
+}
+
+func TestPrintLLMUnreachable_emptyBaseURL(t *testing.T) {
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldStderr := os.Stderr
+	os.Stderr = w
+	t.Cleanup(func() { os.Stderr = oldStderr })
+	printLLMUnreachable("openai", "", errors.New("dial"))
+	_ = w.Close()
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	if !strings.Contains(buf.String(), "(no URL)") {
+		t.Errorf("stderr = %q", buf.String())
+	}
+}
+
+func TestRunCLI_startFinishCleanupDryRun(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run"}); got != 0 {
+		t.Fatalf("start = %d", got)
+	}
+	if got := runCLI([]string{"finish"}); got != 0 {
+		t.Fatalf("finish = %d", got)
+	}
+	if got := runCLI([]string{"cleanup"}); got != 0 {
+		t.Fatalf("cleanup = %d", got)
+	}
+}
+
+func TestRunCLI_commitMsgStagedOnlyNoStagedExits1(t *testing.T) {
+	repo := initRepo(t)
+	writeFile(t, repo, "unstaged.txt", "x\n")
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	if got := runCLI([]string{"commitmsg", "--staged-only"}); got != 1 {
+		t.Errorf("runCLI(commitmsg --staged-only) = %d, want 1", got)
+	}
+}
+
+type failWriteCloser struct{}
+
+func (failWriteCloser) Write([]byte) (int, error) { return 0, errors.New("fail") }

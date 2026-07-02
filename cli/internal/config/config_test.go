@@ -572,15 +572,80 @@ func TestParseDuration(t *testing.T) {
 		tt := tt
 		t.Run(tt.in, func(t *testing.T) {
 			t.Parallel()
-			got, err := parseDuration(tt.in)
+			got, err := ParseDuration(tt.in)
 			if err != nil {
-				t.Fatalf("parseDuration(%q): %v", tt.in, err)
+				t.Fatalf("ParseDuration(%q): %v", tt.in, err)
 			}
 			if got != tt.want {
-				t.Errorf("parseDuration(%q) = %v, want %v", tt.in, got, tt.want)
+				t.Errorf("ParseDuration(%q) = %v, want %v", tt.in, got, tt.want)
 			}
 		})
 	}
+}
+
+func TestEffectiveLLMProvider(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		provider string
+		want     string
+	}{
+		{"ollama", "ollama"},
+		{"openai", "openai"},
+		{"OLLAMA", "ollama"},
+		{"", _defaultProvider},
+		{"anthropic", _defaultProvider},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.provider, func(t *testing.T) {
+			t.Parallel()
+			cfg := DefaultConfig()
+			cfg.Provider = tt.provider
+			if got := cfg.EffectiveLLMProvider(); got != tt.want {
+				t.Errorf("EffectiveLLMProvider() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEffectiveLLMBaseURL(t *testing.T) {
+	t.Parallel()
+	t.Run("ollama default", func(t *testing.T) {
+		t.Parallel()
+		cfg := DefaultConfig()
+		cfg.Provider = "ollama"
+		cfg.OllamaBaseURL = ""
+		if got := cfg.EffectiveLLMBaseURL(); got != _defaultOllamaBaseURL {
+			t.Errorf("got %q, want %q", got, _defaultOllamaBaseURL)
+		}
+	})
+	t.Run("ollama custom", func(t *testing.T) {
+		t.Parallel()
+		cfg := DefaultConfig()
+		cfg.Provider = "ollama"
+		cfg.OllamaBaseURL = "http://custom:11434"
+		if got := cfg.EffectiveLLMBaseURL(); got != "http://custom:11434" {
+			t.Errorf("got %q", got)
+		}
+	})
+	t.Run("openai default", func(t *testing.T) {
+		t.Parallel()
+		cfg := DefaultConfig()
+		cfg.Provider = "openai"
+		cfg.OpenAIBaseURL = ""
+		if got := cfg.EffectiveLLMBaseURL(); got != _defaultOpenAIBaseURL {
+			t.Errorf("got %q, want %q", got, _defaultOpenAIBaseURL)
+		}
+	})
+	t.Run("openai custom", func(t *testing.T) {
+		t.Parallel()
+		cfg := DefaultConfig()
+		cfg.Provider = "openai"
+		cfg.OpenAIBaseURL = "http://lmstudio:1234/v1"
+		if got := cfg.EffectiveLLMBaseURL(); got != "http://lmstudio:1234/v1" {
+			t.Errorf("got %q", got)
+		}
+	})
 }
 
 func TestParseDuration_invalid(t *testing.T) {
@@ -1274,5 +1339,120 @@ func TestConfig_DiffOptions(t *testing.T) {
 	}
 	if len(opts.ExcludePatterns) != 1 || opts.ExcludePatterns[0] != "*.md" {
 		t.Errorf("ExcludePatterns = %v, want [*.md]", opts.ExcludePatterns)
+	}
+}
+
+func TestLoad_providerAndURLsFromTOML(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	reviewDir := filepath.Join(dir, ".review")
+	if err := os.MkdirAll(reviewDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	toml := `
+provider = "openai"
+openai_base_url = "http://localhost:9999/v1"
+ollama_base_url = "http://localhost:8888"
+timeout = "45s"
+num_ctx = 8192
+rag_call_graph_enabled = true
+critic_enabled = true
+critic_model = "critic-model"
+`
+	if err := os.WriteFile(filepath.Join(reviewDir, "config.toml"), []byte(toml), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(context.Background(), LoadOptions{RepoRoot: dir})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Provider != "openai" {
+		t.Errorf("Provider = %q", cfg.Provider)
+	}
+	if cfg.OpenAIBaseURL != "http://localhost:9999/v1" {
+		t.Errorf("OpenAIBaseURL = %q", cfg.OpenAIBaseURL)
+	}
+	if cfg.Timeout != 45*time.Second {
+		t.Errorf("Timeout = %v", cfg.Timeout)
+	}
+	if cfg.NumCtx != 8192 {
+		t.Errorf("NumCtx = %d", cfg.NumCtx)
+	}
+	if !cfg.RAGCallGraphEnabled {
+		t.Error("RAGCallGraphEnabled = false, want true")
+	}
+	if !cfg.CriticEnabled || cfg.CriticModel != "critic-model" {
+		t.Errorf("critic: enabled=%v model=%q", cfg.CriticEnabled, cfg.CriticModel)
+	}
+}
+
+func TestLoad_providerFromEnv(t *testing.T) {
+	t.Parallel()
+	cfg, err := Load(context.Background(), LoadOptions{
+		Env: []string{
+			"STET_PROVIDER=openai",
+			"STET_OPENAI_BASE_URL=http://env:1234/v1",
+			"STET_OLLAMA_BASE_URL=http://ollama:11434",
+			"STET_MAX_COMPLETION_TOKENS=2048",
+			"STET_RAG_CALLERS_MAX=5",
+			"STET_RAG_CALLEES_MAX=6",
+			"STET_RAG_CALL_GRAPH_MAX_TOKENS=700",
+			"STET_CRITIC_ENABLED=true",
+			"STET_CRITIC_MODEL=critic-x",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Provider != "openai" {
+		t.Errorf("Provider = %q", cfg.Provider)
+	}
+	if cfg.OpenAIBaseURL != "http://env:1234/v1" {
+		t.Errorf("OpenAIBaseURL = %q", cfg.OpenAIBaseURL)
+	}
+	if cfg.MaxCompletionTokens != 2048 {
+		t.Errorf("MaxCompletionTokens = %d", cfg.MaxCompletionTokens)
+	}
+	if cfg.RAGCallersMax != 5 || cfg.RAGCalleesMax != 6 {
+		t.Errorf("RAG callers/callees: %d %d", cfg.RAGCallersMax, cfg.RAGCalleesMax)
+	}
+	if cfg.RAGCallGraphMaxTokens != 700 {
+		t.Errorf("RAGCallGraphMaxTokens = %d", cfg.RAGCallGraphMaxTokens)
+	}
+	if !cfg.CriticEnabled || cfg.CriticModel != "critic-x" {
+		t.Errorf("critic: enabled=%v model=%q", cfg.CriticEnabled, cfg.CriticModel)
+	}
+}
+
+func TestLoad_mergeFileStateDirAndWorktree(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	reviewDir := filepath.Join(dir, ".review")
+	if err := os.MkdirAll(reviewDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	toml := `
+state_dir = "/tmp/stet-state"
+worktree_root = "/tmp/stet-wt"
+warn_threshold = 0.85
+temperature = 0.5
+exclude_patterns = ["*.gen.go"]
+exclude_patterns_replace = true
+`
+	if err := os.WriteFile(filepath.Join(reviewDir, "config.toml"), []byte(toml), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(context.Background(), LoadOptions{RepoRoot: dir})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.StateDir != "/tmp/stet-state" || cfg.WorktreeRoot != "/tmp/stet-wt" {
+		t.Errorf("state/worktree: %q %q", cfg.StateDir, cfg.WorktreeRoot)
+	}
+	if cfg.WarnThreshold != 0.85 || cfg.Temperature != 0.5 {
+		t.Errorf("warn/temp: %v %v", cfg.WarnThreshold, cfg.Temperature)
+	}
+	if len(cfg.ExcludePatterns) != 1 || !cfg.ExcludePatternsReplace {
+		t.Errorf("exclude: %v replace=%v", cfg.ExcludePatterns, cfg.ExcludePatternsReplace)
 	}
 }

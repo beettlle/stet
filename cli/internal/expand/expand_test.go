@@ -402,3 +402,183 @@ func TestEnclosingFuncName_emptyRepoRoot_returnsFalse(t *testing.T) {
 		t.Errorf("EnclosingFuncName(empty repo) = (%q, %v), want (\"\", false)", name, ok)
 	}
 }
+
+func TestExpandHunk_Python_enclosingFunction(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		hunk    diff.Hunk
+	}{
+		{
+			name: "module_function",
+			content: `def process_data(input_str: str) -> int:
+    count = 0
+    for i in range(50):
+        count += i
+    return count
+`,
+			hunk: diff.Hunk{
+				FilePath:   "pkg/foo.py",
+				RawContent: "@@ -2,3 +2,3 @@\n-    count = 0\n+    count = 1\n     for i in range(50):",
+			},
+		},
+		{
+			name: "class_method",
+			content: `class Widget:
+    async def render(self) -> None:
+        label = "hello"
+        print(label)
+`,
+			hunk: diff.Hunk{
+				FilePath:   "Widget.py",
+				RawContent: "@@ -3,2 +3,2 @@\n-        label = \"hello\"\n+        label = \"world\"\n         print(label)",
+			},
+		},
+		{
+			name: "decorated_method",
+			content: `@property
+def name(self) -> str:
+    return self._name
+`,
+			hunk: diff.Hunk{
+				FilePath:   "model.py",
+				RawContent: "@@ -3,1 +3,1 @@\n-    return self._name\n+    return self._label",
+			},
+		},
+		{
+			name: "multiline_signature",
+			content: `def long_sig(
+    a: int,
+    b: int,
+) -> int:
+    return a + b
+`,
+			hunk: diff.Hunk{
+				FilePath:   "math.py",
+				RawContent: "@@ -5,1 +5,1 @@\n-    return a + b\n+    return a * b",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, filepath.FromSlash(tt.hunk.FilePath))
+			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte(tt.content), 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			expanded, err := ExpandHunk(dir, tt.hunk, 0)
+			if err != nil {
+				t.Fatalf("ExpandHunk: %v", err)
+			}
+			if expanded.Context == tt.hunk.RawContent || !strings.Contains(expanded.Context, "## Enclosing function context") {
+				t.Error("expected expanded context with enclosing function")
+			}
+			if !strings.Contains(expanded.Context, "```python") {
+				t.Error("expected python code fence")
+			}
+			if !strings.Contains(expanded.Context, "## Diff hunk") {
+				t.Error("expected expanded context to contain diff hunk section")
+			}
+		})
+	}
+}
+
+func TestExpandHunk_Python_noEnclosingFunction(t *testing.T) {
+	dir := t.TempDir()
+	content := `x = 1
+y = 2
+`
+	path := filepath.Join(dir, "top.py")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	hunk := diff.Hunk{
+		FilePath:   "top.py",
+		RawContent: "@@ -1,2 +1,2 @@\n-x = 1\n+x = 2\n y = 2",
+		Context:    "",
+	}
+
+	expanded, err := ExpandHunk(dir, hunk, 0)
+	if err != nil {
+		t.Fatalf("ExpandHunk: %v", err)
+	}
+	if strings.Contains(expanded.Context, "## Enclosing function context") {
+		t.Error("top-level hunk should not be expanded; no enclosing function")
+	}
+}
+
+func TestExpandHunk_Python_truncation(t *testing.T) {
+	dir := t.TempDir()
+	var b strings.Builder
+	b.WriteString("def long_func():\n")
+	for i := 0; i < 500; i++ {
+		b.WriteString("    x")
+		b.WriteString(strings.Repeat("y", 50))
+		b.WriteString(" = 1\n")
+	}
+	b.WriteString("\n")
+	path := filepath.Join(dir, "long.py")
+	if err := os.WriteFile(path, []byte(b.String()), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	hunk := diff.Hunk{
+		FilePath:   "long.py",
+		RawContent: "@@ -2,3 +2,3 @@\n def long_func():\n     a = 1\n     b = 2",
+		Context:    "",
+	}
+
+	expanded, err := ExpandHunk(dir, hunk, 100)
+	if err != nil {
+		t.Fatalf("ExpandHunk: %v", err)
+	}
+	if !strings.Contains(expanded.Context, truncateMarker) {
+		t.Error("expected truncated output to contain truncate marker")
+	}
+	if !strings.Contains(expanded.Context, "def long_func") {
+		t.Error("expected signature to be preserved in truncated output")
+	}
+}
+
+func TestExpandHunk_Python_failOpen_badHunkHeader(t *testing.T) {
+	dir := t.TempDir()
+	_ = os.WriteFile(filepath.Join(dir, "a.py"), []byte("def f():\n    pass\n"), 0644)
+	hunk := diff.Hunk{FilePath: "a.py", RawContent: "not a hunk", Context: "keep"}
+	expanded, err := ExpandHunk(dir, hunk, 0)
+	if err != nil {
+		t.Fatalf("ExpandHunk: %v", err)
+	}
+	if expanded.Context != "keep" {
+		t.Error("expected unchanged context on bad hunk header")
+	}
+}
+
+func TestFindEnclosingPythonScope_smallestWins(t *testing.T) {
+	src := []byte(`def outer():
+    def inner():
+        return 1
+    return inner()
+`)
+	scope, ok := findEnclosingPythonScope(src, 3, 3)
+	if !ok {
+		t.Fatal("expected enclosing scope")
+	}
+	if !strings.Contains(extractLineRange(src, scope.startLine, scope.endLine), "def inner") {
+		t.Errorf("expected inner function, got lines %d-%d: %q", scope.startLine, scope.endLine, extractLineRange(src, scope.startLine, scope.endLine))
+	}
+}
+
+func TestLooksLikePythonDef_rejectsClass(t *testing.T) {
+	if looksLikePythonDef("class Foo:") {
+		t.Error("class declaration should not match")
+	}
+	if !looksLikePythonDef("    def bar(self):") {
+		t.Error("indented method should match")
+	}
+}

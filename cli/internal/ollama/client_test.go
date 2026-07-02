@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -846,5 +847,134 @@ func TestClient_Show_timeoutDoesNotRetry(t *testing.T) {
 	}
 	if n := attempts.Load(); n != 1 {
 		t.Errorf("Show: timeout error should not be retried, got %d attempts", n)
+	}
+}
+
+func TestClient_GeneratePlain_success(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"response":"commit msg","done":true}` + "\n"))
+	}))
+	defer srv.Close()
+	client := NewClient(srv.URL, srv.Client())
+	got, err := client.GeneratePlain(context.Background(), "m", "sys", "diff", nil)
+	if err != nil {
+		t.Fatalf("GeneratePlain: %v", err)
+	}
+	if got.Response != "commit msg" {
+		t.Errorf("Response = %q, want commit msg", got.Response)
+	}
+}
+
+func TestClient_GenerateWithMessages_success(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/chat" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"message":{"content":"part"},"done":false}` + "\n"))
+		_, _ = w.Write([]byte(`{"message":{"content":""},"done":true,"done_reason":"stop","model":"m","prompt_eval_count":10,"eval_count":5}` + "\n"))
+	}))
+	defer srv.Close()
+	client := NewClient(srv.URL, srv.Client())
+	got, err := client.GenerateWithMessages(context.Background(), "m", []Message{
+		{Role: "user", Content: "continue"},
+	}, nil)
+	if err != nil {
+		t.Fatalf("GenerateWithMessages: %v", err)
+	}
+	if got.Response != "part" {
+		t.Errorf("Response = %q, want part", got.Response)
+	}
+	if got.PromptEvalCount != 10 || got.EvalCount != 5 {
+		t.Errorf("usage: prompt=%d completion=%d", got.PromptEvalCount, got.EvalCount)
+	}
+}
+
+func TestDecodeStreamedChatResponse_success(t *testing.T) {
+	t.Parallel()
+	body := strings.NewReader(`{"message":{"content":"a"},"done":false}` + "\n" +
+		`{"message":{"content":"b"},"done":true,"done_reason":"stop","model":"m","prompt_eval_count":1,"eval_count":2}` + "\n")
+	content, reason, pEval, eEval, _, _, _, _, model, err := decodeStreamedChatResponse(body)
+	if err != nil {
+		t.Fatalf("decodeStreamedChatResponse: %v", err)
+	}
+	if content != "ab" || reason != "stop" || model != "m" {
+		t.Errorf("content=%q reason=%q model=%q", content, reason, model)
+	}
+	if pEval != 1 || eEval != 2 {
+		t.Errorf("counts: prompt=%d eval=%d", pEval, eEval)
+	}
+}
+
+func TestDecodeStreamedChatResponse_noDone(t *testing.T) {
+	t.Parallel()
+	body := strings.NewReader(`{"message":{"content":"x"},"done":false}` + "\n")
+	_, _, _, _, _, _, _, _, _, err := decodeStreamedChatResponse(body)
+	if err == nil {
+		t.Fatal("want error when stream ends without done")
+	}
+}
+
+func TestClient_GenerateWithMessages_emptyMessages(t *testing.T) {
+	t.Parallel()
+	client := NewClient("http://localhost:11434", nil)
+	_, err := client.GenerateWithMessages(context.Background(), "m", nil, nil)
+	if err == nil {
+		t.Fatal("expected error for empty messages")
+	}
+}
+
+func TestClient_GenerateWithMessages_retriesOn503(t *testing.T) {
+	var calls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/chat" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		calls++
+		if calls == 1 {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"message":{"content":"ok"},"done":true,"done_reason":"stop"}` + "\n"))
+	}))
+	defer srv.Close()
+	client := NewClient(srv.URL, srv.Client())
+	got, err := client.GenerateWithMessages(context.Background(), "m", []Message{{Role: "user", Content: "hi"}}, nil)
+	if err != nil {
+		t.Fatalf("GenerateWithMessages: %v", err)
+	}
+	if got.Response != "ok" || calls < 2 {
+		t.Errorf("calls=%d response=%q", calls, got.Response)
+	}
+}
+
+func TestClient_Show_success(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/show" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"modelfile": "FROM m"})
+	}))
+	defer srv.Close()
+	client := NewClient(srv.URL, srv.Client())
+	got, err := client.Show(context.Background(), "m")
+	if err != nil {
+		t.Fatalf("Show: %v", err)
+	}
+	if got == nil {
+		t.Fatal("want non-nil ShowResult")
 	}
 }

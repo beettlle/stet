@@ -61,11 +61,11 @@ const (
 )
 
 // ExpandHunk enriches a hunk with enclosing function context when supported.
-// Go and JavaScript/TypeScript (.js, .jsx, .ts, .tsx) files are expanded when
-// the hunk is inside a function or class method. Respects maxTokens by
-// truncating; prioritizes function signature. Returns the hunk unchanged on
-// any error or for unsupported files (fail open). repoRoot is the git
-// repository root; file path is relative to it.
+// Go, JavaScript/TypeScript (.js, .jsx, .ts, .tsx), and Python (.py) files
+// are expanded when the hunk is inside a function or class method. Respects
+// maxTokens by truncating; prioritizes function signature. Returns the hunk
+// unchanged on any error or for unsupported files (fail open). repoRoot is
+// the git repository root; file path is relative to it.
 func ExpandHunk(repoRoot string, hunk diff.Hunk, maxTokens int) (diff.Hunk, error) {
 	if repoRoot == "" || hunk.FilePath == "" {
 		return hunk, nil
@@ -76,6 +76,8 @@ func ExpandHunk(repoRoot string, hunk diff.Hunk, maxTokens int) (diff.Hunk, erro
 		return expandGoHunk(repoRoot, hunk, maxTokens)
 	case isJSTSExt(ext):
 		return expandJSTSHunk(repoRoot, hunk, maxTokens)
+	case ext == pyExt:
+		return expandPythonHunk(repoRoot, hunk, maxTokens)
 	default:
 		return hunk, nil
 	}
