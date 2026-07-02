@@ -90,3 +90,50 @@ func TestResolveCallGraph_emptyExtension_returnsNil(t *testing.T) {
 		t.Errorf("expected nil for no extension; got %+v", result)
 	}
 }
+
+type mockCallGraphResolver struct{}
+
+func (mockCallGraphResolver) ResolveCallGraph(ctx context.Context, repoRoot, filePath, hunkContent string, opts CallGraphOptions) (*CallGraphResult, error) {
+	return &CallGraphResult{
+		Callers: []Definition{{Symbol: "caller", File: "a.go", Line: 1, Signature: "caller()"}},
+	}, nil
+}
+
+func TestRegisterCallGraphResolver_emptyExtension_returnsError(t *testing.T) {
+	err := RegisterCallGraphResolver("", mockCallGraphResolver{})
+	if err == nil {
+		t.Fatal("RegisterCallGraphResolver with empty extension: want error")
+	}
+	if !errors.Is(err, ErrEmptyExtension) {
+		t.Errorf("want ErrEmptyExtension; got %v", err)
+	}
+}
+
+func TestResolveCallGraph_withRegisteredResolver_returnsResult(t *testing.T) {
+	MustRegisterCallGraphResolver(".gotcg", mockCallGraphResolver{})
+	defer func() {
+		callGraphRegistryMu.Lock()
+		delete(callGraphRegistry, ".gotcg")
+		callGraphRegistryMu.Unlock()
+	}()
+	ctx := context.Background()
+	result, err := ResolveCallGraph(ctx, "/repo", "pkg/x.gotcg", "@@ -1 +1 @@\ncode", CallGraphOptions{CallersMax: 3})
+	if err != nil {
+		t.Fatalf("ResolveCallGraph: %v", err)
+	}
+	if result == nil || len(result.Callers) != 1 {
+		t.Fatalf("expected 1 caller; got %+v", result)
+	}
+	if result.Callers[0].Symbol != "caller" {
+		t.Errorf("caller symbol = %q, want caller", result.Callers[0].Symbol)
+	}
+}
+
+func TestMustRegisterResolver_panicsOnEmpty(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("expected panic for empty extension")
+		}
+	}()
+	MustRegisterResolver("", mockResolver{})
+}
