@@ -2552,6 +2552,29 @@ func TestWriteFindingsHuman_withStats(t *testing.T) {
 	}
 }
 
+func TestWriteFindingsHuman_singleFindingWithStats(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	s := session.Session{
+		BaselineRef: "abc",
+		Findings: []findings.Finding{
+			{ID: "finding-id-1234", File: "a.go", Line: 10, Severity: findings.SeverityWarning, Category: findings.CategoryBug, Confidence: 1.0, Message: "fix me"},
+		},
+	}
+	if err := session.Save(dir, &s); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	stats := &run.RunStats{EvalDurationNs: 2_000_000_000, PromptTokens: 200, CompletionTokens: 100}
+	if err := writeFindingsHuman(&buf, dir, stats); err != nil {
+		t.Fatalf("writeFindingsHuman: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "1 finding at") || !strings.Contains(out, "tokens/sec") {
+		t.Errorf("output = %q", out)
+	}
+}
+
 func TestWriteFindingsWithIDs_usesRangeStart(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
@@ -2680,6 +2703,20 @@ func TestOverridesFromFlags_invalidProvider(t *testing.T) {
 	_, err := overridesFromFlags(cmd)
 	if err == nil {
 		t.Fatal("expected error for invalid provider")
+	}
+}
+
+func TestOverridesFromFlags_negativeNumCtx(t *testing.T) {
+	cmd := newStartCmd()
+	if err := cmd.Flags().Set("num-ctx", "-1"); err != nil {
+		t.Fatal(err)
+	}
+	_, err := overridesFromFlags(cmd)
+	if err == nil {
+		t.Fatal("expected error for negative num-ctx")
+	}
+	if !strings.Contains(err.Error(), "--num-ctx must be 0 or positive") {
+		t.Errorf("error = %v, want num-ctx validation message", err)
 	}
 }
 
@@ -2887,6 +2924,52 @@ func TestRunCLI_startFinishCleanupDryRun(t *testing.T) {
 	}
 	if got := runCLI([]string{"cleanup"}); got != 0 {
 		t.Fatalf("cleanup = %d", got)
+	}
+}
+
+func TestTryAutoFinishZero_zeroFindingsFinishes(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	origOut := getFindingsOut
+	getFindingsOut = func() io.Writer { return &buf }
+	t.Cleanup(func() { getFindingsOut = origOut })
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
+	}
+	var out struct {
+		Findings []map[string]interface{} `json:"findings"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil || len(out.Findings) == 0 {
+		t.Fatalf("need findings from dry-run; err=%v", err)
+	}
+	for _, f := range out.Findings {
+		id, _ := f["id"].(string)
+		if id == "" {
+			t.Fatal("finding missing id")
+		}
+		if got := runCLI([]string{"dismiss", id}); got != 0 {
+			t.Fatalf("runCLI(dismiss %q) = %d, want 0", id, got)
+		}
+	}
+	stateDir := filepath.Join(repo, ".review")
+	cfg := &config.Config{AutoFinishZeroFindings: true}
+	if err := tryAutoFinishZero(context.Background(), cfg, repo, stateDir, false); err != nil {
+		t.Fatalf("tryAutoFinishZero: %v", err)
+	}
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	if s.BaselineRef != "" {
+		t.Errorf("session should be cleared after auto-finish; BaselineRef = %q", s.BaselineRef)
 	}
 }
 
