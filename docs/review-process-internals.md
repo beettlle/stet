@@ -216,10 +216,13 @@ flowchart LR
 - **Append:** `prompt.AppendPromptShadows(system, promptShadows)`. Up to 5 recent dismissed-finding contexts (from session `PromptShadows`) are appended as "## Negative examples (do not report)" so the model does not re-report similar issues.
 - When suppression is enabled and history has dismissals, the system prompt also includes a "Do not report issues similar to" section built from the last N history records (see config `suppression_enabled`, `suppression_history_count` and env `STET_SUPPRESSION_ENABLED`, `STET_SUPPRESSION_HISTORY_COUNT`).
 
-### 7.5 Optional expand (Go only)
+### 7.5 Optional expand (Go and JS/TS)
 
-- **Package:** [cli/internal/expand/expand.go](cli/internal/expand/expand.go).
-- If `repoRoot != ""` and `contextLimit > 0`, `expand.ExpandHunk(repoRoot, hunk, maxExpand)` runs. For `.go` files only: parses the **current** file (HEAD) from repo root, finds the smallest enclosing function containing the hunk's line range, and prepends "## Enclosing function context" plus the function source to the hunk's context. File is read from `repoRoot` (main worktree).
+- **Package:** [cli/internal/expand/expand.go](cli/internal/expand/expand.go), [cli/internal/expand/expand_jsts.go](cli/internal/expand/expand_jsts.go).
+- If `repoRoot != ""` and `contextLimit > 0`, `expand.ExpandHunk(repoRoot, hunk, maxExpand)` runs.
+  - **Go (`.go`):** parses the **current** file (HEAD) from repo root with `go/ast`, finds the smallest enclosing function containing the hunk's line range, and prepends "## Enclosing function context" plus the function source to the hunk's context.
+  - **JavaScript/TypeScript (`.js`, `.jsx`, `.ts`, `.tsx`):** line-based declaration detection and brace matching (fail-open on ambiguous parse) with the same prompt shape and token truncation as Go. Class methods and arrow functions with block bodies are included; top-level changes are left unchanged.
+- File is read from `repoRoot` (main worktree). Any read/parse failure returns the hunk unchanged (fail open).
 
 ### 7.6 User prompt
 
@@ -366,7 +369,7 @@ Panel state is driven by the stream (start) and clear (finish); the extension do
 | Diff run + parse + filter | [cli/internal/diff/diff.go](cli/internal/diff/diff.go), [parse.go](cli/internal/diff/parse.go) | Hunks (git diff, ParseUnifiedDiff, filterByPatterns) |
 | Cursor rules load, infer, filter | [cli/internal/rules/rules.go](cli/internal/rules/rules.go), [loader.go](cli/internal/rules/loader.go) | LoadRules, parseMDC, InferGlobsFromDescription, FilterRules; DiscoverRulesDirs, Loader, RulesForFile |
 | System/user prompt, rules, shadows | [cli/internal/prompt/prompt.go](cli/internal/prompt/prompt.go) | SystemPrompt, InjectUserIntent, AppendCursorRules, AppendPromptShadows, UserPrompt, AppendSymbolDefinitions |
-| Expand (enclosing function) | [cli/internal/expand/expand.go](cli/internal/expand/expand.go) | ExpandHunk for Go files |
+| Expand (enclosing function) | [cli/internal/expand/expand.go](cli/internal/expand/expand.go), [cli/internal/expand/expand_jsts.go](cli/internal/expand/expand_jsts.go) | ExpandHunk for Go and JS/TS files |
 | RAG symbol resolution | [cli/internal/rag/rag.go](cli/internal/rag/rag.go) | ResolveSymbols (per-extension resolvers) |
 | ReviewHunk (LLM + parse + IDs) | [cli/internal/review/review.go](cli/internal/review/review.go), [parse.go](cli/internal/review/parse.go) | ReviewHunk, ParseFindingsResponse, AssignFindingIDs |
 | Abstention / FP kill list | [cli/internal/findings/abstention.go](cli/internal/findings/abstention.go), [fpkilllist.go](cli/internal/findings/fpkilllist.go) | FilterAbstention, FilterFPKillList, SetCursorURIs |
