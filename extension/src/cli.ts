@@ -11,17 +11,19 @@ const CLI_PATH_REQUIRED_MSG = "cliPath must be a non-empty string";
 const REVIEW_STREAM_FLAGS = ["--quiet", "--json", "--stream"] as const;
 
 /**
- * Builds CLI args for a streaming review (start or run) with optional dry-run.
+ * Builds CLI args for a streaming review (start or run) with optional dry-run and auto-finish.
  * @param subcommand - `start` for a new session, `run` for incremental review
- * @param dryRun - When true, skips the LLM (developer/CI mode)
  */
 export function buildReviewStreamArgs(
   subcommand: "start" | "run",
-  dryRun: boolean
+  options: { dryRun: boolean; autoFinishZero?: boolean }
 ): string[] {
   const args: string[] = [subcommand];
-  if (dryRun) {
+  if (options.dryRun) {
     args.push("--dry-run");
+  }
+  if (options.autoFinishZero) {
+    args.push("--auto-finish-zero");
   }
   args.push(...REVIEW_STREAM_FLAGS);
   return args;
@@ -32,14 +34,17 @@ export function buildReviewStreamArgs(
  */
 export async function resolveReviewArgs(
   cwd: string,
-  options: { dryRun: boolean; cliPath?: string }
+  options: { dryRun: boolean; autoFinishZero?: boolean; cliPath?: string }
 ): Promise<string[]> {
   const status = await spawnStet(["status"], {
     cwd,
     cliPath: options.cliPath,
   });
   const subcommand = status.exitCode === 0 ? "run" : "start";
-  return buildReviewStreamArgs(subcommand, options.dryRun);
+  return buildReviewStreamArgs(subcommand, {
+    dryRun: options.dryRun,
+    autoFinishZero: options.autoFinishZero,
+  });
 }
 
 export interface SpawnResult {

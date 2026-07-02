@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { runFinishReview } from "./finishReview";
+import { maybeAutoFinishAfterReview, runFinishReview } from "./finishReview";
 
 const mockSpawnStet = vi.fn();
 vi.mock("./cli", () => ({ spawnStet: (...args: unknown[]) => mockSpawnStet(...args) }));
@@ -79,5 +79,83 @@ describe("runFinishReview", () => {
     expect(mockProvider.clear).toHaveBeenCalledOnce();
     expect(result.ok).toBe(true);
     expect(result.exitCode).toBe(0);
+  });
+});
+
+describe("maybeAutoFinishAfterReview", () => {
+  const mockProvider = { clear: vi.fn() };
+
+  beforeEach(() => {
+    mockSpawnStet.mockClear();
+    mockProvider.clear.mockClear();
+  });
+
+  it("returns skipped when auto-finish disabled", async () => {
+    const outcome = await maybeAutoFinishAfterReview("/repo", mockProvider as never, {
+      autoFinish: false,
+      dryRun: false,
+    });
+    expect(outcome).toBe("skipped");
+    expect(mockSpawnStet).not.toHaveBeenCalled();
+  });
+
+  it("returns skipped when dry-run", async () => {
+    const outcome = await maybeAutoFinishAfterReview("/repo", mockProvider as never, {
+      autoFinish: true,
+      dryRun: true,
+    });
+    expect(outcome).toBe("skipped");
+    expect(mockSpawnStet).not.toHaveBeenCalled();
+  });
+
+  it("clears panel when session already ended (CLI auto-finish)", async () => {
+    mockSpawnStet.mockResolvedValueOnce({
+      exitCode: 1,
+      stdout: "",
+      stderr: "No active session\n",
+    });
+
+    const outcome = await maybeAutoFinishAfterReview("/repo", mockProvider as never, {
+      autoFinish: true,
+      dryRun: false,
+    });
+
+    expect(mockSpawnStet).toHaveBeenCalledWith(["status"], { cwd: "/repo" });
+    expect(mockProvider.clear).toHaveBeenCalledOnce();
+    expect(outcome).toBe("session_cleared");
+  });
+
+  it("returns findings_remain when list is non-empty", async () => {
+    mockSpawnStet
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "baseline: abc\n", stderr: "" })
+      .mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: "abc1234  main.go:1  WARNING  issue\n",
+        stderr: "",
+      });
+
+    const outcome = await maybeAutoFinishAfterReview("/repo", mockProvider as never, {
+      autoFinish: true,
+      dryRun: false,
+    });
+
+    expect(outcome).toBe("findings_remain");
+    expect(mockProvider.clear).not.toHaveBeenCalled();
+  });
+
+  it("calls finish when zero active findings", async () => {
+    mockSpawnStet
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "baseline: abc\n", stderr: "" })
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" })
+      .mockResolvedValueOnce({ exitCode: 0, stdout: "", stderr: "" });
+
+    const outcome = await maybeAutoFinishAfterReview("/repo", mockProvider as never, {
+      autoFinish: true,
+      dryRun: false,
+    });
+
+    expect(mockSpawnStet).toHaveBeenNthCalledWith(3, ["finish"], { cwd: "/repo" });
+    expect(mockProvider.clear).toHaveBeenCalledOnce();
+    expect(outcome).toBe("finished");
   });
 });

@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 import { resolveReviewArgs, spawnStetStream } from "./cli";
 import { buildCopyForChatBlock } from "./copyForChat";
 import { createFindingsPanel } from "./findingsPanel";
-import { runFinishReview } from "./finishReview";
+import { runFinishReview, maybeAutoFinishAfterReview } from "./finishReview";
 import type { TreeItemModel } from "./findingsPanel";
 import { openFinding } from "./openFinding";
 import type { OpenFindingPayload } from "./openFinding";
@@ -77,7 +77,9 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       findingsProvider.setScanning(true);
       const accumulatedFindings: Finding[] = [];
-      const dryRun = vscode.workspace.getConfiguration("stet").get<boolean>("dryRun", false);
+      const config = vscode.workspace.getConfiguration("stet");
+      const dryRun = config.get<boolean>("dryRun", false);
+      const autoFinishZero = config.get<boolean>("autoFinishZeroFindings", false);
       void vscode.window.withProgress(
         {
           location: vscode.ProgressLocation.Notification,
@@ -85,7 +87,7 @@ export function activate(context: vscode.ExtensionContext): void {
           cancellable: false,
         },
         async () => {
-          const args = await resolveReviewArgs(cwd, { dryRun });
+          const args = await resolveReviewArgs(cwd, { dryRun, autoFinishZero });
           const result = await spawnStetStream(
             args,
             { cwd },
@@ -124,9 +126,17 @@ export function activate(context: vscode.ExtensionContext): void {
             findingsProvider.setFindings([]);
             showCLIError(result.stderr, result.exitCode);
           } else {
-            void vscode.window.showInformationMessage(
-              `Stet: Review complete. ${accumulatedFindings.length} finding(s).`
-            );
+            const autoOutcome = await maybeAutoFinishAfterReview(cwd, findingsProvider, {
+              autoFinish: autoFinishZero,
+              dryRun,
+            });
+            if (autoOutcome === "finished" || autoOutcome === "session_cleared") {
+              void vscode.window.showInformationMessage("Stet: Review finished.");
+            } else {
+              void vscode.window.showInformationMessage(
+                `Stet: Review complete. ${accumulatedFindings.length} finding(s).`
+              );
+            }
           }
         }
       );

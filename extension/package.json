@@ -71,6 +71,11 @@
           "type": "boolean",
           "default": false,
           "description": "When true, run reviews with --dry-run (skips the LLM and emits deterministic findings for development or CI). Default is false (production review)."
+        },
+        "stet.autoFinishZeroFindings": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, pass --auto-finish-zero to the CLI and clear the findings panel when a review completes with zero active findings (dismissed findings do not block auto-finish). Default is false (explicit Finish required)."
         }
       }
     }

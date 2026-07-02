@@ -260,7 +260,7 @@ describe("spawnStetStream", () => {
 
 describe("buildReviewStreamArgs", () => {
   it("returns production start args without dry-run by default", () => {
-    expect(buildReviewStreamArgs("start", false)).toEqual([
+    expect(buildReviewStreamArgs("start", { dryRun: false })).toEqual([
       "start",
       "--quiet",
       "--json",
@@ -269,7 +269,7 @@ describe("buildReviewStreamArgs", () => {
   });
 
   it("includes --dry-run when dryRun is true", () => {
-    expect(buildReviewStreamArgs("start", true)).toEqual([
+    expect(buildReviewStreamArgs("start", { dryRun: true })).toEqual([
       "start",
       "--dry-run",
       "--quiet",
@@ -278,8 +278,18 @@ describe("buildReviewStreamArgs", () => {
     ]);
   });
 
+  it("includes --auto-finish-zero when enabled", () => {
+    expect(buildReviewStreamArgs("run", { dryRun: false, autoFinishZero: true })).toEqual([
+      "run",
+      "--auto-finish-zero",
+      "--quiet",
+      "--json",
+      "--stream",
+    ]);
+  });
+
   it("builds run args for incremental review", () => {
-    expect(buildReviewStreamArgs("run", false)).toEqual([
+    expect(buildReviewStreamArgs("run", { dryRun: false })).toEqual([
       "run",
       "--quiet",
       "--json",
