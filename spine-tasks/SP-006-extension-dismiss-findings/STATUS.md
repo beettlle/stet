@@ -1,6 +1,6 @@
-**Current Step:** Step 0: Design UX
-**Status:** Ready
-**Last Updated:** 2026-06-30
+**Current Step:** Complete
+**Status:** Done
+**Last Updated:** 2026-07-02
 **Review Level:** 2
 **Review Counter:** 0
 **Iteration:** 0
@@ -10,32 +10,32 @@
 
 ## Step 0: Design UX
 
-**Status:** Not Started
+**Status:** Complete
 
-- [ ] Context menu / action placement
-- [ ] Reason quick-pick
-- [ ] ID format
+- [x] Context menu on finding row (`view/item/context`)
+- [x] Reason quick-pick (Escape = dismiss without reason)
+- [x] ID format: full `finding.id` from stream JSON (CLI accepts full id or prefix)
 
 ## Step 1: CLI integration
 
-**Status:** Not Started
+**Status:** Complete
 
-- [ ] spawnStet dismiss
-- [ ] Refresh active findings
+- [x] `runDismissFinding` calls `spawnStet(['dismiss', id, reason?])`
+- [x] `removeFindingById` updates active panel list on success
 
 ## Step 2: Panel and commands
 
-**Status:** Not Started
+**Status:** Complete
 
-- [ ] Register command
-- [ ] Context menu wiring
-- [ ] Tests
+- [x] Register `stet.dismissFinding` command
+- [x] Context menu wiring in package.json
+- [x] Tests for dismiss flow (mock CLI)
 
 ## Step 3: Testing and verification
 
-**Status:** Not Started
+**Status:** Complete
 
-- [ ] npm test pass
+- [x] `cd extension && npm run compile && npm test` — 85 tests passed
 
 ---
 
@@ -49,13 +49,13 @@
 
 | Date | Finding | Impact |
 |------|---------|--------|
-| | | |
+| 2026-07-02 | Dismiss logic in `findingsPanel.ts` reuses existing `spawnStet` (no cli.ts helper needed) | Keeps CLI spawn in one module |
 
 ## Execution Log
 
 | Date | Event | Detail |
 |------|-------|--------|
-| | | |
+| 2026-07-02 | Implementation | Dismiss command, reason picker, panel removal, tests |
 
 ## Blockers
 

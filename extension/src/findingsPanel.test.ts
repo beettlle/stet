@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Finding } from "./contract";
-import { FindingsTreeDataProvider } from "./findingsPanel";
+import { FindingsTreeDataProvider, runDismissFinding } from "./findingsPanel";
 
 const mockCreateTreeView = vi.fn();
+const mockSpawnStet = vi.fn();
+
+vi.mock("./cli", () => ({ spawnStet: (...args: unknown[]) => mockSpawnStet(...args) }));
 
 vi.mock("vscode", () => {
   class EventEmitter {
@@ -46,28 +49,31 @@ vi.mock("vscode", () => {
 
 beforeEach(() => {
   mockCreateTreeView.mockClear();
+  mockSpawnStet.mockClear();
 });
 
-describe("FindingsTreeDataProvider", () => {
-  const finding1: Finding = {
-    file: "src/foo.ts",
-    line: 10,
-    severity: "warning",
-    category: "style",
-    confidence: 1.0,
-    message: "Use const",
-  };
-  const finding2: Finding = {
-    file: "pkg/main.go",
-    line: 5,
-    range: { start: 5, end: 7 },
-    severity: "error",
-    category: "bug",
-    confidence: 0.9,
-    message: "Possible nil dereference",
-    cursor_uri: "file:///repo/pkg/main.go#L5",
-  };
+const finding1: Finding = {
+  id: "abc1234567890",
+  file: "src/foo.ts",
+  line: 10,
+  severity: "warning",
+  category: "style",
+  confidence: 1.0,
+  message: "Use const",
+};
+const finding2: Finding = {
+  id: "def9876543210",
+  file: "pkg/main.go",
+  line: 5,
+  range: { start: 5, end: 7 },
+  severity: "error",
+  category: "bug",
+  confidence: 0.9,
+  message: "Possible nil dereference",
+  cursor_uri: "file:///repo/pkg/main.go#L5",
+};
 
+describe("FindingsTreeDataProvider", () => {
   it("returns one scanning node when scanning is true", () => {
     const provider = new FindingsTreeDataProvider();
     provider.setScanning(true);
@@ -113,6 +119,7 @@ describe("FindingsTreeDataProvider", () => {
     const item = provider.getTreeItem({ kind: "finding", finding: finding1 });
     expect(item.label).toBe("src/foo.ts:10");
     expect(item.description).toBe("warning · style");
+    expect(item.contextValue).toBe("finding");
     expect(item.command).toEqual({
       command: "stet.openFinding",
       title: "Open at location",
@@ -145,5 +152,81 @@ describe("FindingsTreeDataProvider", () => {
     provider.clear();
     const children = provider.getChildren(undefined);
     expect(children).toEqual([]);
+  });
+
+  it("removeFindingById removes matching finding", () => {
+    const provider = new FindingsTreeDataProvider();
+    provider.setFindings([finding1, finding2]);
+    provider.removeFindingById(finding1.id!);
+    const children = provider.getChildren(undefined);
+    expect(children).toHaveLength(1);
+    expect(children[0]).toEqual({ kind: "finding", finding: finding2 });
+  });
+});
+
+describe("runDismissFinding", () => {
+  beforeEach(() => {
+    mockSpawnStet.mockClear();
+  });
+
+  it("calls stet dismiss without reason and removes finding on success", async () => {
+    mockSpawnStet.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
+    const provider = new FindingsTreeDataProvider();
+    const finding: Finding = { ...finding1 };
+
+    const result = await runDismissFinding("/repo", provider, finding);
+
+    expect(mockSpawnStet).toHaveBeenCalledWith(["dismiss", "abc1234567890"], { cwd: "/repo" });
+    expect(result.ok).toBe(true);
+    expect(provider.getChildren(undefined)).toEqual([]);
+  });
+
+  it("calls stet dismiss with reason when provided", async () => {
+    mockSpawnStet.mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
+    const provider = new FindingsTreeDataProvider();
+    provider.setFindings([finding1]);
+
+    const result = await runDismissFinding("/repo", provider, finding1, "false_positive");
+
+    expect(mockSpawnStet).toHaveBeenCalledWith(
+      ["dismiss", "abc1234567890", "false_positive"],
+      { cwd: "/repo" }
+    );
+    expect(result.ok).toBe(true);
+    expect(provider.getChildren(undefined)).toEqual([]);
+  });
+
+  it("does not remove finding when CLI fails", async () => {
+    mockSpawnStet.mockResolvedValue({
+      exitCode: 1,
+      stdout: "",
+      stderr: "No active session\n",
+    });
+    const provider = new FindingsTreeDataProvider();
+    provider.setFindings([finding1]);
+
+    const result = await runDismissFinding("/repo", provider, finding1);
+
+    expect(result.ok).toBe(false);
+    expect(result.stderr).toBe("No active session\n");
+    expect(provider.getChildren(undefined)).toHaveLength(1);
+  });
+
+  it("returns error when finding has no id", async () => {
+    const provider = new FindingsTreeDataProvider();
+    const noId: Finding = {
+      file: "a.ts",
+      line: 1,
+      severity: "warning",
+      category: "style",
+      confidence: 1,
+      message: "msg",
+    };
+
+    const result = await runDismissFinding("/repo", provider, noId);
+
+    expect(mockSpawnStet).not.toHaveBeenCalled();
+    expect(result.ok).toBe(false);
+    expect(result.stderr).toBe("Finding has no id");
   });
 });

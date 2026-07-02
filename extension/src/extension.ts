@@ -2,7 +2,11 @@ import * as vscode from "vscode";
 
 import { resolveReviewArgs, spawnStetStream } from "./cli";
 import { buildCopyForChatBlock } from "./copyForChat";
-import { createFindingsPanel } from "./findingsPanel";
+import {
+  createFindingsPanel,
+  DISMISSAL_REASONS,
+  runDismissFinding,
+} from "./findingsPanel";
 import { runFinishReview, maybeAutoFinishAfterReview } from "./finishReview";
 import type { TreeItemModel } from "./findingsPanel";
 import { openFinding } from "./openFinding";
@@ -45,6 +49,41 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       await openFinding(payload, root);
     })
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "stet.dismissFinding",
+      async (element: TreeItemModel | undefined) => {
+        if (element?.kind !== "finding") {
+          return;
+        }
+        const root = getRepoRoot();
+        if (!root) {
+          void vscode.window.showErrorMessage(
+            "Stet: No workspace folder open. Open a folder to dismiss findings."
+          );
+          return;
+        }
+        const picked = await vscode.window.showQuickPick(
+          DISMISSAL_REASONS.map((r) => ({ label: r.label, reason: r.value })),
+          {
+            title: "Dismiss finding",
+            placeHolder: "Optional reason (Escape to dismiss without reason)",
+          }
+        );
+        const reason = picked?.reason;
+        const result = await runDismissFinding(root, findingsProvider, element.finding, reason);
+        if (result.ok) {
+          void vscode.window.setStatusBarMessage("Stet: Finding dismissed", 2000);
+        } else if (result.stderr === "Finding has no id") {
+          void vscode.window.showErrorMessage(
+            "Stet: Cannot dismiss finding without an id. Run a review first."
+          );
+        } else {
+          showCLIError(result.stderr, result.exitCode);
+        }
+      }
+    )
   );
   context.subscriptions.push(
     vscode.commands.registerCommand(

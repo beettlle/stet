@@ -1,6 +1,23 @@
 import * as vscode from "vscode";
 
+import { spawnStet } from "./cli";
 import type { Finding } from "./contract";
+
+/** Dismissal reasons aligned with CLI (`stet dismiss <id> [reason]`). */
+export const DISMISSAL_REASONS = [
+  { label: "False positive", value: "false_positive" },
+  { label: "Already correct", value: "already_correct" },
+  { label: "Wrong suggestion", value: "wrong_suggestion" },
+  { label: "Out of scope", value: "out_of_scope" },
+] as const;
+
+export type DismissalReason = (typeof DISMISSAL_REASONS)[number]["value"];
+
+export interface DismissFindingResult {
+  ok: boolean;
+  stderr: string;
+  exitCode: number;
+}
 
 /** Serializable payload for stet.openFinding command (file, line, range, cursor_uri). */
 export interface OpenFindingPayload {
@@ -91,6 +108,11 @@ export class FindingsTreeDataProvider
     this._onDidChangeTreeData.fire();
   }
 
+  removeFindingById(id: string): void {
+    this.findings = this.findings.filter((f) => f.id !== id);
+    this._onDidChangeTreeData.fire();
+  }
+
   clear(): void {
     this.findings = [];
     this.scanning = false;
@@ -112,4 +134,26 @@ export function createFindingsPanel(
     treeDataProvider: provider,
   });
   return provider;
+}
+
+/**
+ * Invokes `stet dismiss` for the finding and removes it from the active panel list on success.
+ */
+export async function runDismissFinding(
+  cwd: string,
+  provider: FindingsTreeDataProvider,
+  finding: Finding,
+  reason?: DismissalReason
+): Promise<DismissFindingResult> {
+  const id = finding.id;
+  if (!id) {
+    return { ok: false, stderr: "Finding has no id", exitCode: 1 };
+  }
+  const args = reason !== undefined ? ["dismiss", id, reason] : ["dismiss", id];
+  const result = await spawnStet(args, { cwd });
+  if (result.exitCode === 0) {
+    provider.removeFindingById(id);
+    return { ok: true, stderr: result.stderr, exitCode: 0 };
+  }
+  return { ok: false, stderr: result.stderr, exitCode: result.exitCode };
 }

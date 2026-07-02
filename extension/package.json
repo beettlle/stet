@@ -27,6 +27,10 @@
         "title": "Stet: Copy for Chat"
       },
       {
+        "command": "stet.dismissFinding",
+        "title": "Stet: Dismiss finding"
+      },
+      {
         "command": "stet.finishReview",
         "title": "Stet: Finish review"
       }
@@ -42,6 +46,11 @@
       "view/item/context": [
         {
           "command": "stet.copyFindingForChat",
+          "when": "view == stetFindings && viewItem == finding",
+          "group": "1_navigation"
+        },
+        {
+          "command": "stet.dismissFinding",
           "when": "view == stetFindings && viewItem == finding",
           "group": "1_navigation"
         }
