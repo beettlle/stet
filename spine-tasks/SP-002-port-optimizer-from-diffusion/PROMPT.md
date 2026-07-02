@@ -45,7 +45,7 @@ After port: `stet optimize` runs `scripts/optimize.py`, reads `.review/history.j
 
 | Field | Value |
 |-------|-------|
-| testCommand | `python3 -m pytest scripts/tests/test_optimize_integration.py scripts/tests/test_history_loader.py scripts/tests/test_rule_based.py scripts/tests/test_prompt_validator.py -q && cd cli && go test ./cmd/stet/... -run Optimize -count=1` |
+| testCommand | `python3 -m pytest scripts/tests/test_optimize_integration.py scripts/tests/test_history_loader.py scripts/tests/test_rule_based.py scripts/tests/test_prompt_validator.py -q && cd cli && go test ./cmd/stet/... -run optimize -count=1` |
 | fileScopeMustChange | `scripts/optimize.py`, `optimizer-requirements.txt` |
 | fileScopeMustNotChange | `cli/**`, `extension/**` |
 | completionCriteria | Sidecar contract satisfied; empty history no-op exit 0; valid dismissals write optimized prompt; Go `stet optimize` integration tests pass |
@@ -74,7 +74,7 @@ After port: `stet optimize` runs `scripts/optimize.py`, reads `.review/history.j
 > ZERO test failures allowed unless PROMPT documents a known baseline.
 
 - [ ] Run Python tests listed in Contract `testCommand`
-- [ ] Run Go optimize tests: `cd cli && go test ./cmd/stet/... -run Optimize -count=1`
+- [ ] Run Go optimize tests: `cd cli && go test ./cmd/stet/... -run optimize -count=1`
 - [ ] Manual smoke: fixture `history.jsonl` with dismissals → `stet optimize` writes optimized prompt
 
 ## Completion Criteria
