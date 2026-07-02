@@ -142,6 +142,8 @@ Use Stet inside Cursor (or VSCode) to view findings in a panel, jump to location
 
 By default, **Start review** runs a production review (`stet start` or incremental `stet run` when a session is active) with JSON streaming. Set **`stet.dryRun`** to `true` in workspace or user settings to use `--dry-run` instead (no LLM; useful for development or CI).
 
+Filter what appears in the findings panel with **`stet.minConfidence`** (0–1; findings below the threshold are hidden) and **`stet.categories`** (optional allowlist; empty shows all). Filtering is display-only and does not change the CLI session.
+
 ## Documentation
 
 - On `stet finish`, Stet records session metadata in a Git note (`refs/notes/stet`) for impact analytics and integration with tools like [git-ai](https://github.com/git-ai-project/git-ai).
