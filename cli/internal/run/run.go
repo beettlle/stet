@@ -1680,3 +1680,57 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 	}
 	return RunStats{PromptTokens: int64(sumPrompt), CompletionTokens: int64(sumCompletion), EvalDurationNs: sumDuration}, nil
 }
+
+// MaybeAutoFinishOptions configures auto-finish after a successful start/run.
+type MaybeAutoFinishOptions struct {
+	RepoRoot     string
+	StateDir     string
+	WorktreeRoot string
+}
+
+// ActiveFindingCount returns findings in the session that are not in DismissedIDs.
+func ActiveFindingCount(stateDir string) (int, error) {
+	s, err := session.Load(stateDir)
+	if err != nil {
+		return 0, err
+	}
+	dismissed := make(map[string]struct{}, len(s.DismissedIDs))
+	for _, id := range s.DismissedIDs {
+		dismissed[id] = struct{}{}
+	}
+	count := 0
+	for _, f := range s.Findings {
+		if f.ID != "" {
+			if _, ok := dismissed[f.ID]; !ok {
+				count++
+			}
+			continue
+		}
+		count++
+	}
+	return count, nil
+}
+
+// MaybeAutoFinish invokes Finish when there are zero active findings.
+// Returns true when Finish was called.
+func MaybeAutoFinish(ctx context.Context, opts MaybeAutoFinishOptions) (bool, error) {
+	if opts.RepoRoot == "" || opts.StateDir == "" {
+		return false, erruser.New("MaybeAutoFinish failed: repository root and state directory are required.", nil)
+	}
+	count, err := ActiveFindingCount(opts.StateDir)
+	if err != nil {
+		return false, err
+	}
+	if count > 0 {
+		return false, nil
+	}
+	err = Finish(ctx, FinishOptions{
+		RepoRoot:     opts.RepoRoot,
+		StateDir:     opts.StateDir,
+		WorktreeRoot: opts.WorktreeRoot,
+	})
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}

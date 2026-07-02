@@ -21,6 +21,7 @@
 //   - STET_CRITIC_MODEL (model name for the critic; default qwen3-coder:30b, same as main model).
 //   - STET_EXCLUDE_PATTERNS (comma-separated filepath.Match patterns to skip from review; merges with built-in defaults unless replace is set).
 //   - STET_EXCLUDE_PATTERNS_REPLACE (1/true/yes/on = use only STET_EXCLUDE_PATTERNS, not built-in defaults).
+//   - STET_AUTO_FINISH_ZERO (auto-finish session when review completes with zero active findings: 1/true/yes/on = true, 0/false/no/off = false).
 package config
 
 import (
@@ -86,6 +87,8 @@ type Config struct {
 	ExcludePatterns []string `toml:"exclude_patterns"`
 	// ExcludePatternsReplace, when true, uses only ExcludePatterns (no merge with built-in defaults).
 	ExcludePatternsReplace bool `toml:"exclude_patterns_replace"`
+	// AutoFinishZeroFindings, when true, runs finish automatically after start/run when active findings count is 0.
+	AutoFinishZeroFindings bool `toml:"auto_finish_zero_findings"`
 }
 
 // Overrides represents optional CLI flag overrides. Non-nil pointer means
@@ -118,6 +121,7 @@ type Overrides struct {
 	ExcludePatterns         *[]string
 	ExcludePatternsReplace  *bool
 	NoExclude               *bool
+	AutoFinishZeroFindings  *bool
 }
 
 // LoadOptions configures Load. All fields are optional.
@@ -516,6 +520,7 @@ const (
 	envCriticModel              = "STET_CRITIC_MODEL"
 	envExcludePatterns          = "STET_EXCLUDE_PATTERNS"
 	envExcludePatternsReplace   = "STET_EXCLUDE_PATTERNS_REPLACE"
+	envAutoFinishZero           = "STET_AUTO_FINISH_ZERO"
 	envProvider                 = "STET_PROVIDER"
 	envOpenAIBaseURL            = "STET_OPENAI_BASE_URL"
 )
@@ -724,6 +729,13 @@ func applyEnv(cfg *Config, env []string) error {
 			return erruser.New("STET_SUPPRESSION_HISTORY_COUNT value out of range.", err)
 		}
 	}
+	if v, ok := vals[envAutoFinishZero]; ok && v != "" {
+		b, err := parseBool(v)
+		if err != nil {
+			return erruser.New("STET_AUTO_FINISH_ZERO must be 1/true/yes/on or 0/false/no/off.", err)
+		}
+		cfg.AutoFinishZeroFindings = b
+	}
 	if v, ok := vals[envCriticEnabled]; ok && v != "" {
 		b, err := parseBool(v)
 		if err != nil {
@@ -880,5 +892,8 @@ func applyOverrides(cfg *Config, o *Overrides) {
 	}
 	if o.ExcludePatternsReplace != nil {
 		cfg.ExcludePatternsReplace = *o.ExcludePatternsReplace
+	}
+	if o.AutoFinishZeroFindings != nil {
+		cfg.AutoFinishZeroFindings = *o.AutoFinishZeroFindings
 	}
 }

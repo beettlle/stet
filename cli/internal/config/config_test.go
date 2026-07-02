@@ -905,6 +905,40 @@ func TestLoad_nitpickyFromEnv(t *testing.T) {
 	}
 }
 
+func TestLoad_autoFinishZeroFromEnv(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ctx := context.Background()
+	cfg, err := Load(ctx, LoadOptions{
+		RepoRoot:         dir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{"STET_AUTO_FINISH_ZERO=1"},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !cfg.AutoFinishZeroFindings {
+		t.Error("AutoFinishZeroFindings = false, want true")
+	}
+}
+
+func TestLoad_autoFinishZeroDefaultFalse(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	ctx := context.Background()
+	cfg, err := Load(ctx, LoadOptions{
+		RepoRoot:         dir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.AutoFinishZeroFindings {
+		t.Error("AutoFinishZeroFindings = true, want false by default")
+	}
+}
+
 func TestLoad_nitpickyFromOverrides(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

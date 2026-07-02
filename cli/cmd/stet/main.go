@@ -102,6 +102,19 @@ func printLLMUnreachable(provider, baseURL string, err error) {
 	}
 }
 
+// tryAutoFinishZero runs finish when config enables auto-finish and the run was not dry-run.
+func tryAutoFinishZero(ctx context.Context, cfg *config.Config, repoRoot, stateDir string, dryRun bool) error {
+	if dryRun || cfg == nil || !cfg.AutoFinishZeroFindings {
+		return nil
+	}
+	_, err := run.MaybeAutoFinish(ctx, run.MaybeAutoFinishOptions{
+		RepoRoot:     repoRoot,
+		StateDir:     stateDir,
+		WorktreeRoot: cfg.WorktreeRoot,
+	})
+	return err
+}
+
 // activeFindings loads session from stateDir and returns findings not in DismissedIDs.
 func activeFindings(stateDir string) ([]findings.Finding, error) {
 	s, err := session.Load(stateDir)
@@ -281,6 +294,7 @@ func newStartCmd() *cobra.Command {
 	cmd.Flags().String("openai-base-url", "", "OpenAI-compat server URL when provider=openai (e.g. http://localhost:1234/v1); overrides config and STET_OPENAI_BASE_URL")
 	cmd.Flags().Bool("trace", false, "Print internal steps to stderr (partition, rules, RAG, prompts, LLM I/O)")
 	cmd.Flags().Bool("search-replace", false, "Use search-replace style diff in the prompt (experimental; compare token usage and finding quality)")
+	cmd.Flags().Bool("auto-finish-zero", false, "Auto-finish session when review completes with zero active findings (overrides config and env)")
 	addExcludeFlags(cmd)
 	return cmd
 }
@@ -441,7 +455,9 @@ func runStart(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if stream {
-		// Findings already emitted as NDJSON by run.Start
+		if err := tryAutoFinishZero(cmd.Context(), cfg, repoRoot, stateDir, dryRun); err != nil {
+			return err
+		}
 		return nil
 	}
 	w := findingsWriter()
@@ -453,6 +469,9 @@ func runStart(cmd *cobra.Command, args []string) error {
 		if err := writeFindingsHuman(w, stateDir, &stats); err != nil {
 			return err
 		}
+	}
+	if err := tryAutoFinishZero(cmd.Context(), cfg, repoRoot, stateDir, dryRun); err != nil {
+		return err
 	}
 	return nil
 }
@@ -477,6 +496,7 @@ func addRunLikeFlags(cmd *cobra.Command) {
 	cmd.Flags().String("openai-base-url", "", "OpenAI-compat server URL when provider=openai (e.g. http://localhost:1234/v1); overrides config and STET_OPENAI_BASE_URL")
 	cmd.Flags().Bool("trace", false, "Print internal steps to stderr (partition, rules, RAG, prompts, LLM I/O)")
 	cmd.Flags().Bool("search-replace", false, "Use search-replace style diff in the prompt (experimental; compare token usage and finding quality)")
+	cmd.Flags().Bool("auto-finish-zero", false, "Auto-finish session when review completes with zero active findings (overrides config and env)")
 	addExcludeFlags(cmd)
 }
 
@@ -533,7 +553,8 @@ func overridesFromFlags(cmd *cobra.Command) (*config.Overrides, error) {
 	openaiBaseURLChanged := cmd.Flags().Lookup("openai-base-url") != nil && cmd.Flags().Lookup("openai-base-url").Changed
 	excludeChanged := cmd.Flags().Lookup("exclude") != nil && cmd.Flags().Lookup("exclude").Changed
 	noExcludeChanged := cmd.Flags().Lookup("no-exclude") != nil && cmd.Flags().Lookup("no-exclude").Changed
-	if !defChanged && !tokChanged && !ragCallGraphChanged && !strictnessChanged && !nitpickyChanged && !verifyChanged && !contextChanged && !numCtxChanged && !timeoutChanged && !providerChanged && !openaiBaseURLChanged && !excludeChanged && !noExcludeChanged {
+	autoFinishZeroChanged := cmd.Flags().Lookup("auto-finish-zero") != nil && cmd.Flags().Lookup("auto-finish-zero").Changed
+	if !defChanged && !tokChanged && !ragCallGraphChanged && !strictnessChanged && !nitpickyChanged && !verifyChanged && !contextChanged && !numCtxChanged && !timeoutChanged && !providerChanged && !openaiBaseURLChanged && !excludeChanged && !noExcludeChanged && !autoFinishZeroChanged {
 		return nil, nil
 	}
 	o := &config.Overrides{}
@@ -611,6 +632,10 @@ func overridesFromFlags(cmd *cobra.Command) (*config.Overrides, error) {
 	if excludeChanged {
 		v, _ := cmd.Flags().GetStringSlice("exclude")
 		o.ExcludePatterns = &v
+	}
+	if autoFinishZeroChanged {
+		v, _ := cmd.Flags().GetBool("auto-finish-zero")
+		o.AutoFinishZeroFindings = &v
 	}
 	return o, nil
 }
@@ -765,7 +790,9 @@ func runRun(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if stream {
-		// Findings already emitted as NDJSON by run.Run
+		if err := tryAutoFinishZero(cmd.Context(), cfg, repoRoot, stateDir, dryRun); err != nil {
+			return err
+		}
 		return nil
 	}
 	w := findingsWriter()
@@ -777,6 +804,9 @@ func runRun(cmd *cobra.Command, args []string) error {
 		if err := writeFindingsHuman(w, stateDir, &stats); err != nil {
 			return err
 		}
+	}
+	if err := tryAutoFinishZero(cmd.Context(), cfg, repoRoot, stateDir, dryRun); err != nil {
+		return err
 	}
 	return nil
 }
@@ -948,6 +978,9 @@ func runRerun(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if stream {
+		if err := tryAutoFinishZero(cmd.Context(), cfg, repoRoot, stateDir, dryRun); err != nil {
+			return err
+		}
 		return nil
 	}
 	w := findingsWriter()
@@ -959,6 +992,9 @@ func runRerun(cmd *cobra.Command, args []string) error {
 		if err := writeFindingsHuman(w, stateDir, &stats); err != nil {
 			return err
 		}
+	}
+	if err := tryAutoFinishZero(cmd.Context(), cfg, repoRoot, stateDir, dryRun); err != nil {
+		return err
 	}
 	return nil
 }
@@ -1553,7 +1589,10 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	w := findingsWriter()
-	return writeFindingsHuman(w, stateDir, &runStats)
+	if err := writeFindingsHuman(w, stateDir, &runStats); err != nil {
+		return err
+	}
+	return tryAutoFinishZero(cmd.Context(), cfg, repoRoot, stateDir, false)
 }
 
 func newOptimizeCmd() *cobra.Command {

@@ -2418,3 +2418,98 @@ func TestSuppressionWiring_systemPromptContainsSection(t *testing.T) {
 		t.Errorf("system prompt should contain example %q", wantEx)
 	}
 }
+
+func TestMaybeAutoFinish_zeroActiveFindings_finishes(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	startOpts := StartOptions{
+		RepoRoot: repo,
+		StateDir: stateDir,
+		Ref:      "HEAD",
+		Provider: "ollama",
+	}
+	if _, err := Start(ctx, startOpts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	finished, err := MaybeAutoFinish(ctx, MaybeAutoFinishOptions{
+		RepoRoot: repo, StateDir: stateDir,
+	})
+	if err != nil {
+		t.Fatalf("MaybeAutoFinish: %v", err)
+	}
+	if !finished {
+		t.Fatal("MaybeAutoFinish: want finished=true")
+	}
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	if s.BaselineRef != "" {
+		t.Errorf("session should be cleared after auto-finish; BaselineRef = %q", s.BaselineRef)
+	}
+}
+
+func TestMaybeAutoFinish_activeFindings_skips(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	startOpts := StartOptions{
+		RepoRoot: repo, StateDir: stateDir, Ref: "HEAD~1", DryRun: true,
+		Provider: "ollama",
+	}
+	if _, err := Start(ctx, startOpts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	finished, err := MaybeAutoFinish(ctx, MaybeAutoFinishOptions{
+		RepoRoot: repo, StateDir: stateDir,
+	})
+	if err != nil {
+		t.Fatalf("MaybeAutoFinish: %v", err)
+	}
+	if finished {
+		t.Fatal("MaybeAutoFinish: want finished=false when findings remain")
+	}
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	if s.BaselineRef == "" {
+		t.Fatal("session should remain when active findings exist")
+	}
+}
+
+func TestActiveFindingCount_excludesDismissed(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	startOpts := StartOptions{
+		RepoRoot: repo, StateDir: stateDir, Ref: "HEAD~1", DryRun: true,
+		Provider: "ollama",
+	}
+	if _, err := Start(ctx, startOpts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	if len(s.Findings) == 0 {
+		t.Fatal("want findings from dry-run start")
+	}
+	s.DismissedIDs = []string{s.Findings[0].ID}
+	if err := session.Save(stateDir, &s); err != nil {
+		t.Fatalf("Save session: %v", err)
+	}
+	count, err := ActiveFindingCount(stateDir)
+	if err != nil {
+		t.Fatalf("ActiveFindingCount: %v", err)
+	}
+	want := len(s.Findings) - 1
+	if count != want {
+		t.Errorf("ActiveFindingCount = %d, want %d", count, want)
+	}
+}
