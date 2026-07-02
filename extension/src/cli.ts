@@ -7,6 +7,41 @@ import { spawn } from "child_process";
 
 const CLI_PATH_REQUIRED_MSG = "cliPath must be a non-empty string";
 
+/** Shared stream flags for start/run review invocations. */
+const REVIEW_STREAM_FLAGS = ["--quiet", "--json", "--stream"] as const;
+
+/**
+ * Builds CLI args for a streaming review (start or run) with optional dry-run.
+ * @param subcommand - `start` for a new session, `run` for incremental review
+ * @param dryRun - When true, skips the LLM (developer/CI mode)
+ */
+export function buildReviewStreamArgs(
+  subcommand: "start" | "run",
+  dryRun: boolean
+): string[] {
+  const args: string[] = [subcommand];
+  if (dryRun) {
+    args.push("--dry-run");
+  }
+  args.push(...REVIEW_STREAM_FLAGS);
+  return args;
+}
+
+/**
+ * Resolves review CLI args: uses `run` when an active session exists, otherwise `start`.
+ */
+export async function resolveReviewArgs(
+  cwd: string,
+  options: { dryRun: boolean; cliPath?: string }
+): Promise<string[]> {
+  const status = await spawnStet(["status"], {
+    cwd,
+    cliPath: options.cliPath,
+  });
+  const subcommand = status.exitCode === 0 ? "run" : "start";
+  return buildReviewStreamArgs(subcommand, options.dryRun);
+}
+
 export interface SpawnResult {
   exitCode: number;
   stdout: string;

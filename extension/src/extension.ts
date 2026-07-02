@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 
-import { spawnStet, spawnStetStream } from "./cli";
+import { resolveReviewArgs, spawnStetStream } from "./cli";
 import { buildCopyForChatBlock } from "./copyForChat";
 import { createFindingsPanel } from "./findingsPanel";
 import { runFinishReview } from "./finishReview";
@@ -77,6 +77,7 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       findingsProvider.setScanning(true);
       const accumulatedFindings: Finding[] = [];
+      const dryRun = vscode.workspace.getConfiguration("stet").get<boolean>("dryRun", false);
       void vscode.window.withProgress(
         {
           location: vscode.ProgressLocation.Notification,
@@ -84,8 +85,9 @@ export function activate(context: vscode.ExtensionContext): void {
           cancellable: false,
         },
         async () => {
+          const args = await resolveReviewArgs(cwd, { dryRun });
           const result = await spawnStetStream(
-            ["start", "--dry-run", "--quiet", "--json", "--stream"],
+            args,
             { cwd },
             {
               onLine(line) {
