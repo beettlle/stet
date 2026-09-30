@@ -1,8 +1,8 @@
 # stet — Context
 
-**Last Updated:** 2026-07-02
+**Last Updated:** 2026-09-30
 **Status:** Active
-**Next Task ID:** SP-014
+**Next Task ID:** SP-021
 
 ---
 
@@ -50,6 +50,20 @@
 | SP-012 | Revise spine wave plan after wave-0 lessons | Ready | — |
 | SP-013 | Guard against extension/coverage re-tracking | Ready | — |
 
+### Phase 4 — System One critic (OpenJev)
+
+Optional critic backend that verifies findings with a System One decision server (OpenJev, [razorback16/openjev](https://github.com/razorback16/openjev); same wire API as hosted Jev) in one request per hunk, instead of one LLM generation per finding. Off by default (`critic_backend = "llm"`).
+
+| Task | Summary | Size | Status | Deps |
+|------|---------|------|--------|------|
+| SP-014 | Config keys: `critic_backend`, `systemone_*`, env-only API key | M | Ready | — |
+| SP-015 | `cli/internal/systemone` HTTP client | M | Ready | — |
+| SP-016 | Batch verifier `review.VerifyFindingsSystemOne` | M | Ready | SP-015 |
+| SP-017 | Pipeline wiring, `--critic-backend` flag, docs | M | Ready | SP-014, SP-016 |
+| SP-018 | `stet doctor` System One check | S | Ready | SP-017 |
+| SP-019 | `stet critic-eval` threshold harness | M | Ready | SP-018 |
+| SP-020 | Research: rules compliance via System One | M | **Deferred** | SP-019 |
+
 ### Completed (wave 0 + follow-on)
 
 SP-001, SP-002, SP-003, SP-004, SP-005, SP-008 — `.DONE` on `main`.
@@ -78,6 +92,12 @@ SP-001, SP-002, SP-003, SP-004, SP-005, SP-008 — `.DONE` on `main`.
 | 2a | SP-006 | 1 | Extension dismiss; `findingsPanel*` |
 | 2b | SP-007 | 1 | After SP-006 — same `findingsPanel.ts` |
 | H1 | SP-010 | 1 | Coverage gates (L); `cli/**/*_test.go` only |
+| S1 | SP-014, SP-015 | 2 | System One config + client; disjoint (`config/` vs `systemone/`) |
+| S2 | SP-016 | 1 | Verifier; `review/critic_systemone*` only; may run alongside SP-014 once SP-015 lands |
+| S3 | SP-017 | 1 | Pipeline wiring; `run.go`, `main.go`, docs |
+| S4 | SP-018 | 1 | Doctor check; `main.go` |
+| S5 | SP-019 | 1 | Eval harness; `criticeval/`, `main.go` |
+| — | SP-020 | — | Deferred research; schedule manually |
 
 **Start commands:**
 
@@ -87,7 +107,14 @@ spine batch start SP-009
 spine batch start SP-006
 spine batch start SP-007
 spine batch start SP-010
+spine batch start SP-014 SP-015
+spine batch start SP-016
+spine batch start SP-017
+spine batch start SP-018
+spine batch start SP-019
 ```
+
+Phase 4 tasks all touch `cli/**`; run them as the separate named batches above, never as one serial lane.
 
 **Avoid:** `spine batch start pending --wave 0` — auto-plan serializes SP-009 + SP-010 (both `cli/**`) in one lane, repeating wave-0 contract contamination ([#62](https://github.com/beettlle/pi-spine/issues/62)).
 
