@@ -1,0 +1,68 @@
+spine-tasks/dependencies.json
+  s_3dae31c0f28e45::t_ea2aebfc63e566 7-12
+spine-tasks/SP-017-extract-apply-critic/STATUS.md
+  s_3dae31c0f28e45::t_12259b405647f1 7-47
+  s_3dae31c0f28e45::t_06fd6c4668ed9f 4-6
+  s_3dae31c0f28e45::t_e9b3695bf03931 48-50
+spine-tasks/SP-014-critic-backend-config/PROMPT.md
+  s_3dae31c0f28e45::t_7ee6c0e1ecf92f 1-3,5-111
+  s_3dae31c0f28e45::t_4f880c6d803649 4
+spine-tasks/SP-021-systemone-health-models/STATUS.md
+  s_3dae31c0f28e45::t_4dc4d313d2b964 1-53
+spine-tasks/SP-017-extract-apply-critic/PROMPT.md
+  s_3dae31c0f28e45::t_9e8e68c8fa0634 1-97
+  s_3dae31c0f28e45::t_111f245818811f 98-100
+spine-tasks/SP-020-rules-compliance-research/PROMPT.md
+  s_3dae31c0f28e45::t_90fad80c5963d8 30
+  s_3dae31c0f28e45::t_0113694ea15631 1-15,17-29,31-114
+  s_3dae31c0f28e45::t_c10f55dd6229cf 16
+spine-tasks/CONTEXT.md
+  s_3dae31c0f28e45::t_174057df4c07ef 95-100
+  s_3dae31c0f28e45::t_9fce67d381feb5 3,5
+  s_3dae31c0f28e45::t_2eac2dbf288b27 110-114,117
+  s_3dae31c0f28e45::t_121d29c3f6cb19 53-66
+  s_3dae31c0f28e45::t_be06478f5a21d2 118
+spine-tasks/SP-014-critic-backend-config/STATUS.md
+  s_3dae31c0f28e45::t_4f880c6d803649 7
+  s_3dae31c0f28e45::t_458a0e75c328c6 48
+  s_3dae31c0f28e45::t_aa04225f4dcbcb 1-6,8-47,49-62
+spine-tasks/SP-021-systemone-health-models/PROMPT.md
+  s_3dae31c0f28e45::t_5ce58bdea6cc60 1-101
+spine-tasks/SP-015-systemone-client/STATUS.md
+  s_3dae31c0f28e45::t_64f50e2fe786c3 7,11,16-17,19,23-24,40,47
+  s_3dae31c0f28e45::t_09c7c714f19231 1-6,8-10,12-15,18,20-22,25-39,41-46,48-55
+spine-tasks/SP-018-doctor-systemone-check/STATUS.md
+  s_3dae31c0f28e45::t_7032ea759053bb 1-52
+spine-tasks/SP-016-systemone-batch-verifier/PROMPT.md
+  s_3dae31c0f28e45::t_4f880c6d803649 4
+  s_3dae31c0f28e45::t_204a14abc77d3b 1-3,5-112
+spine-tasks/SP-016-systemone-batch-verifier/STATUS.md
+  s_3dae31c0f28e45::t_4f880c6d803649 7
+  s_3dae31c0f28e45::t_85299a38bafd80 39
+  s_3dae31c0f28e45::t_ed3cedf75256cb 1-6,8-38,40-53
+spine-tasks/SP-020-rules-compliance-research/STATUS.md
+  s_3dae31c0f28e45::t_8896242623c2c0 1-57,59-72
+  s_3dae31c0f28e45::t_d0eb1da61034f5 58
+spine-tasks/SP-018-doctor-systemone-check/PROMPT.md
+  s_3dae31c0f28e45::t_f103afc5293830 1-57,59-97
+  s_3dae31c0f28e45::t_1763e0b8e81e8d 58
+spine-tasks/SP-015-systemone-client/PROMPT.md
+  s_3dae31c0f28e45::t_bbed09a9ed421a 2-3,5-12,14,16-22,24-32,34-69,71-73,75-76,79,81-84,86-101,103-110
+  s_3dae31c0f28e45::t_0b2810b8e11974 1,4,13,15,23,33,70,74,77-78,80,85,102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e49c4691dfa5c82b23981ab2036304f11c109ccf",
+  "prompts": {},
+  "sessions": {
+    "s_3dae31c0f28e45": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "87684f19-4ef4-4e11-bf40-da5697d74f98",
+        "model": "default"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
