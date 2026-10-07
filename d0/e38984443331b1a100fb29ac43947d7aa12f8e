@@ -1,0 +1,52 @@
+spine-tasks/SP-018-doctor-systemone-check/PROMPT.md
+  s_3dae31c0f28e45::t_010e6f2cba23f8 42
+  s_3dae31c0f28e45::t_3a6de7987210a0 15
+  s_3dae31c0f28e45::t_1184956f90da3f 29-30
+spine-tasks/SP-025-critic-eval-command/PROMPT.md
+  s_3dae31c0f28e45::t_f9e46847822b2e 1-34,37-105
+  s_3dae31c0f28e45::t_59d586b37e74df 35-36
+spine-tasks/SP-025-critic-eval-command/STATUS.md
+  s_3dae31c0f28e45::t_6de22af007ff40 1-53
+spine-tasks/SP-022-systemone-critic-branch/STATUS.md
+  s_3dae31c0f28e45::t_0a9f4a5ff3b30f 1-60
+spine-tasks/SP-022-systemone-critic-branch/PROMPT.md
+  s_3dae31c0f28e45::t_6cbde38f9fd588 1-108
+spine-tasks/SP-024-critic-eval-sweep/STATUS.md
+  s_3dae31c0f28e45::t_de07e64711b5d9 1-53
+spine-tasks/SP-024-critic-eval-sweep/PROMPT.md
+  s_3dae31c0f28e45::t_819e7c5eac5a75 1-115
+spine-tasks/dependencies.json
+  s_3dae31c0f28e45::t_dbc4d340036aee 9-15
+spine-tasks/SP-018-doctor-systemone-check/STATUS.md
+  s_3dae31c0f28e45::t_301a4ab66c9b95 38
+spine-tasks/SP-019-critic-eval-dataset/STATUS.md
+  s_3dae31c0f28e45::t_dab1385214d4e8 7,20,24-26,28,32,35,49-50,56-57
+spine-tasks/SP-023-critic-backend-flag-docs/STATUS.md
+  s_3dae31c0f28e45::t_312e5e700ac3a5 1-61
+spine-tasks/SP-023-critic-backend-flag-docs/PROMPT.md
+  s_3dae31c0f28e45::t_d8c102e79948df 35
+  s_3dae31c0f28e45::t_51e53b715f950c 1-34,36-116
+spine-tasks/CONTEXT.md
+  s_3dae31c0f28e45::t_9e2e761208573a 59-72
+  s_3dae31c0f28e45::t_4cd751d24c825b 102-107
+  s_3dae31c0f28e45::t_8b21641744cbb4 118-121,123,126
+  s_3dae31c0f28e45::t_a86be0b59ee081 5
+spine-tasks/SP-019-critic-eval-dataset/PROMPT.md
+  s_3dae31c0f28e45::t_1bf6722dceecbd 1,4,8,13,15,19-21,24,26-30,32-38,42,54-55,61,65-66,73-76,87,89-91,93,97-98,100,106,115-116
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d0e38984443331b1a100fb29ac43947d7aa12f8e",
+  "prompts": {},
+  "sessions": {
+    "s_3dae31c0f28e45": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "87684f19-4ef4-4e11-bf40-da5697d74f98",
+        "model": "default"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
