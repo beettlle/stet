@@ -68,3 +68,10 @@ extension/coverage
 
 # pi session metadata
 .pi/
+.pi-smart-router/state.db
+.pi-smart-router/state.db-shm
+.pi-smart-router/state.db-wal
+.pi-smart-router/models/Xenova/all-MiniLM-L6-v2/config.json
+.pi-smart-router/models/Xenova/all-MiniLM-L6-v2/tokenizer_config.json
+.pi-smart-router/models/Xenova/all-MiniLM-L6-v2/tokenizer.json
+.pi-smart-router/models/Xenova/all-MiniLM-L6-v2/onnx/model.onnx
