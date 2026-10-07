@@ -1,0 +1,14 @@
+.gitignore
+  h_ae151c586ac6c5 71-77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "774d2ed9ab98266a607821e41c6f4ff3ab875926",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
