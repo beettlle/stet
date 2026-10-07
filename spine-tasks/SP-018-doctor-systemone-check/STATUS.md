@@ -35,7 +35,7 @@
 
 | Date | Finding | Impact |
 |------|---------|--------|
-| | | |
+| 2026-09-30 | Decomposition pass: dependencies changed SP-017 → SP-021 + SP-023 | Health/Models now come from SP-021; last prior `main.go` change is SP-023 |
 
 ## Execution Log
 

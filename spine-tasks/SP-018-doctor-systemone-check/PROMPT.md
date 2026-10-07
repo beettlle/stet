@@ -12,7 +12,7 @@
 
 Extend `stet doctor` so users who enabled the System One critic find out before a review whether the server is reachable and the configured model exists.
 
-**Background (System One / OpenJev):** OpenJev ([razorback16/openjev](https://github.com/razorback16/openjev)) exposes `GET /health` (`{"status":"ok"}`) and `GET /v1/models` (`{"models":[{"name":"openjev-latest",...},{"name":"openjev-0.1",...}]}`), plus `POST /v1/systemone` for decisions. Same wire API as hosted Jev. SP-015 provides `systemone.Client.Health(ctx)` and `Models(ctx) ([]string, error)` with sentinel errors (`ErrUnreachable`, `ErrUnauthorized`, ...).
+**Background (System One / OpenJev):** OpenJev ([razorback16/openjev](https://github.com/razorback16/openjev)) exposes `GET /health` (`{"status":"ok"}`) and `GET /v1/models` (`{"models":[{"name":"openjev-latest",...},{"name":"openjev-0.1",...}]}`), plus `POST /v1/systemone` for decisions. Same wire API as hosted Jev. SP-015 provides `systemone.NewClient` and sentinel errors; SP-021 adds `Health(ctx)` and `Models(ctx) ([]string, error)`; errors include (`ErrUnreachable`, `ErrUnauthorized`, ...).
 
 **Behaviour** in `runDoctor` (`cli/cmd/stet/main.go`), after the existing LLM checks succeed, and only when `cfg.CriticEnabled && cfg.CriticBackend == "systemone"`:
 
@@ -26,7 +26,8 @@ Extend `stet doctor` so users who enabled the System One critic find out before 
 
 ## Dependencies
 
-- **Task:** SP-017 (shares `cli/cmd/stet/main.go`; also provides the wired config)
+- **Task:** SP-021 (`systemone.Client.Health` / `Models`)
+- **Task:** SP-023 (shares `cli/cmd/stet/main.go`; also provides the wired config)
 
 ## Context to Read First
 
@@ -38,7 +39,7 @@ Extend `stet doctor` so users who enabled the System One critic find out before 
 
 - `cli/cmd/stet/main.go` — `newDoctorCmd`, `runDoctor`, `errExit`
 - `cli/cmd/stet/main_test.go` — `TestRunCLI_doctor*` patterns
-- `cli/internal/systemone/client.go` (SP-015)
+- `cli/internal/systemone/client.go` (SP-015, SP-021)
 - `AGENTS.md` — coverage gates
 
 ## Environment

@@ -1,38 +1,45 @@
-# Task: SP-019 — Critic threshold evaluation harness
+# Task: SP-019 — Critic evaluation dataset loader
 
 **Created:** 2026-09-30
-**Size:** M
+**Size:** S
 
 ## Review Level: 1
 
-**Assessment:** New read-only analysis command; reads local review history and sends code to the configured System One endpoint.
+**Assessment:** Read-only loader over local review history and session files; labeling rules decide evaluation quality.
 **Score:** 3/8 — Blast radius: 0, Pattern novelty: 2, Security: 1, Reversibility: 0
 
 ## Mission
 
-Give users a data-driven way to choose `systemone_min_keep`. Add `stet critic-eval`, which builds a labeled set of past findings, scores each with the System One critic, and reports how many false positives would be dropped versus how many real findings would be lost at each threshold.
+Build the labeled dataset that a later evaluation (SP-024, SP-025) uses to choose the System One critic threshold (`systemone_min_keep`). Create package `cli/internal/criticeval` with a loader that turns local review data into examples labeled **keep** (real finding) or **drop** (false positive), grouped by hunk.
 
-**Background (System One / OpenJev):** OpenJev ([razorback16/openjev](https://github.com/razorback16/openjev)) exposes `POST /v1/systemone`; a `noul` question returns P(yes). SP-016 provides `review.VerifyFindingsSystemOne(ctx, client, model, batch, hunkContent, minKeep, samples)` returning per-finding scores; SP-015 provides `systemone.NewClient`; SP-014 provides the `systemone_*` config keys. Warm latency ~100 ms per request.
+**Background (System One / OpenJev):** stet's optional System One critic (OpenJev, [razorback16/openjev](https://github.com/razorback16/openjev); same wire API as hosted Jev) scores each finding with P(yes) = "this finding is correct" and keeps it when P(yes) ≥ `systemone_min_keep`. Choosing that threshold needs labeled past findings with the code they were raised on.
 
 **Label sources** (confirm against real data in Step 0):
 
-- **Negatives** (critic should drop): from `history.ReadRecords(stateDir)` (`cli/internal/history/append.go`), dismissals whose `reason` is `false_positive` or `wrong_suggestion` and that have a non-empty `prompt_context`; the finding itself comes from the same record's `review_output` by `finding_id`.
-- **Positives** (weak labels, critic should keep): active findings in `.review/session.json` that are not in `dismissed_ids` and have an entry in `finding_prompt_context`. History does not store hunk content for undismissed findings, so history alone cannot supply positives.
-- **Optional curated set:** `--dataset <path.jsonl>` with lines `{"finding": {...}, "hunk": "...", "label": "keep"|"drop"}`; when given, it is used instead of history/session.
+- **drop:** from `history.ReadRecords(stateDir)` (`cli/internal/history/append.go`), dismissals whose `reason` is `false_positive` or `wrong_suggestion` and that have a non-empty `prompt_context`; the finding comes from the same record's `review_output` by `finding_id`.
+- **keep (weak label):** active findings in `.review/session.json` (`cli/internal/session`) that are not in `dismissed_ids` and have an entry in `finding_prompt_context`. History stores hunk content only for dismissed findings, so history alone cannot supply positives.
+- **Curated set:** `LoadDataset(path)` reads JSONL lines `{"finding": {...}, "hunk": "...", "label": "keep"|"drop"}`; when used, it replaces history/session.
 - **Excluded:** `already_correct` (auto-dismiss reuses it for fixed issues, so it is ambiguous) and `out_of_scope`.
 
-**Output** (human table by default; `--json` for machine output):
+**API surface (adjust names to local style):**
 
-- Counts per label and source; warn when either class has fewer than 10 examples ("recommendation unreliable").
-- For thresholds 0.1, 0.2, …, 0.9: false positives dropped (%), real findings lost (%), findings kept.
-- p50/p95 request latency.
-- Recommended threshold: the highest threshold where real findings lost ≤ 10% (named constant), or "none" if no threshold qualifies.
+```go
+type Label string // "keep" | "drop"
+type Example struct { Finding findings.Finding; Label Label; Source string }
+type HunkGroup struct { Hunk string; Examples []Example }
+type Dataset struct { Groups []HunkGroup; Counts map[Label]int; BySource map[string]int }
 
-Requests are grouped per hunk (same `prompt_context`) so the verifier batches them; no per-finding request loop.
+func LoadFromState(stateDir string) (*Dataset, error)
+func LoadDataset(path string) (*Dataset, error)
+```
+
+- Group by exact hunk text so each group becomes one System One request later.
+- De-duplicate by finding ID; if an ID has conflicting labels, drop it and count it under a `conflict` source.
+- Read-only: never write to `.review/`.
 
 ## Dependencies
 
-- **Task:** SP-018 (shares `cli/cmd/stet/main.go`; transitively SP-014–SP-017)
+- **None**
 
 ## Context to Read First
 
@@ -44,32 +51,29 @@ Requests are grouped per hunk (same `prompt_context`) so the verifier batches th
 
 - `cli/internal/history/schema.go` — `Record`, `Dismissal`, reason constants
 - `cli/internal/history/append.go` — `ReadRecords`
-- `cli/internal/session/session.go` — `DismissedIDs`, `FindingPromptContext`, `Findings`
-- `cli/internal/review/critic_systemone.go` (SP-016)
-- `cli/cmd/stet/main.go` — subcommand registration pattern (e.g. `newBenchmarkCmd`)
+- `cli/internal/session/session.go` — `Load`, `DismissedIDs`, `FindingPromptContext`, `Findings`
+- `cli/internal/findings/finding.go` — `Finding`
 - `AGENTS.md` — coverage gates
 
 ## Environment
 
 - **Workspace:** `cli/` Go module
-- **Services required:** none for tests (fake decider / `httptest.Server`); a real OpenJev at `http://127.0.0.1:8080` for manual runs
+- **Services required:** none
 
 ## File Scope
 
-- `cli/internal/criticeval/criticeval.go` (new)
-- `cli/internal/criticeval/criticeval_test.go` (new)
+- `cli/internal/criticeval/dataset.go` (new)
+- `cli/internal/criticeval/dataset_test.go` (new)
 - `cli/internal/criticeval/testdata/**` (new fixtures)
-- `cli/cmd/stet/main.go`
-- `cli/cmd/stet/main_test.go`
 
 ## Contract
 
 | Field | Value |
 |-------|-------|
-| testCommand | `cd cli && go test ./internal/criticeval/... ./cmd/stet/... -count=1 -cover` |
-| fileScopeMustChange | `cli/internal/criticeval/criticeval.go`, `cli/cmd/stet/main.go` |
-| fileScopeMustNotChange | `cli/internal/history/**`, `cli/internal/session/**`, `cli/internal/review/**`, `extension/**` |
-| completionCriteria | `stet critic-eval` builds labeled set, sweeps thresholds, reports metrics and recommendation; read-only on `.review/`; tests pass with ≥72% per changed file |
+| testCommand | `cd cli && go test ./internal/criticeval/... -count=1 -cover` |
+| fileScopeMustChange | `cli/internal/criticeval/dataset.go`, `cli/internal/criticeval/dataset_test.go` |
+| fileScopeMustNotChange | `cli/internal/history/**`, `cli/internal/session/**`, `cli/internal/review/**`, `cli/cmd/**`, `extension/**` |
+| completionCriteria | `LoadFromState` and `LoadDataset` produce grouped, labeled, de-duplicated examples per the rules; read-only; tests pass with ≥72% coverage on `dataset.go` |
 
 ## Steps
 
@@ -80,32 +84,26 @@ Requests are grouped per hunk (same `prompt_context`) so the verifier batches th
 
 > ⚠️ Hydrate: adjust Step 1 checkboxes if the label sources differ from the PROMPT.
 
-### Step 1: Dataset and scoring (`criticeval` package)
+### Step 1: Implement loaders
 
-- [ ] Load negatives/positives (or `--dataset`), grouped by hunk
-- [ ] Score via `VerifyFindingsSystemOne` with `minKeep = 0` to collect raw scores; measure per-request latency
-- [ ] Compute threshold sweep, latency percentiles, recommendation
+- [ ] `LoadFromState`: drop labels from history, keep labels from session, exclusions applied
+- [ ] `LoadDataset`: curated JSONL with validation (unknown label, empty hunk → error naming the line number)
+- [ ] Grouping by hunk, de-duplication, conflict handling, counts
 
-### Step 2: `stet critic-eval` subcommand
-
-- [ ] Register command; flags `--dataset`, `--json`; uses config `systemone_*` keys and env API key
-- [ ] Human table and JSON output; clear error when no labeled examples exist
-
-### Step 3: Testing and verification
+### Step 2: Testing and verification
 
 > ZERO test failures allowed unless PROMPT documents a known baseline.
 
-- [ ] Fixture history/session/dataset files under `testdata/`; fake decider with fixed scores → exact expected sweep and recommendation
-- [ ] Edge cases: empty data, one class only (warning), excluded reasons ignored, decider error surfaces
-- [ ] `main_test.go`: command runs against `httptest.Server`, `--json` output parses
+- [ ] Synthetic fixtures under `testdata/` (history with each reason, session with active/dismissed findings, curated JSONL valid and invalid)
+- [ ] Cases: exclusions ignored, missing `prompt_context` skipped, conflicting labels, empty state dir, grouping by identical hunk
 - [ ] Run Contract `testCommand`, then `cd cli && go test ./... -cover`
-- [ ] Per-file coverage ≥ 72% for `criticeval.go` and `main.go`
+- [ ] Per-file coverage ≥ 72% for `dataset.go`
 
 ## Completion Criteria
 
 - [ ] All steps complete
 - [ ] All tests passing
-- [ ] Command never writes to `.review/`
+- [ ] Loader never writes to `.review/`
 
 ## Git Commit Convention
 
@@ -114,7 +112,8 @@ Requests are grouped per hunk (same `prompt_context`) so the verifier batches th
 
 ## Do NOT
 
-- Change critic defaults automatically based on results
+- Call System One or compute metrics (SP-024)
+- Add a CLI command (SP-025)
 - Modify history or session schemas
 - Commit real user history or code as fixtures
 - Expand scope beyond this PROMPT—log tech debt in `spine-tasks/CONTEXT.md`

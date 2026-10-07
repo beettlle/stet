@@ -4,7 +4,7 @@
 **Review Level:** 1
 **Review Counter:** 0
 **Iteration:** 0
-**Size:** M
+**Size:** S
 
 ---
 
@@ -17,30 +17,22 @@
 
 > ⚠️ Hydrate: adjust Step 1 checkboxes if label sources differ from PROMPT.
 
-## Step 1: Dataset and scoring (`criticeval` package)
+## Step 1: Implement loaders
 
 **Status:** Not Started
 
-- [ ] Load labeled examples grouped by hunk
-- [ ] Score with `VerifyFindingsSystemOne`; latency per request
-- [ ] Threshold sweep, percentiles, recommendation
+- [ ] `LoadFromState`
+- [ ] `LoadDataset` with validation
+- [ ] Grouping, de-duplication, conflicts, counts
 
-## Step 2: `stet critic-eval` subcommand
-
-**Status:** Not Started
-
-- [ ] Command and flags
-- [ ] Human and JSON output; empty-data error
-
-## Step 3: Testing and verification
+## Step 2: Testing and verification
 
 **Status:** Not Started
 
-- [ ] Fixture-based exact sweep tests
+- [ ] Synthetic fixtures
 - [ ] Edge cases per PROMPT
-- [ ] `main_test.go` command test
 - [ ] Contract `testCommand` and full `go test ./... -cover`
-- [ ] `criticeval.go`, `main.go` coverage ≥ 72%
+- [ ] `dataset.go` coverage ≥ 72%
 
 ---
 
@@ -54,13 +46,15 @@
 
 | Date | Finding | Impact |
 |------|---------|--------|
-| 2026-09-30 | History stores `prompt_context` only for dismissed findings; positives must come from `session.json` `finding_prompt_context` or `--dataset` | Label sources in PROMPT reflect this (authoring-time finding) |
+| 2026-09-30 | History stores `prompt_context` only for dismissed findings; positives must come from `session.json` `finding_prompt_context` or a curated dataset | Label sources in PROMPT reflect this (authoring-time finding) |
+| 2026-09-30 | Decomposition pass: original M "threshold eval harness" split into SP-019 (dataset), SP-024 (scoring and sweep), SP-025 (`stet critic-eval` command) | Dataset loader has no dependencies and can run in the first wave |
 
 ## Execution Log
 
 | Date | Event | Detail |
 |------|-------|--------|
-| 2026-09-30 | Authored | Packet created |
+| 2026-09-30 | Authored | Packet created as eval harness (M) |
+| 2026-09-30 | Split | Narrowed to dataset loader; scoring → SP-024, command → SP-025 |
 
 ## Blockers
 

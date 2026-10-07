@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-09-30
 **Status:** Active
-**Next Task ID:** SP-021
+**Next Task ID:** SP-026
 
 ---
 
@@ -56,13 +56,20 @@ Optional critic backend that verifies findings with a System One decision server
 
 | Task | Summary | Size | Status | Deps |
 |------|---------|------|--------|------|
-| SP-014 | Config keys: `critic_backend`, `systemone_*`, env-only API key | M | Ready | — |
-| SP-015 | `cli/internal/systemone` HTTP client | M | Ready | — |
-| SP-016 | Batch verifier `review.VerifyFindingsSystemOne` | M | Ready | SP-015 |
-| SP-017 | Pipeline wiring, `--critic-backend` flag, docs | M | Ready | SP-014, SP-016 |
-| SP-018 | `stet doctor` System One check | S | Ready | SP-017 |
-| SP-019 | `stet critic-eval` threshold harness | M | Ready | SP-018 |
-| SP-020 | Research: rules compliance via System One | M | **Deferred** | SP-019 |
+| SP-014 | Config keys: `critic_backend`, `systemone_*`, env-only API key | S | Ready | — |
+| SP-015 | `cli/internal/systemone` client core (`Decide`, errors, retries, key redaction) | S | Ready | — |
+| SP-016 | Batch verifier `review.VerifyFindingsSystemOne` | S | Ready | SP-015 |
+| SP-017 | Extract `applyCritic` helper in `run.go` (no behaviour change) | S | Ready | — |
+| SP-018 | `stet doctor` System One check | S | Ready | SP-021, SP-023 |
+| SP-019 | Critic eval dataset loader (`criticeval/dataset.go`) | S | Ready | — |
+| SP-020 | Research: rules compliance via System One | M | **Deferred** | SP-025 |
+| SP-021 | System One client `Health` / `Models` | S | Ready | SP-015 |
+| SP-022 | System One branch in `applyCritic` + run options | S | Ready | SP-016, SP-017 |
+| SP-023 | `--critic-backend` flag, client wiring in `main.go`, docs | S | Ready | SP-014, SP-022 |
+| SP-024 | Critic eval scoring and threshold sweep (`criticeval/sweep.go`) | S | Ready | SP-016, SP-019 |
+| SP-025 | `stet critic-eval` command | S | Ready | SP-018, SP-024 |
+
+Decomposition (2026-09-30): the original M packets were split where each slice is independently testable and the split enables parallel work. SP-015 → SP-015 + SP-021; SP-017 → SP-017 + SP-022 + SP-023; SP-019 → SP-019 + SP-024 + SP-025. SP-014 and SP-016 were re-sized to S; SP-020 stays M. Reasons are recorded in each packet's STATUS Discoveries.
 
 ### Completed (wave 0 + follow-on)
 
@@ -92,11 +99,12 @@ SP-001, SP-002, SP-003, SP-004, SP-005, SP-008 — `.DONE` on `main`.
 | 2a | SP-006 | 1 | Extension dismiss; `findingsPanel*` |
 | 2b | SP-007 | 1 | After SP-006 — same `findingsPanel.ts` |
 | H1 | SP-010 | 1 | Coverage gates (L); `cli/**/*_test.go` only |
-| S1 | SP-014, SP-015 | 2 | System One config + client; disjoint (`config/` vs `systemone/`) |
-| S2 | SP-016 | 1 | Verifier; `review/critic_systemone*` only; may run alongside SP-014 once SP-015 lands |
-| S3 | SP-017 | 1 | Pipeline wiring; `run.go`, `main.go`, docs |
-| S4 | SP-018 | 1 | Doctor check; `main.go` |
-| S5 | SP-019 | 1 | Eval harness; `criticeval/`, `main.go` |
+| S1 | SP-014, SP-015, SP-017 | 3 | No deps; disjoint (`config/`, `systemone/`, `run/`) |
+| S2 | SP-016, SP-021, SP-019 | 3 | Disjoint (`review/critic_systemone*`, `systemone/`, `criticeval/dataset*`); SP-019 has no deps and may also go earlier |
+| S3 | SP-022, SP-024 | 2 | Disjoint (`run/`, `criticeval/sweep*`) |
+| S4 | SP-023 | 1 | Flag, client wiring, docs; `main.go` |
+| S5 | SP-018 | 1 | Doctor check; `main.go` |
+| S6 | SP-025 | 1 | `stet critic-eval`; `main.go` |
 | — | SP-020 | — | Deferred research; schedule manually |
 
 **Start commands:**
@@ -107,14 +115,15 @@ spine batch start SP-009
 spine batch start SP-006
 spine batch start SP-007
 spine batch start SP-010
-spine batch start SP-014 SP-015
-spine batch start SP-016
-spine batch start SP-017
+spine batch start SP-014 SP-015 SP-017
+spine batch start SP-016 SP-021 SP-019
+spine batch start SP-022 SP-024
+spine batch start SP-023
 spine batch start SP-018
-spine batch start SP-019
+spine batch start SP-025
 ```
 
-Phase 4 tasks all touch `cli/**`; run them as the separate named batches above, never as one serial lane.
+Phase 4 tasks all touch `cli/**`; run them as the separate named batches above, never as one serial lane. Slices sharing files (SP-015/SP-021 `systemone/client.go`; SP-017/SP-022 `run.go`; SP-019/SP-024 `criticeval/`; SP-023/SP-018/SP-025 `main.go`) are ordered by dependency edges and land in different batches.
 
 **Avoid:** `spine batch start pending --wave 0` — auto-plan serializes SP-009 + SP-010 (both `cli/**`) in one lane, repeating wave-0 contract contamination ([#62](https://github.com/beettlle/pi-spine/issues/62)).
 
