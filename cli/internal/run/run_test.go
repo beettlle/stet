@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -3186,6 +3187,292 @@ func TestStart_dryRun_rulesSelector_neverContactsServer(t *testing.T) {
 	}
 	if decider.calls != 0 {
 		t.Errorf("decider calls = %d, want 0 (dry-run never contacts the selector server)", decider.calls)
+	}
+}
+
+// annotateResponse builds a System One choice response for the annotator's
+// per-finding question (key "q0" in single-finding batches) choosing optionID
+// with the given probability.
+func annotateResponse(optionID string, prob float64) *systemone.ChoiceResponse {
+	return &systemone.ChoiceResponse{
+		Model: "ann-model",
+		Answers: map[string]systemone.ChoiceAnswer{
+			"q0": {Choice: optionID, Probabilities: map[string]float64{optionID: prob}},
+		},
+	}
+}
+
+// mockFindingJSON is the one-finding LLM response shared by the annotation
+// pipeline tests (same shape as the selector pipeline tests use).
+const mockFindingJSON = `[{"file":"a.go","line":1,"severity":"warning","category":"style","message":"m"}]`
+
+// mkAnnotateOpts builds reviewPipelineOpts with the rules annotator enabled and
+// the selector disabled, mirroring mkSelectorOpts.
+func mkAnnotateOpts(decider *fakeChoiceDecider, warnOut io.Writer, hunks []diff.Hunk) reviewPipelineOpts {
+	return reviewPipelineOpts{
+		Client:               &fakeCriticLLM{responses: []string{mockFindingJSON}},
+		Model:                "main",
+		Hunks:                hunks,
+		GenOpts:              &ollama.GenerateOptions{},
+		SystemBase:           "BASE",
+		RulesByFile:          map[string][]rules.CursorRule{"a.go": {selectorRule()}},
+		RulesAnnotateClient:  decider,
+		RulesAnnotateBaseURL: "http://annotate.example:8080",
+		RulesAnnotateModel:   "ann-model",
+		RulesAnnotateWarnOut: warnOut,
+	}
+}
+
+// TestAnnotateRuleConflictsForBatch covers the per-hunk annotation helper:
+// disabled, empty batch, no matching rules, success, fail-open error handling,
+// and the over-budget skip.
+func TestAnnotateRuleConflictsForBatch(t *testing.T) {
+	t.Parallel()
+	hunk := diff.Hunk{FilePath: "a.go", RawContent: "package main\n"}
+	mkBatch := func() []findings.Finding {
+		return []findings.Finding{
+			{ID: "f1", File: "a.go", Line: 1, Severity: "warning", Category: "style", Message: "m1"},
+			{ID: "f2", File: "a.go", Line: 2, Severity: "info", Category: "bug", Message: "m2"},
+		}
+	}
+
+	t.Run("disabled returns batch unchanged with no requests", func(t *testing.T) {
+		t.Parallel()
+		decider := &fakeChoiceDecider{}
+		batch := mkBatch()
+		got := annotateRuleConflictsForBatch(context.Background(), reviewPipelineOpts{RulesAnnotateClient: nil}, hunk, []rules.CursorRule{selectorRule()}, batch, nil)
+		if len(got) != len(batch) {
+			t.Errorf("len = %d, want %d", len(got), len(batch))
+		}
+		for i, f := range got {
+			if f.RuleConflict != nil {
+				t.Errorf("finding %d annotated with annotator disabled: %+v", i, *f.RuleConflict)
+			}
+		}
+		if decider.calls != 0 {
+			t.Errorf("decider calls = %d, want 0", decider.calls)
+		}
+	})
+
+	t.Run("empty batch makes no requests", func(t *testing.T) {
+		t.Parallel()
+		decider := &fakeChoiceDecider{}
+		got := annotateRuleConflictsForBatch(context.Background(), mkAnnotateOpts(decider, io.Discard, nil), hunk, []rules.CursorRule{selectorRule()}, nil, nil)
+		if got != nil {
+			t.Errorf("got = %v, want nil for empty batch", got)
+		}
+		if decider.calls != 0 {
+			t.Errorf("decider calls = %d, want 0", decider.calls)
+		}
+	})
+
+	t.Run("no matching rules makes no requests", func(t *testing.T) {
+		t.Parallel()
+		decider := &fakeChoiceDecider{}
+		nonMatching := rules.CursorRule{Source: "ts.mdc", Globs: []string{"*.ts"}, Content: "## TS\n\nPrefer const."}
+		got := annotateRuleConflictsForBatch(context.Background(), mkAnnotateOpts(decider, io.Discard, nil), hunk, []rules.CursorRule{nonMatching}, mkBatch(), nil)
+		if len(got) != 2 {
+			t.Errorf("len = %d, want 2", len(got))
+		}
+		if decider.calls != 0 {
+			t.Errorf("decider calls = %d, want 0 (no server request without candidate sections)", decider.calls)
+		}
+	})
+
+	t.Run("success annotates without changing count or order", func(t *testing.T) {
+		t.Parallel()
+		// One request carries both findings' questions; answers are keyed by batch index.
+		resp := &systemone.ChoiceResponse{
+			Model: "ann-model",
+			Answers: map[string]systemone.ChoiceAnswer{
+				"q0": {Choice: "s2", Probabilities: map[string]float64{"s2": 0.9}},     // f1 -> Naming section
+				"q1": {Choice: "none", Probabilities: map[string]float64{"none": 0.9}}, // f2 -> no conflict
+			},
+		}
+		decider := &fakeChoiceDecider{responses: []*systemone.ChoiceResponse{resp}}
+		batch := mkBatch()
+		got := annotateRuleConflictsForBatch(context.Background(), mkAnnotateOpts(decider, io.Discard, nil), hunk, []rules.CursorRule{selectorRule()}, batch, nil)
+		if len(got) != 2 {
+			t.Fatalf("len = %d, want 2 (annotation must not change finding count)", len(got))
+		}
+		if got[0].ID != "f1" || got[1].ID != "f2" {
+			t.Errorf("order changed: %q %q, want f1 f2", got[0].ID, got[1].ID)
+		}
+		if got[0].RuleConflict == nil {
+			t.Fatalf("f1 not annotated; want RuleConflict set")
+		}
+		if got[0].RuleConflict.Source != "std.mdc" || got[0].RuleConflict.Section != "Naming" || got[0].RuleConflict.Probability != 0.9 {
+			t.Errorf("f1 RuleConflict = %+v, want std.mdc/Naming/0.9", *got[0].RuleConflict)
+		}
+		if got[1].RuleConflict != nil {
+			t.Errorf("f2 annotated with none-choice: %+v", *got[1].RuleConflict)
+		}
+		// One request for the two findings (under the 32-per-request cap).
+		if decider.calls != 1 {
+			t.Errorf("decider calls = %d, want 1", decider.calls)
+		}
+		req := decider.requests[0]
+		if req.Model != "ann-model" {
+			t.Errorf("request model = %q, want ann-model (RulesAnnotateModel passed through)", req.Model)
+		}
+		if !strings.Contains(req.State, "package main") {
+			t.Errorf("request state must carry the hunk content; got %q", req.State)
+		}
+		if len(req.Questions) != 2 {
+			t.Errorf("request questions = %d, want 2 (one per finding)", len(req.Questions))
+		}
+	})
+
+	t.Run("error leaves findings unannotated with one warning", func(t *testing.T) {
+		t.Parallel()
+		decider := &fakeChoiceDecider{errs: []error{errors.New("connection refused")}}
+		var warnBuf bytes.Buffer
+		batch := mkBatch()
+		got := annotateRuleConflictsForBatch(context.Background(), mkAnnotateOpts(decider, &warnBuf, nil), hunk, []rules.CursorRule{selectorRule()}, batch, &rulesAnnotateState{warnOut: &warnBuf, baseURL: "http://annotate.example:8080"})
+		if len(got) != 2 {
+			t.Errorf("len = %d, want 2 (annotation failure must not drop findings)", len(got))
+		}
+		for i, f := range got {
+			if f.RuleConflict != nil {
+				t.Errorf("finding %d annotated after error: %+v", i, *f.RuleConflict)
+			}
+		}
+		if !strings.Contains(warnBuf.String(), "http://annotate.example:8080") {
+			t.Errorf("warning must name the server URL; got %q", warnBuf.String())
+		}
+	})
+
+	t.Run("over-budget batch is skipped with no request", func(t *testing.T) {
+		t.Parallel()
+		decider := &fakeChoiceDecider{}
+		big := make([]findings.Finding, 65) // annotateMaxQuestions (64) + 1
+		for i := range big {
+			big[i] = findings.Finding{ID: fmt.Sprintf("f%d", i), File: "a.go", Line: i + 1, Severity: "info", Category: "style", Message: "m"}
+		}
+		got := annotateRuleConflictsForBatch(context.Background(), mkAnnotateOpts(decider, io.Discard, nil), hunk, []rules.CursorRule{selectorRule()}, big, nil)
+		if len(got) != 65 {
+			t.Errorf("len = %d, want 65 (oversized batch must be skipped, not degraded)", len(got))
+		}
+		if decider.calls != 0 {
+			t.Errorf("decider calls = %d, want 0 (batches over the question budget are skipped)", decider.calls)
+		}
+	})
+}
+
+// TestRunReviewPipeline_rulesAnnotate asserts the pipeline's enabled-path
+// annotation behaviour: findings annotated after the critic with count/order
+// unchanged, exactly one fail-open warning when annotation fails, and zero
+// requests when disabled.
+func TestRunReviewPipeline_rulesAnnotate(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	hunks := []diff.Hunk{
+		{FilePath: "a.go", RawContent: "hunk one\n"},
+		{FilePath: "a.go", RawContent: "hunk two\n"},
+	}
+
+	t.Run("enabled annotates surviving findings without changing count or order", func(t *testing.T) {
+		t.Parallel()
+		decider := &fakeChoiceDecider{responses: []*systemone.ChoiceResponse{annotateResponse("s0", 0.8)}}
+		opts := mkAnnotateOpts(decider, io.Discard, hunks)
+		opts.Client = &fakeCriticLLM{responses: []string{mockFindingJSON}}
+		collected, _, _, _, _, err := runReviewPipeline(ctx, opts)
+		if err != nil {
+			t.Fatalf("runReviewPipeline: %v", err)
+		}
+		if len(collected) != len(hunks) {
+			t.Fatalf("collected = %d, want %d (one mock finding per hunk)", len(collected), len(hunks))
+		}
+		for i, f := range collected {
+			if f.RuleConflict == nil {
+				t.Fatalf("finding %d not annotated; want RuleConflict set", i)
+			}
+			if f.RuleConflict.Source != "std.mdc" || f.RuleConflict.Section != "Error handling" || f.RuleConflict.Probability != 0.8 {
+				t.Errorf("finding %d RuleConflict = %+v, want std.mdc/Error handling/0.8", i, *f.RuleConflict)
+			}
+		}
+		if decider.calls != len(hunks) {
+			t.Errorf("decider calls = %d, want %d (one annotation request per hunk)", decider.calls, len(hunks))
+		}
+		// Annotation runs after the critic: the request state carries the hunk text.
+		if !strings.Contains(decider.requests[0].State, "hunk one") {
+			t.Errorf("annotation request state must carry the hunk content; got %q", decider.requests[0].State)
+		}
+	})
+
+	t.Run("error keeps findings unannotated with exactly one warning for the run", func(t *testing.T) {
+		t.Parallel()
+		decider := &fakeChoiceDecider{errs: []error{errors.New("connection refused")}}
+		var warnBuf bytes.Buffer
+		opts := mkAnnotateOpts(decider, &warnBuf, hunks)
+		opts.Client = &fakeCriticLLM{responses: []string{mockFindingJSON}}
+		collected, _, _, _, _, err := runReviewPipeline(ctx, opts)
+		if err != nil {
+			t.Fatalf("runReviewPipeline: %v (annotation failure must not fail the review)", err)
+		}
+		if len(collected) != len(hunks) {
+			t.Errorf("collected = %d, want %d", len(collected), len(hunks))
+		}
+		for i, f := range collected {
+			if f.RuleConflict != nil {
+				t.Errorf("finding %d annotated after error: %+v", i, *f.RuleConflict)
+			}
+		}
+		if got := strings.Count(warnBuf.String(), "rules annotation unavailable"); got != 1 {
+			t.Errorf("warnings = %d, want exactly 1 per run; output:\n%s", got, warnBuf.String())
+		}
+		if !strings.Contains(warnBuf.String(), "http://annotate.example:8080") {
+			t.Errorf("warning must name the server URL; got %q", warnBuf.String())
+		}
+		if strings.Contains(warnBuf.String(), "supersecret") {
+			t.Errorf("warning must never contain the API key; got %q", warnBuf.String())
+		}
+	})
+
+	t.Run("disabled leaves findings unchanged with no requests", func(t *testing.T) {
+		t.Parallel()
+		decider := &fakeChoiceDecider{}
+		opts := mkAnnotateOpts(decider, io.Discard, hunks)
+		opts.Client = &fakeCriticLLM{responses: []string{mockFindingJSON}}
+		opts.RulesAnnotateClient = nil
+		collected, _, _, _, _, err := runReviewPipeline(ctx, opts)
+		if err != nil {
+			t.Fatalf("runReviewPipeline: %v", err)
+		}
+		if decider.calls != 0 {
+			t.Errorf("decider calls = %d, want 0 when annotator disabled", decider.calls)
+		}
+		for i, f := range collected {
+			if f.RuleConflict != nil {
+				t.Errorf("finding %d annotated with annotator disabled: %+v", i, *f.RuleConflict)
+			}
+		}
+	})
+}
+
+// TestStart_dryRun_rulesAnnotate_neverContactsServer asserts that a dry-run
+// start with the rules annotator configured makes zero annotation requests.
+func TestStart_dryRun_rulesAnnotate_neverContactsServer(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	decider := &fakeChoiceDecider{}
+	opts := StartOptions{
+		RepoRoot:             repo,
+		StateDir:             stateDir,
+		WorktreeRoot:         "",
+		Ref:                  "HEAD~1",
+		DryRun:               true,
+		RulesAnnotateClient:  decider,
+		RulesAnnotateBaseURL: "http://annotate.example:8080",
+		RulesAnnotateModel:   "ann-model",
+	}
+	if _, err := Start(ctx, opts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	if decider.calls != 0 {
+		t.Errorf("decider calls = %d, want 0 (dry-run never contacts the annotation server)", decider.calls)
 	}
 }
 
