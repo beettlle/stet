@@ -1,0 +1,49 @@
+cli/cmd/stet/main_test.go
+  s_9eaa7c5400c567::t_fc5aa9ba37fcb8 29,32-37,397
+cli/internal/diff/diff_test.go
+  s_9eaa7c5400c567::t_65e4d9a4605fea 10-11,14-19,42
+cli/internal/git/repo_test.go
+  s_9eaa7c5400c567::t_1d85b5622b43c6 11-12,15-20
+cli/internal/git/worktree_test.go
+  s_9eaa7c5400c567::t_b69340c7b41e3c 11-12,17
+cli/internal/rag/go/callgraph_test.go
+  s_9eaa7c5400c567::t_3606da107cae62 15,151
+cli/internal/rag/go/resolver_test.go
+  s_9eaa7c5400c567::t_a9447ddb2742e1 12,15-20,23,64,94
+cli/internal/rag/java/resolver_test.go
+  s_9eaa7c5400c567::t_f80c8fdd072c57 12,15-20,23,63,94
+cli/internal/rag/js/resolver_test.go
+  s_9eaa7c5400c567::t_8ad34c4d396c1f 12,15-20,23,64,93
+cli/internal/rag/python/resolver_test.go
+  s_9eaa7c5400c567::t_b7033a28fec187 12,15-20,23,64,93
+cli/internal/rag/rust/resolver_test.go
+  s_9eaa7c5400c567::t_f2ecf6e44b1759 12,15-20,23,62,91
+cli/internal/rag/swift/resolver_test.go
+  s_9eaa7c5400c567::t_f9ac52e40247db 12,15-20,23,62,91
+cli/internal/review/review_test.go
+  s_9eaa7c5400c567::t_f367e50861e617 22,32-37,499,549
+cli/internal/run/run_test.go
+  s_9eaa7c5400c567::t_9a4232aa108212 27,31-36,41
+cli/internal/scope/scope_test.go
+  s_9eaa7c5400c567::t_6f2b01475d985c 12,15-20,23,44
+cli/internal/stats/stats_test.go
+  s_9eaa7c5400c567::t_a6bea9e3ee1b22 13,16-21,24
+spine-tasks/SP-030-git-test-isolation/STATUS.md
+  s_9eaa7c5400c567::t_d4560eb8704e87 1-2,13,15-16,20-21,23-24,26,28,30-51,59-60,67-70,77-79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "27c9bdbadd199df3bfdb308f1045e49816dff72a",
+  "prompts": {},
+  "sessions": {
+    "s_9eaa7c5400c567": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "agent-05e3c619-c4cb-4e87-afb9-4fb44b1ae190",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
