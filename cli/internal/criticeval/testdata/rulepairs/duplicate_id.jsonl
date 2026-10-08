@@ -1,0 +1,3 @@
+{"id": "F1", "language": "go", "premise_id": "p", "premise": "rule", "source": "s", "snippet": "a\nb\nc", "label": "violating", "origin": "synthetic"}
+{"id": "F2", "language": "go", "premise_id": "p", "premise": "rule", "source": "s", "snippet": "a\nb\nc", "label": "violating", "origin": "synthetic"}
+{"id": "F2", "language": "go", "premise_id": "p", "premise": "rule", "source": "s", "snippet": "a\nb\nc", "label": "violating", "origin": "synthetic"}

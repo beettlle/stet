@@ -1,0 +1,6 @@
+SP-032 complete.
+
+- Step 1: Choice types (ChoiceQuestion/ChoiceRequest/ChoiceAnswer/ChoiceResponse), ChoiceQuestion.MarshalJSON with "type": "choice", client-side validateChoiceRequest, DecideChoice, validateChoiceResponse; package doc updated. Commit 4dfad2b.
+- Step 2: 14 new tests (exact wire JSON, all validation/error cases, 401/422/429/529 retry parity, API-key redaction, marshal). Contract testCommand green: systemone 91.8%, review 86.7%; client.go coverage 91.8% (gate 72%). Commit 5dcded7.
+- Existing noul API unchanged; file scope respected.
+- Full-suite TempDir cleanup flakes in internal/run, cmd/stet, internal/stats proven pre-existing on base 8dd4a6a (environmental, out of scope).
