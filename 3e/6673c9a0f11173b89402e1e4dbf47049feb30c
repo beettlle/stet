@@ -1,0 +1,19 @@
+spine-tasks/SP-028-rule-pairs-dataset/.DONE
+  s_2cd9b6604b8f97::t_9d0cd2c8bfe0ca 1-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3e6673c9a0f11173b89402e1e4dbf47049feb30c",
+  "prompts": {},
+  "sessions": {
+    "s_2cd9b6604b8f97": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "ec8c24e3-9fb6-4110-be35-7d4456cc8f6e",
+        "model": "default"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
