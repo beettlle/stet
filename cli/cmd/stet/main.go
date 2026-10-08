@@ -28,6 +28,7 @@ import (
 	"stet/cli/internal/llm"
 	"stet/cli/internal/ollama"
 	"stet/cli/internal/review"
+	"stet/cli/internal/rules"
 	"stet/cli/internal/run"
 	"stet/cli/internal/session"
 	"stet/cli/internal/skill"
@@ -388,7 +389,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 		persistContextLimit = &cfg.ContextLimit
 		persistNumCtx = &cfg.NumCtx
 	}
-	soClient, soBaseURL, soModel, soMinKeep, soSamples := systemOneRunOptions(cfg)
+	so := systemOneRunOptions(cfg, dryRun)
 	opts := run.StartOptions{
 		RepoRoot:                       repoRoot,
 		StateDir:                       stateDir,
@@ -420,11 +421,14 @@ func runStart(cmd *cobra.Command, args []string) error {
 		CriticEnabled:                  cfg.CriticEnabled,
 		CriticModel:                    cfg.CriticModel,
 		CriticBackend:                  cfg.CriticBackend,
-		SystemOneClient:                soClient,
-		SystemOneBaseURL:               soBaseURL,
-		SystemOneModel:                 soModel,
-		SystemOneMinKeep:               soMinKeep,
-		SystemOneSamples:               soSamples,
+		SystemOneClient:                so.Client,
+		SystemOneBaseURL:               so.BaseURL,
+		SystemOneModel:                 so.Model,
+		SystemOneMinKeep:               so.MinKeep,
+		SystemOneSamples:               so.Samples,
+		RulesSelectorClient:            so.SelectorClient,
+		RulesSelectorBaseURL:           so.BaseURL,
+		RulesSelectorModel:             so.SelectorModel,
 		PersistStrictness:              persistStrictness,
 		PersistRAGSymbolMaxDefinitions: persistRAGDefs,
 		PersistRAGSymbolMaxTokens:      persistRAGTokens,
@@ -665,21 +669,53 @@ func overridesFromFlags(cmd *cobra.Command) (*config.Overrides, error) {
 	return o, nil
 }
 
+// systemOneRunOpts groups the System One fields for run.StartOptions and
+// run.RunOptions. At most one *systemone.Client is constructed per command and
+// shared by the System One critic and the rules selector (SP-033).
+type systemOneRunOpts struct {
+	// Client is the critic decider; nil unless the critic is enabled with backend "systemone".
+	Client review.SystemOneDecider
+	// BaseURL is the decision server base URL (also used for the selector fail-open warning).
+	BaseURL string
+	// Model is the model name sent in System One requests.
+	Model   string
+	MinKeep float64
+	Samples int
+	// SelectorClient is the rules selector decider; it shares Client's instance
+	// and is non-nil only when rules_selector is enabled and the command is not
+	// --dry-run (a dry run never contacts the selector server).
+	SelectorClient rules.ChoiceDecider
+	// SelectorModel is the model name sent in selector requests (reuses systemone_model).
+	SelectorModel string
+}
+
 // systemOneRunOptions builds the System One fields for run.StartOptions and
-// run.RunOptions from the loaded config. The client is constructed only when
-// the critic is enabled and critic_backend is "systemone"; otherwise
-// SystemOneClient is nil so the critic never attempts System One requests.
+// run.RunOptions from the loaded config. Exactly one *systemone.Client is
+// constructed when either the System One critic (critic enabled with backend
+// "systemone") or the rules selector (rules_selector, not dry-run) needs it;
+// both share that instance. dryRun must reflect the command's --dry-run flag.
 // The API key comes from STET_SYSTEMONE_API_KEY (env only) and is passed to
 // the client, never logged or included in error messages.
-func systemOneRunOptions(cfg *config.Config) (client review.SystemOneDecider, baseURL, model string, minKeep float64, samples int) {
-	baseURL = cfg.SystemOneBaseURL
-	model = cfg.SystemOneModel
-	minKeep = cfg.SystemOneMinKeep
-	samples = cfg.SystemOneSamples
-	if cfg.CriticEnabled && cfg.CriticBackend == "systemone" {
-		client = systemone.NewClient(cfg.SystemOneBaseURL, cfg.SystemOneAPIKey, nil)
+func systemOneRunOptions(cfg *config.Config, dryRun bool) systemOneRunOpts {
+	o := systemOneRunOpts{
+		BaseURL: cfg.SystemOneBaseURL,
+		Model:   cfg.SystemOneModel,
+		MinKeep: cfg.SystemOneMinKeep,
+		Samples: cfg.SystemOneSamples,
 	}
-	return client, baseURL, model, minKeep, samples
+	wantCritic := cfg.CriticEnabled && cfg.CriticBackend == "systemone"
+	wantSelector := cfg.RulesSelector && !dryRun
+	if wantCritic || wantSelector {
+		client := systemone.NewClient(cfg.SystemOneBaseURL, cfg.SystemOneAPIKey, nil)
+		if wantCritic {
+			o.Client = client
+		}
+		if wantSelector {
+			o.SelectorClient = client
+			o.SelectorModel = cfg.SystemOneModel
+		}
+	}
+	return o
 }
 
 func runRun(cmd *cobra.Command, args []string) error {
@@ -779,7 +815,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 	if trace {
 		traceOut = os.Stderr
 	}
-	soClient, soBaseURL, soModel, soMinKeep, soSamples := systemOneRunOptions(cfg)
+	so := systemOneRunOptions(cfg, dryRun)
 	opts := run.RunOptions{
 		RepoRoot:                     repoRoot,
 		StateDir:                     stateDir,
@@ -808,11 +844,14 @@ func runRun(cmd *cobra.Command, args []string) error {
 		CriticEnabled:                cfg.CriticEnabled,
 		CriticModel:                  cfg.CriticModel,
 		CriticBackend:                cfg.CriticBackend,
-		SystemOneClient:              soClient,
-		SystemOneBaseURL:             soBaseURL,
-		SystemOneModel:               soModel,
-		SystemOneMinKeep:             soMinKeep,
-		SystemOneSamples:             soSamples,
+		SystemOneClient:              so.Client,
+		SystemOneBaseURL:             so.BaseURL,
+		SystemOneModel:               so.Model,
+		SystemOneMinKeep:             so.MinKeep,
+		SystemOneSamples:             so.Samples,
+		RulesSelectorClient:          so.SelectorClient,
+		RulesSelectorBaseURL:         so.BaseURL,
+		RulesSelectorModel:           so.SelectorModel,
 		TraceOut:                     traceOut,
 		UseSearchReplaceFormat:       getSearchReplaceFlag(cmd),
 		SuppressionEnabled:           cfg.SuppressionEnabled,
@@ -972,7 +1011,7 @@ func runRerun(cmd *cobra.Command, args []string) error {
 		traceOut = os.Stderr
 	}
 	replace, _ := cmd.Flags().GetBool("replace")
-	soClient, soBaseURL, soModel, soMinKeep, soSamples := systemOneRunOptions(cfg)
+	so := systemOneRunOptions(cfg, dryRun)
 	opts := run.RunOptions{
 		RepoRoot:                     repoRoot,
 		StateDir:                     stateDir,
@@ -1001,11 +1040,14 @@ func runRerun(cmd *cobra.Command, args []string) error {
 		CriticEnabled:                cfg.CriticEnabled,
 		CriticModel:                  cfg.CriticModel,
 		CriticBackend:                cfg.CriticBackend,
-		SystemOneClient:              soClient,
-		SystemOneBaseURL:             soBaseURL,
-		SystemOneModel:               soModel,
-		SystemOneMinKeep:             soMinKeep,
-		SystemOneSamples:             soSamples,
+		SystemOneClient:              so.Client,
+		SystemOneBaseURL:             so.BaseURL,
+		SystemOneModel:               so.Model,
+		SystemOneMinKeep:             so.MinKeep,
+		SystemOneSamples:             so.Samples,
+		RulesSelectorClient:          so.SelectorClient,
+		RulesSelectorBaseURL:         so.BaseURL,
+		RulesSelectorModel:           so.SelectorModel,
 		TraceOut:                     traceOut,
 		UseSearchReplaceFormat:       getSearchReplaceFlag(cmd),
 		ForceFullReview:              true,
