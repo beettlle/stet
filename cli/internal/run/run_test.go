@@ -23,6 +23,7 @@ import (
 	"stet/cli/internal/prompt"
 	"stet/cli/internal/review"
 	"stet/cli/internal/session"
+	"stet/cli/internal/trace"
 )
 
 const dryRunMsg = "Dry-run placeholder (CI)"
@@ -2687,4 +2688,194 @@ func TestRunReviewPipeline_singleHunkWithStream(t *testing.T) {
 	if !strings.Contains(stream.String(), `"type":"progress"`) {
 		t.Errorf("stream output missing progress: %q", stream.String())
 	}
+}
+
+// fakeCriticLLM implements llm.Client for applyCritic tests. Only Generate is
+// exercised by the critic path; the other methods exist to satisfy the interface.
+type fakeCriticLLM struct {
+	errors    []error                   // error per Generate call (last repeats); nil entries succeed
+	responses []string                  // response body per Generate call (last repeats)
+	calls     int                       // total Generate calls
+	models    []string                  // model per call
+	genOpts   []*ollama.GenerateOptions // options per call
+}
+
+func (f *fakeCriticLLM) generate(model string, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error) {
+	f.calls++
+	f.models = append(f.models, model)
+	f.genOpts = append(f.genOpts, opts)
+	if i := f.calls - 1; i < len(f.errors) && f.errors[i] != nil {
+		return nil, f.errors[i]
+	}
+	i := len(f.responses) - 1
+	if f.calls-1 < len(f.responses) {
+		i = f.calls - 1
+	}
+	return &ollama.GenerateResult{Response: f.responses[i]}, nil
+}
+
+func (f *fakeCriticLLM) Check(ctx context.Context, model string) (*ollama.CheckResult, error) {
+	return &ollama.CheckResult{}, nil
+}
+
+func (f *fakeCriticLLM) Generate(ctx context.Context, model, systemPrompt, userPrompt string, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error) {
+	return f.generate(model, opts)
+}
+
+func (f *fakeCriticLLM) GeneratePlain(ctx context.Context, model, systemPrompt, userPrompt string, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error) {
+	return f.generate(model, opts)
+}
+
+func (f *fakeCriticLLM) GenerateWithMessages(ctx context.Context, model string, messages []ollama.Message, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error) {
+	return f.generate(model, opts)
+}
+
+func TestApplyCritic(t *testing.T) {
+	t.Parallel()
+	yes := `{"verdict":"yes","reason":"ok"}`
+	no := `{"verdict":"no","reason":"bad"}`
+	hunk := diff.Hunk{FilePath: "a.go", RawContent: "package main\n"}
+	p := &preparedPrompt{Hunk: hunk}
+	mkBatch := func() []findings.Finding {
+		return []findings.Finding{
+			{ID: "f1", File: "a.go", Line: 1, Severity: "warning", Category: "bug", Message: "m1"},
+			{ID: "f2", File: "a.go", Line: 2, Severity: "warning", Category: "style", Message: "m2"},
+		}
+	}
+
+	t.Run("disabled returns batch unchanged with no calls", func(t *testing.T) {
+		fake := &fakeCriticLLM{}
+		in := mkBatch()
+		out, err := applyCritic(context.Background(), reviewPipelineOpts{Client: fake}, p, in)
+		if err != nil {
+			t.Fatalf("applyCritic: %v", err)
+		}
+		if len(out) != 2 || out[0].ID != "f1" || out[1].ID != "f2" {
+			t.Errorf("out = %+v, want input unchanged", out)
+		}
+		if fake.calls != 0 {
+			t.Errorf("calls = %d, want 0", fake.calls)
+		}
+	})
+
+	t.Run("empty batch returns unchanged with no calls", func(t *testing.T) {
+		fake := &fakeCriticLLM{}
+		out, err := applyCritic(context.Background(), reviewPipelineOpts{Client: fake, CriticEnabled: true, CriticModel: "critic"}, p, nil)
+		if err != nil {
+			t.Fatalf("applyCritic: %v", err)
+		}
+		if out != nil {
+			t.Errorf("out = %+v, want nil", out)
+		}
+		if fake.calls != 0 {
+			t.Errorf("calls = %d, want 0", fake.calls)
+		}
+	})
+
+	t.Run("keeps all when critic says yes", func(t *testing.T) {
+		var traceBuf bytes.Buffer
+		fake := &fakeCriticLLM{responses: []string{yes, yes}}
+		opts := reviewPipelineOpts{Client: fake, Model: "main", CriticEnabled: true, CriticModel: "critic", TraceOut: trace.New(&traceBuf)}
+		out, err := applyCritic(context.Background(), opts, p, mkBatch())
+		if err != nil {
+			t.Fatalf("applyCritic: %v", err)
+		}
+		if len(out) != 2 {
+			t.Fatalf("kept %d findings, want 2", len(out))
+		}
+		if fake.calls != 2 {
+			t.Errorf("calls = %d, want 2 (one per finding)", fake.calls)
+		}
+		if got := traceBuf.String(); !strings.Contains(got, "Critic: 2 -> 2") {
+			t.Errorf("trace = %q, want Critic: 2 -> 2", got)
+		}
+	})
+
+	t.Run("drops findings the critic rejects", func(t *testing.T) {
+		var traceBuf bytes.Buffer
+		fake := &fakeCriticLLM{responses: []string{yes, no}}
+		opts := reviewPipelineOpts{Client: fake, Model: "main", CriticEnabled: true, CriticModel: "critic", TraceOut: trace.New(&traceBuf)}
+		out, err := applyCritic(context.Background(), opts, p, mkBatch())
+		if err != nil {
+			t.Fatalf("applyCritic: %v", err)
+		}
+		if len(out) != 1 || out[0].ID != "f1" {
+			t.Fatalf("kept = %+v, want only f1", out)
+		}
+		if got := traceBuf.String(); !strings.Contains(got, "Critic: 2 -> 1") {
+			t.Errorf("trace = %q, want Critic: 2 -> 1", got)
+		}
+	})
+
+	t.Run("generate error returns user error and traces", func(t *testing.T) {
+		var traceBuf bytes.Buffer
+		genErr := errors.New("connection refused")
+		fake := &fakeCriticLLM{errors: []error{genErr}}
+		opts := reviewPipelineOpts{Client: fake, Model: "main", CriticEnabled: true, CriticModel: "critic", TraceOut: trace.New(&traceBuf)}
+		out, err := applyCritic(context.Background(), opts, p, mkBatch())
+		if out != nil {
+			t.Errorf("out = %+v, want nil", out)
+		}
+		if err == nil {
+			t.Fatal("applyCritic err = nil, want Critic failed error")
+		}
+		if !strings.Contains(err.Error(), "Critic failed for a.go.") {
+			t.Errorf("err = %v, want Critic failed for a.go.", err)
+		}
+		if !errors.Is(err, genErr) {
+			t.Errorf("err %v does not wrap %v", err, genErr)
+		}
+		if got := traceBuf.String(); !strings.Contains(got, "Critic request failed: connection refused") {
+			t.Errorf("trace = %q, want Critic request failed", got)
+		}
+		if fake.calls != 1 {
+			t.Errorf("calls = %d, want 1 (stop on first error)", fake.calls)
+		}
+	})
+
+	t.Run("same model keeps alive and propagates max completion tokens", func(t *testing.T) {
+		fake := &fakeCriticLLM{responses: []string{yes}}
+		opts := reviewPipelineOpts{
+			Client: fake, Model: "m", CriticEnabled: true, CriticModel: "m",
+			GenOpts: &ollama.GenerateOptions{MaxCompletionTokens: 512},
+		}
+		if _, err := applyCritic(context.Background(), opts, p, mkBatch()[:1]); err != nil {
+			t.Fatalf("applyCritic: %v", err)
+		}
+		if fake.models[0] != "m" {
+			t.Errorf("critic model = %q, want m", fake.models[0])
+		}
+		if fake.genOpts[0].KeepAlive != keepAliveDuringRun {
+			t.Errorf("KeepAlive = %v, want %v", fake.genOpts[0].KeepAlive, keepAliveDuringRun)
+		}
+		if fake.genOpts[0].MaxCompletionTokens != 512 {
+			t.Errorf("MaxCompletionTokens = %d, want 512", fake.genOpts[0].MaxCompletionTokens)
+		}
+	})
+
+	t.Run("different model does not keep alive", func(t *testing.T) {
+		fake := &fakeCriticLLM{responses: []string{yes}}
+		opts := reviewPipelineOpts{Client: fake, Model: "main", CriticEnabled: true, CriticModel: "critic"}
+		if _, err := applyCritic(context.Background(), opts, p, mkBatch()[:1]); err != nil {
+			t.Fatalf("applyCritic: %v", err)
+		}
+		if fake.genOpts[0].KeepAlive != 0 {
+			t.Errorf("KeepAlive = %v, want 0 (critic model differs from main; VerifyFinding default)", fake.genOpts[0].KeepAlive)
+		}
+	})
+
+	t.Run("retries once on parse failure then keeps", func(t *testing.T) {
+		fake := &fakeCriticLLM{responses: []string{"not json at all", yes}}
+		opts := reviewPipelineOpts{Client: fake, Model: "main", CriticEnabled: true, CriticModel: "critic"}
+		out, err := applyCritic(context.Background(), opts, p, mkBatch()[:1])
+		if err != nil {
+			t.Fatalf("applyCritic: %v", err)
+		}
+		if len(out) != 1 {
+			t.Fatalf("kept %d findings, want 1 after retry", len(out))
+		}
+		if fake.calls != 2 {
+			t.Errorf("calls = %d, want 2 (initial + parse retry)", fake.calls)
+		}
+	})
 }
