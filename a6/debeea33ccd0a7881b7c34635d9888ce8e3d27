@@ -1,0 +1,19 @@
+spine-tasks/SP-014-critic-backend-config/.DONE
+  s_acedf5f9f92acf::t_e17514fd33f737 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a6debeea33ccd0a7881b7c34635d9888ce8e3d27",
+  "prompts": {},
+  "sessions": {
+    "s_acedf5f9f92acf": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "agent-682021cd-fe4c-4e5a-9a2e-553c2ef81b95",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
