@@ -1,0 +1,65 @@
+spine-tasks/SP-030-git-test-isolation/STATUS.md
+  s_9eaa7c5400c567::t_2368be6b428abd 1-60
+spine-tasks/SP-027-rule-conflict-annotation/STATUS.md
+  s_9eaa7c5400c567::t_33ee2b92217348 1-57
+spine-tasks/SP-026-rules-section-selector/STATUS.md
+  s_9eaa7c5400c567::t_cae6b733e55a3e 1-59
+spine-tasks/SP-034-rule-annotation-wiring/STATUS.md
+  s_9eaa7c5400c567::t_b75eb2c1dda6be 1-59
+spine-tasks/CONTEXT.md
+  s_9eaa7c5400c567::t_909f47d78d1b18 74-91
+  s_9eaa7c5400c567::t_61b7331c7caaa3 146-147
+  s_9eaa7c5400c567::t_24b4ccd268a82e 3,5
+spine-tasks/SP-028-rule-pairs-dataset/PROMPT.md
+  s_9eaa7c5400c567::t_18dbfb597e337e 1-132
+spine-tasks/dependencies.json
+  s_9eaa7c5400c567::t_3dec6a2d0d8b7e 15-20
+spine-tasks/SP-033-rules-selector-wiring/STATUS.md
+  s_9eaa7c5400c567::t_ce5720f5004f40 1-65
+spine-tasks/SP-032-systemone-choice-questions/STATUS.md
+  s_9eaa7c5400c567::t_a1b2b9c4137aa0 1-54
+spine-tasks/SP-030-git-test-isolation/PROMPT.md
+  s_9eaa7c5400c567::t_cac5ab24f9845f 1-60,62-107
+  s_9eaa7c5400c567::t_c867bf9682e385 61
+spine-tasks/SP-032-systemone-choice-questions/PROMPT.md
+  s_9eaa7c5400c567::t_703cffcf960ce8 1-136
+spine-tasks/SP-026-rules-section-selector/PROMPT.md
+  s_9eaa7c5400c567::t_beb23029f7c156 1-122
+spine-tasks/SP-027-rule-conflict-annotation/PROMPT.md
+  s_9eaa7c5400c567::t_3f14bd60d4ce1e 1-119
+spine-tasks/SP-028-rule-pairs-dataset/STATUS.md
+  s_9eaa7c5400c567::t_13849baa8caf45 1-61
+spine-tasks/SP-034-rule-annotation-wiring/PROMPT.md
+  s_9eaa7c5400c567::t_b68f68fde2c9c9 1-113
+spine-tasks/SP-031-gofmt-and-guard/STATUS.md
+  s_9eaa7c5400c567::t_b7d48b635da40f 1-53
+spine-tasks/SP-031-gofmt-and-guard/PROMPT.md
+  s_9eaa7c5400c567::t_211f5e57b17141 63-64
+  s_9eaa7c5400c567::t_b1db24830db865 46,53-54
+  s_9eaa7c5400c567::t_e8c487cf2c867b 1-16,18,21-45,47-52,55-62,65-94
+  s_9eaa7c5400c567::t_7aea1544e6d468 17,19-20
+spine-tasks/SP-033-rules-selector-wiring/PROMPT.md
+  s_9eaa7c5400c567::t_26af15d20dac05 1-115
+spine-tasks/SP-029-rules-doublestar-globs/STATUS.md
+  s_9eaa7c5400c567::t_d66b6d708b881d 1-53
+spine-tasks/SP-029-rules-doublestar-globs/PROMPT.md
+  s_9eaa7c5400c567::t_c4954306ab2e34 1-95
+spine-tasks/SP-028-rule-pairs-dataset/seed/sp020-labeled-set.json
+  s_9eaa7c5400c567::t_50e2192b997ce5 1-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "caeeb06297c7d6a8fefccc95ec02fab5a4b57840",
+  "prompts": {},
+  "sessions": {
+    "s_9eaa7c5400c567": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "agent-05e3c619-c4cb-4e87-afb9-4fb44b1ae190",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
