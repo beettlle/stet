@@ -1,0 +1,22 @@
+Contract testCommand failure log
+Command: cd cli && go test ./internal/run/... -count=1 -cover
+Exit code: 1
+Attempt: 1 of 2
+Timestamp: 2026-10-08T19:17:58.027Z
+Buffer overflow: no
+---
+stet: stream write: write failed
+Warning: proceeding with uncommitted changes; review scope may be unclear
+--- FAIL: TestStart_refEqualsHEAD_withPersistStrictness_storesInSession (2.16s)
+    testing.go:1617: TempDir RemoveAll cleanup: unlinkat /var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/TestStart_refEqualsHEAD_withPersistStrictness_storesInSession923812999/001/.git: directory not empty
+--- FAIL: TestStart_negativeRAGOptions_clamped (2.13s)
+    testing.go:1617: TempDir RemoveAll cleanup: unlinkat /var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/TestStart_negativeRAGOptions_clamped1328577172/001/.git: directory not empty
+--- FAIL: TestStart_dryRun_deterministicFindings (1.62s)
+    testing.go:1617: TempDir RemoveAll cleanup: unlinkat /var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/TestStart_dryRun_deterministicFindings1444468355/001/.git: directory not empty
+--- FAIL: TestRun_dryRun_incremental (1.67s)
+    testing.go:1617: TempDir RemoveAll cleanup: unlinkat /var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/TestRun_dryRun_incremental1887979797/001/.git: directory not empty
+FAIL
+coverage: 78.1% of statements
+FAIL	stet/cli/internal/run	9.987s
+FAIL
+
