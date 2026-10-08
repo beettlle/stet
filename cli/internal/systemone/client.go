@@ -1,7 +1,8 @@
 // Package systemone provides a small HTTP client for System One decision
 // servers using the OpenJev wire API (same shape as hosted Jev), e.g.
 // https://api.codiv.ai or a self-hosted OpenJev instance. Only the noul
-// question type is modelled; Health/Models checks live in a follow-up task.
+// question type is modelled for decisions; Health and Models report server
+// availability and the model list.
 package systemone
 
 import (
@@ -38,6 +39,12 @@ const statusOverloaded = 529
 
 // decidePath is the decision endpoint under the API root.
 const decidePath = "/v1/systemone"
+
+// healthPath is the health check endpoint at the server root.
+const healthPath = "/health"
+
+// modelsPath is the model listing endpoint under the API root.
+const modelsPath = "/v1/models"
 
 // questionTypeNoul is the only question type this client models.
 const questionTypeNoul = "noul"
@@ -267,6 +274,50 @@ func validateResponse(req Request, resp *Response) error {
 		}
 	}
 	return nil
+}
+
+// healthResponse is the body of a healthy GET /health response.
+type healthResponse struct {
+	Status string `json:"status"`
+}
+
+// modelEntry is one model in the GET /v1/models listing.
+type modelEntry struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	ReleaseDate string `json:"release_date"`
+}
+
+// modelsResponse is the body of GET /v1/models.
+type modelsResponse struct {
+	Models []modelEntry `json:"models"`
+}
+
+// Health reports whether the System One server is reachable and healthy. It
+// returns nil only when the server answers 200 with status "ok"; any other
+// response body is an error.
+func (c *Client) Health(ctx context.Context) error {
+	var resp healthResponse
+	if err := c.do(ctx, http.MethodGet, healthPath, nil, &resp); err != nil {
+		return err
+	}
+	if resp.Status != "ok" {
+		return fmt.Errorf("system one: server not healthy: status %q", resp.Status)
+	}
+	return nil
+}
+
+// Models returns the names of the models the server serves, in server order.
+func (c *Client) Models(ctx context.Context) ([]string, error) {
+	var resp modelsResponse
+	if err := c.do(ctx, http.MethodGet, modelsPath, nil, &resp); err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(resp.Models))
+	for _, m := range resp.Models {
+		names = append(names, m.Name)
+	}
+	return names, nil
 }
 
 // do performs an HTTP request against the server with bounded retries and

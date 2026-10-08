@@ -709,3 +709,200 @@ func TestHttpStatusError_overloadedWithoutBody(t *testing.T) {
 		t.Errorf("empty body should not trail a colon: %q", err)
 	}
 }
+
+// --- Health and Models (SP-021) ---
+
+// modelsListBody is the real OpenJev GET /v1/models response shape.
+func modelsListBody() map[string]any {
+	return map[string]any{
+		"models": []map[string]any{
+			{"name": "openjev-latest", "description": "Alias for the newest OpenJev release. Currently openjev-0.1.", "release_date": "2026-09-18"},
+			{"name": "openjev-0.1", "description": "First OpenJev release.", "release_date": "2026-09-18"},
+			{"name": "diffusiongemma-26b", "description": "26B diffusion model.", "release_date": "2026-08-02"},
+		},
+	}
+}
+
+func TestHealth_ok(t *testing.T) {
+	var gotMethod, gotPath, gotAuth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod, gotPath, gotAuth = r.Method, r.URL.Path, r.Header.Get("Authorization")
+		writeJSON(t, w, map[string]string{"status": "ok"})
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL, testAPIKey, srv.Client())
+	if err := client.Health(context.Background()); err != nil {
+		t.Fatalf("Health: %v", err)
+	}
+	if gotMethod != http.MethodGet {
+		t.Errorf("method = %q, want GET", gotMethod)
+	}
+	if gotPath != "/health" {
+		t.Errorf("path = %q, want /health", gotPath)
+	}
+	if gotAuth != "Bearer "+testAPIKey {
+		t.Errorf("Authorization = %q", gotAuth)
+	}
+}
+
+func TestHealth_wrongBody(t *testing.T) {
+	cases := []struct {
+		name   string
+		body   string
+		wantIn string
+	}{
+		{"degraded", `{"status":"degraded"}`, `status "degraded"`},
+		{"emptyStatus", `{}`, `status ""`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			defer srv.Close()
+
+			client := NewClient(srv.URL, "", srv.Client())
+			err := client.Health(context.Background())
+			if err == nil {
+				t.Fatal("Health: want error for non-ok body")
+			}
+			if !strings.Contains(err.Error(), tc.wantIn) {
+				t.Errorf("error %q missing %q", err, tc.wantIn)
+			}
+		})
+	}
+}
+
+func TestHealth_http500Exhausted(t *testing.T) {
+	fastBackoff(t)
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		http.Error(w, "boom", http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL, "", srv.Client())
+	err := client.Health(context.Background())
+	if err == nil {
+		t.Fatal("Health: want error")
+	}
+	if !errors.Is(err, ErrUnreachable) {
+		t.Errorf("errors.Is ErrUnreachable: %v", err)
+	}
+	if n := calls.Load(); n != _maxRetries+1 {
+		t.Errorf("calls = %d, want %d (retries exhausted)", n, _maxRetries+1)
+	}
+}
+
+func TestHealth_baseURLWithV1(t *testing.T) {
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		writeJSON(t, w, map[string]string{"status": "ok"})
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL+"/v1", "", srv.Client())
+	if err := client.Health(context.Background()); err != nil {
+		t.Fatalf("Health: %v", err)
+	}
+	if gotPath != "/v1/health" {
+		t.Errorf("path = %q, want /v1/health", gotPath)
+	}
+}
+
+func TestModels_list(t *testing.T) {
+	var gotMethod, gotPath, gotAuth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod, gotPath, gotAuth = r.Method, r.URL.Path, r.Header.Get("Authorization")
+		writeJSON(t, w, modelsListBody())
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL, testAPIKey, srv.Client())
+	got, err := client.Models(context.Background())
+	if err != nil {
+		t.Fatalf("Models: %v", err)
+	}
+	if gotMethod != http.MethodGet {
+		t.Errorf("method = %q, want GET", gotMethod)
+	}
+	if gotPath != "/v1/models" {
+		t.Errorf("path = %q, want /v1/models", gotPath)
+	}
+	if gotAuth != "Bearer "+testAPIKey {
+		t.Errorf("Authorization = %q", gotAuth)
+	}
+	want := []string{"openjev-latest", "openjev-0.1", "diffusiongemma-26b"}
+	if len(got) != len(want) {
+		t.Fatalf("Models = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("Models[%d] = %q, want %q (server order)", i, got[i], want[i])
+		}
+	}
+}
+
+func TestModels_http401(t *testing.T) {
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		http.Error(w, "bad key", http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL, "wrong-key", srv.Client())
+	_, err := client.Models(context.Background())
+	if err == nil {
+		t.Fatal("Models: want error")
+	}
+	if !errors.Is(err, ErrUnauthorized) {
+		t.Errorf("errors.Is ErrUnauthorized: %v", err)
+	}
+	if n := calls.Load(); n != 1 {
+		t.Errorf("401 must not be retried, calls = %d", n)
+	}
+	if strings.Contains(err.Error(), "wrong-key") {
+		t.Errorf("error string contains API key: %q", err)
+	}
+}
+
+func TestModels_unreachable(t *testing.T) {
+	fastBackoff(t)
+	client := NewClient("http://127.0.0.1:1", testAPIKey, &http.Client{Timeout: 100 * time.Millisecond})
+	_, err := client.Models(context.Background())
+	if err == nil {
+		t.Fatal("Models: want error")
+	}
+	if !errors.Is(err, ErrUnreachable) {
+		t.Errorf("errors.Is ErrUnreachable: %v", err)
+	}
+	if strings.Contains(err.Error(), testAPIKey) {
+		t.Errorf("error string contains API key: %q", err)
+	}
+}
+
+func TestModels_baseURLWithV1(t *testing.T) {
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		writeJSON(t, w, modelsListBody())
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL+"/v1", "", srv.Client())
+	got, err := client.Models(context.Background())
+	if err != nil {
+		t.Fatalf("Models: %v", err)
+	}
+	if gotPath != "/v1/models" {
+		t.Errorf("path = %q, want /v1/models (no double /v1)", gotPath)
+	}
+	if len(got) != 3 {
+		t.Errorf("len(Models) = %d, want 3", len(got))
+	}
+}
