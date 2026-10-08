@@ -1564,3 +1564,148 @@ func TestLoad_systemOneInvalidTOML(t *testing.T) {
 		})
 	}
 }
+
+func TestLoad_systemOneFromEnv(t *testing.T) {
+	t.Parallel()
+	cfg, err := Load(context.Background(), LoadOptions{
+		Env: []string{
+			"STET_CRITIC_BACKEND=SystemOne",
+			"STET_SYSTEMONE_BASE_URL=http://env-host:9300",
+			"STET_SYSTEMONE_MODEL=openjev-env",
+			"STET_SYSTEMONE_MIN_KEEP=0.9",
+			"STET_SYSTEMONE_SAMPLES=8",
+			"STET_SYSTEMONE_API_KEY=env-secret-key",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.CriticBackend != "systemone" {
+		t.Errorf("CriticBackend = %q, want systemone (case-insensitive, stored lowercase)", cfg.CriticBackend)
+	}
+	if cfg.SystemOneBaseURL != "http://env-host:9300" {
+		t.Errorf("SystemOneBaseURL = %q, want http://env-host:9300", cfg.SystemOneBaseURL)
+	}
+	if cfg.SystemOneModel != "openjev-env" {
+		t.Errorf("SystemOneModel = %q, want openjev-env", cfg.SystemOneModel)
+	}
+	if cfg.SystemOneMinKeep != 0.9 {
+		t.Errorf("SystemOneMinKeep = %v, want 0.9", cfg.SystemOneMinKeep)
+	}
+	if cfg.SystemOneSamples != 8 {
+		t.Errorf("SystemOneSamples = %d, want 8", cfg.SystemOneSamples)
+	}
+	if cfg.SystemOneAPIKey != "env-secret-key" {
+		t.Errorf("SystemOneAPIKey should be set from STET_SYSTEMONE_API_KEY")
+	}
+}
+
+func TestLoad_systemOneInvalidEnv(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		env     string
+		wantKey string
+	}{
+		{"invalid backend", "STET_CRITIC_BACKEND=bogus", "critic_backend"},
+		{"wrong scheme", "STET_SYSTEMONE_BASE_URL=ftp://example.com", "systemone_base_url"},
+		{"no host", "STET_SYSTEMONE_BASE_URL=http://", "systemone_base_url"},
+		{"not a url", "STET_SYSTEMONE_BASE_URL=not a url", "systemone_base_url"},
+		{"unparseable url", "STET_SYSTEMONE_BASE_URL=://x", "systemone_base_url"},
+		{"min_keep not a number", "STET_SYSTEMONE_MIN_KEEP=abc", "STET_SYSTEMONE_MIN_KEEP"},
+		{"min_keep too high", "STET_SYSTEMONE_MIN_KEEP=1.5", "systemone_min_keep"},
+		{"min_keep negative", "STET_SYSTEMONE_MIN_KEEP=-0.1", "systemone_min_keep"},
+		{"samples not a number", "STET_SYSTEMONE_SAMPLES=abc", "STET_SYSTEMONE_SAMPLES"},
+		{"samples zero", "STET_SYSTEMONE_SAMPLES=0", "systemone_samples"},
+		{"samples too many", "STET_SYSTEMONE_SAMPLES=33", "systemone_samples"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := Load(context.Background(), LoadOptions{Env: []string{tt.env}})
+			if err == nil {
+				t.Fatalf("Load: want error for %s, got nil", tt.env)
+			}
+			if !strings.Contains(err.Error(), tt.wantKey) {
+				t.Errorf("Load: want error naming %q, got %v", tt.wantKey, err)
+			}
+		})
+	}
+}
+
+func TestLoad_systemOnePrecedence(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	repoDir := filepath.Join(dir, "repo")
+	if err := os.MkdirAll(filepath.Join(repoDir, ".review"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	toml := `
+critic_backend = "llm"
+systemone_base_url = "http://toml:9000"
+systemone_model = "openjev-toml"
+systemone_min_keep = 0.6
+systemone_samples = 2
+`
+	if err := os.WriteFile(filepath.Join(repoDir, ".review", "config.toml"), []byte(toml), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(context.Background(), LoadOptions{
+		RepoRoot:         repoDir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env: []string{
+			"STET_CRITIC_BACKEND=systemone",
+			"STET_SYSTEMONE_BASE_URL=http://env:9001",
+			"STET_SYSTEMONE_MODEL=openjev-env",
+			"STET_SYSTEMONE_MIN_KEEP=0.8",
+			"STET_SYSTEMONE_SAMPLES=6",
+		},
+		Overrides: &Overrides{
+			CriticBackend: ptrStr("LLM"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.CriticBackend != "llm" {
+		t.Errorf("CriticBackend = %q, want llm (override beats env beats TOML)", cfg.CriticBackend)
+	}
+	if cfg.SystemOneBaseURL != "http://env:9001" {
+		t.Errorf("SystemOneBaseURL = %q, want http://env:9001 (env beats TOML)", cfg.SystemOneBaseURL)
+	}
+	if cfg.SystemOneModel != "openjev-env" {
+		t.Errorf("SystemOneModel = %q, want openjev-env (env beats TOML)", cfg.SystemOneModel)
+	}
+	if cfg.SystemOneMinKeep != 0.8 {
+		t.Errorf("SystemOneMinKeep = %v, want 0.8 (env beats TOML)", cfg.SystemOneMinKeep)
+	}
+	if cfg.SystemOneSamples != 6 {
+		t.Errorf("SystemOneSamples = %d, want 6 (env beats TOML)", cfg.SystemOneSamples)
+	}
+}
+
+func TestLoad_systemOneInvalidFromOverrides(t *testing.T) {
+	t.Parallel()
+	_, err := Load(context.Background(), LoadOptions{
+		Overrides: &Overrides{CriticBackend: ptrStr("bogus")},
+	})
+	if err == nil {
+		t.Fatal("Load: want error for invalid critic_backend override, got nil")
+	}
+	if !strings.Contains(err.Error(), "critic_backend") {
+		t.Errorf("Load: want error naming critic_backend, got %v", err)
+	}
+}
+
+func TestLoad_systemOneValidOverride(t *testing.T) {
+	t.Parallel()
+	cfg, err := Load(context.Background(), LoadOptions{
+		Overrides: &Overrides{CriticBackend: ptrStr("  SystemOne  ")},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.CriticBackend != "systemone" {
+		t.Errorf("CriticBackend = %q, want systemone (normalized)", cfg.CriticBackend)
+	}
+}

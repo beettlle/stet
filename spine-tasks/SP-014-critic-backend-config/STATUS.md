@@ -1,4 +1,4 @@
-**Current Step:** Step 2: Env vars, overrides, and validation
+**Current Step:** Step 3: Testing and verification
 **Status:** In Progress
 **Last Updated:** 2026-10-08
 **Review Level:** 1
@@ -18,11 +18,11 @@
 
 ## Step 2: Env vars, overrides, and validation
 
-**Status:** In Progress
+**Status:** Complete
 
-- [ ] `applyEnv` for five keys plus `STET_SYSTEMONE_API_KEY`
-- [ ] `applyOverrides` for `CriticBackend`
-- [ ] Validation for backend, URL, min_keep, samples
+- [x] `applyEnv` for five keys plus `STET_SYSTEMONE_API_KEY`
+- [x] `applyOverrides` for `CriticBackend` (now returns error; `Load` propagates)
+- [x] Validation for backend, URL, min_keep, samples
 
 ## Step 3: Testing and verification
 
@@ -55,6 +55,7 @@
 | 2026-09-30 | Authored | Packet created |
 | 2026-10-08 | Step 1 complete | Fields/defaults/TOML/overrides added; validators shared with env/override paths; package coverage 80.4% |
 | 2026-10-08 | Pre-existing flake | `internal/stats` TempDir RemoveAll cleanup flake (`TestVolume_noNotesInRange`, `TestGitAIMetrics_validNote`) reproduces on pristine baseline (stash-verified); macOS `.git` unlink race, out of SP-014 file scope |
+| 2026-10-08 | Step 2 complete | Env parsing + override application with validation; `applyOverrides` now returns error; package coverage 81.7% |
 
 ## Blockers
 

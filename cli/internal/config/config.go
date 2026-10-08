@@ -352,7 +352,9 @@ func Load(ctx context.Context, opts LoadOptions) (*Config, error) {
 		return nil, err
 	}
 
-	applyOverrides(&cfg, opts.Overrides)
+	if err := applyOverrides(&cfg, opts.Overrides); err != nil {
+		return nil, err
+	}
 	return &cfg, nil
 }
 
@@ -623,6 +625,12 @@ const (
 	envSuppressionHistoryCount = "STET_SUPPRESSION_HISTORY_COUNT"
 	envCriticEnabled           = "STET_CRITIC_ENABLED"
 	envCriticModel             = "STET_CRITIC_MODEL"
+	envCriticBackend           = "STET_CRITIC_BACKEND"
+	envSystemOneBaseURL        = "STET_SYSTEMONE_BASE_URL"
+	envSystemOneModel          = "STET_SYSTEMONE_MODEL"
+	envSystemOneMinKeep        = "STET_SYSTEMONE_MIN_KEEP"
+	envSystemOneSamples        = "STET_SYSTEMONE_SAMPLES"
+	envSystemOneAPIKey         = "STET_SYSTEMONE_API_KEY"
 	envExcludePatterns         = "STET_EXCLUDE_PATTERNS"
 	envExcludePatternsReplace  = "STET_EXCLUDE_PATTERNS_REPLACE"
 	envAutoFinishZero          = "STET_AUTO_FINISH_ZERO"
@@ -851,6 +859,50 @@ func applyEnv(cfg *Config, env []string) error {
 	if v, ok := vals[envCriticModel]; ok && v != "" {
 		cfg.CriticModel = v
 	}
+	if v, ok := vals[envCriticBackend]; ok && v != "" {
+		norm, err := validateCriticBackend(v)
+		if err != nil {
+			return err
+		}
+		cfg.CriticBackend = norm
+	}
+	if v, ok := vals[envSystemOneBaseURL]; ok && v != "" {
+		clean, err := validateSystemOneBaseURL(v)
+		if err != nil {
+			return err
+		}
+		cfg.SystemOneBaseURL = clean
+	}
+	if v, ok := vals[envSystemOneModel]; ok && v != "" {
+		cfg.SystemOneModel = v
+	}
+	if v, ok := vals[envSystemOneMinKeep]; ok && v != "" {
+		f, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return erruser.New("STET_SYSTEMONE_MIN_KEEP must be a valid number.", err)
+		}
+		if err := validateSystemOneMinKeep(f); err != nil {
+			return err
+		}
+		cfg.SystemOneMinKeep = f
+	}
+	if v, ok := vals[envSystemOneSamples]; ok && v != "" {
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return erruser.New("STET_SYSTEMONE_SAMPLES must be a valid number.", err)
+		}
+		samples, err := int64ToInt(n)
+		if err != nil {
+			return erruser.New("STET_SYSTEMONE_SAMPLES value out of range.", err)
+		}
+		if err := validateSystemOneSamples(samples); err != nil {
+			return err
+		}
+		cfg.SystemOneSamples = samples
+	}
+	if v, ok := vals[envSystemOneAPIKey]; ok && v != "" {
+		cfg.SystemOneAPIKey = v
+	}
 	if v, ok := vals[envExcludePatterns]; ok {
 		cfg.ExcludePatterns = parsePatternList(v)
 	}
@@ -891,9 +943,9 @@ func parseBool(s string) (bool, error) {
 	}
 }
 
-func applyOverrides(cfg *Config, o *Overrides) {
+func applyOverrides(cfg *Config, o *Overrides) error {
 	if o == nil {
-		return
+		return nil
 	}
 	if o.Model != nil {
 		cfg.Model = *o.Model
@@ -988,6 +1040,13 @@ func applyOverrides(cfg *Config, o *Overrides) {
 	if o.CriticModel != nil && *o.CriticModel != "" {
 		cfg.CriticModel = *o.CriticModel
 	}
+	if o.CriticBackend != nil && *o.CriticBackend != "" {
+		norm, err := validateCriticBackend(*o.CriticBackend)
+		if err != nil {
+			return err
+		}
+		cfg.CriticBackend = norm
+	}
 	if o.NoExclude != nil && *o.NoExclude {
 		cfg.ExcludePatterns = nil
 		cfg.ExcludePatternsReplace = false
@@ -1001,4 +1060,5 @@ func applyOverrides(cfg *Config, o *Overrides) {
 	if o.AutoFinishZeroFindings != nil {
 		cfg.AutoFinishZeroFindings = *o.AutoFinishZeroFindings
 	}
+	return nil
 }
