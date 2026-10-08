@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -19,6 +20,7 @@ import (
 	"stet/cli/internal/benchmark"
 	"stet/cli/internal/commitmsg"
 	"stet/cli/internal/config"
+	"stet/cli/internal/criticeval"
 	"stet/cli/internal/erruser"
 	"stet/cli/internal/findings"
 	"stet/cli/internal/git"
@@ -248,6 +250,7 @@ func runCLI(args []string) int {
 	rootCmd.AddCommand(newOptimizeCmd())
 	rootCmd.AddCommand(newCommitMsgCmd())
 	rootCmd.AddCommand(newDoctorCmd())
+	rootCmd.AddCommand(newCriticEvalCmd())
 	rootCmd.AddCommand(newSkillCmd())
 	rootCmd.AddCommand(newBenchmarkCmd())
 	rootCmd.AddCommand(newStatsCmd())
@@ -1896,6 +1899,128 @@ func checkSystemOne(ctx context.Context, cfg *config.Config) error {
 	fmt.Fprintln(os.Stdout, "System One OK")
 	fmt.Fprintf(os.Stdout, "System One model: %s\n", model)
 	return nil
+}
+
+func newCriticEvalCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "critic-eval",
+		Short: "Score past findings with the System One critic and recommend systemone_min_keep",
+		RunE:  runCriticEval,
+	}
+	cmd.Flags().String("dataset", "", "Curated JSONL dataset ({\"finding\", \"hunk\", \"label\"} per line); replaces history/session data")
+	cmd.Flags().Bool("json", false, "Print the report as JSON to stdout")
+	return cmd
+}
+
+func runCriticEval(cmd *cobra.Command, args []string) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return erruser.New("Could not determine current directory.", err)
+	}
+	repoRoot := ""
+	if r, e := git.RepoRoot(cwd); e == nil {
+		repoRoot = r
+	}
+	cfg, err := config.Load(cmd.Context(), config.LoadOptions{RepoRoot: repoRoot})
+	if err != nil {
+		return err
+	}
+	stateDir := cfg.EffectiveStateDir(repoRoot)
+	datasetPath, _ := cmd.Flags().GetString("dataset")
+	ds, err := loadCriticEvalDataset(datasetPath, stateDir)
+	if err != nil {
+		return err
+	}
+	if ds.Counts[criticeval.LabelKeep]+ds.Counts[criticeval.LabelDrop] == 0 {
+		fmt.Fprintln(os.Stderr, "No labeled examples for critic eval. Create some first: dismiss findings with reason false_positive or wrong_suggestion (see stet dismiss), or pass --dataset with a curated JSONL file ({\"finding\", \"hunk\", \"label\"} per line).")
+		return errExit(1)
+	}
+	// critic-eval is an evaluation tool: it always uses the systemone_* config
+	// keys, whether or not critic_enabled is set, and never writes to .review.
+	client := systemone.NewClient(cfg.SystemOneBaseURL, cfg.SystemOneAPIKey, nil)
+	scores, latencies, err := criticeval.Score(cmd.Context(), client, cfg.SystemOneModel, cfg.SystemOneSamples, ds)
+	if err != nil {
+		if errors.Is(err, systemone.ErrUnauthorized) {
+			fmt.Fprintln(os.Stderr, "System One unauthorized. Set STET_SYSTEMONE_API_KEY (env-only; never read from config files).")
+			return errExit(2)
+		}
+		if errors.Is(err, systemone.ErrUnreachable) {
+			fmt.Fprintf(os.Stderr, "System One server unreachable at %s\n", cfg.SystemOneBaseURL)
+			return errExit(2)
+		}
+		fmt.Fprintln(os.Stderr, err.Error())
+		return errExit(1)
+	}
+	rep := criticeval.Evaluate(scores, latencies, ds)
+	outputJSON, _ := cmd.Flags().GetBool("json")
+	if outputJSON {
+		data, err := json.Marshal(rep)
+		if err != nil {
+			return erruser.New("Could not write critic eval report.", err)
+		}
+		if _, err := os.Stdout.Write(data); err != nil {
+			return erruser.New("Could not write critic eval report.", err)
+		}
+		fmt.Fprintln(os.Stdout)
+		return nil
+	}
+	printCriticEvalReport(os.Stdout, ds, rep)
+	return nil
+}
+
+// loadCriticEvalDataset loads the labeled examples for critic eval: a curated
+// JSONL file when datasetPath is set (replacing history/session entirely),
+// otherwise the labeled dismissals and active findings from stateDir. It only
+// reads.
+func loadCriticEvalDataset(datasetPath, stateDir string) (*criticeval.Dataset, error) {
+	if datasetPath != "" {
+		ds, err := criticeval.LoadDataset(datasetPath)
+		if err != nil {
+			return nil, erruser.New("Could not load curated dataset.", err)
+		}
+		return ds, nil
+	}
+	ds, err := criticeval.LoadFromState(stateDir)
+	if err != nil {
+		return nil, erruser.New("Could not load labeled examples from review state.", err)
+	}
+	return ds, nil
+}
+
+// printCriticEvalReport writes the human-readable critic eval report to w:
+// label and source counts, the per-threshold sweep table, latency percentiles,
+// the recommendation (or the no-threshold message), and any warnings. The
+// report carries no secrets, so the API key can never appear here.
+func printCriticEvalReport(w io.Writer, ds *criticeval.Dataset, rep criticeval.Report) {
+	fmt.Fprintf(w, "Dataset: %d keep, %d drop\n", rep.Counts[criticeval.LabelKeep], rep.Counts[criticeval.LabelDrop])
+	bySource := map[string]int{}
+	if ds != nil {
+		bySource = ds.BySource
+	}
+	sources := make([]string, 0, len(bySource))
+	for _, src := range []string{criticeval.SourceHistory, criticeval.SourceSession, criticeval.SourceCurated, criticeval.SourceConflict} {
+		if n := bySource[src]; n > 0 {
+			sources = append(sources, fmt.Sprintf("%s %d", src, n))
+		}
+	}
+	if len(sources) > 0 {
+		fmt.Fprintf(w, "Sources: %s\n", strings.Join(sources, ", "))
+	}
+	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
+	fmt.Fprintln(tw, "threshold\tfalse positives dropped\treal findings lost\tkept")
+	for _, t := range rep.Thresholds {
+		fmt.Fprintf(tw, "%.1f\t%.1f%%\t%.1f%%\t%d\n", t.Threshold, t.DropsCaughtPct, t.KeepsLostPct, t.Kept)
+	}
+	_ = tw.Flush()
+	fmt.Fprintf(w, "Latency: p50 %s, p95 %s per hunk-group request\n", rep.LatencyP50, rep.LatencyP95)
+	if rep.Recommended != nil {
+		fmt.Fprintf(w, "Recommended systemone_min_keep: %.1f\n", *rep.Recommended)
+	} else {
+		fmt.Fprintln(w, "No threshold keeps real-finding loss ≤ 10%.")
+	}
+	for _, warn := range rep.Warnings {
+		fmt.Fprintf(w, "Warning: %s\n", warn)
+	}
 }
 
 func newSkillCmd() *cobra.Command {
