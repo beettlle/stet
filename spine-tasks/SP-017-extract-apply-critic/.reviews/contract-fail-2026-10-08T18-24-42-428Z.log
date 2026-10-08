@@ -1,0 +1,15 @@
+Contract testCommand failure log
+Command: cd cli && go test ./internal/run/... -count=1 -cover
+Exit code: 1
+Attempt: 1 of 2
+Timestamp: 2026-10-08T18:24:42.428Z
+Buffer overflow: no
+---
+stet: stream write: write failed
+--- FAIL: TestMaybeAutoFinish_zeroActiveFindings_finishes (1.26s)
+    testing.go:1617: TempDir RemoveAll cleanup: unlinkat /var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/TestMaybeAutoFinish_zeroActiveFindings_finishes2674373982/001/.git: directory not empty
+FAIL
+coverage: 77.1% of statements
+FAIL	stet/cli/internal/run	12.644s
+FAIL
+

@@ -1,0 +1,7 @@
+SP-017 complete.
+
+- Commit 27e3dd7: refactor(SP-017) — extracted applyCritic helper from both review loop branches (verbatim logic move; guard, CriticOptions, VerifyFinding loop, trace lines, erruser error identical; O(N) comment moved onto the helper).
+- Commit ffcdaad: test(SP-017) — TestApplyCritic with 8 subtests over a fake llm.Client; applyCritic at 100% statement coverage.
+- Verification: contract `cd cli && go test ./internal/run/... -count=1 -cover` ok (77.1%); `cd cli && go test ./... -cover` green in 3 consecutive runs; run.go file coverage 77.1% >= 72% gate.
+- Known flake (documented in STATUS Discoveries): intermittent `TempDir RemoveAll cleanup ... .git: directory not empty` on macOS hits random packages ~1-in-3 full-suite runs; present at baseline before any change; test bodies pass, rerun is green.
+- Plan reviews at both step checkpoints returned SKIPPED (nested reviewer spawn blocked in pi worker, SP-195); code review is engine-owned after .DONE.
