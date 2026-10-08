@@ -1,0 +1,18 @@
+cli/internal/criticeval/rulepairs_test.go
+  h_ae151c586ac6c5 439-513
+spine-tasks/SP-028-rule-pairs-dataset/PROMPT.md
+  h_ae151c586ac6c5 133-135
+spine-tasks/SP-028-rule-pairs-dataset/STATUS.md
+  h_ae151c586ac6c5 1-2,27,29-32,40-42,59-62,68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8dd4a6a0cc53b5dfc2df611978792fd6e84a1c41",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
