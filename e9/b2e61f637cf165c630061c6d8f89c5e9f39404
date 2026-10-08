@@ -1,0 +1,20 @@
+cli/internal/review/review.go
+  h_ae151c586ac6c5 87-91,98-103,109-117,120-131,411
+cli/internal/review/review_test.go
+  h_ae151c586ac6c5 684,706,715-811,823,847,851,881,885,947
+cli/internal/run/run.go
+  h_ae151c586ac6c5 200-211,221-268,287-292,308-309,900-908,980-988,1345-1347,1777-1779
+cli/internal/run/run_test.go
+  h_ae151c586ac6c5 25,2421,2709,2713,2716,2733,2737,2741,2932-3191
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
