@@ -1,0 +1,14 @@
+cli/cmd/stet/main.go
+  h_ae151c586ac6c5 28,33,292,388,419-424,502,560,569,597-606,665-681,779,807-812,972,1000-1005,1008-1012
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a620c2f7e4d22cb577dcd0bc243390e9b4dee014",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
