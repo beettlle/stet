@@ -1,0 +1,14 @@
+spine-tasks/SP-030-git-test-isolation/STATUS.md
+  h_ae151c586ac6c5 1-2,30-51,59-60,70,77-79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "73bb2e6e5e1c550fa60115ad94d059e2ec4674f5",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
