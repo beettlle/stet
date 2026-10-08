@@ -22,6 +22,7 @@ import (
 	"stet/cli/internal/ollama"
 	"stet/cli/internal/prompt"
 	"stet/cli/internal/review"
+	"stet/cli/internal/rules"
 	"stet/cli/internal/session"
 	"stet/cli/internal/systemone"
 	"stet/cli/internal/testutil"
@@ -2417,7 +2418,7 @@ func TestSuppressionWiring_systemPromptContainsSection(t *testing.T) {
 	}
 	hunk := diff.Hunk{FilePath: "pkg/foo.go", RawContent: "@@ -1,1 +1,1 @@\n code\n", Context: "code"}
 	ctx := context.Background()
-	system, _, err := review.PrepareHunkPrompt(ctx, systemBase, hunk, nil, "", 32768, 0, 0, false, 0, 0, 0, false, examples, nil)
+	system, _, err := review.PrepareHunkPrompt(ctx, systemBase, hunk, nil, "", 32768, 0, 0, false, 0, 0, 0, false, examples, nil, nil)
 	if err != nil {
 		t.Fatalf("PrepareHunkPrompt: %v", err)
 	}
@@ -2705,12 +2706,14 @@ type fakeCriticLLM struct {
 	responses []string                  // response body per Generate call (last repeats)
 	calls     int                       // total Generate calls
 	models    []string                  // model per call
+	systems   []string                  // system prompt per call (rules-selector tests)
 	genOpts   []*ollama.GenerateOptions // options per call
 }
 
-func (f *fakeCriticLLM) generate(model string, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error) {
+func (f *fakeCriticLLM) generate(model, systemPrompt string, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error) {
 	f.calls++
 	f.models = append(f.models, model)
+	f.systems = append(f.systems, systemPrompt)
 	f.genOpts = append(f.genOpts, opts)
 	if i := f.calls - 1; i < len(f.errors) && f.errors[i] != nil {
 		return nil, f.errors[i]
@@ -2727,15 +2730,15 @@ func (f *fakeCriticLLM) Check(ctx context.Context, model string) (*ollama.CheckR
 }
 
 func (f *fakeCriticLLM) Generate(ctx context.Context, model, systemPrompt, userPrompt string, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error) {
-	return f.generate(model, opts)
+	return f.generate(model, systemPrompt, opts)
 }
 
 func (f *fakeCriticLLM) GeneratePlain(ctx context.Context, model, systemPrompt, userPrompt string, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error) {
-	return f.generate(model, opts)
+	return f.generate(model, systemPrompt, opts)
 }
 
 func (f *fakeCriticLLM) GenerateWithMessages(ctx context.Context, model string, messages []ollama.Message, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error) {
-	return f.generate(model, opts)
+	return f.generate(model, "", opts)
 }
 
 func TestApplyCritic(t *testing.T) {
@@ -2924,6 +2927,266 @@ func noulResponse(probs map[string]float64) *systemone.Response {
 		answers[k] = systemone.NoulAnswer{Noul: v}
 	}
 	return &systemone.Response{Model: "openjev-0.1", Answers: answers}
+}
+
+// fakeChoiceDecider implements rules.ChoiceDecider for rules-selector tests.
+// It records every request; responses/errors repeat the last entry once the
+// slice is exhausted.
+type fakeChoiceDecider struct {
+	responses []*systemone.ChoiceResponse // response per DecideChoice call (last repeats)
+	errs      []error                     // error per call (last repeats); nil entries succeed
+	calls     int
+	requests  []systemone.ChoiceRequest
+}
+
+func (f *fakeChoiceDecider) DecideChoice(ctx context.Context, req systemone.ChoiceRequest) (*systemone.ChoiceResponse, error) {
+	f.calls++
+	f.requests = append(f.requests, req)
+	if len(f.errs) > 0 {
+		i := f.calls - 1
+		if i >= len(f.errs) {
+			i = len(f.errs) - 1
+		}
+		if f.errs[i] != nil {
+			return nil, f.errs[i]
+		}
+	}
+	i := len(f.responses) - 1
+	if f.calls-1 < len(f.responses) {
+		i = f.calls - 1
+	}
+	return f.responses[i], nil
+}
+
+// choiceResponse builds a System One choice response with per-option
+// probabilities for the selector's single question (key "q0").
+func choiceResponse(probs map[string]float64) *systemone.ChoiceResponse {
+	return &systemone.ChoiceResponse{
+		Model: "sel-model",
+		Answers: map[string]systemone.ChoiceAnswer{
+			"q0": {Probabilities: probs},
+		},
+	}
+}
+
+// selectorRule returns an always-apply rule whose content splits into three
+// named sections (Error handling, Validation, Naming).
+func selectorRule() rules.CursorRule {
+	content := "## Error handling\n\nReturn wrapped errors at boundaries.\n\n## Validation\n\nValidate untrusted input at the system boundary.\n\n## Naming\n\nUse consistent, descriptive identifiers."
+	return rules.CursorRule{Source: "std.mdc", AlwaysApply: true, Content: content}
+}
+
+func mkSelectorOpts(decider *fakeChoiceDecider, warnOut io.Writer, hunks []diff.Hunk) reviewPipelineOpts {
+	return reviewPipelineOpts{
+		Client:               &fakeCriticLLM{responses: []string{"[{\"file\":\"a.go\",\"line\":1,\"severity\":\"warning\",\"category\":\"style\",\"message\":\"m\"}]"}},
+		Model:                "main",
+		Hunks:                hunks,
+		GenOpts:              &ollama.GenerateOptions{},
+		SystemBase:           "BASE",
+		RulesByFile:          map[string][]rules.CursorRule{"a.go": {selectorRule()}},
+		RulesSelectorClient:  decider,
+		RulesSelectorBaseURL: "http://selector.example:8080",
+		RulesSelectorModel:   "sel-model",
+		RulesSelectorWarnOut: warnOut,
+	}
+}
+
+// TestSelectRuleSectionsForHunk covers the per-hunk selection helper: disabled,
+// no matching rules, success, and fail-open error handling.
+func TestSelectRuleSectionsForHunk(t *testing.T) {
+	t.Parallel()
+	hunk := diff.Hunk{FilePath: "a.go", RawContent: "package main\n"}
+
+	t.Run("disabled returns nil with no requests", func(t *testing.T) {
+		t.Parallel()
+		decider := &fakeChoiceDecider{}
+		got := selectRuleSectionsForHunk(context.Background(), reviewPipelineOpts{RulesSelectorClient: nil}, hunk, []rules.CursorRule{selectorRule()}, nil)
+		if got != nil {
+			t.Errorf("sections = %v, want nil when selector disabled", got)
+		}
+		if decider.calls != 0 {
+			t.Errorf("decider calls = %d, want 0", decider.calls)
+		}
+	})
+
+	t.Run("no matching rules returns nil with no requests", func(t *testing.T) {
+		t.Parallel()
+		decider := &fakeChoiceDecider{}
+		nonMatching := rules.CursorRule{Source: "ts.mdc", Globs: []string{"*.ts"}, Content: "## TS\n\nPrefer const."}
+		got := selectRuleSectionsForHunk(context.Background(), mkSelectorOpts(decider, io.Discard, nil), hunk, []rules.CursorRule{nonMatching}, nil)
+		if got != nil {
+			t.Errorf("sections = %v, want nil when no rules match the file", got)
+		}
+		if decider.calls != 0 {
+			t.Errorf("decider calls = %d, want 0 (no server request without candidates)", decider.calls)
+		}
+	})
+
+	t.Run("success returns ranked sections and sends one choice request", func(t *testing.T) {
+		t.Parallel()
+		decider := &fakeChoiceDecider{responses: []*systemone.ChoiceResponse{choiceResponse(map[string]float64{"s2": 0.6, "s0": 0.3, "s1": 0.1})}}
+		got := selectRuleSectionsForHunk(context.Background(), mkSelectorOpts(decider, io.Discard, nil), hunk, []rules.CursorRule{selectorRule()}, nil)
+		if len(got) != 3 {
+			t.Fatalf("sections = %d, want 3 (all fit in MaxRuleTokens)", len(got))
+		}
+		if got[0].Heading != "Naming" || got[1].Heading != "Error handling" || got[2].Heading != "Validation" {
+			t.Errorf("ranked order = %v, want Naming, Error handling, Validation", []string{got[0].Heading, got[1].Heading, got[2].Heading})
+		}
+		if decider.calls != 1 {
+			t.Errorf("decider calls = %d, want 1", decider.calls)
+		}
+		req := decider.requests[0]
+		if req.Model != "sel-model" {
+			t.Errorf("request model = %q, want sel-model (RulesSelectorModel passed through)", req.Model)
+		}
+		if !strings.Contains(req.State, "package main") {
+			t.Errorf("request state must carry the hunk content; got %q", req.State)
+		}
+		if len(req.Questions) != 1 {
+			t.Errorf("request questions = %d, want 1 choice question", len(req.Questions))
+		}
+	})
+
+	t.Run("selector error returns nil with one warning", func(t *testing.T) {
+		t.Parallel()
+		decider := &fakeChoiceDecider{errs: []error{errors.New("connection refused")}}
+		var warnBuf bytes.Buffer
+		warn := &rulesSelectorState{warnOut: &warnBuf, baseURL: "http://selector.example:8080"}
+		got := selectRuleSectionsForHunk(context.Background(), mkSelectorOpts(decider, io.Discard, nil), hunk, []rules.CursorRule{selectorRule()}, warn)
+		if got != nil {
+			t.Errorf("sections = %v, want nil on selector error", got)
+		}
+		if !strings.Contains(warnBuf.String(), "http://selector.example:8080") {
+			t.Errorf("warning must name the server URL; got %q", warnBuf.String())
+		}
+		if strings.Contains(warnBuf.String(), "supersecret") {
+			t.Errorf("warning must never contain the API key; got %q", warnBuf.String())
+		}
+	})
+}
+
+// TestRunReviewPipeline_rulesSelector asserts the pipeline's enabled-path
+// behaviour: one selector request per hunk, ranked sections in each system
+// prompt, and a single fail-open warning when selection fails.
+func TestRunReviewPipeline_rulesSelector(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	hunks := []diff.Hunk{
+		{FilePath: "a.go", RawContent: "hunk one\n"},
+		{FilePath: "a.go", RawContent: "hunk two\n"},
+		{FilePath: "a.go", RawContent: "hunk three\n"},
+	}
+
+	t.Run("one request per hunk and ranked sections in prompt", func(t *testing.T) {
+		t.Parallel()
+		decider := &fakeChoiceDecider{responses: []*systemone.ChoiceResponse{choiceResponse(map[string]float64{"s2": 0.6, "s0": 0.3, "s1": 0.1})}}
+		var warnBuf bytes.Buffer
+		opts := mkSelectorOpts(decider, &warnBuf, hunks)
+		fake := &fakeCriticLLM{responses: []string{"[{\"file\":\"a.go\",\"line\":1,\"severity\":\"warning\",\"category\":\"style\",\"message\":\"m\"}]"}}
+		opts.Client = fake
+		collected, _, _, _, _, err := runReviewPipeline(ctx, opts)
+		if err != nil {
+			t.Fatalf("runReviewPipeline: %v", err)
+		}
+		if decider.calls != len(hunks) {
+			t.Errorf("decider calls = %d, want %d (one request per hunk)", decider.calls, len(hunks))
+		}
+		if len(fake.systems) != len(hunks) {
+			t.Fatalf("generate calls = %d, want %d", len(fake.systems), len(hunks))
+		}
+		naming := "Use consistent, descriptive identifiers."
+		errorHandling := "Return wrapped errors at boundaries."
+		validation := "Validate untrusted input at the system boundary."
+		for i, system := range fake.systems {
+			iNaming, iError := strings.Index(system, naming), strings.Index(system, errorHandling)
+			iValidation := strings.Index(system, validation)
+			if iNaming < 0 || iError < 0 || iValidation < 0 {
+				t.Errorf("hunk %d system prompt missing ranked sections:\n%s", i, system)
+				continue
+			}
+			if !(iNaming < iError && iError < iValidation) {
+				t.Errorf("hunk %d sections not in ranked order (Naming, Error handling, Validation):\n%s", i, system)
+			}
+		}
+		if len(collected) != len(hunks) {
+			t.Errorf("collected = %d, want %d (one mock finding per hunk)", len(collected), len(hunks))
+		}
+	})
+
+	t.Run("selector error falls back with exactly one warning for the run", func(t *testing.T) {
+		t.Parallel()
+		decider := &fakeChoiceDecider{errs: []error{errors.New("connection refused")}}
+		var warnBuf bytes.Buffer
+		opts := mkSelectorOpts(decider, &warnBuf, hunks)
+		fake := &fakeCriticLLM{responses: []string{"[{\"file\":\"a.go\",\"line\":1,\"severity\":\"warning\",\"category\":\"style\",\"message\":\"m\"}]"}}
+		opts.Client = fake
+		collected, _, _, _, _, err := runReviewPipeline(ctx, opts)
+		if err != nil {
+			t.Fatalf("runReviewPipeline: %v (selection must not fail the review)", err)
+		}
+		if len(collected) != len(hunks) {
+			t.Errorf("collected = %d, want %d", len(collected), len(hunks))
+		}
+		fullRule := selectorRule().Content
+		for i, system := range fake.systems {
+			if !strings.Contains(system, fullRule) {
+				t.Errorf("hunk %d system prompt must use default rule assembly (full rule content):\n%s", i, system)
+			}
+		}
+		if got := strings.Count(warnBuf.String(), "rules selector unavailable"); got != 1 {
+			t.Errorf("warnings = %d, want exactly 1 per run; output:\n%s", got, warnBuf.String())
+		}
+		if !strings.Contains(warnBuf.String(), "http://selector.example:8080") {
+			t.Errorf("warning must name the server URL; got %q", warnBuf.String())
+		}
+	})
+
+	t.Run("disabled leaves prompts identical to default assembly", func(t *testing.T) {
+		t.Parallel()
+		decider := &fakeChoiceDecider{}
+		opts := mkSelectorOpts(decider, io.Discard, hunks)
+		fake := &fakeCriticLLM{responses: []string{"[{\"file\":\"a.go\",\"line\":1,\"severity\":\"warning\",\"category\":\"style\",\"message\":\"m\"}]"}}
+		opts.Client = fake
+		opts.RulesSelectorClient = nil
+		if _, _, _, _, _, err := runReviewPipeline(ctx, opts); err != nil {
+			t.Fatalf("runReviewPipeline: %v", err)
+		}
+		if decider.calls != 0 {
+			t.Errorf("decider calls = %d, want 0 when selector disabled", decider.calls)
+		}
+		wantSystem := "BASE\n\n## Project review criteria\n" + selectorRule().Content
+		for i, system := range fake.systems {
+			if system != wantSystem {
+				t.Errorf("hunk %d disabled-path system prompt:\n got: %q\nwant: %q", i, system, wantSystem)
+			}
+		}
+	})
+}
+
+// TestStart_dryRun_rulesSelector_neverContactsServer asserts that a dry-run
+// start with the rules selector configured makes zero selector requests.
+func TestStart_dryRun_rulesSelector_neverContactsServer(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	decider := &fakeChoiceDecider{}
+	opts := StartOptions{
+		RepoRoot:             repo,
+		StateDir:             stateDir,
+		WorktreeRoot:         "",
+		Ref:                  "HEAD~1",
+		DryRun:               true,
+		RulesSelectorClient:  decider,
+		RulesSelectorBaseURL: "http://selector.example:8080",
+		RulesSelectorModel:   "sel-model",
+	}
+	if _, err := Start(ctx, opts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	if decider.calls != 0 {
+		t.Errorf("decider calls = %d, want 0 (dry-run never contacts the selector server)", decider.calls)
+	}
 }
 
 func TestApplyCriticSystemOne(t *testing.T) {

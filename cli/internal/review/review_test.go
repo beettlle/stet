@@ -681,7 +681,7 @@ func TestPrepareHunkPrompt_callGraphDisabled_noCallGraphSection(t *testing.T) {
 		Context:    "",
 	}
 	ctx := context.Background()
-	_, user, err := PrepareHunkPrompt(ctx, "system", hunk, nil, dir, 32768, 0, 0, false, 3, 3, 0, false, nil, nil)
+	_, user, err := PrepareHunkPrompt(ctx, "system", hunk, nil, dir, 32768, 0, 0, false, 3, 3, 0, false, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("PrepareHunkPrompt: %v", err)
 	}
@@ -703,12 +703,109 @@ func TestPrepareHunkPrompt_nonGoFile_noCallGraphSection(t *testing.T) {
 		Context:    "code",
 	}
 	ctx := context.Background()
-	_, user, err := PrepareHunkPrompt(ctx, "system", hunk, nil, dir, 32768, 0, 0, true, 3, 3, 0, false, nil, nil)
+	_, user, err := PrepareHunkPrompt(ctx, "system", hunk, nil, dir, 32768, 0, 0, true, 3, 3, 0, false, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("PrepareHunkPrompt: %v", err)
 	}
 	if strings.Contains(user, "## Callers (upstream)") {
 		t.Errorf("non-Go file: user prompt must not contain ## Callers (upstream); got:\n%s", user)
+	}
+}
+
+// TestPrepareHunkPrompt_defaultPath_unchangedWithoutSections asserts the
+// default (selector-off) path is byte-identical to the pre-selector behaviour:
+// with ruleSections nil the system prompt equals prompt.AppendCursorRules output
+// for the same fixture.
+func TestPrepareHunkPrompt_defaultPath_unchangedWithoutSections(t *testing.T) {
+	// a.txt skips the Go/Rust minify step so the user prompt comparison isolates rule assembly.
+	hunk := diff.Hunk{FilePath: "a.txt", RawContent: "@@ -1,1 +1,1 @@\n code\n", Context: "code"}
+	ruleList := []rules.CursorRule{
+		{Source: "go.mdc", AlwaysApply: true, Content: "## Go standard\n\nHandle errors explicitly."},
+		{Source: "ts.mdc", Globs: []string{"*.ts"}, Content: "## TS standard\n\nPrefer const."},
+	}
+	ctx := context.Background()
+	system, user, err := PrepareHunkPrompt(ctx, "BASE", hunk, ruleList, "", 0, 0, 0, false, 0, 0, 0, false, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("PrepareHunkPrompt: %v", err)
+	}
+	wantSystem := prompt.AppendCursorRules("BASE", ruleList, hunk.FilePath, rules.MaxRuleTokens)
+	if system != wantSystem {
+		t.Errorf("default path system prompt changed:\n got: %q\nwant: %q", system, wantSystem)
+	}
+	wantUser := prompt.UserPrompt(hunk)
+	if user != wantUser {
+		t.Errorf("default path user prompt changed:\n got: %q\nwant: %q", user, wantUser)
+	}
+	if !strings.Contains(system, "Handle errors explicitly.") || strings.Contains(system, "Prefer const.") {
+		t.Errorf("default path must inject only rules matching the file; got:\n%s", system)
+	}
+}
+
+// TestPrepareHunkPrompt_sectionsPath_usesAppendRuleSections asserts that when
+// ruleSections is non-nil the system prompt contains the selected section
+// content (via prompt.AppendRuleSections) instead of the full matched rules.
+func TestPrepareHunkPrompt_sectionsPath_usesAppendRuleSections(t *testing.T) {
+	hunk := diff.Hunk{FilePath: "a.go", RawContent: "@@ -1,1 +1,1 @@\n code\n", Context: "code"}
+	ruleList := []rules.CursorRule{
+		{Source: "go.mdc", AlwaysApply: true, Content: "## Go standard\n\nHandle errors explicitly."},
+	}
+	sections := []rules.Section{
+		{Source: "go.mdc", Heading: "Error handling", Content: "## Error handling\n\nReturn wrapped errors."},
+	}
+	ctx := context.Background()
+	system, _, err := PrepareHunkPrompt(ctx, "BASE", hunk, ruleList, "", 0, 0, 0, false, 0, 0, 0, false, nil, sections, nil)
+	if err != nil {
+		t.Fatalf("PrepareHunkPrompt: %v", err)
+	}
+	wantSystem := prompt.AppendRuleSections("BASE", sections, rules.MaxRuleTokens)
+	if system != wantSystem {
+		t.Errorf("sections path system prompt:\n got: %q\nwant: %q", system, wantSystem)
+	}
+	if !strings.Contains(system, "Return wrapped errors.") {
+		t.Errorf("sections path must contain the selected section content; got:\n%s", system)
+	}
+	if strings.Contains(system, "Handle errors explicitly.") {
+		t.Errorf("sections path must not inject the full rule content; got:\n%s", system)
+	}
+}
+
+// TestPrepareHunkPrompt_sectionsPath_traceListsSelected asserts the trace
+// output lists selected "Source: Heading" entries when sections are used.
+func TestPrepareHunkPrompt_sectionsPath_traceListsSelected(t *testing.T) {
+	hunk := diff.Hunk{FilePath: "a.go", RawContent: "@@ -1,1 +1,1 @@\n code\n", Context: "code"}
+	sections := []rules.Section{
+		{Source: "go.mdc", Heading: "Error handling", Content: "## Error handling\n\nReturn wrapped errors."},
+		{Source: "api.mdc", Heading: "Validation", Content: "## Validation\n\nValidate at boundaries."},
+	}
+	var traceBuf strings.Builder
+	ctx := context.Background()
+	_, _, err := PrepareHunkPrompt(ctx, "BASE", hunk, nil, "", 0, 0, 0, false, 0, 0, 0, false, nil, sections, trace.New(&traceBuf))
+	if err != nil {
+		t.Fatalf("PrepareHunkPrompt: %v", err)
+	}
+	out := traceBuf.String()
+	for _, want := range []string{"go.mdc: Error handling", "api.mdc: Validation"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("trace output missing selected entry %q; got:\n%s", want, out)
+		}
+	}
+}
+
+// TestPrepareHunkPrompt_defaultPath_traceListsApplied asserts the trace output
+// keeps the pre-selector "applied:" rule listing when sections are not used.
+func TestPrepareHunkPrompt_defaultPath_traceListsApplied(t *testing.T) {
+	hunk := diff.Hunk{FilePath: "a.go", RawContent: "@@ -1,1 +1,1 @@\n code\n", Context: "code"}
+	ruleList := []rules.CursorRule{
+		{Source: "go.mdc", AlwaysApply: true, Content: "## Go standard\n\nHandle errors explicitly."},
+	}
+	var traceBuf strings.Builder
+	ctx := context.Background()
+	_, _, err := PrepareHunkPrompt(ctx, "BASE", hunk, ruleList, "", 0, 0, 0, false, 0, 0, 0, false, nil, nil, trace.New(&traceBuf))
+	if err != nil {
+		t.Fatalf("PrepareHunkPrompt: %v", err)
+	}
+	if !strings.Contains(traceBuf.String(), "applied: go.mdc") {
+		t.Errorf("default path trace must list applied rules; got:\n%s", traceBuf.String())
 	}
 }
 
@@ -723,7 +820,7 @@ func TestPrepareHunkPrompt_suppressionPerHunk(t *testing.T) {
 	}
 	examples := []string{"pkg/foo.go:42: Consider adding comments"}
 	ctx := context.Background()
-	system, _, err := PrepareHunkPrompt(ctx, "base", hunk, nil, "", 32768, 0, 0, false, 0, 0, 0, false, examples, nil)
+	system, _, err := PrepareHunkPrompt(ctx, "base", hunk, nil, "", 32768, 0, 0, false, 0, 0, 0, false, examples, nil, nil)
 	if err != nil {
 		t.Fatalf("PrepareHunkPrompt: %v", err)
 	}
@@ -747,11 +844,11 @@ func TestPrepareHunkPrompt_suppressionBudgetCapsExamples(t *testing.T) {
 	}
 	examples := []string{"a.go:1: msg1", "b.go:2: longer message here"}
 	ctx := context.Background()
-	systemSmall, _, err := PrepareHunkPrompt(ctx, "base", hunk, nil, "", 500, 0, 0, false, 0, 0, 0, false, examples, nil)
+	systemSmall, _, err := PrepareHunkPrompt(ctx, "base", hunk, nil, "", 500, 0, 0, false, 0, 0, 0, false, examples, nil, nil)
 	if err != nil {
 		t.Fatalf("PrepareHunkPrompt(small limit): %v", err)
 	}
-	systemLarge, _, err := PrepareHunkPrompt(ctx, "base", hunk, nil, "", 32768, 0, 0, false, 0, 0, 0, false, examples, nil)
+	systemLarge, _, err := PrepareHunkPrompt(ctx, "base", hunk, nil, "", 32768, 0, 0, false, 0, 0, 0, false, examples, nil, nil)
 	if err != nil {
 		t.Fatalf("PrepareHunkPrompt(large limit): %v", err)
 	}
@@ -781,11 +878,11 @@ func TestPrepareHunkPrompt_suppressionBudgetCapBounded(t *testing.T) {
 		"e.go:5: msg5",
 	}
 	ctx := context.Background()
-	systemLarge, _, err := PrepareHunkPrompt(ctx, "base", hunk, nil, "", 262144, 0, 0, false, 0, 0, 0, false, examples, nil)
+	systemLarge, _, err := PrepareHunkPrompt(ctx, "base", hunk, nil, "", 262144, 0, 0, false, 0, 0, 0, false, examples, nil, nil)
 	if err != nil {
 		t.Fatalf("PrepareHunkPrompt(large limit): %v", err)
 	}
-	systemHuge, _, err := PrepareHunkPrompt(ctx, "base", hunk, nil, "", 524288, 0, 0, false, 0, 0, 0, false, examples, nil)
+	systemHuge, _, err := PrepareHunkPrompt(ctx, "base", hunk, nil, "", 524288, 0, 0, false, 0, 0, 0, false, examples, nil, nil)
 	if err != nil {
 		t.Fatalf("PrepareHunkPrompt(huge limit): %v", err)
 	}
@@ -847,7 +944,7 @@ func TestPrepareHunkPrompt_searchReplaceFormat(t *testing.T) {
 		Context:    "line",
 	}
 	ctx := context.Background()
-	system, user, err := PrepareHunkPrompt(ctx, "base", hunk, nil, "", 0, 0, 0, false, 0, 0, 0, true, nil, nil)
+	system, user, err := PrepareHunkPrompt(ctx, "base", hunk, nil, "", 0, 0, 0, false, 0, 0, 0, true, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("PrepareHunkPrompt: %v", err)
 	}
