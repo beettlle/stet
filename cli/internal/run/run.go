@@ -208,7 +208,19 @@ type reviewPipelineOpts struct {
 	// RulesSelectorModel is the model name sent in selector requests (reuses systemone_model).
 	RulesSelectorModel string
 	// RulesSelectorWarnOut receives the selector fail-open warning; nil uses os.Stderr. Test hook.
-	RulesSelectorWarnOut   io.Writer
+	RulesSelectorWarnOut io.Writer
+	// RulesAnnotateClient, when non-nil, annotates each hunk's surviving findings
+	// with possible rule conflicts via review.AnnotateRuleConflicts after the critic
+	// step (SP-034). Annotation is advisory only: it never drops, reorders, or fails
+	// a review; on error the findings stay unannotated with one warning per run.
+	RulesAnnotateClient rules.ChoiceDecider
+	// RulesAnnotateBaseURL is the annotation server base URL; used only in the fail-open
+	// warning (the API key never appears in warnings or trace output).
+	RulesAnnotateBaseURL string
+	// RulesAnnotateModel is the model name sent in annotation requests (reuses systemone_model).
+	RulesAnnotateModel string
+	// RulesAnnotateWarnOut receives the annotation fail-open warning; nil uses os.Stderr. Test hook.
+	RulesAnnotateWarnOut   io.Writer
 	StreamOut              io.Writer
 	Verbose                bool
 	TraceOut               *trace.Tracer
@@ -235,6 +247,54 @@ func (s *rulesSelectorState) warnFailure(err error) {
 	s.once.Do(func() {
 		fmt.Fprintf(out, "stet: rules selector unavailable at %s: %v; using default rule truncation\n", s.baseURL, err)
 	})
+}
+
+// rulesAnnotateState prints at most one fail-open warning per run when the
+// rule-conflict annotator fails; parallel result processing shares one
+// instance. The warning names the server base URL, never the API key.
+type rulesAnnotateState struct {
+	once    sync.Once
+	warnOut io.Writer // nil = os.Stderr
+	baseURL string
+}
+
+func (s *rulesAnnotateState) warnFailure(err error) {
+	out := s.warnOut
+	if out == nil {
+		out = os.Stderr
+	}
+	s.once.Do(func() {
+		fmt.Fprintf(out, "stet: rules annotation unavailable at %s: %v; findings left unannotated\n", s.baseURL, err)
+	})
+}
+
+// annotateRuleConflictsForBatch annotates batch with possible rule conflicts via
+// review.AnnotateRuleConflicts and returns the annotated findings. It is a no-op
+// (batch returned unchanged, no server request) when the annotator is disabled,
+// the batch is empty, no rule sections apply to the hunk, or the batch exceeds
+// the SP-020 question budget (the annotator skips oversized batches). On a
+// decider error the findings stay unannotated and one warning per run names the
+// server URL (never the API key); the review never fails because of annotation.
+func annotateRuleConflictsForBatch(ctx context.Context, opts reviewPipelineOpts, hunk diff.Hunk, cursorRules []rules.CursorRule, batch []findings.Finding, warn *rulesAnnotateState) []findings.Finding {
+	if opts.RulesAnnotateClient == nil || len(batch) == 0 {
+		return batch
+	}
+	candidates := rules.FilterRules(cursorRules, hunk.FilePath)
+	var sections []rules.Section
+	for _, r := range candidates {
+		sections = append(sections, rules.SplitSections(r)...)
+	}
+	if len(sections) == 0 {
+		return batch
+	}
+	annotated, err := review.AnnotateRuleConflicts(ctx, opts.RulesAnnotateClient, opts.RulesAnnotateModel, batch, hunk.RawContent, sections)
+	if err != nil {
+		if warn != nil {
+			warn.warnFailure(err)
+		}
+		return batch
+	}
+	return annotated
 }
 
 // selectRuleSectionsForHunk returns the selector-ranked rule sections for hunk,
@@ -289,6 +349,11 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 	var selectorWarn *rulesSelectorState
 	if opts.RulesSelectorClient != nil {
 		selectorWarn = &rulesSelectorState{warnOut: opts.RulesSelectorWarnOut, baseURL: opts.RulesSelectorBaseURL}
+	}
+	// Likewise at most one annotation warning per run when the annotator fails.
+	var annotateWarn *rulesAnnotateState
+	if opts.RulesAnnotateClient != nil {
+		annotateWarn = &rulesAnnotateState{warnOut: opts.RulesAnnotateWarnOut, baseURL: opts.RulesAnnotateBaseURL}
 	}
 	var wg sync.WaitGroup
 	workerCount := prepareWorkerCount
@@ -439,7 +504,7 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 				if cerr != nil {
 					return nil, nil, 0, 0, 0, cerr
 				}
-				batch = kept
+				batch = annotateRuleConflictsForBatch(ctx, opts, p.Hunk, opts.RulesByFile[p.Hunk.FilePath], kept, annotateWarn)
 				findings.SetCursorURIs(opts.RepoRoot, batch)
 				hunkCtx := truncateForPromptContext(p.Hunk.RawContent, maxPromptContextStoreLen)
 				for _, f := range batch {
@@ -520,7 +585,7 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 			if cerr != nil {
 				return nil, nil, 0, 0, 0, cerr
 			}
-			batch = kept
+			batch = annotateRuleConflictsForBatch(ctx, opts, p.Hunk, opts.RulesByFile[p.Hunk.FilePath], kept, annotateWarn)
 			findings.SetCursorURIs(opts.RepoRoot, batch)
 			hunkCtx := truncateForPromptContext(p.Hunk.RawContent, maxPromptContextStoreLen)
 			for _, f := range batch {
@@ -906,6 +971,17 @@ type StartOptions struct {
 	RulesSelectorBaseURL string
 	// RulesSelectorModel is the model name sent in selector requests (reuses systemone_model).
 	RulesSelectorModel string
+	// RulesAnnotateClient, when non-nil and not DryRun, annotates each hunk's
+	// surviving findings with possible rule conflicts (rules_annotate config) after
+	// the critic step via review.AnnotateRuleConflicts. Annotation is advisory only:
+	// it never drops, reorders, or fails a review; on error the findings stay
+	// unannotated with one warning per run naming the server URL (never the API
+	// key). Dry-run never contacts the annotation server.
+	RulesAnnotateClient rules.ChoiceDecider
+	// RulesAnnotateBaseURL is the annotation server base URL; used only in the fail-open warning.
+	RulesAnnotateBaseURL string
+	// RulesAnnotateModel is the model name sent in annotation requests (reuses systemone_model).
+	RulesAnnotateModel string
 	// Session-persisted options (from stet start flags); when set, stored in session.
 	PersistStrictness              *string
 	PersistRAGSymbolMaxDefinitions *int
@@ -986,6 +1062,17 @@ type RunOptions struct {
 	RulesSelectorBaseURL string
 	// RulesSelectorModel is the model name sent in selector requests (reuses systemone_model).
 	RulesSelectorModel string
+	// RulesAnnotateClient, when non-nil and not DryRun, annotates each hunk's
+	// surviving findings with possible rule conflicts (rules_annotate config) after
+	// the critic step via review.AnnotateRuleConflicts. Annotation is advisory only:
+	// it never drops, reorders, or fails a review; on error the findings stay
+	// unannotated with one warning per run naming the server URL (never the API
+	// key). Dry-run never contacts the annotation server.
+	RulesAnnotateClient rules.ChoiceDecider
+	// RulesAnnotateBaseURL is the annotation server base URL; used only in the fail-open warning.
+	RulesAnnotateBaseURL string
+	// RulesAnnotateModel is the model name sent in annotation requests (reuses systemone_model).
+	RulesAnnotateModel string
 	// TraceOut, when non-nil, receives internal trace output. Used when --trace is set.
 	TraceOut io.Writer
 	// UseSearchReplaceFormat, when true, sends the hunk in search-replace style for testing.
@@ -1345,6 +1432,9 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 			RulesSelectorClient:     opts.RulesSelectorClient,
 			RulesSelectorBaseURL:    opts.RulesSelectorBaseURL,
 			RulesSelectorModel:      opts.RulesSelectorModel,
+			RulesAnnotateClient:     opts.RulesAnnotateClient,
+			RulesAnnotateBaseURL:    opts.RulesAnnotateBaseURL,
+			RulesAnnotateModel:      opts.RulesAnnotateModel,
 			StreamOut:               opts.StreamOut,
 			Verbose:                 opts.Verbose,
 			TraceOut:                tr,
@@ -1777,6 +1867,9 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 			RulesSelectorClient:     opts.RulesSelectorClient,
 			RulesSelectorBaseURL:    opts.RulesSelectorBaseURL,
 			RulesSelectorModel:      opts.RulesSelectorModel,
+			RulesAnnotateClient:     opts.RulesAnnotateClient,
+			RulesAnnotateBaseURL:    opts.RulesAnnotateBaseURL,
+			RulesAnnotateModel:      opts.RulesAnnotateModel,
 			StreamOut:               opts.StreamOut,
 			Verbose:                 opts.Verbose,
 			TraceOut:                trRun,

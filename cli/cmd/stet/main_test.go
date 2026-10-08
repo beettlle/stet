@@ -3069,6 +3069,9 @@ func TestSystemOneRunOptions(t *testing.T) {
 		if o.SelectorClient != nil {
 			t.Errorf("selector client = %v, want nil when rules_selector off", o.SelectorClient)
 		}
+		if o.AnnotateClient != nil {
+			t.Errorf("annotate client = %v, want nil when rules_annotate off", o.AnnotateClient)
+		}
 	})
 	t.Run("nil client when backend llm", func(t *testing.T) {
 		cfg := &config.Config{CriticEnabled: true, CriticBackend: "llm", SystemOneBaseURL: "http://127.0.0.1:8080"}
@@ -3126,8 +3129,42 @@ func TestSystemOneRunOptions(t *testing.T) {
 	t.Run("never two clients when neither enabled", func(t *testing.T) {
 		cfg := &config.Config{SystemOneBaseURL: "http://127.0.0.1:8080"}
 		o := systemOneRunOptions(cfg, true)
-		if o.Client != nil || o.SelectorClient != nil {
-			t.Errorf("clients = %v / %v, want both nil when neither the critic nor the selector is enabled", o.Client, o.SelectorClient)
+		if o.Client != nil || o.SelectorClient != nil || o.AnnotateClient != nil {
+			t.Errorf("clients = %v / %v / %v, want all nil when neither the critic, the selector, nor the annotator is enabled", o.Client, o.SelectorClient, o.AnnotateClient)
+		}
+	})
+	t.Run("annotate client built when rules_annotate on and not dry-run", func(t *testing.T) {
+		cfg := &config.Config{RulesAnnotate: true, SystemOneBaseURL: "http://127.0.0.1:9090", SystemOneModel: "ann-model"}
+		o := systemOneRunOptions(cfg, false)
+		if o.AnnotateClient == nil {
+			t.Fatal("annotate client = nil, want non-nil when rules_annotate on")
+		}
+		if o.AnnotateModel != "ann-model" {
+			t.Errorf("annotate model = %q, want ann-model (reuses systemone_model)", o.AnnotateModel)
+		}
+		if o.Client != nil {
+			t.Errorf("critic client = %v, want nil when the System One critic is off", o.Client)
+		}
+		if o.SelectorClient != nil {
+			t.Errorf("selector client = %v, want nil when rules_selector off", o.SelectorClient)
+		}
+	})
+	t.Run("no annotate client on dry-run", func(t *testing.T) {
+		cfg := &config.Config{RulesAnnotate: true, SystemOneBaseURL: "http://127.0.0.1:9090", SystemOneModel: "ann-model"}
+		o := systemOneRunOptions(cfg, true)
+		if o.AnnotateClient != nil {
+			t.Errorf("annotate client = %v, want nil on dry-run", o.AnnotateClient)
+		}
+	})
+	t.Run("one shared client across critic, selector, and annotator", func(t *testing.T) {
+		cfg := &config.Config{CriticEnabled: true, CriticBackend: "systemone", RulesSelector: true, RulesAnnotate: true, SystemOneBaseURL: "http://127.0.0.1:9090", SystemOneModel: "shared-model"}
+		o := systemOneRunOptions(cfg, false)
+		if o.Client == nil || o.SelectorClient == nil || o.AnnotateClient == nil {
+			t.Fatalf("clients = %v / %v / %v, want all non-nil", o.Client, o.SelectorClient, o.AnnotateClient)
+		}
+		critic, selector, annotate := fmt.Sprintf("%p", o.Client), fmt.Sprintf("%p", o.SelectorClient), fmt.Sprintf("%p", o.AnnotateClient)
+		if critic != selector || selector != annotate {
+			t.Errorf("critic/selector/annotate clients = %s / %s / %s, want one shared *systemone.Client instance", critic, selector, annotate)
 		}
 	})
 }

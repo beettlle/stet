@@ -1,0 +1,7 @@
+SP-034 complete.
+
+- Step 1: `rules_annotate` config key (TOML/env/override, same bool parsing as `STET_RULES_SELECTOR`); shared `*systemone.Client` built when any of critic=systemone / selector / annotate is on (never in --dry-run) and passed to start/run/rerun as the annotation client.
+- Step 2: `annotateRuleConflictsForBatch` runs after the critic in both pipeline branches via `review.AnnotateRuleConflicts` (sections from `rules.SplitSections`/`rules.FilterRules`); fail-open with exactly one stderr warning per run naming the server URL, never the API key; findings never dropped/reordered/rescored. Contract doc updated: config row, API-key note, `rule_conflict` stdout field, history verbatim note, extension-does-not-display-yet.
+- Step 3: contract testCommand PASS (go vet + config 82.4% / run 82.2% / cmd 76.1%); full `go test ./...` PASS; coverage gate PASS (project 83.0%, all files >= 72%); extension `npm test` PASS + untracked-coverage guard PASS (extension untouched).
+- File scope verified: only the four must-change files + their test files changed; review/rules/findings/systemone/extension untouched.
+- In-worker plan review at step 1 was engine-skipped (SP-195, spawnFailed=false); STATUS.md records it.
