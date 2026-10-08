@@ -1,0 +1,12 @@
+SP-028 complete 2026-10-08.
+
+All steps done; STATUS.md current. Contract testCommand green (go vet +
+go test ./internal/criticeval/... -count=1 -cover: 97.5% package, 100%
+rulepairs.go). Dataset: 102 pairs (58 go / 44 typescript), 28 premises,
+45.1% violating, 24 sp020-seed + 78 synthetic, 13 hard negatives; invariant
+test asserts every Mission requirement. Extension npm test 93/93 + coverage
+guard PASS. internal/run and cmd/stet TempDir-.git-cleanup failures
+pre-exist on base caeeb06 (tracked as SP-030) — documented in STATUS
+Blockers, out of file scope. Commits: 6b4907e (step 1), 9243279 (step 2),
+8dd4a6a (step 3). Plan-review checkpoints 1-3 attempted; skipped in-worker
+per SP-195 (engine reviews after .DONE).
