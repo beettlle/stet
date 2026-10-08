@@ -1,0 +1,14 @@
+cli/internal/run/run.go
+  h_ae151c586ac6c5 61,65,171-205,278-279,475,477-482,484-490,521-551,728,818,820,822-833,893-904,1253,1255-1260,1410-1415,1420,1682,1684-1689
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "78e1e78c0c73b5c93806678f9aa215281397b2a6",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
