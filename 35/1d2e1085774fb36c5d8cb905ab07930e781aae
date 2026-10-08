@@ -1,0 +1,16 @@
+cli/internal/rules/rules.go
+  h_ae151c586ac6c5 7,190,198-251
+spine-tasks/SP-029-rules-doublestar-globs/STATUS.md
+  h_ae151c586ac6c5 1-2,13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "351d2e1085774fb36c5d8cb905ab07930e781aae",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
