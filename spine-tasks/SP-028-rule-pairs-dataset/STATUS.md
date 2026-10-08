@@ -1,5 +1,5 @@
-**Current Step:** Step 1: Not started
-**Status:** Ready
+**Current Step:** Step 1: In progress
+**Status:** Working
 **Last Updated:** 2026-10-08
 **Review Level:** 1
 **Review Counter:** 0
@@ -10,7 +10,7 @@
 
 ## Step 1: Format, loader, evaluator
 
-**Status:** Not Started
+**Status:** In Progress
 
 - [ ] Types and `LoadRulePairs`
 - [ ] `EvaluateRulePairs`
