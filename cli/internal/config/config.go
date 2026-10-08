@@ -22,6 +22,7 @@
 //   - STET_CRITIC_BACKEND (critic backend: llm or systemone; default llm).
 //   - STET_SYSTEMONE_BASE_URL, STET_SYSTEMONE_MODEL, STET_SYSTEMONE_MIN_KEEP, STET_SYSTEMONE_SAMPLES (System One decision server; used when critic_backend = systemone).
 //   - STET_SYSTEMONE_API_KEY (System One API key; env-only — never loaded from config files and never printed).
+//   - STET_RULES_SELECTOR (rule-section selector: 1/true/yes/on = true, 0/false/no/off = false; reuses systemone_base_url/systemone_model and STET_SYSTEMONE_API_KEY).
 //   - STET_EXCLUDE_PATTERNS (comma-separated filepath.Match patterns to skip from review; merges with built-in defaults unless replace is set).
 //   - STET_EXCLUDE_PATTERNS_REPLACE (1/true/yes/on = use only STET_EXCLUDE_PATTERNS, not built-in defaults).
 //   - STET_AUTO_FINISH_ZERO (auto-finish session when review completes with zero active findings: 1/true/yes/on = true, 0/false/no/off = false).
@@ -99,6 +100,12 @@ type Config struct {
 	SystemOneSamples int `toml:"systemone_samples"`
 	// SystemOneAPIKey is the API key for the System One decision server. Env-only (STET_SYSTEMONE_API_KEY): no TOML key, never loaded from config files, and never included in error messages or dumps.
 	SystemOneAPIKey string `toml:"-"`
+	// RulesSelector enables the rule-section selector (SP-026): when true and not dry-run, each hunk's
+	// review prompt gets the rule sections the System One server ranks as most relevant instead of the
+	// tail-truncated concatenation of all matching rules. Off by default; with it off, prompts are
+	// unchanged. Reuses SystemOneBaseURL, SystemOneModel, and the env-only SystemOneAPIKey. One selector
+	// request is made per hunk; on selector failure the run falls back to the default rule truncation.
+	RulesSelector bool `toml:"rules_selector"`
 	// ExcludePatterns are filepath.Match patterns for hunks to skip from LLM review (e.g. "*.md").
 	ExcludePatterns []string `toml:"exclude_patterns"`
 	// ExcludePatternsReplace, when true, uses only ExcludePatterns (no merge with built-in defaults).
@@ -135,6 +142,7 @@ type Overrides struct {
 	CriticEnabled           *bool
 	CriticModel             *string
 	CriticBackend           *string
+	RulesSelector           *bool
 	ExcludePatterns         *[]string
 	ExcludePatternsReplace  *bool
 	NoExclude               *bool
@@ -278,6 +286,7 @@ func DefaultConfig() Config {
 		SystemOneModel:          _defaultSystemOneModel,
 		SystemOneMinKeep:        _defaultSystemOneMinKeep,
 		SystemOneSamples:        _defaultSystemOneSamples,
+		RulesSelector:           false,
 	}
 }
 
@@ -403,6 +412,7 @@ func mergeFile(cfg *Config, path string) error {
 		SystemOneModel          *string   `toml:"systemone_model"`
 		SystemOneMinKeep        *float64  `toml:"systemone_min_keep"`
 		SystemOneSamples        *int64    `toml:"systemone_samples"`
+		RulesSelector           *bool     `toml:"rules_selector"`
 		ExcludePatterns         *[]string `toml:"exclude_patterns"`
 		ExcludePatternsReplace  *bool     `toml:"exclude_patterns_replace"`
 	}
@@ -566,6 +576,9 @@ func mergeFile(cfg *Config, path string) error {
 		}
 		cfg.SystemOneSamples = v
 	}
+	if file.RulesSelector != nil {
+		cfg.RulesSelector = *file.RulesSelector
+	}
 	if file.ExcludePatterns != nil {
 		cfg.ExcludePatterns = append([]string(nil), (*file.ExcludePatterns)...)
 	}
@@ -631,6 +644,7 @@ const (
 	envSystemOneMinKeep        = "STET_SYSTEMONE_MIN_KEEP"
 	envSystemOneSamples        = "STET_SYSTEMONE_SAMPLES"
 	envSystemOneAPIKey         = "STET_SYSTEMONE_API_KEY"
+	envRulesSelector           = "STET_RULES_SELECTOR"
 	envExcludePatterns         = "STET_EXCLUDE_PATTERNS"
 	envExcludePatternsReplace  = "STET_EXCLUDE_PATTERNS_REPLACE"
 	envAutoFinishZero          = "STET_AUTO_FINISH_ZERO"
@@ -903,6 +917,13 @@ func applyEnv(cfg *Config, env []string) error {
 	if v, ok := vals[envSystemOneAPIKey]; ok && v != "" {
 		cfg.SystemOneAPIKey = v
 	}
+	if v, ok := vals[envRulesSelector]; ok && v != "" {
+		b, err := parseBool(v)
+		if err != nil {
+			return erruser.New("STET_RULES_SELECTOR must be 1/true/yes/on or 0/false/no/off.", err)
+		}
+		cfg.RulesSelector = b
+	}
 	if v, ok := vals[envExcludePatterns]; ok {
 		cfg.ExcludePatterns = parsePatternList(v)
 	}
@@ -1046,6 +1067,9 @@ func applyOverrides(cfg *Config, o *Overrides) error {
 			return err
 		}
 		cfg.CriticBackend = norm
+	}
+	if o.RulesSelector != nil {
+		cfg.RulesSelector = *o.RulesSelector
 	}
 	if o.NoExclude != nil && *o.NoExclude {
 		cfg.ExcludePatterns = nil
