@@ -23,6 +23,7 @@
 //   - STET_SYSTEMONE_BASE_URL, STET_SYSTEMONE_MODEL, STET_SYSTEMONE_MIN_KEEP, STET_SYSTEMONE_SAMPLES (System One decision server; used when critic_backend = systemone).
 //   - STET_SYSTEMONE_API_KEY (System One API key; env-only — never loaded from config files and never printed).
 //   - STET_RULES_SELECTOR (rule-section selector: 1/true/yes/on = true, 0/false/no/off = false; reuses systemone_base_url/systemone_model and STET_SYSTEMONE_API_KEY).
+//   - STET_RULES_ANNOTATE (rule-conflict annotation: 1/true/yes/on = true, 0/false/no/off = false; reuses systemone_base_url/systemone_model and STET_SYSTEMONE_API_KEY).
 //   - STET_EXCLUDE_PATTERNS (comma-separated filepath.Match patterns to skip from review; merges with built-in defaults unless replace is set).
 //   - STET_EXCLUDE_PATTERNS_REPLACE (1/true/yes/on = use only STET_EXCLUDE_PATTERNS, not built-in defaults).
 //   - STET_AUTO_FINISH_ZERO (auto-finish session when review completes with zero active findings: 1/true/yes/on = true, 0/false/no/off = false).
@@ -106,6 +107,14 @@ type Config struct {
 	// unchanged. Reuses SystemOneBaseURL, SystemOneModel, and the env-only SystemOneAPIKey. One selector
 	// request is made per hunk; on selector failure the run falls back to the default rule truncation.
 	RulesSelector bool `toml:"rules_selector"`
+	// RulesAnnotate enables the rule-conflict annotation (SP-027/SP-034): when true and not dry-run,
+	// each hunk's surviving findings (post-critic) are annotated via review.AnnotateRuleConflicts with
+	// the guideline section their suggestion most likely conflicts with (Finding.RuleConflict, exposed
+	// as "rule_conflict" in JSON output). Off by default; with it off, findings are unchanged. Advisory
+	// only: annotation never drops, reorders, or fails a review. Reuses SystemOneBaseURL,
+	// SystemOneModel, and the env-only SystemOneAPIKey. On annotation failure the findings stay
+	// unannotated and one warning per run is printed to stderr (server URL only, never the API key).
+	RulesAnnotate bool `toml:"rules_annotate"`
 	// ExcludePatterns are filepath.Match patterns for hunks to skip from LLM review (e.g. "*.md").
 	ExcludePatterns []string `toml:"exclude_patterns"`
 	// ExcludePatternsReplace, when true, uses only ExcludePatterns (no merge with built-in defaults).
@@ -143,6 +152,7 @@ type Overrides struct {
 	CriticModel             *string
 	CriticBackend           *string
 	RulesSelector           *bool
+	RulesAnnotate           *bool
 	ExcludePatterns         *[]string
 	ExcludePatternsReplace  *bool
 	NoExclude               *bool
@@ -287,6 +297,7 @@ func DefaultConfig() Config {
 		SystemOneMinKeep:        _defaultSystemOneMinKeep,
 		SystemOneSamples:        _defaultSystemOneSamples,
 		RulesSelector:           false,
+		RulesAnnotate:           false,
 	}
 }
 
@@ -413,6 +424,7 @@ func mergeFile(cfg *Config, path string) error {
 		SystemOneMinKeep        *float64  `toml:"systemone_min_keep"`
 		SystemOneSamples        *int64    `toml:"systemone_samples"`
 		RulesSelector           *bool     `toml:"rules_selector"`
+		RulesAnnotate           *bool     `toml:"rules_annotate"`
 		ExcludePatterns         *[]string `toml:"exclude_patterns"`
 		ExcludePatternsReplace  *bool     `toml:"exclude_patterns_replace"`
 	}
@@ -579,6 +591,9 @@ func mergeFile(cfg *Config, path string) error {
 	if file.RulesSelector != nil {
 		cfg.RulesSelector = *file.RulesSelector
 	}
+	if file.RulesAnnotate != nil {
+		cfg.RulesAnnotate = *file.RulesAnnotate
+	}
 	if file.ExcludePatterns != nil {
 		cfg.ExcludePatterns = append([]string(nil), (*file.ExcludePatterns)...)
 	}
@@ -645,6 +660,7 @@ const (
 	envSystemOneSamples        = "STET_SYSTEMONE_SAMPLES"
 	envSystemOneAPIKey         = "STET_SYSTEMONE_API_KEY"
 	envRulesSelector           = "STET_RULES_SELECTOR"
+	envRulesAnnotate           = "STET_RULES_ANNOTATE"
 	envExcludePatterns         = "STET_EXCLUDE_PATTERNS"
 	envExcludePatternsReplace  = "STET_EXCLUDE_PATTERNS_REPLACE"
 	envAutoFinishZero          = "STET_AUTO_FINISH_ZERO"
@@ -924,6 +940,13 @@ func applyEnv(cfg *Config, env []string) error {
 		}
 		cfg.RulesSelector = b
 	}
+	if v, ok := vals[envRulesAnnotate]; ok && v != "" {
+		b, err := parseBool(v)
+		if err != nil {
+			return erruser.New("STET_RULES_ANNOTATE must be 1/true/yes/on or 0/false/no/off.", err)
+		}
+		cfg.RulesAnnotate = b
+	}
 	if v, ok := vals[envExcludePatterns]; ok {
 		cfg.ExcludePatterns = parsePatternList(v)
 	}
@@ -1070,6 +1093,9 @@ func applyOverrides(cfg *Config, o *Overrides) error {
 	}
 	if o.RulesSelector != nil {
 		cfg.RulesSelector = *o.RulesSelector
+	}
+	if o.RulesAnnotate != nil {
+		cfg.RulesAnnotate = *o.RulesAnnotate
 	}
 	if o.NoExclude != nil && *o.NoExclude {
 		cfg.ExcludePatterns = nil

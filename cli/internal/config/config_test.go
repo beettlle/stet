@@ -1584,6 +1584,116 @@ func TestLoad_rulesSelectorOverride(t *testing.T) {
 	}
 }
 
+// TestDefaultConfig_rulesAnnotateDefaults asserts RulesAnnotate is false by default.
+func TestDefaultConfig_rulesAnnotateDefaults(t *testing.T) {
+	t.Parallel()
+	c := DefaultConfig()
+	if c.RulesAnnotate {
+		t.Errorf("RulesAnnotate = true, want false by default")
+	}
+}
+
+// TestLoad_rulesAnnotateFromTOML asserts the rules_annotate TOML key parses and
+// defaults to false when absent.
+func TestLoad_rulesAnnotateFromTOML(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	reviewDir := filepath.Join(dir, ".review")
+	if err := os.MkdirAll(reviewDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(reviewDir, "config.toml"), []byte("rules_annotate = true\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(context.Background(), LoadOptions{RepoRoot: dir})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !cfg.RulesAnnotate {
+		t.Errorf("RulesAnnotate = false, want true from TOML")
+	}
+
+	explicitOff := strings.ReplaceAll("rules_annotate = true", "true", "false")
+	if err := os.WriteFile(filepath.Join(reviewDir, "config.toml"), []byte(explicitOff), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err = Load(context.Background(), LoadOptions{RepoRoot: dir})
+	if err != nil {
+		t.Fatalf("Load (explicit false): %v", err)
+	}
+	if cfg.RulesAnnotate {
+		t.Errorf("RulesAnnotate = true, want false with explicit rules_annotate = false")
+	}
+}
+
+// TestLoad_rulesAnnotateFromEnv asserts the STET_RULES_ANNOTATE env var parses
+// the same 1/true/yes/on values as STET_RULES_SELECTOR and overrides the TOML file.
+func TestLoad_rulesAnnotateFromEnv(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	reviewDir := filepath.Join(dir, ".review")
+	if err := os.MkdirAll(reviewDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	// File sets false; env true must win (env > repo config).
+	if err := os.WriteFile(filepath.Join(reviewDir, "config.toml"), []byte("rules_annotate = false\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		env   string
+		want  bool
+		names string
+	}{
+		{"1", true, "1"},
+		{"true", true, "true"},
+		{"yes", true, "yes"},
+		{"on", true, "on"},
+		{"TRUE", true, "TRUE (case-insensitive)"},
+		{"0", false, "0"},
+		{"off", false, "off"},
+	} {
+		cfg, err := Load(context.Background(), LoadOptions{
+			RepoRoot: dir,
+			Env:      []string{"STET_RULES_ANNOTATE=" + tc.env},
+		})
+		if err != nil {
+			t.Fatalf("Load(STET_RULES_ANNOTATE=%s): %v", tc.env, err)
+		}
+		if cfg.RulesAnnotate != tc.want {
+			t.Errorf("STET_RULES_ANNOTATE=%s: RulesAnnotate = %v, want %v", tc.env, cfg.RulesAnnotate, tc.want)
+		}
+	}
+}
+
+// TestLoad_rulesAnnotateInvalidEnv asserts an invalid STET_RULES_ANNOTATE value
+// is rejected with an error.
+func TestLoad_rulesAnnotateInvalidEnv(t *testing.T) {
+	t.Parallel()
+	_, err := Load(context.Background(), LoadOptions{Env: []string{"STET_RULES_ANNOTATE=maybe"}})
+	if err == nil {
+		t.Fatal("Load with STET_RULES_ANNOTATE=maybe: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "STET_RULES_ANNOTATE") {
+		t.Errorf("error = %q, want it to name STET_RULES_ANNOTATE", err.Error())
+	}
+}
+
+// TestLoad_rulesAnnotateOverride asserts Overrides.RulesAnnotate wins over env.
+func TestLoad_rulesAnnotateOverride(t *testing.T) {
+	t.Parallel()
+	overrides := &Overrides{RulesAnnotate: ptrBool(false)}
+	cfg, err := Load(context.Background(), LoadOptions{
+		Env:       []string{"STET_RULES_ANNOTATE=true"},
+		Overrides: overrides,
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.RulesAnnotate {
+		t.Errorf("RulesAnnotate = true, want false (override beats env)")
+	}
+}
+
 func TestLoad_systemOneFromTOML(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

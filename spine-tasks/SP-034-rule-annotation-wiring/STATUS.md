@@ -1,5 +1,5 @@
-**Current Step:** Step 1: Not started
-**Status:** Ready
+**Current Step:** Step 2: In progress
+**Status:** Running
 **Last Updated:** 2026-10-08
 **Review Level:** 1
 **Review Counter:** 0
@@ -10,14 +10,14 @@
 
 ## Step 1: Config and CLI
 
-**Status:** Not Started
+**Status:** Complete
 
-- [ ] `rules_annotate` key + env + tests
-- [ ] Shared client wiring
+- [x] `rules_annotate` key + env + tests
+- [x] Shared client built when annotation is on; passed to start/run/rerun
 
 ## Step 2: Pipeline and docs
 
-**Status:** Not Started
+**Status:** In Progress
 
 - [ ] Annotation after critic, fail-open
 - [ ] Contract doc

@@ -429,6 +429,9 @@ func runStart(cmd *cobra.Command, args []string) error {
 		RulesSelectorClient:            so.SelectorClient,
 		RulesSelectorBaseURL:           so.BaseURL,
 		RulesSelectorModel:             so.SelectorModel,
+		RulesAnnotateClient:            so.AnnotateClient,
+		RulesAnnotateBaseURL:           so.BaseURL,
+		RulesAnnotateModel:             so.AnnotateModel,
 		PersistStrictness:              persistStrictness,
 		PersistRAGSymbolMaxDefinitions: persistRAGDefs,
 		PersistRAGSymbolMaxTokens:      persistRAGTokens,
@@ -671,11 +674,13 @@ func overridesFromFlags(cmd *cobra.Command) (*config.Overrides, error) {
 
 // systemOneRunOpts groups the System One fields for run.StartOptions and
 // run.RunOptions. At most one *systemone.Client is constructed per command and
-// shared by the System One critic and the rules selector (SP-033).
+// shared by the System One critic, the rules selector, and the rules annotator
+// (SP-033/SP-034).
 type systemOneRunOpts struct {
 	// Client is the critic decider; nil unless the critic is enabled with backend "systemone".
 	Client review.SystemOneDecider
-	// BaseURL is the decision server base URL (also used for the selector fail-open warning).
+	// BaseURL is the decision server base URL (also used for the selector and
+	// annotation fail-open warnings).
 	BaseURL string
 	// Model is the model name sent in System One requests.
 	Model   string
@@ -687,15 +692,22 @@ type systemOneRunOpts struct {
 	SelectorClient rules.ChoiceDecider
 	// SelectorModel is the model name sent in selector requests (reuses systemone_model).
 	SelectorModel string
+	// AnnotateClient is the rules-annotation decider; it shares Client's instance
+	// and is non-nil only when rules_annotate is enabled and the command is not
+	// --dry-run (a dry run never contacts the annotation server).
+	AnnotateClient rules.ChoiceDecider
+	// AnnotateModel is the model name sent in annotation requests (reuses systemone_model).
+	AnnotateModel string
 }
 
 // systemOneRunOptions builds the System One fields for run.StartOptions and
 // run.RunOptions from the loaded config. Exactly one *systemone.Client is
-// constructed when either the System One critic (critic enabled with backend
-// "systemone") or the rules selector (rules_selector, not dry-run) needs it;
-// both share that instance. dryRun must reflect the command's --dry-run flag.
-// The API key comes from STET_SYSTEMONE_API_KEY (env only) and is passed to
-// the client, never logged or included in error messages.
+// constructed when any of the System One critic (critic enabled with backend
+// "systemone"), the rules selector (rules_selector, not dry-run), or the rules
+// annotator (rules_annotate, not dry-run) needs it; all three share that
+// instance. dryRun must reflect the command's --dry-run flag. The API key comes
+// from STET_SYSTEMONE_API_KEY (env only) and is passed to the client, never
+// logged or included in error messages.
 func systemOneRunOptions(cfg *config.Config, dryRun bool) systemOneRunOpts {
 	o := systemOneRunOpts{
 		BaseURL: cfg.SystemOneBaseURL,
@@ -705,7 +717,8 @@ func systemOneRunOptions(cfg *config.Config, dryRun bool) systemOneRunOpts {
 	}
 	wantCritic := cfg.CriticEnabled && cfg.CriticBackend == "systemone"
 	wantSelector := cfg.RulesSelector && !dryRun
-	if wantCritic || wantSelector {
+	wantAnnotate := cfg.RulesAnnotate && !dryRun
+	if wantCritic || wantSelector || wantAnnotate {
 		client := systemone.NewClient(cfg.SystemOneBaseURL, cfg.SystemOneAPIKey, nil)
 		if wantCritic {
 			o.Client = client
@@ -713,6 +726,10 @@ func systemOneRunOptions(cfg *config.Config, dryRun bool) systemOneRunOpts {
 		if wantSelector {
 			o.SelectorClient = client
 			o.SelectorModel = cfg.SystemOneModel
+		}
+		if wantAnnotate {
+			o.AnnotateClient = client
+			o.AnnotateModel = cfg.SystemOneModel
 		}
 	}
 	return o
@@ -852,6 +869,9 @@ func runRun(cmd *cobra.Command, args []string) error {
 		RulesSelectorClient:          so.SelectorClient,
 		RulesSelectorBaseURL:         so.BaseURL,
 		RulesSelectorModel:           so.SelectorModel,
+		RulesAnnotateClient:          so.AnnotateClient,
+		RulesAnnotateBaseURL:         so.BaseURL,
+		RulesAnnotateModel:           so.AnnotateModel,
 		TraceOut:                     traceOut,
 		UseSearchReplaceFormat:       getSearchReplaceFlag(cmd),
 		SuppressionEnabled:           cfg.SuppressionEnabled,
@@ -1048,6 +1068,9 @@ func runRerun(cmd *cobra.Command, args []string) error {
 		RulesSelectorClient:          so.SelectorClient,
 		RulesSelectorBaseURL:         so.BaseURL,
 		RulesSelectorModel:           so.SelectorModel,
+		RulesAnnotateClient:          so.AnnotateClient,
+		RulesAnnotateBaseURL:         so.BaseURL,
+		RulesAnnotateModel:           so.AnnotateModel,
 		TraceOut:                     traceOut,
 		UseSearchReplaceFormat:       getSearchReplaceFlag(cmd),
 		ForceFullReview:              true,
