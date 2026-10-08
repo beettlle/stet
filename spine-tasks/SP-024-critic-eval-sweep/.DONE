@@ -1,0 +1,5 @@
+SP-024 complete.
+
+- Step 1: cli/internal/criticeval/sweep.go — Score (one VerifyFindingsSystemOne call per hunk group, minKeep 0, wall-time per call, errors wrapped with hunk group index) and Evaluate (0.1–0.9 sweep, nearest-rank percentiles, recommended = highest threshold with KeepsLostPct <= 10%, "recommendation unreliable" warning when either label < 10 examples). Commit 673025f.
+- Step 2: cli/internal/criticeval/sweep_test.go — 10 tests covering exact metrics/recommendation via fake decider, no-qualifying (nil), one-label warning, empty dataset, missing scores as 0, decider error surfacing with group index, call count == hunk groups, latency percentiles. Contract testCommand green (95.8% stmts); sweep.go coverage Score/Evaluate/pct 100%, percentile 80% (>= 72% gate). Full `go test ./... -cover` 35/35 packages ok (serial; parallel-run TempDir teardown failures are the documented environmental flake). Commit 9cb4d11.
+- File scope respected; in-worker plan reviews skipped per SP-195 (engine runs review after .DONE).
