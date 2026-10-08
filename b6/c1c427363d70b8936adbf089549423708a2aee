@@ -1,0 +1,46 @@
+cli/cmd/stet/main_test.go
+  h_ae151c586ac6c5 29,32-37,397
+cli/internal/diff/diff_test.go
+  h_ae151c586ac6c5 10-11,14-19,42
+cli/internal/git/repo_test.go
+  h_ae151c586ac6c5 11-12,15-20
+cli/internal/git/worktree_test.go
+  h_ae151c586ac6c5 11-12,17
+cli/internal/rag/go/callgraph_test.go
+  h_ae151c586ac6c5 15,151
+cli/internal/rag/go/resolver_test.go
+  h_ae151c586ac6c5 12,15-20,23,64,94
+cli/internal/rag/java/resolver_test.go
+  h_ae151c586ac6c5 12,15-20,23,63,94
+cli/internal/rag/js/resolver_test.go
+  h_ae151c586ac6c5 12,15-20,23,64,93
+cli/internal/rag/python/resolver_test.go
+  h_ae151c586ac6c5 12,15-20,23,64,93
+cli/internal/rag/rust/resolver_test.go
+  h_ae151c586ac6c5 12,15-20,23,62,91
+cli/internal/rag/swift/resolver_test.go
+  h_ae151c586ac6c5 12,15-20,23,62,91
+cli/internal/review/review_test.go
+  h_ae151c586ac6c5 22,32-37,499,549
+cli/internal/run/run_test.go
+  h_ae151c586ac6c5 27,31-36,41
+cli/internal/scope/scope_test.go
+  h_ae151c586ac6c5 12,15-20,23,44
+cli/internal/stats/stats_test.go
+  h_ae151c586ac6c5 13,16-21,24
+cli/internal/testutil/gitenv.go
+  h_ae151c586ac6c5 126-129
+spine-tasks/SP-030-git-test-isolation/STATUS.md
+  h_ae151c586ac6c5 1,20-24,26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b6c1c427363d70b8936adbf089549423708a2aee",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
