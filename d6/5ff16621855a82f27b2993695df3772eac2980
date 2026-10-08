@@ -1,0 +1,18 @@
+cli/internal/testutil/gitenv.go
+  h_ae151c586ac6c5 1-151
+cli/internal/testutil/gitenv_test.go
+  h_ae151c586ac6c5 1-180
+spine-tasks/SP-030-git-test-isolation/STATUS.md
+  h_ae151c586ac6c5 1-2,13,15-16,20,47-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d65ff16621855a82f27b2993695df3772eac2980",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
