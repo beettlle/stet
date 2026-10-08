@@ -1,0 +1,24 @@
+cli/cmd/stet/main.go
+  h_ae151c586ac6c5 432-434,677-678,682-683,695-700,705-710,720-721,730-733,872-874,1071-1073
+cli/cmd/stet/main_test.go
+  h_ae151c586ac6c5 3072-3074,3132-3167
+cli/internal/config/config.go
+  h_ae151c586ac6c5 26,110-117,155,300,427,594-596,663,943-949,1097-1099
+cli/internal/config/config_test.go
+  h_ae151c586ac6c5 1587-1696
+cli/internal/run/run.go
+  h_ae151c586ac6c5 211-223,252-299,353-357,507,588,974-984,1065-1075,1435-1437,1870-1872
+spine-tasks/SP-034-rule-annotation-wiring/STATUS.md
+  h_ae151c586ac6c5 1-2,13,15-16,20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
