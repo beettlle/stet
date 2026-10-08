@@ -1,0 +1,16 @@
+cli/internal/review/rules_annotation_test.go
+  h_ae151c586ac6c5 1-460
+spine-tasks/SP-027-rule-conflict-annotation/STATUS.md
+  h_ae151c586ac6c5 1-2,13,15,19,21,25,27-29,37,44,51-60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "842e7b5d5fe849f431a83044aea051cf19e07530",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
