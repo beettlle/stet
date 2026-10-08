@@ -3059,29 +3059,75 @@ func TestOverridesFromFlags_invalidCriticBackend(t *testing.T) {
 func TestSystemOneRunOptions(t *testing.T) {
 	t.Run("nil client when critic disabled", func(t *testing.T) {
 		cfg := &config.Config{CriticEnabled: false, CriticBackend: "systemone", SystemOneBaseURL: "http://127.0.0.1:8080", SystemOneModel: "openjev-latest", SystemOneMinKeep: 0.5, SystemOneSamples: 2}
-		client, baseURL, model, minKeep, samples := systemOneRunOptions(cfg)
-		if client != nil {
-			t.Errorf("client = %v, want nil when critic disabled", client)
+		o := systemOneRunOptions(cfg, false)
+		if o.Client != nil {
+			t.Errorf("client = %v, want nil when critic disabled", o.Client)
 		}
-		if baseURL != "http://127.0.0.1:8080" || model != "openjev-latest" || minKeep != 0.5 || samples != 2 {
-			t.Errorf("fields = %q %q %v %d, want config values", baseURL, model, minKeep, samples)
+		if o.BaseURL != "http://127.0.0.1:8080" || o.Model != "openjev-latest" || o.MinKeep != 0.5 || o.Samples != 2 {
+			t.Errorf("fields = %q %q %v %d, want config values", o.BaseURL, o.Model, o.MinKeep, o.Samples)
+		}
+		if o.SelectorClient != nil {
+			t.Errorf("selector client = %v, want nil when rules_selector off", o.SelectorClient)
 		}
 	})
 	t.Run("nil client when backend llm", func(t *testing.T) {
 		cfg := &config.Config{CriticEnabled: true, CriticBackend: "llm", SystemOneBaseURL: "http://127.0.0.1:8080"}
-		client, _, _, _, _ := systemOneRunOptions(cfg)
-		if client != nil {
-			t.Errorf("client = %v, want nil when backend llm", client)
+		o := systemOneRunOptions(cfg, false)
+		if o.Client != nil {
+			t.Errorf("client = %v, want nil when backend llm", o.Client)
 		}
 	})
 	t.Run("client built when enabled and systemone", func(t *testing.T) {
 		cfg := &config.Config{CriticEnabled: true, CriticBackend: "systemone", SystemOneBaseURL: "http://127.0.0.1:9090/", SystemOneAPIKey: "k", SystemOneModel: "openjev-latest", SystemOneMinKeep: 0.5, SystemOneSamples: 3}
-		client, baseURL, model, minKeep, samples := systemOneRunOptions(cfg)
-		if client == nil {
+		o := systemOneRunOptions(cfg, false)
+		if o.Client == nil {
 			t.Fatal("client = nil, want non-nil when critic enabled and backend systemone")
 		}
-		if baseURL != "http://127.0.0.1:9090/" || model != "openjev-latest" || minKeep != 0.5 || samples != 3 {
-			t.Errorf("fields = %q %q %v %d, want config values", baseURL, model, minKeep, samples)
+		if o.BaseURL != "http://127.0.0.1:9090/" || o.Model != "openjev-latest" || o.MinKeep != 0.5 || o.Samples != 3 {
+			t.Errorf("fields = %q %q %v %d, want config values", o.BaseURL, o.Model, o.MinKeep, o.Samples)
+		}
+		if o.SelectorClient != nil {
+			t.Errorf("selector client = %v, want nil when rules_selector off", o.SelectorClient)
+		}
+	})
+	t.Run("selector client built when rules_selector on and not dry-run", func(t *testing.T) {
+		cfg := &config.Config{RulesSelector: true, SystemOneBaseURL: "http://127.0.0.1:9090", SystemOneModel: "sel-model"}
+		o := systemOneRunOptions(cfg, false)
+		if o.SelectorClient == nil {
+			t.Fatal("selector client = nil, want non-nil when rules_selector on")
+		}
+		if o.SelectorModel != "sel-model" {
+			t.Errorf("selector model = %q, want sel-model (reuses systemone_model)", o.SelectorModel)
+		}
+		if o.Client != nil {
+			t.Errorf("critic client = %v, want nil when the System One critic is off", o.Client)
+		}
+	})
+	t.Run("no selector client on dry-run", func(t *testing.T) {
+		cfg := &config.Config{RulesSelector: true, SystemOneBaseURL: "http://127.0.0.1:9090", SystemOneModel: "sel-model"}
+		o := systemOneRunOptions(cfg, true)
+		if o.SelectorClient != nil {
+			t.Errorf("selector client = %v, want nil on dry-run", o.SelectorClient)
+		}
+		if o.Client != nil {
+			t.Errorf("critic client = %v, want nil on dry-run", o.Client)
+		}
+	})
+	t.Run("one shared client when critic and selector both enabled", func(t *testing.T) {
+		cfg := &config.Config{CriticEnabled: true, CriticBackend: "systemone", RulesSelector: true, SystemOneBaseURL: "http://127.0.0.1:9090", SystemOneModel: "sel-model"}
+		o := systemOneRunOptions(cfg, false)
+		if o.Client == nil || o.SelectorClient == nil {
+			t.Fatalf("clients = %v / %v, want both non-nil", o.Client, o.SelectorClient)
+		}
+		if fmt.Sprintf("%p", o.Client) != fmt.Sprintf("%p", o.SelectorClient) {
+			t.Errorf("critic and selector clients differ; want one shared *systemone.Client instance")
+		}
+	})
+	t.Run("never two clients when neither enabled", func(t *testing.T) {
+		cfg := &config.Config{SystemOneBaseURL: "http://127.0.0.1:8080"}
+		o := systemOneRunOptions(cfg, true)
+		if o.Client != nil || o.SelectorClient != nil {
+			t.Errorf("clients = %v / %v, want both nil when neither the critic nor the selector is enabled", o.Client, o.SelectorClient)
 		}
 	})
 }

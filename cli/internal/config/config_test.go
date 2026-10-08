@@ -1478,6 +1478,110 @@ func TestDefaultConfig_systemOneDefaults(t *testing.T) {
 	if c.SystemOneAPIKey != "" {
 		t.Errorf("SystemOneAPIKey = non-empty, want empty by default")
 	}
+	if c.RulesSelector {
+		t.Errorf("RulesSelector = true, want false by default")
+	}
+}
+
+// TestLoad_rulesSelectorFromTOML asserts the rules_selector TOML key parses and
+// defaults to false when absent.
+func TestLoad_rulesSelectorFromTOML(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	reviewDir := filepath.Join(dir, ".review")
+	if err := os.MkdirAll(reviewDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(reviewDir, "config.toml"), []byte("rules_selector = true\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(context.Background(), LoadOptions{RepoRoot: dir})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !cfg.RulesSelector {
+		t.Errorf("RulesSelector = false, want true from TOML")
+	}
+
+	explicitOff := strings.ReplaceAll("rules_selector = true", "true", "false")
+	if err := os.WriteFile(filepath.Join(reviewDir, "config.toml"), []byte(explicitOff), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err = Load(context.Background(), LoadOptions{RepoRoot: dir})
+	if err != nil {
+		t.Fatalf("Load (explicit false): %v", err)
+	}
+	if cfg.RulesSelector {
+		t.Errorf("RulesSelector = true, want false with explicit rules_selector = false")
+	}
+}
+
+// TestLoad_rulesSelectorFromEnv asserts the STET_RULES_SELECTOR env var parses
+// the same 1/true/yes/on values as STET_CRITIC_ENABLED and overrides the TOML file.
+func TestLoad_rulesSelectorFromEnv(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	reviewDir := filepath.Join(dir, ".review")
+	if err := os.MkdirAll(reviewDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	// File sets false; env true must win (env > repo config).
+	if err := os.WriteFile(filepath.Join(reviewDir, "config.toml"), []byte("rules_selector = false\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		env   string
+		want  bool
+		names string
+	}{
+		{"1", true, "1"},
+		{"true", true, "true"},
+		{"yes", true, "yes"},
+		{"on", true, "on"},
+		{"TRUE", true, "TRUE (case-insensitive)"},
+		{"0", false, "0"},
+		{"off", false, "off"},
+	} {
+		cfg, err := Load(context.Background(), LoadOptions{
+			RepoRoot: dir,
+			Env:      []string{"STET_RULES_SELECTOR=" + tc.env},
+		})
+		if err != nil {
+			t.Fatalf("Load(STET_RULES_SELECTOR=%s): %v", tc.env, err)
+		}
+		if cfg.RulesSelector != tc.want {
+			t.Errorf("STET_RULES_SELECTOR=%s: RulesSelector = %v, want %v", tc.env, cfg.RulesSelector, tc.want)
+		}
+	}
+}
+
+// TestLoad_rulesSelectorInvalidEnv asserts an invalid STET_RULES_SELECTOR value
+// is rejected with an error.
+func TestLoad_rulesSelectorInvalidEnv(t *testing.T) {
+	t.Parallel()
+	_, err := Load(context.Background(), LoadOptions{Env: []string{"STET_RULES_SELECTOR=maybe"}})
+	if err == nil {
+		t.Fatal("Load with STET_RULES_SELECTOR=maybe: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "STET_RULES_SELECTOR") {
+		t.Errorf("error = %q, want it to name STET_RULES_SELECTOR", err.Error())
+	}
+}
+
+// TestLoad_rulesSelectorOverride asserts Overrides.RulesSelector wins over env.
+func TestLoad_rulesSelectorOverride(t *testing.T) {
+	t.Parallel()
+	overrides := &Overrides{RulesSelector: ptrBool(false)}
+	cfg, err := Load(context.Background(), LoadOptions{
+		Env:       []string{"STET_RULES_SELECTOR=true"},
+		Overrides: overrides,
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.RulesSelector {
+		t.Errorf("RulesSelector = true, want false (override beats env)")
+	}
 }
 
 func TestLoad_systemOneFromTOML(t *testing.T) {

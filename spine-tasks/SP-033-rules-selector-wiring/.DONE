@@ -1,0 +1,1 @@
+SP-033 complete: rules_selector wired end to end (config, prompt prep, run pipeline, CLI, docs), default-off, fail-open, coverage gate PASS.

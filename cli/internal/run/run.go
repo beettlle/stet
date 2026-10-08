@@ -197,7 +197,18 @@ type reviewPipelineOpts struct {
 	// SystemOneMinKeep is the P(yes) threshold for keeping a finding; used only when CriticBackend == "systemone".
 	SystemOneMinKeep float64
 	// SystemOneSamples is the number of samples per System One question (0 = server default).
-	SystemOneSamples       int
+	SystemOneSamples int
+	// RulesSelectorClient, when non-nil, selects the most relevant rule sections
+	// per hunk via rules.SelectSections before prompt assembly (SP-033). Selection
+	// failure falls back to the default rule assembly with one warning per run.
+	RulesSelectorClient rules.ChoiceDecider
+	// RulesSelectorBaseURL is the selector server base URL; used only in the fail-open
+	// warning (the API key never appears in warnings or trace output).
+	RulesSelectorBaseURL string
+	// RulesSelectorModel is the model name sent in selector requests (reuses systemone_model).
+	RulesSelectorModel string
+	// RulesSelectorWarnOut receives the selector fail-open warning; nil uses os.Stderr. Test hook.
+	RulesSelectorWarnOut   io.Writer
 	StreamOut              io.Writer
 	Verbose                bool
 	TraceOut               *trace.Tracer
@@ -205,6 +216,54 @@ type reviewPipelineOpts struct {
 	UseSearchReplaceFormat bool
 	// SuppressionExamples is the list of "do not report" examples from history; applied per-hunk (as many as fit in token budget). Nil when suppression disabled.
 	SuppressionExamples []string
+}
+
+// rulesSelectorState prints at most one fail-open warning per run when the
+// rule-section selector fails; the parallel preparer goroutines share one
+// instance. The warning names the server base URL, never the API key.
+type rulesSelectorState struct {
+	once    sync.Once
+	warnOut io.Writer // nil = os.Stderr
+	baseURL string
+}
+
+func (s *rulesSelectorState) warnFailure(err error) {
+	out := s.warnOut
+	if out == nil {
+		out = os.Stderr
+	}
+	s.once.Do(func() {
+		fmt.Fprintf(out, "stet: rules selector unavailable at %s: %v; using default rule truncation\n", s.baseURL, err)
+	})
+}
+
+// selectRuleSectionsForHunk returns the selector-ranked rule sections for hunk,
+// or nil when the selector is disabled, no rules apply to the file, selection
+// returned no sections, or the selector failed (one warning per run; the caller
+// falls back to the default rule assembly). Selection must not fail the review.
+func selectRuleSectionsForHunk(ctx context.Context, opts reviewPipelineOpts, hunk diff.Hunk, cursorRules []rules.CursorRule, warn *rulesSelectorState) []rules.Section {
+	if opts.RulesSelectorClient == nil {
+		return nil
+	}
+	candidates := rules.FilterRules(cursorRules, hunk.FilePath)
+	var sections []rules.Section
+	for _, r := range candidates {
+		sections = append(sections, rules.SplitSections(r)...)
+	}
+	if len(sections) == 0 {
+		return nil
+	}
+	selected, err := rules.SelectSections(ctx, opts.RulesSelectorClient, opts.RulesSelectorModel, hunk.RawContent, sections, rules.MaxRuleTokens)
+	if err != nil {
+		if warn != nil {
+			warn.warnFailure(err)
+		}
+		return nil
+	}
+	if len(selected) == 0 {
+		return nil
+	}
+	return selected
 }
 
 // runReviewPipeline runs the review loop with parallel preparers and a pipelined
@@ -225,6 +284,12 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 	close(idxCh)
 
 	readyCh := make(chan preparedPrompt, prepareBufferSize*2)
+	// One shared fail-open warning state for the whole run: at most one selector
+	// warning regardless of how many hunks fail selection.
+	var selectorWarn *rulesSelectorState
+	if opts.RulesSelectorClient != nil {
+		selectorWarn = &rulesSelectorState{warnOut: opts.RulesSelectorWarnOut, baseURL: opts.RulesSelectorBaseURL}
+	}
 	var wg sync.WaitGroup
 	workerCount := prepareWorkerCount
 	if total < workerCount {
@@ -240,7 +305,8 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 				}
 				hunk := opts.Hunks[i]
 				cursorRules := opts.RulesByFile[hunk.FilePath]
-				system, user, prepErr := review.PrepareHunkPrompt(ctx, opts.SystemBase, hunk, cursorRules, opts.RepoRoot, opts.EffectiveContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, opts.RAGCallGraphEnabled, opts.RAGCallersMax, opts.RAGCalleesMax, opts.RAGCallGraphMaxTokens, opts.UseSearchReplaceFormat, opts.SuppressionExamples, opts.TraceOut)
+				ruleSections := selectRuleSectionsForHunk(ctx, opts, hunk, cursorRules, selectorWarn)
+				system, user, prepErr := review.PrepareHunkPrompt(ctx, opts.SystemBase, hunk, cursorRules, opts.RepoRoot, opts.EffectiveContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, opts.RAGCallGraphEnabled, opts.RAGCallersMax, opts.RAGCalleesMax, opts.RAGCallGraphMaxTokens, opts.UseSearchReplaceFormat, opts.SuppressionExamples, ruleSections, opts.TraceOut)
 				if prepErr != nil {
 					readyCh <- preparedPrompt{Index: i, Hunk: hunk, Err: prepErr}
 					continue
@@ -831,6 +897,15 @@ type StartOptions struct {
 	SystemOneMinKeep float64
 	// SystemOneSamples is the number of samples per System One question (0 = server default).
 	SystemOneSamples int
+	// RulesSelectorClient, when non-nil and not DryRun, selects the most relevant
+	// rule sections per hunk (rules_selector config). Selector failures fall back
+	// to the default rule assembly with one warning per run; selection never fails
+	// the review. Dry-run never contacts the selector server.
+	RulesSelectorClient rules.ChoiceDecider
+	// RulesSelectorBaseURL is the selector server base URL; used only in the fail-open warning.
+	RulesSelectorBaseURL string
+	// RulesSelectorModel is the model name sent in selector requests (reuses systemone_model).
+	RulesSelectorModel string
 	// Session-persisted options (from stet start flags); when set, stored in session.
 	PersistStrictness              *string
 	PersistRAGSymbolMaxDefinitions *int
@@ -902,6 +977,15 @@ type RunOptions struct {
 	SystemOneMinKeep float64
 	// SystemOneSamples is the number of samples per System One question (0 = server default).
 	SystemOneSamples int
+	// RulesSelectorClient, when non-nil and not DryRun, selects the most relevant
+	// rule sections per hunk (rules_selector config). Selector failures fall back
+	// to the default rule assembly with one warning per run; selection never fails
+	// the review. Dry-run never contacts the selector server.
+	RulesSelectorClient rules.ChoiceDecider
+	// RulesSelectorBaseURL is the selector server base URL; used only in the fail-open warning.
+	RulesSelectorBaseURL string
+	// RulesSelectorModel is the model name sent in selector requests (reuses systemone_model).
+	RulesSelectorModel string
 	// TraceOut, when non-nil, receives internal trace output. Used when --trace is set.
 	TraceOut io.Writer
 	// UseSearchReplaceFormat, when true, sends the hunk in search-replace style for testing.
@@ -1258,6 +1342,9 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 			SystemOneModel:          opts.SystemOneModel,
 			SystemOneMinKeep:        opts.SystemOneMinKeep,
 			SystemOneSamples:        opts.SystemOneSamples,
+			RulesSelectorClient:     opts.RulesSelectorClient,
+			RulesSelectorBaseURL:    opts.RulesSelectorBaseURL,
+			RulesSelectorModel:      opts.RulesSelectorModel,
 			StreamOut:               opts.StreamOut,
 			Verbose:                 opts.Verbose,
 			TraceOut:                tr,
@@ -1687,6 +1774,9 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 			SystemOneModel:          opts.SystemOneModel,
 			SystemOneMinKeep:        opts.SystemOneMinKeep,
 			SystemOneSamples:        opts.SystemOneSamples,
+			RulesSelectorClient:     opts.RulesSelectorClient,
+			RulesSelectorBaseURL:    opts.RulesSelectorBaseURL,
+			RulesSelectorModel:      opts.RulesSelectorModel,
 			StreamOut:               opts.StreamOut,
 			Verbose:                 opts.Verbose,
 			TraceOut:                trRun,

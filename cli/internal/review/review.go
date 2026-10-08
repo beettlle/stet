@@ -84,32 +84,51 @@ const maxSuppressionTokensCap = 8192
 
 // PrepareHunkPrompt builds the system and user prompts for a single hunk from a
 // pre-built systemBase (SystemPrompt + InjectUserIntent + AppendPromptShadows +
-// AppendNitpickyInstructions). It appends Cursor rules for the hunk's file,
-// expands the hunk, optionally minifies (Go), builds the user prompt (unified or
+// AppendNitpickyInstructions). When ruleSections is non-nil it appends the
+// pre-selected rule sections (rules.SelectSections output; SP-033 wiring) via
+// prompt.AppendRuleSections; otherwise it appends Cursor rules for the hunk's
+// file via prompt.AppendCursorRules exactly as before the selector existed.
+// It then expands the hunk, optionally minifies (Go), builds the user prompt (unified or
 // search-replace when useSearchReplaceFormat), appends up to maxSuppressionExamplesPerHunk
 // suppression examples when suppressionExamples is non-empty and contextLimit > 0
 // (only as many as fit in the remaining token budget), and runs RAG when enabled.
 // When ragCallGraphEnabled is true and the file is Go, call-graph (callers/callees)
 // is resolved and appended to the middle block; token cap is ragCallGraphMaxTokens
 // or half of effectiveRAGTokens when 0. Used by the pipeline to prepare the next hunk.
-func PrepareHunkPrompt(ctx context.Context, systemBase string, hunk diff.Hunk, ruleList []rules.CursorRule, repoRoot string, contextLimit int, ragMaxDefs, ragMaxTokens int, ragCallGraphEnabled bool, ragCallersMax, ragCalleesMax, ragCallGraphMaxTokens int, useSearchReplaceFormat bool, suppressionExamples []string, traceOut *trace.Tracer) (system, user string, err error) {
-	system = prompt.AppendCursorRules(systemBase, ruleList, hunk.FilePath, rules.MaxRuleTokens)
+func PrepareHunkPrompt(ctx context.Context, systemBase string, hunk diff.Hunk, ruleList []rules.CursorRule, repoRoot string, contextLimit int, ragMaxDefs, ragMaxTokens int, ragCallGraphEnabled bool, ragCallersMax, ragCalleesMax, ragCallGraphMaxTokens int, useSearchReplaceFormat bool, suppressionExamples []string, ruleSections []rules.Section, traceOut *trace.Tracer) (system, user string, err error) {
+	if ruleSections != nil {
+		system = prompt.AppendRuleSections(systemBase, ruleSections, rules.MaxRuleTokens)
+	} else {
+		system = prompt.AppendCursorRules(systemBase, ruleList, hunk.FilePath, rules.MaxRuleTokens)
+	}
 	if useSearchReplaceFormat {
 		system = prompt.AppendSearchReplaceFormatNote(system)
 	}
 	if traceOut != nil && traceOut.Enabled() {
 		traceOut.Section("Cursor rules")
-		matched := rules.FilterRules(ruleList, hunk.FilePath)
-		var names []string
-		for _, r := range matched {
-			if r.Source != "" {
-				names = append(names, r.Source)
+		if ruleSections != nil {
+			var selected []string
+			for _, s := range ruleSections {
+				selected = append(selected, s.Source+": "+s.Heading)
 			}
-		}
-		if len(names) > 0 {
-			traceOut.Printf("applied: %s\n", strings.Join(names, ", "))
+			if len(selected) > 0 {
+				traceOut.Printf("selected: %s\n", strings.Join(selected, ", "))
+			} else {
+				traceOut.Printf("(none selected)\n")
+			}
 		} else {
-			traceOut.Printf("(none matched)\n")
+			matched := rules.FilterRules(ruleList, hunk.FilePath)
+			var names []string
+			for _, r := range matched {
+				if r.Source != "" {
+					names = append(names, r.Source)
+				}
+			}
+			if len(names) > 0 {
+				traceOut.Printf("applied: %s\n", strings.Join(names, ", "))
+			} else {
+				traceOut.Printf("(none matched)\n")
+			}
 		}
 		traceOut.Printf("AGENTS.md: not used by stet (only .cursor/rules/ used).\n")
 	}
@@ -389,7 +408,7 @@ func ReviewHunk(ctx context.Context, client llm.Client, model, stateDir string, 
 			traceOut.Printf("Nitpicky: disabled\n")
 		}
 	}
-	system, user, err := PrepareHunkPrompt(ctx, systemBase, hunk, ruleList, repoRoot, contextLimit, ragMaxDefs, ragMaxTokens, ragCallGraphEnabled, ragCallersMax, ragCalleesMax, ragCallGraphMaxTokens, useSearchReplaceFormat, suppressionExamples, traceOut)
+	system, user, err := PrepareHunkPrompt(ctx, systemBase, hunk, ruleList, repoRoot, contextLimit, ragMaxDefs, ragMaxTokens, ragCallGraphEnabled, ragCallersMax, ragCalleesMax, ragCallGraphMaxTokens, useSearchReplaceFormat, suppressionExamples, nil, traceOut)
 	if err != nil {
 		return nil, nil, err
 	}
