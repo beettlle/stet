@@ -12,7 +12,7 @@ import (
 
 // GitAIResult holds aggregated git-ai metrics over a ref range.
 type GitAIResult struct {
-	CommitsWithAINote   int `json:"commits_with_ai_note"`
+	CommitsWithAINote    int `json:"commits_with_ai_note"`
 	TotalAIAuthoredLines int `json:"total_ai_authored_lines"`
 }
 

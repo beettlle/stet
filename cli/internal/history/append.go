@@ -111,11 +111,11 @@ func parseRecordLines(lines []string) ([]Record, error) {
 }
 
 const (
-	historyFilename      = "history.jsonl"
-	historyGzPrefix      = "history.jsonl."
-	historyGzSuffix      = ".gz"
-	DefaultMaxRecords    = 1000
-	maxRotatedArchives   = 5
+	historyFilename    = "history.jsonl"
+	historyGzPrefix    = "history.jsonl."
+	historyGzSuffix    = ".gz"
+	DefaultMaxRecords  = 1000
+	maxRotatedArchives = 5
 )
 
 // parseArchiveNumber parses the N from history.jsonl.N.gz. Returns (0, false) on

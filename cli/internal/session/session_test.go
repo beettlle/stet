@@ -167,7 +167,7 @@ func TestSaveLoad_roundtripWithFindingPromptContext(t *testing.T) {
 	dir := t.TempDir()
 	want := Session{
 		BaselineRef:          "main",
-		LastReviewedAt:      "abc123",
+		LastReviewedAt:       "abc123",
 		FindingPromptContext: map[string]string{"id1": "hunk content one", "id2": "hunk content two"},
 	}
 	if err := Save(dir, &want); err != nil {

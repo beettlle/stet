@@ -33,13 +33,13 @@ type PromptShadow struct {
 // Strictness and RAG options (when set on stet start) are persisted so stet run
 // uses them when the corresponding flags are not set.
 type Session struct {
-	SessionID             string             `json:"session_id,omitempty"`
-	BaselineRef           string             `json:"baseline_ref"`
-	LastReviewedAt        string             `json:"last_reviewed_at"`
-	DismissedIDs          []string           `json:"dismissed_ids,omitempty"`
-	PromptShadows         []PromptShadow     `json:"prompt_shadows,omitempty"`
-	FindingPromptContext  map[string]string  `json:"finding_prompt_context,omitempty"`
-	Findings              []findings.Finding `json:"findings,omitempty"`
+	SessionID            string             `json:"session_id,omitempty"`
+	BaselineRef          string             `json:"baseline_ref"`
+	LastReviewedAt       string             `json:"last_reviewed_at"`
+	DismissedIDs         []string           `json:"dismissed_ids,omitempty"`
+	PromptShadows        []PromptShadow     `json:"prompt_shadows,omitempty"`
+	FindingPromptContext map[string]string  `json:"finding_prompt_context,omitempty"`
+	Findings             []findings.Finding `json:"findings,omitempty"`
 	// Strictness is the preset from stet start (empty = not set; run uses config).
 	Strictness string `json:"strictness,omitempty"`
 	// RAGSymbolMaxDefinitions from stet start (nil = not set; 0 is valid = disable).

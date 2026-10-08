@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	grepTimeout     = 5 * time.Second
-	maxSymbolCandidates = 30
+	grepTimeout              = 5 * time.Second
+	maxSymbolCandidates      = 30
 	maxPrecedingCommentLines = 5
 )
 

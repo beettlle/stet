@@ -11,17 +11,17 @@ import (
 
 // QualityResult holds aggregated quality metrics from .review/history.jsonl.
 type QualityResult struct {
-	SessionsCount      int                `json:"sessions_count"`
-	TotalFindings      int                `json:"total_findings"`
-	TotalDismissed     int                `json:"total_dismissed"`
-	DismissalRate      float64            `json:"dismissal_rate"`
-	AcceptanceRate     float64            `json:"acceptance_rate"`
-	FalsePositiveRate  float64            `json:"false_positive_rate"`
-	Actionability     float64            `json:"actionability"`
-	CleanCommitRate    float64            `json:"clean_commit_rate"`
-	FindingDensity    float64            `json:"finding_density,omitempty"` // Omitted when no tokens.
-	DismissalsByReason map[string]int     `json:"dismissals_by_reason"`
-	CategoryBreakdown  map[string]int     `json:"category_breakdown"`
+	SessionsCount      int            `json:"sessions_count"`
+	TotalFindings      int            `json:"total_findings"`
+	TotalDismissed     int            `json:"total_dismissed"`
+	DismissalRate      float64        `json:"dismissal_rate"`
+	AcceptanceRate     float64        `json:"acceptance_rate"`
+	FalsePositiveRate  float64        `json:"false_positive_rate"`
+	Actionability      float64        `json:"actionability"`
+	CleanCommitRate    float64        `json:"clean_commit_rate"`
+	FindingDensity     float64        `json:"finding_density,omitempty"` // Omitted when no tokens.
+	DismissalsByReason map[string]int `json:"dismissals_by_reason"`
+	CategoryBreakdown  map[string]int `json:"category_breakdown"`
 }
 
 // Quality reads .review/history.jsonl from stateDir (including rotated archives),

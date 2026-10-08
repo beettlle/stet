@@ -2246,7 +2246,7 @@ func TestRunCLI_statsVolumeJSONWithGitAI(t *testing.T) {
 	}
 	var out struct {
 		GitAI *struct {
-			CommitsWithAINote   int `json:"commits_with_ai_note"`
+			CommitsWithAINote    int `json:"commits_with_ai_note"`
 			TotalAIAuthoredLines int `json:"total_ai_authored_lines"`
 		} `json:"git_ai"`
 	}
@@ -2356,12 +2356,12 @@ func TestRunCLI_statsQualityJSONInRepo(t *testing.T) {
 		t.Fatalf("runCLI(stats quality --format=json) = %d, want 0\nstderr/out: %s", got, buf.String())
 	}
 	var out struct {
-		SessionsCount      int                `json:"sessions_count"`
-		TotalFindings      int                `json:"total_findings"`
-		TotalDismissed     int                `json:"total_dismissed"`
-		DismissalRate      float64            `json:"dismissal_rate"`
-		CategoryBreakdown  map[string]int     `json:"category_breakdown"`
-		DismissalsByReason map[string]int     `json:"dismissals_by_reason"`
+		SessionsCount      int            `json:"sessions_count"`
+		TotalFindings      int            `json:"total_findings"`
+		TotalDismissed     int            `json:"total_dismissed"`
+		DismissalRate      float64        `json:"dismissal_rate"`
+		CategoryBreakdown  map[string]int `json:"category_breakdown"`
+		DismissalsByReason map[string]int `json:"dismissals_by_reason"`
 	}
 	if err := json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &out); err != nil {
 		t.Fatalf("parse stats quality JSON: %v\noutput: %s", err, buf.Bytes())

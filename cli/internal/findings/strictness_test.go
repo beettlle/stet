@@ -8,12 +8,12 @@ import (
 func TestResolveStrictness(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name     string
-		s        string
-		wantKeep float64
+		name      string
+		s         string
+		wantKeep  float64
 		wantMaint float64
-		wantFP   bool
-		wantErr  bool
+		wantFP    bool
+		wantErr   bool
 	}{
 		{"strict", "strict", 0.6, 0.7, true, false},
 		{"strict_plus", "strict+", 0.6, 0.7, false, false},

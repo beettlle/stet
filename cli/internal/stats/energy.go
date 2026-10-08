@@ -69,12 +69,12 @@ type energyNote struct {
 
 // EnergyResult holds aggregated energy and cost metrics over a ref range.
 type EnergyResult struct {
-	SessionsCount        int                `json:"sessions_count"`
-	TotalEvalDurationNs  int64              `json:"total_eval_duration_ns"`
-	TotalPromptTokens    int64              `json:"total_prompt_tokens"`
-	TotalCompletionTokens int64             `json:"total_completion_tokens"`
-	LocalEnergyKWh       float64            `json:"local_energy_kwh"`
-	CloudCostAvoided     map[string]float64 `json:"cloud_cost_avoided"`
+	SessionsCount         int                `json:"sessions_count"`
+	TotalEvalDurationNs   int64              `json:"total_eval_duration_ns"`
+	TotalPromptTokens     int64              `json:"total_prompt_tokens"`
+	TotalCompletionTokens int64              `json:"total_completion_tokens"`
+	LocalEnergyKWh        float64            `json:"local_energy_kwh"`
+	CloudCostAvoided      map[string]float64 `json:"cloud_cost_avoided"`
 }
 
 // Energy walks the ref range since..until, reads stet notes at each commit,

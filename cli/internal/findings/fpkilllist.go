@@ -23,7 +23,7 @@ var defaultBannedPhrases = []string{
 
 var (
 	defaultCompiledOnce sync.Once
-	defaultCompiled      []*regexp.Regexp
+	defaultCompiled     []*regexp.Regexp
 )
 
 func initCompiled() {

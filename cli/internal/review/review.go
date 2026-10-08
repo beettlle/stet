@@ -10,8 +10,8 @@ import (
 	"stet/cli/internal/diff"
 	"stet/cli/internal/expand"
 	"stet/cli/internal/findings"
-	"stet/cli/internal/minify"
 	"stet/cli/internal/llm"
+	"stet/cli/internal/minify"
 	"stet/cli/internal/ollama"
 	"stet/cli/internal/prompt"
 	"stet/cli/internal/rag"
@@ -31,9 +31,9 @@ const maxRAGTokensWhenContextLarge = 65536
 
 // HunkUsage holds per-hunk token and duration from Ollama (for history/analytics).
 type HunkUsage struct {
-	PromptEvalCount  int   // Prompt tokens for this hunk.
-	EvalCount        int   // Completion tokens for this hunk.
-	EvalDurationNs   int64 // Evaluation duration in nanoseconds (Ollama eval_duration).
+	PromptEvalCount int   // Prompt tokens for this hunk.
+	EvalCount       int   // Completion tokens for this hunk.
+	EvalDurationNs  int64 // Evaluation duration in nanoseconds (Ollama eval_duration).
 }
 
 // effectiveRAGTokenCap returns the token cap for the RAG block this hunk.

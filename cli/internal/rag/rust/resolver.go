@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	grepTimeout                = 5 * time.Second
-	maxSymbolCandidates       = 30
-	maxPrecedingCommentLines   = 5
+	grepTimeout              = 5 * time.Second
+	maxSymbolCandidates      = 30
+	maxPrecedingCommentLines = 5
 )
 
 var rustKeywords = map[string]bool{
@@ -34,12 +34,12 @@ var rustKeywords = map[string]bool{
 }
 
 var (
-	reFn       = regexp.MustCompile(`\bfn\s+(\w+)\s*[<(]`)
-	reStruct   = regexp.MustCompile(`\bstruct\s+(\w+)\s*[{<]`)
-	reEnum     = regexp.MustCompile(`\benum\s+(\w+)\s*[{]`)
-	reTrait    = regexp.MustCompile(`\btrait\s+(\w+)\s*[{]`)
-	reImplFor  = regexp.MustCompile(`\bimpl\s+.*?\s+for\s+(\w+)\s*[<{ ]`)
-	reCall     = regexp.MustCompile(`\b(\w+)\s*\(`)
+	reFn        = regexp.MustCompile(`\bfn\s+(\w+)\s*[<(]`)
+	reStruct    = regexp.MustCompile(`\bstruct\s+(\w+)\s*[{<]`)
+	reEnum      = regexp.MustCompile(`\benum\s+(\w+)\s*[{]`)
+	reTrait     = regexp.MustCompile(`\btrait\s+(\w+)\s*[{]`)
+	reImplFor   = regexp.MustCompile(`\bimpl\s+.*?\s+for\s+(\w+)\s*[<{ ]`)
+	reCall      = regexp.MustCompile(`\b(\w+)\s*\(`)
 	reTypeIdent = regexp.MustCompile(`\b([A-Z][A-Za-z0-9_]*)\b`)
 )
 
