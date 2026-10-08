@@ -1,0 +1,21 @@
+cli/internal/run/run_test.go
+  s_2cd9b6604b8f97::t_c6de865a0ef72b 8,3193-3478
+docs/cli-extension-contract.md
+  s_2cd9b6604b8f97::t_f6bc5efacb5e95 41,148,152,223
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3248a08d2e2b3b028735d9fe757352f6fc0fdc40",
+  "prompts": {},
+  "sessions": {
+    "s_2cd9b6604b8f97": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "ec8c24e3-9fb6-4110-be35-7d4456cc8f6e",
+        "model": "default"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
