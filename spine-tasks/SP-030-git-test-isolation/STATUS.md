@@ -1,5 +1,5 @@
-**Current Step:** Step 1: Not started
-**Status:** Ready
+**Current Step:** Step 2: Apply to git-heavy packages
+**Status:** In Progress
 **Last Updated:** 2026-10-08
 **Review Level:** 1
 **Review Counter:** 0
@@ -10,14 +10,14 @@
 
 ## Step 1: `testutil` helpers
 
-**Status:** Not Started
+**Status:** Complete
 
-- [ ] `RunIsolatedGit` and `TempGitDir`
-- [ ] Unit tests for env, gitconfig, retry success, final failure
+- [x] `RunIsolatedGit` and `TempGitDir`
+- [x] Unit tests for env, gitconfig, retry success, final failure
 
 ## Step 2: Apply to git-heavy packages
 
-**Status:** Not Started
+**Status:** In Progress
 > ⚠️ Hydrate: list each package as it is converted
 
 - [ ] `TestMain` in every in-scope package
@@ -44,6 +44,9 @@
 | Date | Finding | Impact |
 |------|---------|--------|
 | 2026-10-08 | Root cause: git-ai daemon (trace2 eventtarget) writes `.git/ai` + `refs/notes/ai` into test repos asynchronously | Races `t.TempDir` cleanup; fails ~50% of full runs |
+| 2026-10-08 | Production `minimalEnv()` (internal/git) already strips GIT_CONFIG_GLOBAL; flakiness comes from test-helper git subprocesses that inherit env | TestMain `os.Setenv` isolation targets exactly the right surface |
+| 2026-10-08 | `internal/rag/*` and `internal/review` runGit helpers append `GIT_CONFIG_GLOBAL=/dev/null` to child env; left untouched (isolation holds, test logic unchanged) | No action |
+| 2026-10-08 | testutil coverage 79.5% (gate 72%); uncovered lines are RunIsolatedGit wrapper (needs real `*testing.M`) and write-error branch | Passes gate |
 
 ## Execution Log
 
