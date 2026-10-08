@@ -1,0 +1,16 @@
+cli/internal/review/critic_systemone_test.go
+  h_ae151c586ac6c5 1-359
+spine-tasks/SP-016-systemone-batch-verifier/STATUS.md
+  h_ae151c586ac6c5 1-2,21,23-25,42,50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "70df44de39e2f2ddecdb42b7149391530a40ad1c",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
