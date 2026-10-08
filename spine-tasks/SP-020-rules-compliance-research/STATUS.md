@@ -1,5 +1,5 @@
-**Current Step:** Step 3: In progress (writing document)
-**Status:** In progress (operator scheduled)
+**Current Step:** Complete
+**Status:** Complete
 **Last Updated:** 2026-10-08
 **Review Level:** 1
 **Review Counter:** 0
@@ -30,16 +30,17 @@
 
 ## Step 3: Write the document
 
-**Status:** Not Started
+**Status:** Complete
 
-- [ ] Research doc with `## Recommendation`
+- [x] `docs/research/systemone-rules-compliance.md` with Summary, Method, Results (Q1–Q5), Risks, `## Recommendation` (go-with-conditions), Follow-up tasks
 
 ## Step 4: Testing and verification
 
-**Status:** Not Started
+**Status:** Complete
 
-- [ ] Contract `testCommand`
-- [ ] Only the doc committed
+- [x] Contract `testCommand` PASS (`test -s … && grep -q '## Recommendation' …`)
+- [x] Only in-scope files committed: `docs/research/systemone-rules-compliance.md` + STATUS/CONTEXT bookkeeping; `git diff --name-only main...HEAD` clean of `cli/**`, `extension/**`, `scripts/**`
+- [x] `npm test`: 93/93 passed (6 files); `scripts/check-untracked-coverage.sh` PASS
 
 ---
 
@@ -47,7 +48,10 @@
 
 | Date | Step | Type | Outcome |
 |------|------|------|---------|
-| | | | |
+| 2026-10-08 | 0 | plan | skipped (in-worker spawn blocked; engine reviews after .DONE) |
+| 2026-10-08 | 1 | plan | skipped (in-worker spawn blocked; engine reviews after .DONE) |
+| 2026-10-08 | 2 | plan | skipped (in-worker spawn blocked; engine reviews after .DONE) |
+| 2026-10-08 | 3 | plan | skipped (in-worker spawn blocked; engine reviews after .DONE) |
 
 ## Discoveries
 
@@ -68,6 +72,8 @@
 | 2026-10-08 | Step 0 | Experiment design recorded; OpenJev 0.6.0 + MLX DiffusionGemma 26B running locally on :8080; smoke test P=0.9995 |
 | 2026-10-08 | Step 1 | Premise yield + cost/latency measured (throwaway Python + Go prototypes in /tmp, not committed) |
 | 2026-10-08 | Step 2 | Accuracy (noul vs choice) + injection (6 variants) experiments complete on 24 labeled pairs |
+| 2026-10-08 | Step 3 | Research doc written; recommendation go-with-conditions; SP-029 glob tech debt logged in CONTEXT.md |
+| 2026-10-08 | Step 4 | Contract testCommand PASS; npm test 93/93; coverage guard PASS; scope check clean |
 
 ## Blockers
 
