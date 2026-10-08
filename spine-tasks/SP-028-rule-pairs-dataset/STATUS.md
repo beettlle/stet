@@ -1,5 +1,5 @@
-**Current Step:** Step 3: In progress
-**Status:** Working
+**Current Step:** Complete
+**Status:** Done — awaiting batch review
 **Last Updated:** 2026-10-08
 **Review Level:** 1
 **Review Counter:** 0
@@ -24,12 +24,12 @@
 
 ## Step 3: Testing & Verification
 
-**Status:** In Progress
+**Status:** Complete
 
-- [ ] Dataset-invariant test
-- [ ] Loader and evaluator tests
-- [ ] Contract `testCommand` and full `go test ./... -cover`
-- [ ] `rulepairs.go` coverage ≥ 72%
+- [x] Dataset-invariant test
+- [x] Loader and evaluator tests
+- [x] Contract `testCommand` and full `go test ./... -cover`
+- [x] `rulepairs.go` coverage ≥ 72%
 
 ---
 
@@ -37,7 +37,9 @@
 
 | Date | Step | Type | Outcome |
 |------|------|------|---------|
-| | | | |
+| 2026-10-08 | 1 | plan | skipped (nested reviewer spawn blocked in pi worker; engine reviews after .DONE) |
+| 2026-10-08 | 2 | plan | skipped (same) |
+| 2026-10-08 | 3 | plan | skipped (same) |
 
 ## Discoveries
 
@@ -54,11 +56,15 @@
 | Date | Event | Detail |
 |------|-------|--------|
 | 2026-10-08 | Authored | From SP-020 follow-up table |
+| 2026-10-08 | Step 1 | rulepairs.go + rulepairs_test.go; criticeval pkg coverage 97.5%, rulepairs.go 100% |
+| 2026-10-08 | Step 2 | pairs.jsonl (102 pairs) + 4 invalid fixtures generated via /tmp script with invariant asserts; committed as test(SP-028) |
+| 2026-10-08 | Step 3 | Dataset-invariant test added; contract testCommand green; extension npm test 93/93 + coverage guard PASS |
+| 2026-10-08 | Verification | `go test ./... -cover`: criticeval ok 97.5%; `internal/run` and `cmd/stet` fail with pre-existing TempDir `.git` cleanup errors (see Blockers) |
 
 ## Blockers
 
 | Date | Blocker | Resolution |
 |------|---------|------------|
-| | | |
+| 2026-10-08 | `go test ./internal/run/ ./cmd/stet/` fail with `TempDir RemoveAll cleanup: unlinkat .../.git: directory not empty` | Pre-existing and out of scope: reproduced identically on base commit caeeb06 in clean worktrees, failing test names vary run-to-run (flaky cleanup), failing packages do not import criticeval, and this change is additive-only. Tracked as SP-030-git-test-isolation. Zero failures in criticeval. |
 
 ## Notes

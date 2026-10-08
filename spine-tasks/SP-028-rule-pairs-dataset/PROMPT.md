@@ -130,3 +130,6 @@ func EvaluateRulePairs(ctx context.Context, client review.SystemOneDecider, mode
 ---
 
 ## Amendments (Added During Execution)
+
+- 2026-10-08 (worker): Synthetic pairs (78 of 102) were authored by a single agent in one session, so the SP-020 independence condition (multiple authors) remains only partially met — noted in STATUS Discoveries. Mitigations: premises span 4 rule-area sources and two languages, and 13 hard negatives target the specific false-positive modes flagged in the research doc.
+- 2026-10-08 (worker): Seed pair V04 snippet padded from 2 to 5 lines (same hardcoded-key code wrapped in a function) so every snippet meets the dataset-wide 3–15 line bound; all other 23 seed snippets converted verbatim. Seed premise `source` values normalized by dropping the `.mdc` extension to match the PROMPT examples.

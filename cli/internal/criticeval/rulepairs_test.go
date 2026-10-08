@@ -436,3 +436,78 @@ func TestRulePairAUROCKnown(t *testing.T) {
 		})
 	}
 }
+
+// TestRulePairsDatasetInvariants asserts every Mission requirement against
+// the committed pairs.jsonl: size, languages, premise coverage, label
+// balance, unique IDs, snippet line bounds, and provenance hygiene.
+func TestRulePairsDatasetInvariants(t *testing.T) {
+	pairs, err := LoadRulePairs("testdata/rulepairs/pairs.jsonl")
+	if err != nil {
+		t.Fatalf("LoadRulePairs(testdata/rulepairs/pairs.jsonl) error = %v, want nil", err)
+	}
+	if len(pairs) < 100 {
+		t.Fatalf("len(pairs) = %d, want >= 100", len(pairs))
+	}
+
+	seen := make(map[string]struct{}, len(pairs))
+	langCount := make(map[string]int)
+	perPremise := make(map[string]map[RulePairLabel]int)
+	violating := 0
+	for _, p := range pairs {
+		if _, dup := seen[p.ID]; dup {
+			t.Errorf("duplicate pair ID %q", p.ID)
+		}
+		seen[p.ID] = struct{}{}
+		langCount[p.Language]++
+		if perPremise[p.PremiseID] == nil {
+			perPremise[p.PremiseID] = make(map[RulePairLabel]int)
+		}
+		perPremise[p.PremiseID][p.Label]++
+		if p.Label == RulePairViolating {
+			violating++
+		}
+		if p.Origin != "sp020-seed" && p.Origin != "synthetic" {
+			t.Errorf("pair %s: origin %q, want sp020-seed or synthetic", p.ID, p.Origin)
+		}
+		if lines := strings.Count(p.Snippet, "\n") + 1; lines < 3 || lines > 15 {
+			t.Errorf("pair %s: snippet has %d lines, want 3-15", p.ID, lines)
+		}
+		if strings.Contains(p.Snippet, "://") {
+			t.Errorf("pair %s: snippet contains a URL", p.ID)
+		}
+	}
+
+	if langCount["go"] < 30 {
+		t.Errorf("go pairs = %d, want >= 30", langCount["go"])
+	}
+	if langCount["typescript"] < 30 {
+		t.Errorf("typescript pairs = %d, want >= 30", langCount["typescript"])
+	}
+	if len(langCount) != 2 {
+		t.Errorf("languages = %v, want exactly go and typescript", langCount)
+	}
+
+	if len(perPremise) < 20 {
+		t.Errorf("distinct premises = %d, want >= 20", len(perPremise))
+	}
+	for pid, labels := range perPremise {
+		if labels[RulePairViolating] < 1 || labels[RulePairCompliant] < 1 {
+			t.Errorf("premise %s: labels = %v, want >= 1 violating and >= 1 compliant", pid, labels)
+		}
+	}
+
+	share := float64(violating) / float64(len(pairs))
+	if share < 0.40 || share > 0.60 {
+		t.Errorf("violating share = %.3f, want within [0.40, 0.60]", share)
+	}
+
+	seed := 0
+	for _, p := range pairs {
+		if p.Origin == "sp020-seed" {
+			seed++
+		}
+	}
+	if seed != 24 {
+		t.Errorf("sp020-seed pairs = %d, want 24 (the full converted SP-020 set)", seed)
+	}
+}
