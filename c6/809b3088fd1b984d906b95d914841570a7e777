@@ -1,0 +1,23 @@
+scripts/build-all.sh
+  s_acedf5f9f92acf::t_bb35a0916bad69 1-6
+scripts/coverage-all.sh
+  s_acedf5f9f92acf::t_ae7b853d0844b5 1-6
+scripts/test-all.sh
+  s_acedf5f9f92acf::t_8b4610d9827da0 1-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c6809b3088fd1b984d906b95d914841570a7e777",
+  "prompts": {},
+  "sessions": {
+    "s_acedf5f9f92acf": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "agent-682021cd-fe4c-4e5a-9a2e-553c2ef81b95",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
