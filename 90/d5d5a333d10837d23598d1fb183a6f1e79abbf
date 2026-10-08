@@ -1,0 +1,18 @@
+spine-tasks/SP-021-systemone-health-models/.DONE
+  h_ae151c586ac6c5 1-4
+spine-tasks/SP-021-systemone-health-models/.reviews/1-20261008T184221.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-021-systemone-health-models/.reviews/final-20261008T184328.md
+  h_ae151c586ac6c5 1-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "90d5d5a333d10837d23598d1fb183a6f1e79abbf",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
