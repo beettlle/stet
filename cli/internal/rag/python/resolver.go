@@ -183,7 +183,8 @@ func minimalEnv(repoRoot string) []string {
 }
 
 // readSignatureAndDoc reads the file at path, line (1-based). Signature = def/class
-// line(s) until :. Docstring = first """...""" or ”'...”' after signature, or preceding #.
+// line(s) until :. Docstring = first triple-quoted string (double or single quotes)
+// after signature, or preceding #.
 func readSignatureAndDoc(absPath string, lineNum int, declarationLine string) (signature, docstring string) {
 	f, err := os.Open(absPath)
 	if err != nil {
