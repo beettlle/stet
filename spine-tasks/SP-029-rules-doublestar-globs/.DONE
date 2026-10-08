@@ -1,0 +1,3 @@
+SP-029 complete 2026-10-08
+Step 1: matchGlob/matchSegments (** segment matching) wired into FilterRules (commit 351d2e1)
+Step 2: 39-case table + FilterRules ** tests; contract testCommand green; rules.go coverage 89.6% (commit 2361d64)
