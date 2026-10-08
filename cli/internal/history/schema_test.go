@@ -41,7 +41,7 @@ func TestRecord_marshalUnmarshal_withoutDismissals(t *testing.T) {
 
 func TestRecord_marshalUnmarshal_withDismissalReasons(t *testing.T) {
 	rec := Record{
-		DiffRef:     "main",
+		DiffRef:      "main",
 		ReviewOutput: []findings.Finding{},
 		UserAction: UserAction{
 			DismissedIDs: []string{"f1", "f2"},
@@ -79,9 +79,9 @@ func TestRecord_marshalUnmarshal_withDismissalReasons(t *testing.T) {
 
 func TestRecord_jsonShape_snake_case(t *testing.T) {
 	rec := Record{
-		DiffRef:     "abc",
+		DiffRef:      "abc",
 		ReviewOutput: nil,
-		UserAction:  UserAction{},
+		UserAction:   UserAction{},
 	}
 	data, err := json.Marshal(rec)
 	if err != nil {

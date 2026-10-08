@@ -1,0 +1,8 @@
+SP-031 complete.
+
+- `gofmt -w` applied to all 35 unformatted files under cli/; `gofmt -l cli/` now prints nothing. Diff verified formatting-only (`git diff -w` empty; the only non-whitespace hunks are gofmt-produced rewrites: import sort order and Go 1.19+ doc-comment normalization, reproduced from HEAD in isolation).
+- New `scripts/check-gofmt.sh` (executable, set -euo pipefail, repo-root resolution matching build-all.sh); wired as the first step of `scripts/build-all.sh` before the Go build; existing build steps unchanged.
+- Guard proven: mis-indented scratch file under cli/ caused check-gofmt.sh exit 1 with the file listed; scratch deleted (never committed).
+- Verification: contract testCommand PASS (check-gofmt clean, wiring grep OK, bash -n OK, go build ./... OK, go vet ./... OK); `go test ./... -count=1 -cover` all 36 packages ok, 0 failures; coverage gate PASS (project 82.1% >= 77%, every file >= 72%); coverage.out restored.
+- Extension `npm test` N/A: Go-only task, extension/** is fileScopeMustNotChange and node_modules is absent in this worktree.
+- Commits: 536864a style(SP-031): gofmt cli + build guard; 3a8516d feat(SP-031): complete Step 2.

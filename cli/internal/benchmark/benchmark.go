@@ -40,15 +40,15 @@ const benchmarkUserPrompt = `File: internal/auth/auth.go
 
 // BenchmarkResult holds raw and derived metrics from a benchmark run.
 type BenchmarkResult struct {
-	Model                    string  // Model name used
-	PromptEvalCount          int     // Input tokens processed
-	PromptEvalDurationNs     int64   // Time to process prompt (prefill)
-	EvalCount                int     // Output tokens generated
-	EvalDurationNs           int64   // Time to generate output
-	LoadDurationNs           int64   // Model load time (cold start)
-	TotalDurationNs          int64   // Wall-clock time
-	EvalRateTPS              float64 // Eval rate (tokens/s) for generation
-	PromptEvalRateTPS        float64 // Prompt eval rate (tokens/s) for prefill
+	Model                      string  // Model name used
+	PromptEvalCount            int     // Input tokens processed
+	PromptEvalDurationNs       int64   // Time to process prompt (prefill)
+	EvalCount                  int     // Output tokens generated
+	EvalDurationNs             int64   // Time to generate output
+	LoadDurationNs             int64   // Model load time (cold start)
+	TotalDurationNs            int64   // Wall-clock time
+	EvalRateTPS                float64 // Eval rate (tokens/s) for generation
+	PromptEvalRateTPS          float64 // Prompt eval rate (tokens/s) for prefill
 	EstimatedSecPerTypicalHunk float64 // Estimated seconds for typical hunk (3k prompt, 200 out)
 }
 

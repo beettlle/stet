@@ -11,12 +11,12 @@ import (
 // StetNote is the scope portion of the note written on stet finish.
 // Used to parse refs/notes/stet for volume aggregation.
 type StetNote struct {
-	HunksReviewed  int `json:"hunks_reviewed"`
-	LinesAdded     int `json:"lines_added"`
-	LinesRemoved   int `json:"lines_removed"`
-	CharsAdded     int `json:"chars_added"`
-	CharsDeleted   int `json:"chars_deleted"`
-	CharsReviewed  int `json:"chars_reviewed"`
+	HunksReviewed int `json:"hunks_reviewed"`
+	LinesAdded    int `json:"lines_added"`
+	LinesRemoved  int `json:"lines_removed"`
+	CharsAdded    int `json:"chars_added"`
+	CharsDeleted  int `json:"chars_deleted"`
+	CharsReviewed int `json:"chars_reviewed"`
 }
 
 // VolumeResult holds aggregated volume metrics over a ref range.

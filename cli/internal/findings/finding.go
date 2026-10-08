@@ -88,16 +88,15 @@ func (e *EvidenceLines) UnmarshalJSON(data []byte) error {
 // Finding is a single code review finding with a stable id, location, severity,
 // category, confidence, message, and optional suggestion and cursor URI.
 type Finding struct {
-	ID         string     `json:"id,omitempty"`
-	File       string     `json:"file"`
-	Line       int        `json:"line,omitempty"`
-	Range      *LineRange `json:"range,omitempty"`
-	Severity   Severity   `json:"severity"`
-	Category   Category   `json:"category"`
-	Confidence float64     `json:"confidence"`
-	Message    string     `json:"message"`
-	Suggestion    string     `json:"suggestion,omitempty"`
-	CursorURI     string     `json:"cursor_uri,omitempty"`
+	ID            string        `json:"id,omitempty"`
+	File          string        `json:"file"`
+	Line          int           `json:"line,omitempty"`
+	Range         *LineRange    `json:"range,omitempty"`
+	Severity      Severity      `json:"severity"`
+	Category      Category      `json:"category"`
+	Confidence    float64       `json:"confidence"`
+	Message       string        `json:"message"`
+	Suggestion    string        `json:"suggestion,omitempty"`
+	CursorURI     string        `json:"cursor_uri,omitempty"`
 	EvidenceLines EvidenceLines `json:"evidence_lines,omitempty"`
 }
-

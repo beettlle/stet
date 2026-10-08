@@ -14,7 +14,7 @@ import (
 func TestRun_returnsMetricsFromMockServer(t *testing.T) {
 	// Do not run in parallel: avoids potential race with httptest.Server.
 	wantEvalCount := 312
-	wantEvalDur := int64(8000000000)   // 8s
+	wantEvalDur := int64(8000000000) // 8s
 	wantPromptEvalCount := 2847
 	wantPromptEvalDur := int64(1500000000) // 1.5s
 	wantLoadDur := int64(1200000000)       // 1.2s

@@ -12,11 +12,11 @@ import (
 
 func TestBuildCriticPrompt_containsFindingAndHunk(t *testing.T) {
 	f := findings.Finding{
-		File:     "pkg/foo.go",
-		Line:     42,
-		Severity: findings.SeverityWarning,
-		Category: findings.CategoryCorrectness,
-		Message:  "Possible nil dereference",
+		File:       "pkg/foo.go",
+		Line:       42,
+		Severity:   findings.SeverityWarning,
+		Category:   findings.CategoryCorrectness,
+		Message:    "Possible nil dereference",
 		Suggestion: "Add a nil check before use",
 	}
 	hunk := "func Foo() {\n\tx := bar()\n\tprintln(x.Y)\n}\n"
@@ -49,9 +49,9 @@ func TestBuildCriticPrompt_containsFindingAndHunk(t *testing.T) {
 
 func TestBuildCriticPrompt_rangeLocation(t *testing.T) {
 	f := findings.Finding{
-		File:   "a.go",
-		Line:   10,
-		Range:  &findings.LineRange{Start: 10, End: 15},
+		File:  "a.go",
+		Line:  10,
+		Range: &findings.LineRange{Start: 10, End: 15},
 	}
 	prompt := BuildCriticPrompt(f, "code", 0)
 	if !strings.Contains(prompt, "lines 10-15") {
@@ -122,7 +122,7 @@ func TestParseCriticVerdict_invalidOrEmpty(t *testing.T) {
 // fakeCriticClient returns a fixed response for testing.
 type fakeCriticClient struct {
 	response string
-	err     error
+	err      error
 }
 
 func (f *fakeCriticClient) Generate(ctx context.Context, model, systemPrompt, userPrompt string, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error) {

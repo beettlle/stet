@@ -10,27 +10,27 @@ import (
 
 // Valid strictness values (case-insensitive). The "+" suffix means do not apply the FP kill list.
 const (
-	StrictnessStrict   = "strict"
-	StrictnessDefault  = "default"
-	StrictnessLenient  = "lenient"
-	StrictnessStrictPlus   = "strict+"
-	StrictnessDefaultPlus  = "default+"
-	StrictnessLenientPlus  = "lenient+"
+	StrictnessStrict      = "strict"
+	StrictnessDefault     = "default"
+	StrictnessLenient     = "lenient"
+	StrictnessStrictPlus  = "strict+"
+	StrictnessDefaultPlus = "default+"
+	StrictnessLenientPlus = "lenient+"
 )
 
 // Default abstention thresholds when strictness is "default".
 const (
-	DefaultMinConfidenceKeep             = 0.8
-	DefaultMinConfidenceMaintainability  = 0.9
+	DefaultMinConfidenceKeep            = 0.8
+	DefaultMinConfidenceMaintainability = 0.9
 )
 
 var validStrictness = map[string]struct{}{
-	StrictnessStrict:        {},
-	StrictnessDefault:       {},
-	StrictnessLenient:       {},
-	StrictnessStrictPlus:    {},
-	StrictnessDefaultPlus:   {},
-	StrictnessLenientPlus:   {},
+	StrictnessStrict:      {},
+	StrictnessDefault:     {},
+	StrictnessLenient:     {},
+	StrictnessStrictPlus:  {},
+	StrictnessDefaultPlus: {},
+	StrictnessLenientPlus: {},
 }
 
 // ResolveStrictness normalizes s and returns the abstention thresholds and whether

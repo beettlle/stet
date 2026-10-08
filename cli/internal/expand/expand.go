@@ -55,9 +55,9 @@ func parsePositiveInt(s string, out *int) bool {
 }
 
 const (
-	goExt               = ".go"
-	truncateMarker      = "// ... (truncated)"
-	maxExpandFileSize   = 1024 * 1024 // 1 MiB; skip expansion for larger files
+	goExt             = ".go"
+	truncateMarker    = "// ... (truncated)"
+	maxExpandFileSize = 1024 * 1024 // 1 MiB; skip expansion for larger files
 )
 
 // ExpandHunk enriches a hunk with enclosing function context when supported.

@@ -366,7 +366,7 @@ type Shadow struct {
 
 const (
 	maxPromptShadowsInject = 5
-	maxShadowContextChars = 512
+	maxShadowContextChars  = 512
 )
 
 // AppendPromptShadows appends a "## Negative examples (do not report)" section

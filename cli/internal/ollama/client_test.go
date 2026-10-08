@@ -85,14 +85,14 @@ func TestClient_Check(t *testing.T) {
 		},
 		{
 			// Package contract: 4xx (including 404) returns ErrBadRequest.
-			name:            "404",
-			status:          http.StatusNotFound,
-			body:            "",
-			model:           "any",
-			wantReachable:   false,
-			wantPresent:     false,
-			wantErr:         true,
-			wantBadRequest:  true,
+			name:           "404",
+			status:         http.StatusNotFound,
+			body:           "",
+			model:          "any",
+			wantReachable:  false,
+			wantPresent:    false,
+			wantErr:        true,
+			wantBadRequest: true,
 		},
 		{
 			name:            "500",
@@ -343,16 +343,16 @@ func TestClient_Generate_returnsResponseMetadata(t *testing.T) {
 		enc := json.NewEncoder(w)
 		_ = enc.Encode(map[string]interface{}{"response": "", "done": false})
 		_ = enc.Encode(map[string]interface{}{
-			"response":               wantResponse,
-			"done":                   true,
-			"done_reason":            "stop",
-			"model":                  wantModel,
-			"prompt_eval_count":      wantPromptEval,
-			"prompt_eval_duration":   wantPromptEvalDur,
-			"eval_count":             wantEval,
-			"eval_duration":          wantEvalDur,
-			"load_duration":          wantLoadDur,
-			"total_duration":         wantTotalDur,
+			"response":             wantResponse,
+			"done":                 true,
+			"done_reason":          "stop",
+			"model":                wantModel,
+			"prompt_eval_count":    wantPromptEval,
+			"prompt_eval_duration": wantPromptEvalDur,
+			"eval_count":           wantEval,
+			"eval_duration":        wantEvalDur,
+			"load_duration":        wantLoadDur,
+			"total_duration":       wantTotalDur,
 		})
 	}))
 	defer srv.Close()
@@ -412,10 +412,10 @@ func TestClient_Generate_doneReasonLength(t *testing.T) {
 		_ = enc.Encode(map[string]interface{}{
 			"response":          "[{\"file\":\"a.go\"",
 			"done":              true,
-			"done_reason":      "length",
+			"done_reason":       "length",
 			"model":             "m",
 			"prompt_eval_count": 10,
-			"eval_count":       100,
+			"eval_count":        100,
 		})
 	}))
 	defer srv.Close()

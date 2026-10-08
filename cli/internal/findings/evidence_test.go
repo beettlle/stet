@@ -39,9 +39,9 @@ func TestFilterByHunkLines(t *testing.T) {
 				{File: evidenceTestPath, Line: 2, Severity: SeverityWarning, Category: CategoryBug, Confidence: 0.9, Message: "m1"},
 				{File: evidenceTestPath, Line: 4, Severity: SeverityInfo, Category: CategoryStyle, Confidence: 0.85, Message: "m2"},
 			},
-			filePath:   evidenceTestPath,
-			hunkStart:  evidenceHunkStart,
-			hunkEnd:    evidenceHunkEnd,
+			filePath:  evidenceTestPath,
+			hunkStart: evidenceHunkStart,
+			hunkEnd:   evidenceHunkEnd,
 			wantOutput: []Finding{
 				{File: evidenceTestPath, Line: 2, Severity: SeverityWarning, Category: CategoryBug, Confidence: 0.9, Message: "m1"},
 				{File: evidenceTestPath, Line: 4, Severity: SeverityInfo, Category: CategoryStyle, Confidence: 0.85, Message: "m2"},
@@ -82,9 +82,9 @@ func TestFilterByHunkLines(t *testing.T) {
 			input: []Finding{
 				{File: evidenceTestPath, Line: 3, Range: &LineRange{Start: 3, End: 7}, Severity: SeverityWarning, Category: CategoryBug, Confidence: 0.9, Message: "overlap"},
 			},
-			filePath:   evidenceTestPath,
-			hunkStart:  evidenceHunkStart,
-			hunkEnd:    evidenceHunkEnd,
+			filePath:  evidenceTestPath,
+			hunkStart: evidenceHunkStart,
+			hunkEnd:   evidenceHunkEnd,
 			wantOutput: []Finding{
 				{File: evidenceTestPath, Line: 3, Range: &LineRange{Start: 3, End: 7}, Severity: SeverityWarning, Category: CategoryBug, Confidence: 0.9, Message: "overlap"},
 			},
@@ -94,9 +94,9 @@ func TestFilterByHunkLines(t *testing.T) {
 			input: []Finding{
 				{File: evidenceTestPath, Line: 1, Range: &LineRange{Start: 0, End: 2}, Severity: SeverityWarning, Category: CategoryBug, Confidence: 0.9, Message: "overlap low"},
 			},
-			filePath:   evidenceTestPath,
-			hunkStart:  evidenceHunkStart,
-			hunkEnd:    evidenceHunkEnd,
+			filePath:  evidenceTestPath,
+			hunkStart: evidenceHunkStart,
+			hunkEnd:   evidenceHunkEnd,
 			wantOutput: []Finding{
 				{File: evidenceTestPath, Line: 1, Range: &LineRange{Start: 0, End: 2}, Severity: SeverityWarning, Category: CategoryBug, Confidence: 0.9, Message: "overlap low"},
 			},
@@ -106,9 +106,9 @@ func TestFilterByHunkLines(t *testing.T) {
 			input: []Finding{
 				{File: evidenceTestPath, Line: 0, Severity: SeverityInfo, Category: CategoryDocumentation, Confidence: 0.9, Message: "file-only"},
 			},
-			filePath:   evidenceTestPath,
-			hunkStart:  evidenceHunkStart,
-			hunkEnd:    evidenceHunkEnd,
+			filePath:  evidenceTestPath,
+			hunkStart: evidenceHunkStart,
+			hunkEnd:   evidenceHunkEnd,
 			wantOutput: []Finding{
 				{File: evidenceTestPath, Line: 0, Severity: SeverityInfo, Category: CategoryDocumentation, Confidence: 0.9, Message: "file-only"},
 			},
@@ -118,9 +118,9 @@ func TestFilterByHunkLines(t *testing.T) {
 			input: []Finding{
 				{File: evidenceTestPath, Line: 99, Severity: SeverityWarning, Category: CategoryBug, Confidence: 0.9, Message: "would drop"},
 			},
-			filePath:   evidenceTestPath,
-			hunkStart:  0,
-			hunkEnd:    0,
+			filePath:  evidenceTestPath,
+			hunkStart: 0,
+			hunkEnd:   0,
 			wantOutput: []Finding{
 				{File: evidenceTestPath, Line: 99, Severity: SeverityWarning, Category: CategoryBug, Confidence: 0.9, Message: "would drop"},
 			},
@@ -130,9 +130,9 @@ func TestFilterByHunkLines(t *testing.T) {
 			input: []Finding{
 				{File: evidenceTestPath, Line: 1, Severity: SeverityWarning, Category: CategoryBug, Confidence: 0.9, Message: "keep"},
 			},
-			filePath:   evidenceTestPath,
-			hunkStart:  5,
-			hunkEnd:    1,
+			filePath:  evidenceTestPath,
+			hunkStart: 5,
+			hunkEnd:   1,
 			wantOutput: []Finding{
 				{File: evidenceTestPath, Line: 1, Severity: SeverityWarning, Category: CategoryBug, Confidence: 0.9, Message: "keep"},
 			},
@@ -152,9 +152,9 @@ func TestFilterByHunkLines(t *testing.T) {
 			input: []Finding{
 				{File: "other.go", Line: 100, Severity: SeverityWarning, Category: CategoryBug, Confidence: 0.9, Message: "different file"},
 			},
-			filePath:   evidenceTestPath,
-			hunkStart:  evidenceHunkStart,
-			hunkEnd:    evidenceHunkEnd,
+			filePath:  evidenceTestPath,
+			hunkStart: evidenceHunkStart,
+			hunkEnd:   evidenceHunkEnd,
 			wantOutput: []Finding{
 				{File: "other.go", Line: 100, Severity: SeverityWarning, Category: CategoryBug, Confidence: 0.9, Message: "different file"},
 			},
@@ -164,9 +164,9 @@ func TestFilterByHunkLines(t *testing.T) {
 			input: []Finding{
 				{File: evidenceTestPath, Line: 1, Severity: SeverityWarning, Category: CategoryBug, Confidence: 0.9, Message: "line 1"},
 			},
-			filePath:   evidenceTestPath,
-			hunkStart:  1,
-			hunkEnd:    5,
+			filePath:  evidenceTestPath,
+			hunkStart: 1,
+			hunkEnd:   5,
 			wantOutput: []Finding{
 				{File: evidenceTestPath, Line: 1, Severity: SeverityWarning, Category: CategoryBug, Confidence: 0.9, Message: "line 1"},
 			},
@@ -176,9 +176,9 @@ func TestFilterByHunkLines(t *testing.T) {
 			input: []Finding{
 				{File: evidenceTestPath, Line: 5, Severity: SeverityWarning, Category: CategoryBug, Confidence: 0.9, Message: "line 5"},
 			},
-			filePath:   evidenceTestPath,
-			hunkStart:  1,
-			hunkEnd:    5,
+			filePath:  evidenceTestPath,
+			hunkStart: 1,
+			hunkEnd:   5,
 			wantOutput: []Finding{
 				{File: evidenceTestPath, Line: 5, Severity: SeverityWarning, Category: CategoryBug, Confidence: 0.9, Message: "line 5"},
 			},

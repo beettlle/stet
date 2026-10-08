@@ -381,7 +381,7 @@ func decodeStreamedGenerateResponse(r io.Reader) (generateResponse, error) {
 
 // Message is a single chat message (role + content). Used for multi-turn continuation via GenerateWithMessages.
 type Message struct {
-	Role    string `json:"role"`    // "system", "user", or "assistant"
+	Role    string `json:"role"` // "system", "user", or "assistant"
 	Content string `json:"content"`
 }
 
@@ -409,16 +409,16 @@ type generateRequest struct {
 }
 
 type generateResponse struct {
-	Response             string `json:"response"`
-	Done                 bool   `json:"done"`
-	DoneReason           string `json:"done_reason"`
-	Model                string `json:"model"`
-	PromptEvalCount      int    `json:"prompt_eval_count"`
-	PromptEvalDuration   int64  `json:"prompt_eval_duration"`
-	EvalCount            int    `json:"eval_count"`
-	EvalDuration         int64  `json:"eval_duration"`
-	LoadDuration         int64  `json:"load_duration"`
-	TotalDuration        int64  `json:"total_duration"`
+	Response           string `json:"response"`
+	Done               bool   `json:"done"`
+	DoneReason         string `json:"done_reason"`
+	Model              string `json:"model"`
+	PromptEvalCount    int    `json:"prompt_eval_count"`
+	PromptEvalDuration int64  `json:"prompt_eval_duration"`
+	EvalCount          int    `json:"eval_count"`
+	EvalDuration       int64  `json:"eval_duration"`
+	LoadDuration       int64  `json:"load_duration"`
+	TotalDuration      int64  `json:"total_duration"`
 }
 
 // Usage holds token counts and durations from Ollama /api/generate for a single
@@ -442,13 +442,13 @@ type GenerateResult struct {
 	Response           string
 	Model              string
 	DoneReason         string // Reason generation stopped (e.g. "stop", "length")
-	Usage              Usage // Token counts and eval durations from /api/generate
-	PromptEvalCount    int   // Input tokens processed (mirrors Usage for backward compatibility)
-	PromptEvalDuration int64 // Time to process prompt, ns
-	EvalCount          int   // Output tokens generated
-	EvalDuration       int64 // Time to generate output, ns
-	LoadDuration       int64 // Model load time (cold start), ns
-	TotalDuration      int64 // Wall-clock time, ns
+	Usage              Usage  // Token counts and eval durations from /api/generate
+	PromptEvalCount    int    // Input tokens processed (mirrors Usage for backward compatibility)
+	PromptEvalDuration int64  // Time to process prompt, ns
+	EvalCount          int    // Output tokens generated
+	EvalDuration       int64  // Time to generate output, ns
+	LoadDuration       int64  // Model load time (cold start), ns
+	TotalDuration      int64  // Wall-clock time, ns
 }
 
 // Generate sends a completion request to /api/generate with the given model,
@@ -583,24 +583,26 @@ func (c *Client) generateWithFormat(ctx context.Context, model, systemPrompt, us
 
 // chatRequest is the body for POST /api/chat (multi-turn).
 type chatRequest struct {
-	Model     string     `json:"model"`
-	Messages  []Message  `json:"messages"`
-	Stream    bool       `json:"stream"`
-	Format    string     `json:"format,omitempty"`
+	Model     string           `json:"model"`
+	Messages  []Message        `json:"messages"`
+	Stream    bool             `json:"stream"`
+	Format    string           `json:"format,omitempty"`
 	Options   *GenerateOptions `json:"options,omitempty"`
-	KeepAlive interface{} `json:"keep_alive,omitempty"`
+	KeepAlive interface{}      `json:"keep_alive,omitempty"`
 }
 
 // chatStreamChunk is one NDJSON line from /api/chat stream.
 type chatStreamChunk struct {
-	Message            struct { Content string `json:"content"` } `json:"message"`
+	Message struct {
+		Content string `json:"content"`
+	} `json:"message"`
 	Done               bool   `json:"done"`
 	DoneReason         string `json:"done_reason"`
 	Model              string `json:"model"`
 	PromptEvalCount    int    `json:"prompt_eval_count"`
 	PromptEvalDuration int64  `json:"prompt_eval_duration"`
 	EvalCount          int    `json:"eval_count"`
-	EvalDuration      int64  `json:"eval_duration"`
+	EvalDuration       int64  `json:"eval_duration"`
 	LoadDuration       int64  `json:"load_duration"`
 	TotalDuration      int64  `json:"total_duration"`
 }

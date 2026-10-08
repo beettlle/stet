@@ -17,16 +17,16 @@ import (
 	"stet/cli/internal/ollama"
 	"stet/cli/internal/prompt"
 	"stet/cli/internal/rules"
+	"stet/cli/internal/testutil"
 	"stet/cli/internal/tokens"
 	"stet/cli/internal/trace"
-	"stet/cli/internal/testutil"
 
 	_ "stet/cli/internal/rag/go"     // register Go resolver for RAG tests
-	_ "stet/cli/internal/rag/python" // register Python resolver
 	_ "stet/cli/internal/rag/java"   // register Java resolver
-	_ "stet/cli/internal/rag/swift"  // register Swift resolver
 	_ "stet/cli/internal/rag/js"     // register JavaScript/TypeScript resolver
+	_ "stet/cli/internal/rag/python" // register Python resolver
 	_ "stet/cli/internal/rag/rust"   // register Rust resolver
+	_ "stet/cli/internal/rag/swift"  // register Swift resolver
 )
 
 // TestMain isolates the package's tests from host git configuration and
@@ -39,12 +39,12 @@ func TestEffectiveRAGTokenCap(t *testing.T) {
 	t.Parallel()
 	reserve := tokens.DefaultResponseReserve
 	tests := []struct {
-		name               string
-		contextLimit       int
-		basePromptTokens   int
-		responseReserve    int
-		ragMaxTokens       int
-		wantEffectiveCap   int
+		name             string
+		contextLimit     int
+		basePromptTokens int
+		responseReserve  int
+		ragMaxTokens     int
+		wantEffectiveCap int
 	}{
 		{"context_limit_zero_rag_zero", 0, 10000, reserve, 0, 0},
 		{"context_limit_zero_rag_500", 0, 10000, reserve, 500, 500},
@@ -910,4 +910,3 @@ func TestProcessReviewResponse_validJSON(t *testing.T) {
 		t.Fatal("want usage struct")
 	}
 }
-

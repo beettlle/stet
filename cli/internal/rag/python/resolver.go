@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	grepTimeout             = 5 * time.Second
-	maxSymbolCandidates     = 30
+	grepTimeout              = 5 * time.Second
+	maxSymbolCandidates      = 30
 	maxPrecedingCommentLines = 5
 )
 
@@ -183,7 +183,7 @@ func minimalEnv(repoRoot string) []string {
 }
 
 // readSignatureAndDoc reads the file at path, line (1-based). Signature = def/class
-// line(s) until :. Docstring = first """...""" or '''...''' after signature, or preceding #.
+// line(s) until :. Docstring = first """...""" or ”'...”' after signature, or preceding #.
 func readSignatureAndDoc(absPath string, lineNum int, declarationLine string) (signature, docstring string) {
 	f, err := os.Open(absPath)
 	if err != nil {

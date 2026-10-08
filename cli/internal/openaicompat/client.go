@@ -19,11 +19,11 @@ import (
 )
 
 const (
-	_defaultTimeout   = 10 * time.Second
-	_maxRetries      = 3
-	_initialBackoff  = 1 * time.Second
-	_maxBackoff      = 16 * time.Second
-	_maxResponseBytes = 10 * 1024 * 1024
+	_defaultTimeout        = 10 * time.Second
+	_maxRetries            = 3
+	_initialBackoff        = 1 * time.Second
+	_maxBackoff            = 16 * time.Second
+	_maxResponseBytes      = 10 * 1024 * 1024
 	_maxHTTPErrorBodyBytes = 2048
 )
 
@@ -202,7 +202,7 @@ type chatResponse struct {
 		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
 	Usage *struct {
-		PromptTokens    int `json:"prompt_tokens"`
+		PromptTokens     int `json:"prompt_tokens"`
 		CompletionTokens int `json:"completion_tokens"`
 	} `json:"usage"`
 }
@@ -411,7 +411,7 @@ func (c *Client) generate(ctx context.Context, model, systemPrompt, userPrompt s
 			DoneReason:         finishReason,
 			Usage:              ollama.Usage{PromptEvalCount: promptTokens, EvalCount: completionTokens},
 			PromptEvalCount:    promptTokens,
-			EvalCount:           completionTokens,
+			EvalCount:          completionTokens,
 			PromptEvalDuration: 0,
 			EvalDuration:       0,
 			LoadDuration:       0,

@@ -24,7 +24,7 @@ func TestClient_Generate_doneReasonLength(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"choices": []map[string]interface{}{
 				{
-					"message":  map[string]interface{}{"content": "[{\"file\":\"a.go\""},
+					"message":       map[string]interface{}{"content": "[{\"file\":\"a.go\""},
 					"finish_reason": "length",
 				},
 			},

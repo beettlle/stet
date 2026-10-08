@@ -36,7 +36,7 @@ func ValidReason(s string) bool {
 // PromptContext is the hunk/code that produced the finding; set when user gives a reason and context exists.
 type Dismissal struct {
 	FindingID     string `json:"finding_id"`
-	Reason        string `json:"reason,omitempty"`        // One of Reason* constants, or empty.
+	Reason        string `json:"reason,omitempty"`         // One of Reason* constants, or empty.
 	PromptContext string `json:"prompt_context,omitempty"` // Hunk content that produced this finding; for optimizer.
 }
 
@@ -83,12 +83,12 @@ type Usage struct {
 
 // Record is one line in .review/history.jsonl.
 type Record struct {
-	DiffRef           string             `json:"diff_ref"`      // Ref or SHA for the diff scope.
-	ReviewOutput      []findings.Finding `json:"review_output"` // Findings from the review run.
-	UserAction        UserAction         `json:"user_action"`
-	RunConfig         *RunConfigSnapshot `json:"run_config,omitempty"`
-	PromptTokens      *int64             `json:"prompt_tokens,omitempty"`
-	CompletionTokens  *int64             `json:"completion_tokens,omitempty"`
-	EvalDurationNs    *int64             `json:"eval_duration_ns,omitempty"`
-	UsageData         *Usage             `json:"usage,omitempty"`
+	DiffRef          string             `json:"diff_ref"`      // Ref or SHA for the diff scope.
+	ReviewOutput     []findings.Finding `json:"review_output"` // Findings from the review run.
+	UserAction       UserAction         `json:"user_action"`
+	RunConfig        *RunConfigSnapshot `json:"run_config,omitempty"`
+	PromptTokens     *int64             `json:"prompt_tokens,omitempty"`
+	CompletionTokens *int64             `json:"completion_tokens,omitempty"`
+	EvalDurationNs   *int64             `json:"eval_duration_ns,omitempty"`
+	UsageData        *Usage             `json:"usage,omitempty"`
 }
