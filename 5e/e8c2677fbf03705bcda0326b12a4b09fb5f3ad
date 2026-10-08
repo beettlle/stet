@@ -1,0 +1,18 @@
+spine-tasks/SP-033-rules-selector-wiring/.DONE
+  h_ae151c586ac6c5 1
+spine-tasks/SP-033-rules-selector-wiring/.reviews/1-20261008T232414.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-033-rules-selector-wiring/.reviews/final-20261008T232535.md
+  h_ae151c586ac6c5 1-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5ee8c2677fbf03705bcda0326b12a4b09fb5f3ad",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
