@@ -1,0 +1,3 @@
+{"finding":{"id":"ok2","file":"a.go","line":1,"severity":"info","category":"style","confidence":0.4,"message":"fine"},"hunk":"func ok() {}","label":"keep"}
+{"finding":{"id":"ok3","file":"b.go","line":2,"severity":"info","category":"style","confidence":0.4,"message":"fine too"},"hunk":"func ok3() {}","label":"drop"}
+{"finding":{"id":"bad3" "file":"c.go","line":3,"severity":"info","category":"style","confidence":0.4,"message":"malformed"},"hunk":"func bad() {}","label":"keep"}

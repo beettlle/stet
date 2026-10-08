@@ -1,0 +1,2 @@
+{"finding":{"id":"ok1","file":"a.go","line":1,"severity":"info","category":"style","confidence":0.4,"message":"fine"},"hunk":"func ok() {}","label":"keep"}
+{"finding":{"id":"bad1","file":"b.go","line":2,"severity":"info","category":"style","confidence":0.4,"message":"bad label"},"hunk":"func bad() {}","label":"maybe"}

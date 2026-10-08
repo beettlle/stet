@@ -1,0 +1,19 @@
+{
+  "session_id": "sess-fixture",
+  "baseline_ref": "main",
+  "last_reviewed_at": "2026-10-08T00:00:00Z",
+  "dismissed_ids": ["s3"],
+  "finding_prompt_context": {
+    "s1": "func load(path string) error {\n\tdata, err := os.ReadFile(path)\n\tif err != nil {\n\t\treturn err\n\t}\n\treturn parse(data)\n}",
+    "s2": "func resize(w, h int) (int, int) {\n\treturn h, w\n}",
+    "s3": "func dismissed() {}",
+    "f1": "func load(path string) error {\n\tdata, err := os.ReadFile(path)\n\tif err != nil {\n\t\treturn err\n\t}\n\treturn parse(data)\n}"
+  },
+  "findings": [
+    {"id": "s1", "file": "parser.go", "line": 11, "severity": "warning", "category": "bug", "confidence": 0.9, "message": "error not wrapped with context"},
+    {"id": "s2", "file": "resize.go", "line": 2, "severity": "warning", "category": "bug", "confidence": 0.8, "message": "swap returns swapped values"},
+    {"id": "s3", "file": "gone.go", "line": 3, "severity": "info", "category": "style", "confidence": 0.5, "message": "dismissed in session"},
+    {"id": "s4", "file": "noctx.go", "line": 4, "severity": "info", "category": "style", "confidence": 0.5, "message": "active without prompt context"},
+    {"id": "f1", "file": "parser.go", "line": 10, "severity": "warning", "category": "bug", "confidence": 0.8, "message": "possible nil dereference"}
+  ]
+}

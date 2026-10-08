@@ -1,0 +1,4 @@
+{"finding":{"id":"c1","file":"a.go","line":1,"severity":"warning","category":"bug","confidence":0.9,"message":"unchecked error"},"hunk":"func a() error {\n\treturn do()\n}","label":"keep"}
+{"finding":{"id":"c2","file":"b.go","line":2,"severity":"error","category":"security","confidence":0.8,"message":"hardcoded secret"},"hunk":"func a() error {\n\treturn do()\n}","label":"keep"}
+{"finding":{"id":"c3","file":"c.go","line":3,"severity":"info","category":"style","confidence":0.5,"message":"rename variable"},"hunk":"func c() int {\n\tx := 1\n\treturn x\n}","label":"drop"}
+{"finding":{"file":"d.go","line":4,"severity":"warning","category":"bug","confidence":0.6,"message":"no id here"},"hunk":"func c() int {\n\tx := 1\n\treturn x\n}","label":"drop"}

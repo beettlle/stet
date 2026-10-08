@@ -1,0 +1,2 @@
+{"finding":{"id":"c9","file":"a.go","line":1,"severity":"info","category":"style","confidence":0.4,"message":"same id kept"},"hunk":"func z() {}","label":"keep"}
+{"finding":{"id":"c9","file":"a.go","line":1,"severity":"info","category":"style","confidence":0.4,"message":"same id dropped"},"hunk":"func z() {}","label":"drop"}
