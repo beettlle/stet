@@ -1,5 +1,5 @@
-**Current Step:** Step 1: Not started
-**Status:** Ready
+**Current Step:** Step 2: Testing & Verification
+**Status:** In Progress
 **Last Updated:** 2026-10-08
 **Review Level:** 1
 **Review Counter:** 0
@@ -10,15 +10,15 @@
 
 ## Step 1: Choice types and `DecideChoice`
 
-**Status:** Not Started
+**Status:** Complete
 
-- [ ] Types + `MarshalJSON`
-- [ ] Request validation, `DecideChoice`, response validation
-- [ ] Package doc comment
+- [x] Types + `MarshalJSON`
+- [x] Request validation, `DecideChoice`, response validation
+- [x] Package doc comment
 
 ## Step 2: Testing & Verification
 
-**Status:** Not Started
+**Status:** In Progress
 
 - [ ] Exact request JSON test
 - [ ] Validation and error-path cases per PROMPT

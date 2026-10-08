@@ -1,8 +1,9 @@
 // Package systemone provides a small HTTP client for System One decision
 // servers using the OpenJev wire API (same shape as hosted Jev), e.g.
-// https://api.codiv.ai or a self-hosted OpenJev instance. Only the noul
-// question type is modelled for decisions; Health and Models report server
-// availability and the model list.
+// https://api.codiv.ai or a self-hosted OpenJev instance. Two question types
+// are modelled for decisions: noul (yes/no, P(yes)) via Decide and choice
+// (one-of-N options with per-option probabilities) via DecideChoice; Health
+// and Models report server availability and the model list.
 package systemone
 
 import (
@@ -46,8 +47,12 @@ const healthPath = "/health"
 // modelsPath is the model listing endpoint under the API root.
 const modelsPath = "/v1/models"
 
-// questionTypeNoul is the only question type this client models.
-const questionTypeNoul = "noul"
+// questionTypeNoul and questionTypeChoice are the question types this client
+// models.
+const (
+	questionTypeNoul   = "noul"
+	questionTypeChoice = "choice"
+)
 
 // redactedPlaceholder replaces the API key wherever it would appear in an error string.
 const redactedPlaceholder = "[redacted]"
@@ -126,6 +131,53 @@ type NoulAnswer struct {
 type Usage struct {
 	InputTokens  int `json:"input_tokens"`
 	OutputTokens int `json:"output_tokens"`
+}
+
+// ChoiceQuestion is a one-of-N question: the server picks one option ID from
+// Criteria and reports per-option probabilities. Instructions is optional per
+// the wire API; each criterion maps an option ID to its description and at
+// least two options are required.
+type ChoiceQuestion struct {
+	Instructions string            `json:"instructions,omitempty"`
+	Criteria     map[string]string `json:"criteria,omitempty"`
+}
+
+// MarshalJSON adds the required wire discriminator type: "choice".
+func (q ChoiceQuestion) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Type         string            `json:"type"`
+		Instructions string            `json:"instructions,omitempty"`
+		Criteria     map[string]string `json:"criteria,omitempty"`
+	}{
+		Type:         questionTypeChoice,
+		Instructions: q.Instructions,
+		Criteria:     q.Criteria,
+	})
+}
+
+// ChoiceRequest is a System One decision request using choice questions.
+// Questions must be non-empty; the server rejects empty question maps.
+// Samples is sent explicitly when > 0.
+type ChoiceRequest struct {
+	Model     string                    `json:"model"`
+	State     string                    `json:"state"`
+	Questions map[string]ChoiceQuestion `json:"questions"`
+	Samples   int                       `json:"samples,omitempty"`
+}
+
+// ChoiceAnswer is the server's answer for one choice question: the chosen
+// option ID plus the per-option probability distribution.
+type ChoiceAnswer struct {
+	Choice        string             `json:"choice"`
+	Probabilities map[string]float64 `json:"probabilities"`
+}
+
+// ChoiceResponse is a System One decision response for choice questions.
+// Answers contains one entry per requested question ID.
+type ChoiceResponse struct {
+	Model   string                  `json:"model"`
+	Answers map[string]ChoiceAnswer `json:"answers"`
+	Usage   Usage                   `json:"usage"`
 }
 
 // Client calls a System One decision server. Zero value is not valid; use NewClient.
@@ -271,6 +323,71 @@ func validateResponse(req Request, resp *Response) error {
 		}
 		if !(answer.Noul >= 0 && answer.Noul <= 1) {
 			return fmt.Errorf("system one: answer for question %q has noul %v outside [0, 1]", id, answer.Noul)
+		}
+	}
+	return nil
+}
+
+// DecideChoice asks the server to decide the request's choice questions and
+// returns the validated answers. Every requested question ID must have an
+// answer, the chosen option must be one of the question's criteria options,
+// every probability must lie in [0, 1], and probability keys must be a subset
+// of the criteria options; otherwise DecideChoice returns an error. Requests
+// are validated before contacting the server.
+func (c *Client) DecideChoice(ctx context.Context, req ChoiceRequest) (*ChoiceResponse, error) {
+	if err := validateChoiceRequest(req); err != nil {
+		return nil, c.redact(err)
+	}
+	var resp ChoiceResponse
+	if err := c.do(ctx, http.MethodPost, decidePath, req, &resp); err != nil {
+		return nil, err
+	}
+	if err := validateChoiceResponse(req, &resp); err != nil {
+		return nil, c.redact(err)
+	}
+	return &resp, nil
+}
+
+// validateChoiceRequest rejects malformed choice requests before any network
+// traffic: at least one question, each with at least two criteria options and
+// no empty option ID.
+func validateChoiceRequest(req ChoiceRequest) error {
+	if len(req.Questions) == 0 {
+		return errors.New("system one: choice request must include at least one question")
+	}
+	for id, q := range req.Questions {
+		if len(q.Criteria) < 2 {
+			return fmt.Errorf("system one: choice question %q needs at least 2 criteria options, got %d", id, len(q.Criteria))
+		}
+		for option := range q.Criteria {
+			if option == "" {
+				return fmt.Errorf("system one: choice question %q has an empty option ID", id)
+			}
+		}
+	}
+	return nil
+}
+
+// validateChoiceResponse checks that the response answers every requested
+// question with a choice drawn from that question's criteria options and a
+// probability distribution over a subset of those options with every value in
+// [0, 1]. The NaN-safe comparison treats NaN as out of range.
+func validateChoiceResponse(req ChoiceRequest, resp *ChoiceResponse) error {
+	for id := range req.Questions {
+		answer, ok := resp.Answers[id]
+		if !ok {
+			return fmt.Errorf("system one: response missing answer for question %q", id)
+		}
+		if _, ok := req.Questions[id].Criteria[answer.Choice]; !ok {
+			return fmt.Errorf("system one: answer for question %q has choice %q that is not a criteria option", id, answer.Choice)
+		}
+		for option, p := range answer.Probabilities {
+			if _, ok := req.Questions[id].Criteria[option]; !ok {
+				return fmt.Errorf("system one: answer for question %q has probability for unknown option %q", id, option)
+			}
+			if !(p >= 0 && p <= 1) {
+				return fmt.Errorf("system one: answer for question %q has probability %v for option %q outside [0, 1]", id, p, option)
+			}
 		}
 	}
 	return nil
