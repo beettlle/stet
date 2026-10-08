@@ -1,0 +1,18 @@
+spine-tasks/SP-024-critic-eval-sweep/.DONE
+  h_ae151c586ac6c5 1-5
+spine-tasks/SP-024-critic-eval-sweep/.reviews/1-20261008T191939.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-024-critic-eval-sweep/.reviews/final-20261008T192007.md
+  h_ae151c586ac6c5 1-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "099f50225a6cf50587f59dae6cd0425674212267",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
