@@ -1,0 +1,18 @@
+spine-tasks/SP-029-rules-doublestar-globs/.DONE
+  h_ae151c586ac6c5 1-3
+spine-tasks/SP-029-rules-doublestar-globs/.reviews/1-20261008T215906.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-029-rules-doublestar-globs/.reviews/final-20261008T215951.md
+  h_ae151c586ac6c5 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e17f714aec68c0e3dcefe1327209b6f7aa104622",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
