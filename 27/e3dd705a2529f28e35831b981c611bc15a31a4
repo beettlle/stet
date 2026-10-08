@@ -1,0 +1,16 @@
+cli/internal/run/run.go
+  h_ae151c586ac6c5 360-362,364,441-443,445,463-503
+spine-tasks/SP-017-extract-apply-critic/STATUS.md
+  h_ae151c586ac6c5 1-2,13,15-17,21,34,41-42,50-51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "27e3dd705a2529f28e35831b981c611bc15a31a4",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
