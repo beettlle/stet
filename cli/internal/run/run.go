@@ -58,11 +58,11 @@ func captureUsage() bool {
 var ErrDirtyWorktree = errors.New("working tree has uncommitted changes; commit or stash before starting")
 
 const (
-	dryRunMessage         = "Dry-run placeholder (CI)"
+	dryRunMessage = "Dry-run placeholder (CI)"
 	// _defaultOllamaTimeout is the per-request HTTP timeout for Ollama calls.
 	// The ollama.Client doubles this on each retry attempt, capping at
 	// ollama._maxRetryTimeout (30 min) to avoid unbounded waits.
-	_defaultOllamaTimeout = 15 * time.Minute
+	_defaultOllamaTimeout    = 15 * time.Minute
 	maxPromptContextStoreLen = 4096
 	// prepareBufferSize caps how many hunks are prepared ahead; keeps the LLM fed while bounding memory.
 	prepareBufferSize = 5
@@ -168,29 +168,41 @@ type genResult struct {
 // reviewPipelineOpts holds inputs for runReviewPipeline.
 // RulesByFile is preloaded so preparers do not touch the loader concurrently.
 type reviewPipelineOpts struct {
-	Client                   llm.Client
-	Model                    string
-	Hunks                    []diff.Hunk
-	GenOpts                  *ollama.GenerateOptions
-	SystemBase               string
-	RepoRoot                 string
-	EffectiveContextLimit    int
-	RAGSymbolMaxDefinitions  int
-	RAGSymbolMaxTokens       int
-	RAGCallGraphEnabled      bool
-	RAGCallersMax            int
-	RAGCalleesMax            int
-	RAGCallGraphMaxTokens    int
-	RulesByFile              map[string][]rules.CursorRule
-	MinKeep, MinMaint         float64
-	ApplyFP                  bool
-	CriticEnabled            bool   // When true, run critic on each finding after post-filters; drops verdict "no".
-	CriticModel              string // Model name for critic; default qwen3-coder:30b (same as main); used only when CriticEnabled.
-	StreamOut                io.Writer
-	Verbose                  bool
-	TraceOut                 *trace.Tracer
-	PromptShadows            []prompt.Shadow
-	UseSearchReplaceFormat   bool
+	Client                  llm.Client
+	Model                   string
+	Hunks                   []diff.Hunk
+	GenOpts                 *ollama.GenerateOptions
+	SystemBase              string
+	RepoRoot                string
+	EffectiveContextLimit   int
+	RAGSymbolMaxDefinitions int
+	RAGSymbolMaxTokens      int
+	RAGCallGraphEnabled     bool
+	RAGCallersMax           int
+	RAGCalleesMax           int
+	RAGCallGraphMaxTokens   int
+	RulesByFile             map[string][]rules.CursorRule
+	MinKeep, MinMaint       float64
+	ApplyFP                 bool
+	CriticEnabled           bool   // When true, run critic on each finding after post-filters; drops verdict "no".
+	CriticModel             string // Model name for critic; default qwen3-coder:30b (same as main); used only when CriticBackend is "" or "llm".
+	// CriticBackend selects the critic implementation: "" or "llm" runs the per-finding LLM critic (CriticModel); "systemone" runs the batch System One verifier.
+	CriticBackend string
+	// SystemOneClient verifies findings against a System One decision server; required (non-nil) when CriticBackend == "systemone".
+	SystemOneClient review.SystemOneDecider
+	// SystemOneBaseURL is the decision server base URL; used only in user-facing error messages.
+	SystemOneBaseURL string
+	// SystemOneModel is the model name sent in System One requests; used only when CriticBackend == "systemone".
+	SystemOneModel string
+	// SystemOneMinKeep is the P(yes) threshold for keeping a finding; used only when CriticBackend == "systemone".
+	SystemOneMinKeep float64
+	// SystemOneSamples is the number of samples per System One question (0 = server default).
+	SystemOneSamples       int
+	StreamOut              io.Writer
+	Verbose                bool
+	TraceOut               *trace.Tracer
+	PromptShadows          []prompt.Shadow
+	UseSearchReplaceFormat bool
 	// SuppressionExamples is the list of "do not report" examples from history; applied per-hunk (as many as fit in token budget). Nil when suppression disabled.
 	SuppressionExamples []string
 }
@@ -263,8 +275,8 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 	}()
 	defer close(toWorker)
 
-	var nextSendIndex int   // index of next hunk to send (0-based). Hunks 0..nextSendIndex-1 already sent; nextSendIndex==0 means none sent yet. First send happens in prep branch when slots[0] is filled.
-	var processedCount int  // number of results processed
+	var nextSendIndex int  // index of next hunk to send (0-based). Hunks 0..nextSendIndex-1 already sent; nextSendIndex==0 means none sent yet. First send happens in prep branch when slots[0] is filled.
+	var processedCount int // number of results processed
 	readyChOpen := true
 	// trySendNext sends the next prompt to the worker when the slot is ready. It enforces "at most one in flight" (toWorker buffer 1) so it is safe to call from both prep and result paths; duplicate or misplaced calls become no-ops.
 	trySendNext := func() {
@@ -460,17 +472,22 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 	return collected, findingPromptContext, sumPrompt, sumCompletion, sumDuration, nil
 }
 
-// applyCritic runs the critic model on each finding in the batch and returns the
+// applyCritic runs the critic on each finding in the batch and returns the
 // findings the critic kept. It is a no-op (batch returned unchanged) when the
-// critic is disabled, the critic model is empty, or the batch is empty. On a
-// critic request failure it traces "Critic request failed" and returns a
-// user-facing error naming the hunk's file.
-//
-// O(N) sequential LLM calls: one VerifyFinding per finding in the batch.
-// The Ollama Generate API accepts a single prompt, so batch/multi-prompt
-// verification is not possible without upstream API changes.
+// critic is disabled or the batch is empty. The backend comes from
+// CriticBackend: "systemone" verifies the whole hunk with one System One
+// decision-server request (applyCriticSystemOne); "" or "llm" keeps the
+// per-finding LLM critic below. On a critic request failure either backend
+// traces "Critic request failed" and returns a user-facing error naming the
+// hunk's file.
 func applyCritic(ctx context.Context, opts reviewPipelineOpts, p *preparedPrompt, batch []findings.Finding) ([]findings.Finding, error) {
-	if !opts.CriticEnabled || opts.CriticModel == "" || len(batch) == 0 {
+	if !opts.CriticEnabled || len(batch) == 0 {
+		return batch, nil
+	}
+	if opts.CriticBackend == "systemone" {
+		return applyCriticSystemOne(ctx, opts, p, batch)
+	}
+	if opts.CriticModel == "" {
 		return batch, nil
 	}
 	beforeCritic := len(batch)
@@ -499,6 +516,37 @@ func applyCritic(ctx context.Context, opts reviewPipelineOpts, p *preparedPrompt
 		opts.TraceOut.Printf("Critic: %d -> %d\n", beforeCritic, len(batch))
 	}
 	return batch, nil
+}
+
+// applyCriticSystemOne verifies the batch with the System One decision server
+// (one request per hunk via review.VerifyFindingsSystemOne) and returns the
+// findings with P(yes) >= SystemOneMinKeep. It requires a non-nil
+// SystemOneClient: with the backend selected but no client the critic cannot
+// run, so it aborts rather than silently disabling verification. A Decide
+// failure aborts with a user-facing error naming the hunk's file and the
+// server base URL; the API key never appears in errors or trace output and
+// request bodies are never logged.
+func applyCriticSystemOne(ctx context.Context, opts reviewPipelineOpts, p *preparedPrompt, batch []findings.Finding) ([]findings.Finding, error) {
+	if opts.SystemOneClient == nil {
+		return nil, erruser.New("Critic failed for "+p.Hunk.FilePath+" (System One at "+opts.SystemOneBaseURL+").", errors.New("system one client is not configured"))
+	}
+	beforeCritic := len(batch)
+	kept, scores, err := review.VerifyFindingsSystemOne(ctx, opts.SystemOneClient, opts.SystemOneModel, batch, p.Hunk.RawContent, opts.SystemOneMinKeep, opts.SystemOneSamples)
+	if err != nil {
+		if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+			opts.TraceOut.Printf("Critic request failed: %v\n", err)
+		}
+		return nil, erruser.New("Critic failed for "+p.Hunk.FilePath+" (System One at "+opts.SystemOneBaseURL+").", err)
+	}
+	if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+		opts.TraceOut.Printf("Critic (systemone): %d -> %d\n", beforeCritic, len(kept))
+		for _, f := range batch {
+			if score, ok := scores[f.ID]; ok {
+				opts.TraceOut.Printf("score=%.4f id=%s\n", score, f.ID)
+			}
+		}
+	}
+	return kept, nil
 }
 
 // runPromptShadows converts the session's PromptShadows to []prompt.Shadow for injection.
@@ -677,7 +725,7 @@ func applyAutoDismiss(s *session.Session, toReview []diff.Hunk, newFindingIDSet 
 
 // dismissedLocation is file + line range (1-based, inclusive) for a dismissed finding.
 type dismissedLocation struct {
-	file                string
+	file               string
 	startLine, endLine int
 }
 
@@ -767,10 +815,22 @@ type StartOptions struct {
 	ApplyFPKillList              *bool
 	// Nitpicky enables convention- and typo-aware review; when true, FP kill list is not applied.
 	Nitpicky bool
-	// CriticEnabled runs a second LLM pass on each finding (critic model); when true, findings the critic rejects are dropped.
+	// CriticEnabled runs a second pass on each finding (critic); when true, findings the critic rejects are dropped.
 	CriticEnabled bool
-	// CriticModel is the model name for the critic; default qwen3-coder:30b (same as main) so one model stays loaded; used only when CriticEnabled and not DryRun.
+	// CriticModel is the model name for the critic; default qwen3-coder:30b (same as main) so one model stays loaded; used only when CriticEnabled, not DryRun, and CriticBackend is "" or "llm".
 	CriticModel string
+	// CriticBackend selects the critic implementation: "" or "llm" runs the per-finding LLM critic (CriticModel); "systemone" runs the batch System One verifier.
+	CriticBackend string
+	// SystemOneClient verifies findings against a System One decision server; required (non-nil) when CriticBackend == "systemone" and not DryRun.
+	SystemOneClient review.SystemOneDecider
+	// SystemOneBaseURL is the decision server base URL; used only in user-facing error messages.
+	SystemOneBaseURL string
+	// SystemOneModel is the model name sent in System One requests; used only when CriticBackend == "systemone".
+	SystemOneModel string
+	// SystemOneMinKeep is the P(yes) threshold for keeping a finding; used only when CriticBackend == "systemone".
+	SystemOneMinKeep float64
+	// SystemOneSamples is the number of samples per System One question (0 = server default).
+	SystemOneSamples int
 	// Session-persisted options (from stet start flags); when set, stored in session.
 	PersistStrictness              *string
 	PersistRAGSymbolMaxDefinitions *int
@@ -830,6 +890,18 @@ type RunOptions struct {
 	Nitpicky                     bool
 	CriticEnabled                bool
 	CriticModel                  string
+	// CriticBackend selects the critic implementation: "" or "llm" runs the per-finding LLM critic (CriticModel); "systemone" runs the batch System One verifier.
+	CriticBackend string
+	// SystemOneClient verifies findings against a System One decision server; required (non-nil) when CriticBackend == "systemone" and not DryRun.
+	SystemOneClient review.SystemOneDecider
+	// SystemOneBaseURL is the decision server base URL; used only in user-facing error messages.
+	SystemOneBaseURL string
+	// SystemOneModel is the model name sent in System One requests; used only when CriticBackend == "systemone".
+	SystemOneModel string
+	// SystemOneMinKeep is the P(yes) threshold for keeping a finding; used only when CriticBackend == "systemone".
+	SystemOneMinKeep float64
+	// SystemOneSamples is the number of samples per System One question (0 = server default).
+	SystemOneSamples int
 	// TraceOut, when non-nil, receives internal trace output. Used when --trace is set.
 	TraceOut io.Writer
 	// UseSearchReplaceFormat, when true, sends the hunk in search-replace style for testing.
@@ -1178,8 +1250,14 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 			MinKeep:                 minKeep,
 			MinMaint:                minMaint,
 			ApplyFP:                 applyFP,
-			CriticEnabled:          opts.CriticEnabled,
+			CriticEnabled:           opts.CriticEnabled,
 			CriticModel:             opts.CriticModel,
+			CriticBackend:           opts.CriticBackend,
+			SystemOneClient:         opts.SystemOneClient,
+			SystemOneBaseURL:        opts.SystemOneBaseURL,
+			SystemOneModel:          opts.SystemOneModel,
+			SystemOneMinKeep:        opts.SystemOneMinKeep,
+			SystemOneSamples:        opts.SystemOneSamples,
 			StreamOut:               opts.StreamOut,
 			Verbose:                 opts.Verbose,
 			TraceOut:                tr,
@@ -1329,17 +1407,17 @@ func Finish(ctx context.Context, opts FinishOptions) error {
 		ToolVersion     string `json:"tool_version"`
 		FinishedAt      string `json:"finished_at"`
 		// Scope (zero when diff.Hunks failed)
-		HunksReviewed  int   `json:"hunks_reviewed"`
-		LinesAdded     int   `json:"lines_added"`
-		LinesRemoved   int   `json:"lines_removed"`
-		CharsAdded     int   `json:"chars_added"`
-		CharsDeleted   int   `json:"chars_deleted"`
-		CharsReviewed  int   `json:"chars_reviewed"`
+		HunksReviewed int `json:"hunks_reviewed"`
+		LinesAdded    int `json:"lines_added"`
+		LinesRemoved  int `json:"lines_removed"`
+		CharsAdded    int `json:"chars_added"`
+		CharsDeleted  int `json:"chars_deleted"`
+		CharsReviewed int `json:"chars_reviewed"`
 		// Usage (omitted when STET_CAPTURE_USAGE=false)
 		Model            *string `json:"model,omitempty"`
 		PromptTokens     *int64  `json:"prompt_tokens,omitempty"`
 		CompletionTokens *int64  `json:"completion_tokens,omitempty"`
-		EvalDurationNs   *int64 `json:"eval_duration_ns,omitempty"`
+		EvalDurationNs   *int64  `json:"eval_duration_ns,omitempty"`
 	}{
 		SessionID:       sessionID,
 		BaselineSHA:     baselineSHA,
@@ -1601,8 +1679,14 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 			MinKeep:                 minKeep,
 			MinMaint:                minMaint,
 			ApplyFP:                 applyFP,
-			CriticEnabled:          opts.CriticEnabled,
+			CriticEnabled:           opts.CriticEnabled,
 			CriticModel:             opts.CriticModel,
+			CriticBackend:           opts.CriticBackend,
+			SystemOneClient:         opts.SystemOneClient,
+			SystemOneBaseURL:        opts.SystemOneBaseURL,
+			SystemOneModel:          opts.SystemOneModel,
+			SystemOneMinKeep:        opts.SystemOneMinKeep,
+			SystemOneSamples:        opts.SystemOneSamples,
 			StreamOut:               opts.StreamOut,
 			Verbose:                 opts.Verbose,
 			TraceOut:                trRun,
