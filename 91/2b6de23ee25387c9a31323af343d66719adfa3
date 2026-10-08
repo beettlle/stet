@@ -1,0 +1,21 @@
+spine-tasks/SP-026-rules-section-selector/.DONE
+  s_2cd9b6604b8f97::t_8d6c39345632ed 1-8
+spine-tasks/SP-026-rules-section-selector/.reviews/1-20261008T225858.md
+  s_2cd9b6604b8f97::t_78d31a504857f0 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "912b6de23ee25387c9a31323af343d66719adfa3",
+  "prompts": {},
+  "sessions": {
+    "s_2cd9b6604b8f97": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "ec8c24e3-9fb6-4110-be35-7d4456cc8f6e",
+        "model": "default"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
