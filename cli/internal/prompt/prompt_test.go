@@ -760,3 +760,78 @@ func TestUserPromptWithRAGPlacement_nonEmpty_structure(t *testing.T) {
 		t.Errorf("UserPromptWithRAGPlacement: should end with repeat header + hunkBlock; got last %d chars: %q", len(codeUnderReviewRepeatHeader)+len(hunkBlock)+20, got[max(0, len(got)-80):])
 	}
 }
+
+func TestAppendRuleSections_appendsSectionsInOrder(t *testing.T) {
+	base := "You are a Senior Defect Analyst."
+	sections := []rules.Section{
+		{Source: "a.mdc", Heading: "Alpha", Content: "## Alpha\n\nalpha body"},
+		{Source: "b.mdc", Heading: "Beta", Content: "### Beta\n\nbeta body"},
+	}
+	got := AppendRuleSections(base, sections, 1000)
+	if !strings.HasPrefix(got, base) {
+		t.Errorf("AppendRuleSections: should preserve systemPrompt prefix")
+	}
+	headerIdx := strings.Index(got, "## Project review criteria\n")
+	if headerIdx == -1 {
+		t.Fatalf("AppendRuleSections: missing %q header; got %q", "## Project review criteria", got)
+	}
+	alphaIdx := strings.Index(got, "## Alpha\n\nalpha body")
+	betaIdx := strings.Index(got, "### Beta\n\nbeta body")
+	if alphaIdx == -1 || betaIdx == -1 {
+		t.Fatalf("AppendRuleSections: missing section content; got %q", got)
+	}
+	if !(headerIdx < alphaIdx && alphaIdx < betaIdx) {
+		t.Errorf("AppendRuleSections: sections must follow header in order (header=%d, alpha=%d, beta=%d)", headerIdx, alphaIdx, betaIdx)
+	}
+	if !strings.Contains(got[alphaIdx:betaIdx], "alpha body") {
+		t.Errorf("AppendRuleSections: alpha content should precede beta content")
+	}
+}
+
+func TestAppendRuleSections_emptySections_unchanged(t *testing.T) {
+	base := "base prompt"
+	if got := AppendRuleSections(base, nil, 1000); got != base {
+		t.Errorf("AppendRuleSections(nil): want unchanged; got %q", got)
+	}
+	if got := AppendRuleSections(base, []rules.Section{}, 1000); got != base {
+		t.Errorf("AppendRuleSections(empty): want unchanged; got %q", got)
+	}
+}
+
+func TestAppendRuleSections_allEmptyContent_unchanged(t *testing.T) {
+	base := "base prompt"
+	sections := []rules.Section{{Source: "a.mdc", Heading: "A", Content: ""}}
+	if got := AppendRuleSections(base, sections, 1000); got != base {
+		t.Errorf("AppendRuleSections(empty content): want unchanged; got %q", got)
+	}
+}
+
+func TestAppendRuleSections_safetyTruncation(t *testing.T) {
+	base := "base"
+	sections := []rules.Section{
+		{Source: "a.mdc", Heading: "A", Content: strings.Repeat("x", 400)},
+	}
+	got := AppendRuleSections(base, sections, 10)
+	if len(got) >= len(base)+400 {
+		t.Errorf("AppendRuleSections: expected truncation to ~10 tokens; got %d chars", len(got))
+	}
+	if !strings.Contains(got, "[truncated]") {
+		t.Errorf("AppendRuleSections: truncated text should carry the [truncated] marker; got %q", got)
+	}
+	if !strings.Contains(got, "## Project review criteria") {
+		t.Errorf("AppendRuleSections: truncated text should keep the header")
+	}
+}
+
+func TestAppendRuleSections_withinBudget_notTruncated(t *testing.T) {
+	base := "base"
+	content := "## A\n\nbody text"
+	sections := []rules.Section{{Source: "a.mdc", Heading: "A", Content: content}}
+	got := AppendRuleSections(base, sections, 1000)
+	if !strings.HasSuffix(got, "\n\n## Project review criteria\n"+content) {
+		t.Errorf("AppendRuleSections: want suffix header+content; got %q", got)
+	}
+	if strings.Contains(got, "[truncated]") {
+		t.Errorf("AppendRuleSections: content within budget should not be truncated")
+	}
+}

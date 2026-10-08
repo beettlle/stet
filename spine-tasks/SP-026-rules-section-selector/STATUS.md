@@ -1,5 +1,5 @@
-**Current Step:** Step 1: Not started
-**Status:** Ready
+**Current Step:** All steps complete
+**Status:** Complete
 **Last Updated:** 2026-10-08
 **Review Level:** 1
 **Review Counter:** 0
@@ -10,24 +10,24 @@
 
 ## Step 1: Sections and selection
 
-**Status:** Not Started
+**Status:** Complete
 
-- [ ] `Section`, `SplitSections`
-- [ ] `ChoiceDecider`, `SelectSections`
+- [x] `Section`, `SplitSections`
+- [x] `ChoiceDecider`, `SelectSections`
 
 ## Step 2: Prompt assembly
 
-**Status:** Not Started
+**Status:** Complete
 
-- [ ] `AppendRuleSections`
+- [x] `AppendRuleSections`
 
 ## Step 3: Testing & Verification
 
-**Status:** Not Started
+**Status:** Complete
 
-- [ ] Split, select, and prompt tests per PROMPT
-- [ ] Contract `testCommand` and full `go test ./... -cover`
-- [ ] Coverage ≥ 72% for `selector.go` and `prompt.go`
+- [x] Split, select, and prompt tests per PROMPT
+- [x] Contract `testCommand` and full `go test ./... -cover`
+- [x] Coverage ≥ 72% for `selector.go` and `prompt.go`
 
 ---
 
@@ -35,7 +35,9 @@
 
 | Date | Step | Type | Outcome |
 |------|------|------|---------|
-| | | | |
+| 2026-10-08 | 1 | plan | skipped (nested reviewer spawn blocked in pi worker; engine runs review after worker success) |
+| 2026-10-08 | 2 | plan | skipped (nested reviewer spawn blocked in pi worker; engine runs review after worker success) |
+| 2026-10-08 | 3 | plan | skipped (nested reviewer spawn blocked in pi worker; engine runs review after worker success) |
 
 ## Discoveries
 
@@ -49,6 +51,9 @@
 | Date | Event | Detail |
 |------|-------|--------|
 | 2026-10-08 | Authored | From SP-020 follow-up table |
+| 2026-10-08 | Step 1 | selector.go: SplitSections (fence-aware ##/### split), SelectSections (1 choice request, 64-option cap, prob ranking, greedy budget fill); 92.8% pkg coverage |
+| 2026-10-08 | Step 2 | prompt.AppendRuleSections (same criteria header, order preserved, truncation safety net); 90.9% pkg coverage |
+| 2026-10-08 | Step 3 | Contract testCommand green; full `go test ./... -cover` green; scripts/check-coverage.sh PASS (project 82.3%, all files ≥ 72%); check-gofmt.sh PASS |
 
 ## Blockers
 
