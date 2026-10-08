@@ -1,0 +1,18 @@
+cli/internal/config/config_test.go
+  h_ae151c586ac6c5 1712-1790
+spine-tasks/SP-014-critic-backend-config/PROMPT.md
+  h_ae151c586ac6c5 112-114
+spine-tasks/SP-014-critic-backend-config/STATUS.md
+  h_ae151c586ac6c5 1-2,29,31-34,42-44,61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ec0f111c1326adc5104d870c553bbdc9e76b7a49",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
