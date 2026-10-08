@@ -906,3 +906,433 @@ func TestModels_baseURLWithV1(t *testing.T) {
 		t.Errorf("len(Models) = %d, want 3", len(got))
 	}
 }
+
+// choiceResponse is the real OpenJev response shape for one choice question.
+func choiceResponse(model, choice string, probs map[string]float64) map[string]any {
+	return map[string]any{
+		"model": model,
+		"answers": map[string]any{
+			"q1": map[string]any{"choice": choice, "probabilities": probs},
+		},
+		"usage": map[string]any{"input_tokens": 118, "output_tokens": 4},
+	}
+}
+
+// sampleChoiceRequest is a valid two-option-plus-none choice request.
+func sampleChoiceRequest() ChoiceRequest {
+	return ChoiceRequest{
+		Model: "openjev-0.1",
+		State: "code snippet",
+		Questions: map[string]ChoiceQuestion{
+			"q1": {
+				Instructions: "Which rule does this code violate?",
+				Criteria: map[string]string{
+					"goroutine_lifecycle": "Never fire-and-forget goroutines.",
+					"io_in_loop":          "Do not perform I/O inside loops.",
+					"none":                "The code violates none of the listed rules.",
+				},
+			},
+		},
+	}
+}
+
+func TestDecideChoice_success(t *testing.T) {
+	fastBackoff(t)
+	var gotPath, gotAuth string
+	var gotBody map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotAuth = r.Header.Get("Authorization")
+		if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
+			t.Errorf("decode request: %v", err)
+		}
+		writeJSON(t, w, choiceResponse("openjev-0.1", "goroutine_lifecycle",
+			map[string]float64{"goroutine_lifecycle": 0.97, "io_in_loop": 0.01, "none": 0.02}))
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL+"/v1", testAPIKey, srv.Client())
+	got, err := client.DecideChoice(context.Background(), sampleChoiceRequest())
+	if err != nil {
+		t.Fatalf("DecideChoice: %v", err)
+	}
+	if gotPath != "/v1/systemone" {
+		t.Errorf("path = %q, want /v1/systemone", gotPath)
+	}
+	if gotAuth != "Bearer "+testAPIKey {
+		t.Errorf("Authorization = %q", gotAuth)
+	}
+	// Wire request must carry the choice discriminator and the criteria map,
+	// and omit samples when 0.
+	if gotBody["model"] != "openjev-0.1" || gotBody["state"] != "code snippet" {
+		t.Errorf("model/state = %v/%v", gotBody["model"], gotBody["state"])
+	}
+	if _, present := gotBody["samples"]; present {
+		t.Errorf("samples sent despite 0: %v", gotBody["samples"])
+	}
+	q, ok := gotBody["questions"].(map[string]any)["q1"].(map[string]any)
+	if !ok {
+		t.Fatalf("request questions shape: %v", gotBody["questions"])
+	}
+	if q["type"] != "choice" {
+		t.Errorf("question type = %v, want choice", q["type"])
+	}
+	if q["instructions"] != "Which rule does this code violate?" {
+		t.Errorf("instructions = %v", q["instructions"])
+	}
+	crit, ok := q["criteria"].(map[string]any)
+	if !ok || len(crit) != 3 ||
+		crit["goroutine_lifecycle"] != "Never fire-and-forget goroutines." ||
+		crit["none"] != "The code violates none of the listed rules." {
+		t.Errorf("criteria = %v", q["criteria"])
+	}
+
+	if got.Model != "openjev-0.1" {
+		t.Errorf("Model = %q", got.Model)
+	}
+	ans, ok := got.Answers["q1"]
+	if !ok {
+		t.Fatalf("missing answer for q1: %+v", got.Answers)
+	}
+	if ans.Choice != "goroutine_lifecycle" {
+		t.Errorf("Choice = %q, want goroutine_lifecycle", ans.Choice)
+	}
+	if math.Abs(ans.Probabilities["goroutine_lifecycle"]-0.97) > 1e-9 ||
+		math.Abs(ans.Probabilities["none"]-0.02) > 1e-9 {
+		t.Errorf("Probabilities = %v", ans.Probabilities)
+	}
+	if got.Usage.InputTokens != 118 || got.Usage.OutputTokens != 4 {
+		t.Errorf("Usage = %+v", got.Usage)
+	}
+}
+
+func TestDecideChoice_samplesSentWhenPositive(t *testing.T) {
+	fastBackoff(t)
+	var gotSamples any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decode request: %v", err)
+		}
+		gotSamples = body["samples"]
+		writeJSON(t, w, choiceResponse("openjev-0.1", "none", map[string]float64{"none": 1}))
+	}))
+	defer srv.Close()
+
+	req := sampleChoiceRequest()
+	req.Samples = 3
+	client := NewClient(srv.URL+"/v1", "", srv.Client())
+	if _, err := client.DecideChoice(context.Background(), req); err != nil {
+		t.Fatalf("DecideChoice: %v", err)
+	}
+	if got, ok := gotSamples.(float64); !ok || got != 3 {
+		t.Errorf("samples = %v, want 3", gotSamples)
+	}
+}
+
+func TestDecideChoice_missingAnswer(t *testing.T) {
+	fastBackoff(t)
+	resp := choiceResponse("openjev-0.1", "none", map[string]float64{"none": 1})
+	delete(resp["answers"].(map[string]any), "q1")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(t, w, resp)
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL+"/v1", "", srv.Client())
+	_, err := client.DecideChoice(context.Background(), sampleChoiceRequest())
+	if err == nil {
+		t.Fatal("DecideChoice: want error for missing answer")
+	}
+	if !strings.Contains(err.Error(), "q1") {
+		t.Errorf("error should name the missing question: %v", err)
+	}
+}
+
+func TestDecideChoice_choiceNotInCriteria(t *testing.T) {
+	fastBackoff(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(t, w, choiceResponse("openjev-0.1", "hallucinated_option",
+			map[string]float64{"none": 1}))
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL+"/v1", "", srv.Client())
+	_, err := client.DecideChoice(context.Background(), sampleChoiceRequest())
+	if err == nil {
+		t.Fatal("DecideChoice: want error for choice outside criteria")
+	}
+	if !strings.Contains(err.Error(), "hallucinated_option") || !strings.Contains(err.Error(), "not a criteria option") {
+		t.Errorf("error = %v", err)
+	}
+}
+
+func TestDecideChoice_probabilityOutOfRange(t *testing.T) {
+	for _, p := range []float64{1.5, -0.1} {
+		fastBackoff(t)
+		prob := map[string]float64{"goroutine_lifecycle": 0.97, "io_in_loop": 0.01, "none": 0.02}
+		prob["none"] = p
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			writeJSON(t, w, choiceResponse("openjev-0.1", "none", prob))
+		}))
+		defer srv.Close()
+
+		client := NewClient(srv.URL+"/v1", "", srv.Client())
+		_, err := client.DecideChoice(context.Background(), sampleChoiceRequest())
+		if err == nil {
+			t.Fatalf("DecideChoice: want error for probability %v", p)
+		}
+		if !strings.Contains(err.Error(), "outside [0, 1]") {
+			t.Errorf("probability %v: error = %v", p, err)
+		}
+	}
+}
+
+func TestDecideChoice_unknownProbabilityKey(t *testing.T) {
+	fastBackoff(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(t, w, choiceResponse("openjev-0.1", "none",
+			map[string]float64{"none": 1, "made_up_option": 0.5}))
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL+"/v1", "", srv.Client())
+	_, err := client.DecideChoice(context.Background(), sampleChoiceRequest())
+	if err == nil {
+		t.Fatal("DecideChoice: want error for unknown probability key")
+	}
+	if !strings.Contains(err.Error(), "made_up_option") {
+		t.Errorf("error = %v", err)
+	}
+}
+
+func TestValidateChoiceResponse_rejectsNaN(t *testing.T) {
+	req := sampleChoiceRequest()
+	resp := &ChoiceResponse{Answers: map[string]ChoiceAnswer{
+		"q1": {Choice: "none", Probabilities: map[string]float64{"none": math.NaN()}},
+	}}
+	if err := validateChoiceResponse(req, resp); err == nil {
+		t.Fatal("validateChoiceResponse: want error for NaN probability")
+	}
+}
+
+func TestDecideChoice_requestValidation(t *testing.T) {
+	cases := []struct {
+		name    string
+		mutate  func(*ChoiceRequest)
+		wantErr string
+	}{
+		{
+			name:    "empty questions",
+			mutate:  func(r *ChoiceRequest) { r.Questions = nil },
+			wantErr: "at least one question",
+		},
+		{
+			name: "single criterion",
+			mutate: func(r *ChoiceRequest) {
+				q := r.Questions["q1"]
+				q.Criteria = map[string]string{"only": "one option"}
+				r.Questions["q1"] = q
+			},
+			wantErr: "at least 2 criteria options",
+		},
+		{
+			name: "empty option ID",
+			mutate: func(r *ChoiceRequest) {
+				q := r.Questions["q1"]
+				q.Criteria = map[string]string{"": "no ID", "ok": "fine"}
+				r.Questions["q1"] = q
+			},
+			wantErr: "empty option ID",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fastBackoff(t)
+			var calls int
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls++
+				writeJSON(t, w, choiceResponse("openjev-0.1", "none", map[string]float64{"none": 1}))
+			}))
+			defer srv.Close()
+
+			req := sampleChoiceRequest()
+			tc.mutate(&req)
+			client := NewClient(srv.URL+"/v1", "", srv.Client())
+			_, err := client.DecideChoice(context.Background(), req)
+			if err == nil {
+				t.Fatalf("DecideChoice: want error for %s", tc.name)
+			}
+			if !strings.Contains(err.Error(), tc.wantErr) {
+				t.Errorf("error = %v, want it to contain %q", err, tc.wantErr)
+			}
+			if calls != 0 {
+				t.Errorf("server contacted %d times; invalid requests must fail client-side", calls)
+			}
+		})
+	}
+}
+
+func TestDecideChoice_http401(t *testing.T) {
+	fastBackoff(t)
+	var calls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL+"/v1", "", srv.Client())
+	_, err := client.DecideChoice(context.Background(), sampleChoiceRequest())
+	if err == nil {
+		t.Fatal("DecideChoice: want error")
+	}
+	if !errors.Is(err, ErrUnauthorized) {
+		t.Errorf("errors.Is ErrUnauthorized: %v", err)
+	}
+	if calls != 1 {
+		t.Errorf("calls = %d, want 1 (401 is not retried)", calls)
+	}
+}
+
+func TestDecideChoice_http422(t *testing.T) {
+	fastBackoff(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = w.Write([]byte("bad questions"))
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL+"/v1", "", srv.Client())
+	_, err := client.DecideChoice(context.Background(), sampleChoiceRequest())
+	if !errors.Is(err, ErrBadRequest) {
+		t.Errorf("errors.Is ErrBadRequest: %v", err)
+	}
+	if !strings.Contains(err.Error(), "bad questions") {
+		t.Errorf("error should carry the body snippet: %v", err)
+	}
+}
+
+func TestDecideChoice_429Then200(t *testing.T) {
+	fastBackoff(t)
+	var calls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if calls == 1 {
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte("rate limited"))
+			return
+		}
+		writeJSON(t, w, choiceResponse("openjev-0.1", "none", map[string]float64{"none": 1}))
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL+"/v1", "", srv.Client())
+	got, err := client.DecideChoice(context.Background(), sampleChoiceRequest())
+	if err != nil {
+		t.Fatalf("DecideChoice: %v", err)
+	}
+	if got.Answers["q1"].Choice != "none" {
+		t.Errorf("Choice = %q", got.Answers["q1"].Choice)
+	}
+	if calls < 2 {
+		t.Errorf("want at least 2 calls (retry), got %d", calls)
+	}
+}
+
+func TestDecideChoice_529Exhausted(t *testing.T) {
+	fastBackoff(t)
+	var calls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.WriteHeader(statusOverloaded)
+		_, _ = w.Write([]byte("overloaded_error"))
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL+"/v1", "", srv.Client())
+	_, err := client.DecideChoice(context.Background(), sampleChoiceRequest())
+	if err == nil {
+		t.Fatal("DecideChoice: want error")
+	}
+	if !errors.Is(err, ErrOverloaded) {
+		t.Errorf("errors.Is ErrOverloaded: %v", err)
+	}
+	if !strings.Contains(err.Error(), "HTTP 529") {
+		t.Errorf("error = %v", err)
+	}
+	if calls != _maxRetries+1 {
+		t.Errorf("calls = %d, want %d (bounded retries)", calls, _maxRetries+1)
+	}
+}
+
+func TestDecideChoice_noKeyInErrorStrings(t *testing.T) {
+	fastBackoff(t)
+	// 400 body echoes the key; the error must redact it while keeping the
+	// sentinel chain intact.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`reason: bearer ` + testAPIKey + ` is invalid`))
+	}))
+	defer srv.Close()
+
+	client := NewClient(srv.URL+"/v1", testAPIKey, srv.Client())
+	_, err := client.DecideChoice(context.Background(), sampleChoiceRequest())
+	if err == nil {
+		t.Fatal("DecideChoice: want error")
+	}
+	if strings.Contains(err.Error(), testAPIKey) {
+		t.Fatalf("error string contains API key: %q", err)
+	}
+	if !errors.Is(err, ErrBadRequest) {
+		t.Errorf("redaction must preserve errors.Is: %v", err)
+	}
+	if !strings.Contains(err.Error(), redactedPlaceholder) {
+		t.Errorf("error should contain %q placeholder: %q", redactedPlaceholder, err)
+	}
+}
+
+func TestChoiceQuestion_MarshalJSON(t *testing.T) {
+	t.Run("injects choice type and includes criteria", func(t *testing.T) {
+		b, err := json.Marshal(ChoiceQuestion{
+			Instructions: "Which rule does this code violate?",
+			Criteria:     map[string]string{"a": "option a", "b": "option b"},
+		})
+		if err != nil {
+			t.Fatalf("Marshal: %v", err)
+		}
+		var m map[string]any
+		if err := json.Unmarshal(b, &m); err != nil {
+			t.Fatalf("Unmarshal: %v", err)
+		}
+		if m["type"] != questionTypeChoice {
+			t.Errorf("type = %v, want %q", m["type"], questionTypeChoice)
+		}
+		if m["instructions"] != "Which rule does this code violate?" {
+			t.Errorf("instructions = %v", m["instructions"])
+		}
+		crit, ok := m["criteria"].(map[string]any)
+		if !ok || crit["a"] != "option a" || crit["b"] != "option b" {
+			t.Errorf("criteria = %v", m["criteria"])
+		}
+	})
+	t.Run("omits empty instructions and nil criteria", func(t *testing.T) {
+		b, err := json.Marshal(ChoiceQuestion{})
+		if err != nil {
+			t.Fatalf("Marshal: %v", err)
+		}
+		var m map[string]any
+		if err := json.Unmarshal(b, &m); err != nil {
+			t.Fatalf("Unmarshal: %v", err)
+		}
+		if m["type"] != questionTypeChoice {
+			t.Errorf("type = %v, want %q (always present)", m["type"], questionTypeChoice)
+		}
+		if _, present := m["criteria"]; present {
+			t.Errorf("nil criteria should be omitted: %v", m)
+		}
+		if _, present := m["instructions"]; present {
+			t.Errorf("empty instructions should be omitted: %v", m)
+		}
+	})
+}
