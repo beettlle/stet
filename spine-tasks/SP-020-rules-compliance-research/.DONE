@@ -1,0 +1,7 @@
+SP-020 complete 2026-10-08.
+
+- Deliverable: docs/research/systemone-rules-compliance.md (Summary, Method, Results Q1–Q5, Risks, ## Recommendation, Follow-up tasks)
+- Recommendation: go-with-conditions (annotation / pre-prompt rule selector only; choice protocol; never a silent filter; revalidate on ≥100 non-authored pairs)
+- Contract: testCommand PASS; file scope clean (doc + spine-tasks bookkeeping only); npm test 93/93; coverage guard PASS
+- Reviews: plan reviews requested at steps 0–3 (in-worker spawn blocked/skipped; engine runs final review after .DONE)
+- Tech debt logged to spine-tasks/CONTEXT.md: rules.FilterRules does not support ** globs (candidate SP-029)
