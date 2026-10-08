@@ -1,0 +1,7 @@
+SP-016 complete 2026-10-08
+
+- Steps 1-2 done; commits 10e3a96, 70df44d, 370d8ac on task/spine-lane-1-20261008T183407-55c6
+- Contract testCommand green: go test ./internal/review/... -count=1 -cover (86.7% pkg, critic_systemone.go 100% vs 72% gate)
+- Full go test ./... -cover green: 35/35 packages
+- File scope verified: only cli/internal/review/critic_systemone.go, critic_systemone_test.go, STATUS.md changed
+- Known baseline (documented in STATUS Discoveries): pre-existing t.TempDir()+git cleanup flake in internal/stats, internal/run; reproduces at base 17af6d5 without SP-016 changes
