@@ -1,0 +1,16 @@
+docs/research/systemone-rules-compliance.md
+  h_ae151c586ac6c5 1-170
+spine-tasks/CONTEXT.md
+  h_ae151c586ac6c5 132
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "91a43347dcfaf237b75a0803f6524f6223b4bfab",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
