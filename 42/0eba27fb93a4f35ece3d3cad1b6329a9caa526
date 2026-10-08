@@ -1,0 +1,18 @@
+cli/cmd/stet/main_test.go
+  h_ae151c586ac6c5 3192-3471
+spine-tasks/CONTEXT.md
+  h_ae151c586ac6c5 126-132
+spine-tasks/SP-018-doctor-systemone-check/STATUS.md
+  h_ae151c586ac6c5 1-3,13,15-24,28-32,34,42,49-51,58-60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "420eba27fb93a4f35ece3d3cad1b6329a9caa526",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
