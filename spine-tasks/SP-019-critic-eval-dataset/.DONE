@@ -1,0 +1,6 @@
+SP-019 complete 2026-10-08.
+
+- `cli/internal/criticeval/dataset.go`: `LoadFromState` (history drops from false_positive/wrong_suggestion dismissals with prompt_context, session weak keeps from active findings with finding_prompt_context, already_correct/out_of_scope excluded, dedup by finding ID with conflict removal, grouping by exact hunk, Counts/BySource) and `LoadDataset` (curated JSONL with line-numbered validation errors). Strictly read-only over .review.
+- `cli/internal/criticeval/dataset_test.go` + `testdata/` (state fixture with each reason, curated valid/conflict/invalid fixtures): 11 tests green.
+- Verification: `cd cli && go test ./internal/criticeval/... -count=1 -cover` → ok, 94.7% statements (gate ≥72%); per-function LoadFromState 92.1%, LoadDataset 96.3%. Full `go test ./...` green except documented environmental TempDir-cleanup flake (stats/git/run/cmd/stet, passes in isolation; documented in SP-014 PROMPT and this STATUS).
+- Commits: 7ab6ac0 (Step 0), 0ad68ee (Step 1), a6d6ba3 (Step 2), 1c56cdf (STATUS).

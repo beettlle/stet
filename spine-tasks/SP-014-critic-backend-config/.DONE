@@ -1,0 +1,8 @@
+SP-014 complete.
+
+- Three commits: feat Step 1 (fields/defaults/TOML), feat Step 2 (env/overrides/validation), test Step 3 (API-key security tests).
+- Contract `cd cli && go test ./internal/config/... -count=1 -cover`: ok, 81.7% (gate 72%).
+- Five keys (critic_backend, systemone_base_url, systemone_model, systemone_min_keep, systemone_samples) load from defaults/TOML/env/overrides with validation; SystemOneAPIKey is env-only (`toml:"-"`) and tests assert it never loads from TOML nor appears in validation errors.
+- `applyOverrides` now returns error (amendment in PROMPT.md) so invalid CriticBackend overrides are rejected like env/TOML; Load propagates.
+- Full `go test ./... -cover` green except documented pre-existing load-dependent flakes in internal/stats + internal/run/cmd/stet (stash-verified on pristine baseline; all pass with `-p 1`). Extension npm test + coverage-artifact guard pass (exit 0).
+- No changes to cli/internal/run/**, cli/cmd/**, extension/** (SP-017 wires run).
