@@ -3,6 +3,7 @@ package rules
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -443,5 +444,116 @@ func TestLoader_noRulesDir_returnsNil(t *testing.T) {
 	rules := loader.RulesForFile("any/file.go")
 	if rules != nil {
 		t.Errorf("RulesForFile with no rules dir = %v, want nil", rules)
+	}
+}
+
+func TestMatchGlob_table(t *testing.T) {
+	tests := []struct {
+		name    string
+		pattern string
+		target  string
+		want    bool
+	}{
+		// Mission: ** as a full segment matches zero or more segments
+		{"doublestarStarGo_rootFile", "**/*.go", "main.go", true},
+		{"doublestarStarGo_oneSegment", "**/*.go", "cli/main.go", true},
+		{"doublestarStarGo_deepPath", "**/*.go", "cli/internal/run/run.go", true},
+		{"doublestarStarGo_wrongExt", "**/*.go", "app.ts", false},
+		{"cliDoublestar_under", "cli/**", "cli/main.go", true},
+		{"cliDoublestar_deep", "cli/**", "cli/internal/run/run.go", true},
+		{"cliDoublestar_outside", "cli/**", "extension/src/a.ts", false},
+		{"cliDoublestarMiddle_zeroSegments", "cli/**/x_test.go", "cli/x_test.go", true},
+		{"cliDoublestarMiddle_deepSegments", "cli/**/x_test.go", "cli/a/b/x_test.go", true},
+		{"cliDoublestarMiddle_wrongRoot", "cli/**/x_test.go", "extension/x_test.go", false},
+
+		// ** alone
+		{"doublestarAlone_deep", "**", "cli/internal/run/run.go", true},
+		{"doublestarAlone_root", "**", "main.go", true},
+
+		// leading / trailing **
+		{"leadingDoublestar_match", "**/run/run.go", "cli/internal/run/run.go", true},
+		{"leadingDoublestar_noMatch", "**/run/run.go", "cli/internal/walk/walk.go", false},
+		{"trailingDoublestar_deep", "cli/internal/**", "cli/internal/run/run.go", true},
+		{"trailingDoublestar_directChild", "cli/internal/**", "cli/internal/util.go", true},
+		{"trailingDoublestar_outside", "cli/internal/**", "extension/src/a.ts", false},
+
+		// consecutive **
+		{"consecutiveDoublestar_zeroSegments", "cli/**/**/run.go", "cli/run.go", true},
+		{"consecutiveDoublestar_deep", "cli/**/**/run.go", "cli/a/b/run.go", true},
+		{"consecutiveDoublestarStarStar", "**/**/main.go", "a/b/main.go", true},
+		{"consecutiveDoublestarStarStar_root", "**/**/main.go", "main.go", true},
+
+		// slash-free patterns keep base-name matching (unchanged)
+		{"slashFree_matchesBaseName", "*.ts", "extension/src/a.ts", true},
+		{"slashFree_wrongExt", "*.go", "extension/src/a.ts", false},
+		{"slashFree_rootFile", "*.go", "main.go", true},
+
+		// slash patterns without ** keep filepath.Match semantics (unchanged)
+		{"slashPattern_singleLevel", "foo/*", "foo/x.js", true},
+		{"slashPattern_multiLevelNoMatch", "foo/*", "foo/a/x.js", false},
+		{"slashPattern_otherDir", "foo/*", "bar/x.js", false},
+		{"slashPattern_questionMark", "cli/?.go", "cli/a.go", true},
+		{"slashPattern_questionMarkMultiChar", "cli/?.go", "cli/ab.go", false},
+		{"slashPattern_charClass", "cli/[ab].go", "cli/a.go", true},
+
+		// ** not a full segment degrades to per-segment wildcard behaviour
+		{"doublestarInsideSegment", "cli**/run.go", "clix/run.go", true},
+
+		// malformed patterns never match and never panic
+		{"malformedBracket_slashFree", "[", "main.go", false},
+		{"malformedBracket_slashPattern", "cli/[", "cli/a.go", false},
+		{"malformedBracket_withDoublestar", "**/[", "cli/a.go", false},
+		{"malformedUnclosedClass_deep", "**/[a-", "cli/x.go", false},
+
+		// Windows-style input paths: matchGlob normalises both arguments via
+		// filepath.ToSlash. On non-Windows platforms ToSlash is a no-op (a
+		// backslash is a legal file-name character there), so "cli\\main.go" is
+		// a single literal segment and does not match the "cli/**" segments;
+		// on Windows it is the path cli/main.go and does match.
+		{"windowsTarget_deepPath", "**/*.go", `cli\internal\run\run.go`, true},
+		{"windowsTarget_slashFreeBase", "*.go", `cli\main.go`, true},
+		{"windowsPattern", "cli/**", `cli\main.go`, runtime.GOOS == "windows"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := matchGlob(tt.pattern, tt.target)
+			if got != tt.want {
+				t.Errorf("matchGlob(%q, %q) = %v, want %v", tt.pattern, tt.target, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFilterRules_doublestarGlobs_match(t *testing.T) {
+	rules := []CursorRule{
+		{Globs: []string{"**/*.go"}, Content: "Go rule"},
+		{Globs: []string{"**/*.ts"}, Content: "TS rule"},
+	}
+	matched := FilterRules(rules, "cli/internal/run/run.go")
+	if len(matched) != 1 || matched[0].Content != "Go rule" {
+		t.Fatalf("FilterRules(cli/internal/run/run.go) = %v, want only Go rule", matched)
+	}
+	matched = FilterRules(rules, "main.go")
+	if len(matched) != 1 || matched[0].Content != "Go rule" {
+		t.Fatalf("FilterRules(main.go) = %v, want only Go rule", matched)
+	}
+	matched = FilterRules(rules, "extension/src/a.ts")
+	if len(matched) != 1 || matched[0].Content != "TS rule" {
+		t.Fatalf("FilterRules(extension/src/a.ts) = %v, want only TS rule", matched)
+	}
+	matched = FilterRules(rules, "app.py")
+	if len(matched) != 0 {
+		t.Fatalf("FilterRules(app.py) = %v, want none", matched)
+	}
+}
+
+func TestFilterRules_malformedGlob_noMatchNoPanic(t *testing.T) {
+	rules := []CursorRule{
+		{Globs: []string{"[", "**/["}, Content: "Broken"},
+		{AlwaysApply: true, Content: "Global"},
+	}
+	matched := FilterRules(rules, "cli/internal/run/run.go")
+	if len(matched) != 1 || matched[0].Content != "Global" {
+		t.Fatalf("FilterRules with malformed globs = %v, want only Global", matched)
 	}
 }
