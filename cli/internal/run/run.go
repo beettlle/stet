@@ -357,33 +357,11 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 						opts.TraceOut.Printf("Evidence (hunk lines): %d -> %d\n", beforeEvidence, len(batch))
 					}
 				}
-				if opts.CriticEnabled && opts.CriticModel != "" && len(batch) > 0 {
-					beforeCritic := len(batch)
-					criticOpts := &review.CriticOptions{RetryOnParseError: true}
-					if opts.GenOpts != nil {
-						criticOpts.MaxCompletionTokens = opts.GenOpts.MaxCompletionTokens
-					}
-					if opts.CriticModel == opts.Model {
-						criticOpts.KeepAlive = keepAliveDuringRun
-					}
-					kept := batch[:0]
-					for _, f := range batch {
-						keep, verr := review.VerifyFinding(ctx, opts.Client, opts.CriticModel, f, p.Hunk.RawContent, criticOpts)
-						if verr != nil {
-							if opts.TraceOut != nil && opts.TraceOut.Enabled() {
-								opts.TraceOut.Printf("Critic request failed: %v\n", verr)
-							}
-							return nil, nil, 0, 0, 0, erruser.New("Critic failed for "+p.Hunk.FilePath+".", verr)
-						}
-						if keep {
-							kept = append(kept, f)
-						}
-					}
-					batch = kept
-					if opts.TraceOut != nil && opts.TraceOut.Enabled() {
-						opts.TraceOut.Printf("Critic: %d -> %d\n", beforeCritic, len(batch))
-					}
+				kept, cerr := applyCritic(ctx, opts, p, batch)
+				if cerr != nil {
+					return nil, nil, 0, 0, 0, cerr
 				}
+				batch = kept
 				findings.SetCursorURIs(opts.RepoRoot, batch)
 				hunkCtx := truncateForPromptContext(p.Hunk.RawContent, maxPromptContextStoreLen)
 				for _, f := range batch {
@@ -460,36 +438,11 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 					opts.TraceOut.Printf("Evidence (hunk lines): %d -> %d\n", beforeEvidence, len(batch))
 				}
 			}
-			if opts.CriticEnabled && opts.CriticModel != "" && len(batch) > 0 {
-				beforeCritic := len(batch)
-				criticOpts := &review.CriticOptions{RetryOnParseError: true}
-				if opts.GenOpts != nil {
-					criticOpts.MaxCompletionTokens = opts.GenOpts.MaxCompletionTokens
-				}
-				if opts.CriticModel == opts.Model {
-					criticOpts.KeepAlive = keepAliveDuringRun
-				}
-				// O(N) sequential LLM calls: one VerifyFinding per finding in the batch.
-				// The Ollama Generate API accepts a single prompt, so batch/multi-prompt
-				// verification is not possible without upstream API changes.
-				kept := batch[:0]
-				for _, f := range batch {
-					keep, verr := review.VerifyFinding(ctx, opts.Client, opts.CriticModel, f, p.Hunk.RawContent, criticOpts)
-					if verr != nil {
-						if opts.TraceOut != nil && opts.TraceOut.Enabled() {
-							opts.TraceOut.Printf("Critic request failed: %v\n", verr)
-						}
-						return nil, nil, 0, 0, 0, erruser.New("Critic failed for "+p.Hunk.FilePath+".", verr)
-					}
-					if keep {
-						kept = append(kept, f)
-					}
-				}
-				batch = kept
-				if opts.TraceOut != nil && opts.TraceOut.Enabled() {
-					opts.TraceOut.Printf("Critic: %d -> %d\n", beforeCritic, len(batch))
-				}
+			kept, cerr := applyCritic(ctx, opts, p, batch)
+			if cerr != nil {
+				return nil, nil, 0, 0, 0, cerr
 			}
+			batch = kept
 			findings.SetCursorURIs(opts.RepoRoot, batch)
 			hunkCtx := truncateForPromptContext(p.Hunk.RawContent, maxPromptContextStoreLen)
 			for _, f := range batch {
@@ -505,6 +458,47 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 		}
 	}
 	return collected, findingPromptContext, sumPrompt, sumCompletion, sumDuration, nil
+}
+
+// applyCritic runs the critic model on each finding in the batch and returns the
+// findings the critic kept. It is a no-op (batch returned unchanged) when the
+// critic is disabled, the critic model is empty, or the batch is empty. On a
+// critic request failure it traces "Critic request failed" and returns a
+// user-facing error naming the hunk's file.
+//
+// O(N) sequential LLM calls: one VerifyFinding per finding in the batch.
+// The Ollama Generate API accepts a single prompt, so batch/multi-prompt
+// verification is not possible without upstream API changes.
+func applyCritic(ctx context.Context, opts reviewPipelineOpts, p *preparedPrompt, batch []findings.Finding) ([]findings.Finding, error) {
+	if !opts.CriticEnabled || opts.CriticModel == "" || len(batch) == 0 {
+		return batch, nil
+	}
+	beforeCritic := len(batch)
+	criticOpts := &review.CriticOptions{RetryOnParseError: true}
+	if opts.GenOpts != nil {
+		criticOpts.MaxCompletionTokens = opts.GenOpts.MaxCompletionTokens
+	}
+	if opts.CriticModel == opts.Model {
+		criticOpts.KeepAlive = keepAliveDuringRun
+	}
+	kept := batch[:0]
+	for _, f := range batch {
+		keep, verr := review.VerifyFinding(ctx, opts.Client, opts.CriticModel, f, p.Hunk.RawContent, criticOpts)
+		if verr != nil {
+			if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+				opts.TraceOut.Printf("Critic request failed: %v\n", verr)
+			}
+			return nil, erruser.New("Critic failed for "+p.Hunk.FilePath+".", verr)
+		}
+		if keep {
+			kept = append(kept, f)
+		}
+	}
+	batch = kept
+	if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+		opts.TraceOut.Printf("Critic: %d -> %d\n", beforeCritic, len(batch))
+	}
+	return batch, nil
 }
 
 // runPromptShadows converts the session's PromptShadows to []prompt.Shadow for injection.
