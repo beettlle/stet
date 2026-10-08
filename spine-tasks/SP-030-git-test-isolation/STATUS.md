@@ -1,4 +1,4 @@
-**Current Step:** Step 2: Apply to git-heavy packages
+**Current Step:** Step 3: Testing & Verification
 **Status:** In Progress
 **Last Updated:** 2026-10-08
 **Review Level:** 1
@@ -17,11 +17,13 @@
 
 ## Step 2: Apply to git-heavy packages
 
-**Status:** In Progress
-> ⚠️ Hydrate: list each package as it is converted
+**Status:** Complete
+> Converted: `cmd/stet` (TestMain + initRepo), `internal/diff` (TestMain + initRepoDiff), `internal/git` (TestMain in repo_test.go + initRepo in worktree_test.go), `internal/rag/{go,java,js,python,rust,swift}` (TestMain + 3 repo fixtures each; go also initCallGraphRepo), `internal/review` (TestMain + 2 initGitRepo tests), `internal/run` (TestMain + initRepo), `internal/scope` (TestMain + initRepoScope/initRepoGoComment), `internal/stats` (TestMain + initRepo). Non-git `t.TempDir()` dirs (state dirs, non-repo error paths, findings/skill/dataset outputs) intentionally unchanged.
 
-- [ ] `TestMain` in every in-scope package
-- [ ] `TempGitDir` for git repo temp dirs
+- [x] `TestMain` in every in-scope package (13/13, exactly one per package)
+- [x] `TempGitDir` for git repo temp dirs
+
+> Amendment during Step 2: `TempGitDir` prefix changed `stet-git-test-*` → `gitrepo-test-*` because `git worktree list` includes the repo root and `internal/run`/`cmd/stet` tests assert no path contains the `stet-` substring (worktree-name sentinel).
 
 ## Step 3: Testing & Verification
 

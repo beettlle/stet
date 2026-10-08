@@ -26,7 +26,14 @@ import (
 	"stet/cli/internal/run"
 	"stet/cli/internal/session"
 	"stet/cli/internal/systemone"
+	"stet/cli/internal/testutil"
 )
+
+// TestMain isolates the package's tests from host git configuration and
+// background git daemons (see cli/internal/testutil).
+func TestMain(m *testing.M) {
+	os.Exit(testutil.RunIsolatedGit(m))
+}
 
 func TestRun(t *testing.T) {
 	t.Parallel()
@@ -387,7 +394,7 @@ func TestRunCLI_noArgs(t *testing.T) {
 
 func initRepo(t *testing.T) string {
 	t.Helper()
-	dir := t.TempDir()
+	dir := testutil.TempGitDir(t)
 	runGit(t, dir, "git", "init")
 	runGit(t, dir, "git", "config", "user.email", "test@stet.local")
 	runGit(t, dir, "git", "config", "user.name", "Test")

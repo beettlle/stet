@@ -9,11 +9,18 @@ import (
 	"testing"
 
 	"stet/cli/internal/rag"
+	"stet/cli/internal/testutil"
 )
+
+// TestMain isolates the package's tests from host git configuration and
+// background git daemons (see cli/internal/testutil).
+func TestMain(m *testing.M) {
+	os.Exit(testutil.RunIsolatedGit(m))
+}
 
 func TestResolveSymbols_oneSymbol_returnsDefinition(t *testing.T) {
 	ctx := context.Background()
-	dir := t.TempDir()
+	dir := testutil.TempGitDir(t)
 	initGitRepo(t, dir)
 	pkgDir := filepath.Join(dir, "pkg")
 	if err := os.MkdirAll(pkgDir, 0755); err != nil {
@@ -54,7 +61,7 @@ func Bar() int {
 
 func TestResolveSymbols_maxN_returnsAtMostN(t *testing.T) {
 	ctx := context.Background()
-	dir := t.TempDir()
+	dir := testutil.TempGitDir(t)
 	initGitRepo(t, dir)
 	pkgDir := filepath.Join(dir, "pkg")
 	if err := os.MkdirAll(pkgDir, 0755); err != nil {
@@ -84,7 +91,7 @@ func C() {}
 
 func TestResolveSymbols_noMatch_returnsNil(t *testing.T) {
 	ctx := context.Background()
-	dir := t.TempDir()
+	dir := testutil.TempGitDir(t)
 	initGitRepo(t, dir)
 	// No Go files; symbol "NonExistent" won't be found.
 	r := New()

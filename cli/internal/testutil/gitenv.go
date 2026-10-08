@@ -123,7 +123,10 @@ func isolateGitEnv(tempDir string, setenv func(key, value string) error) (func()
 // elsewhere in the test stay authoritative.
 func TempGitDir(t testing.TB) string {
 	t.Helper()
-	dir, err := os.MkdirTemp("", "stet-git-test-*")
+	// The prefix deliberately avoids the "stet-" substring: some tests assert
+	// that no spurious review worktree (created as "stet-<sha>") appears, and
+	// `git worktree list` always includes the repository root itself.
+	dir, err := os.MkdirTemp("", "gitrepo-test-*")
 	if err != nil {
 		t.Fatalf("TempGitDir: %v", err)
 	}
