@@ -23,6 +23,7 @@ import (
 	"stet/cli/internal/history"
 	"stet/cli/internal/run"
 	"stet/cli/internal/session"
+	"stet/cli/internal/systemone"
 )
 
 func TestRun(t *testing.T) {
@@ -2992,3 +2993,199 @@ func TestRunCLI_commitMsgStagedOnlyNoStagedExits1(t *testing.T) {
 type failWriteCloser struct{}
 
 func (failWriteCloser) Write([]byte) (int, error) { return 0, errors.New("fail") }
+
+func TestOverridesFromFlags_criticBackendSystemOne(t *testing.T) {
+	cmd := newStartCmd()
+	if err := cmd.Flags().Set("verify", "true"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("critic-backend", "systemone"); err != nil {
+		t.Fatal(err)
+	}
+	o, err := overridesFromFlags(cmd)
+	if err != nil {
+		t.Fatalf("overridesFromFlags: %v", err)
+	}
+	if o == nil || o.CriticBackend == nil || *o.CriticBackend != "systemone" {
+		t.Fatalf("critic-backend override: %+v", o)
+	}
+	if o.CriticEnabled == nil || !*o.CriticEnabled {
+		t.Errorf("critic enabled: %+v", o)
+	}
+	// run and rerun accept the same flag (addRunLikeFlags).
+	runCmd := newRunCmd()
+	if err := runCmd.Flags().Set("critic-backend", "LLM"); err != nil {
+		t.Fatal(err)
+	}
+	o2, err := overridesFromFlags(runCmd)
+	if err != nil {
+		t.Fatalf("overridesFromFlags(run): %v", err)
+	}
+	if o2 == nil || o2.CriticBackend == nil || *o2.CriticBackend != "llm" {
+		t.Fatalf("run critic-backend override: %+v", o2)
+	}
+	rerunCmd := newRerunCmd()
+	if err := rerunCmd.Flags().Set("critic-backend", "SystemOne"); err != nil {
+		t.Fatal(err)
+	}
+	o3, err := overridesFromFlags(rerunCmd)
+	if err != nil {
+		t.Fatalf("overridesFromFlags(rerun): %v", err)
+	}
+	if o3 == nil || o3.CriticBackend == nil || *o3.CriticBackend != "systemone" {
+		t.Fatalf("rerun critic-backend override: %+v", o3)
+	}
+}
+
+func TestOverridesFromFlags_invalidCriticBackend(t *testing.T) {
+	cmd := newStartCmd()
+	if err := cmd.Flags().Set("critic-backend", "bogus"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := overridesFromFlags(cmd); err == nil {
+		t.Fatal("expected error for invalid --critic-backend")
+	}
+}
+
+func TestSystemOneRunOptions(t *testing.T) {
+	t.Run("nil client when critic disabled", func(t *testing.T) {
+		cfg := &config.Config{CriticEnabled: false, CriticBackend: "systemone", SystemOneBaseURL: "http://127.0.0.1:8080", SystemOneModel: "openjev-latest", SystemOneMinKeep: 0.5, SystemOneSamples: 2}
+		client, baseURL, model, minKeep, samples := systemOneRunOptions(cfg)
+		if client != nil {
+			t.Errorf("client = %v, want nil when critic disabled", client)
+		}
+		if baseURL != "http://127.0.0.1:8080" || model != "openjev-latest" || minKeep != 0.5 || samples != 2 {
+			t.Errorf("fields = %q %q %v %d, want config values", baseURL, model, minKeep, samples)
+		}
+	})
+	t.Run("nil client when backend llm", func(t *testing.T) {
+		cfg := &config.Config{CriticEnabled: true, CriticBackend: "llm", SystemOneBaseURL: "http://127.0.0.1:8080"}
+		client, _, _, _, _ := systemOneRunOptions(cfg)
+		if client != nil {
+			t.Errorf("client = %v, want nil when backend llm", client)
+		}
+	})
+	t.Run("client built when enabled and systemone", func(t *testing.T) {
+		cfg := &config.Config{CriticEnabled: true, CriticBackend: "systemone", SystemOneBaseURL: "http://127.0.0.1:9090/", SystemOneAPIKey: "k", SystemOneModel: "openjev-latest", SystemOneMinKeep: 0.5, SystemOneSamples: 3}
+		client, baseURL, model, minKeep, samples := systemOneRunOptions(cfg)
+		if client == nil {
+			t.Fatal("client = nil, want non-nil when critic enabled and backend systemone")
+		}
+		if baseURL != "http://127.0.0.1:9090/" || model != "openjev-latest" || minKeep != 0.5 || samples != 3 {
+			t.Errorf("fields = %q %q %v %d, want config values", baseURL, model, minKeep, samples)
+		}
+	})
+}
+
+// TestRunCLI_startSystemOneCriticDropsLowScoredFinding runs an end-to-end
+// `stet start --verify --critic-backend systemone` against a mock Ollama that
+// reports one finding and a mock System One server that scores it P(yes)=0.1
+// (below the default systemone_min_keep of 0.5). The critic must query the
+// System One server (with the env-only API key as bearer token) and the
+// low-scored finding must be dropped from the session and the output.
+func TestRunCLI_startSystemOneCriticDropsLowScoredFinding(t *testing.T) {
+	// Do not run in parallel: test changes cwd, stdout/stderr, and env.
+	var sysOneRequests []systemone.Request
+	var sawAuthKey bool
+	sysSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/systemone" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		if r.Header.Get("Authorization") == "Bearer test-key-123" {
+			sawAuthKey = true
+		}
+		var req systemone.Request
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &req)
+		sysOneRequests = append(sysOneRequests, req)
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(systemone.Response{Model: req.Model, Answers: map[string]systemone.NoulAnswer{"f0": {Noul: 0.1}}})
+	}))
+	defer sysSrv.Close()
+
+	llmResp := `[{"file":"a.go","line":1,"severity":"warning","category":"style","message":"mock finding"}]`
+	llmSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/tags" {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"models": []map[string]interface{}{{"name": "m"}}})
+			return
+		}
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": llmResp, "done": true})
+	}))
+	defer llmSrv.Close()
+
+	setTestEnv(t, "STET_PROVIDER", "ollama")
+	setTestEnv(t, "STET_OLLAMA_BASE_URL", llmSrv.URL)
+	setTestEnv(t, "STET_SYSTEMONE_BASE_URL", sysSrv.URL)
+	setTestEnv(t, "STET_SYSTEMONE_MODEL", "openjev-test")
+	setTestEnv(t, "STET_SYSTEMONE_API_KEY", "test-key-123")
+
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+
+	// Capture stdout (findings JSON) and stderr (progress/errors) to assert the API key never leaks.
+	stdoutR, stdoutW, _ := os.Pipe()
+	stderrR, stderrW, _ := os.Pipe()
+	oldStdout, oldStderr := os.Stdout, os.Stderr
+	os.Stdout, os.Stderr = stdoutW, stderrW
+	got := runCLI([]string{"start", "HEAD~1", "--verify", "--critic-backend", "systemone", "--json"})
+	os.Stdout, os.Stderr = oldStdout, oldStderr
+	_ = stdoutW.Close()
+	_ = stderrW.Close()
+	var stdoutBuf, stderrBuf bytes.Buffer
+	_, _ = stdoutBuf.ReadFrom(stdoutR)
+	_, _ = stderrBuf.ReadFrom(stderrR)
+	combined := stdoutBuf.String() + stderrBuf.String()
+
+	if got != 0 {
+		t.Fatalf("runCLI(start --verify --critic-backend systemone) = %d, want 0; stderr: %s", got, stderrBuf.String())
+	}
+	if len(sysOneRequests) == 0 {
+		t.Fatal("System One server received no requests; critic did not run")
+	}
+	if sysOneRequests[0].Model != "openjev-test" {
+		t.Errorf("System One request model = %q, want openjev-test (from STET_SYSTEMONE_MODEL)", sysOneRequests[0].Model)
+	}
+	if !sawAuthKey {
+		t.Error("System One request missing Authorization: Bearer test-key-123 (STET_SYSTEMONE_API_KEY not wired)")
+	}
+	s, err := session.Load(filepath.Join(repo, ".review"))
+	if err != nil {
+		t.Fatalf("session.Load: %v", err)
+	}
+	if len(s.Findings) != 0 {
+		t.Errorf("session findings = %d, want 0 (P(yes)=0.1 below default min_keep 0.5 drops the finding)", len(s.Findings))
+	}
+	if strings.Contains(combined, "test-key-123") {
+		t.Error("API key must never appear in CLI output")
+	}
+}
+
+// setTestEnv sets env and restores the previous value at test cleanup.
+func setTestEnv(t *testing.T, key, val string) {
+	t.Helper()
+	orig, had := os.LookupEnv(key)
+	if err := os.Setenv(key, val); err != nil {
+		t.Fatalf("setenv %s: %v", key, err)
+	}
+	t.Cleanup(func() {
+		if had {
+			_ = os.Setenv(key, orig)
+		} else {
+			_ = os.Unsetenv(key)
+		}
+	})
+}

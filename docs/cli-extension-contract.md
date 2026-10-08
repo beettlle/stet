@@ -8,6 +8,7 @@ This document defines the output and exit-code contract between the Stet CLI and
 - **`stet run`** — On success, writes findings to stdout (format depends on `--output`).
 - The **`--dry-run`** flag skips the LLM and emits deterministic findings for CI.
 - The **`--nitpicky`** flag enables convention- and typo-aware review: the system prompt is augmented to report style, typos, and grammar, and the FP kill list is not applied. Can be set in config (`nitpicky = true`) or env (`STET_NITPICKY=1`). When set on `stet start`, the value is persisted so `stet run` uses it unless overridden.
+- The **`--verify`** flag (or config `critic_enabled = true`) enables the critic, a second-pass verification that drops findings the critic rejects (increases latency and token usage). The **`--critic-backend`** flag on `stet start`, `stet run`, and `stet rerun` selects the critic implementation: **`llm`** (default; per-finding second LLM pass) or **`systemone`** (System One decision server, roughly one ~100 ms request per hunk; configure `systemone_base_url` and `STET_SYSTEMONE_API_KEY` as needed). Backend selection is not persisted in the session; each command uses config/env unless the flag is set on that command. See the [config schema](#config-schema-full) for the `systemone_*` keys and [review-process-internals.md](review-process-internals.md) §7.10 for pipeline behaviour.
 
 **Output and progress:**
 
@@ -137,8 +138,15 @@ Trace output (`--trace`) reports the source as `optimized`, `repo`, or `default`
 | `exclude_patterns` / `STET_EXCLUDE_PATTERNS` | (none) | Comma-separated filepath.Match patterns (e.g. `*.md,*.txt`) to skip from LLM review. Merges with built-in exclusions unless replace mode is set. |
 | `exclude_patterns_replace` / `STET_EXCLUDE_PATTERNS_REPLACE` | `false` | When true, use only `exclude_patterns` (no merge with built-in vendor/coverage/generated exclusions). |
 | `auto_finish_zero_findings` / `STET_AUTO_FINISH_ZERO` | `false` | When true, auto-finish after `stet start` / `stet run` / `stet rerun` when active findings count is zero. Overridable per run with **`--auto-finish-zero`**. Not applied for **`--dry-run`**. |
+| `critic_backend` / `STET_CRITIC_BACKEND` | `llm` | Critic implementation used when the critic is enabled (`critic_enabled`, `STET_CRITIC_ENABLED`, or `--verify`): **`llm`** (per-finding second LLM pass with `critic_model`) or **`systemone`** (System One decision server, one request per hunk — see [review-process-internals.md](review-process-internals.md)). Values are case-insensitive; other values are rejected with an error. Overridable per run with **`--critic-backend`** on `stet start`, `stet run`, or `stet rerun`. |
+| `systemone_base_url` / `STET_SYSTEMONE_BASE_URL` | `http://127.0.0.1:8080` | System One decision server base URL (OpenJev-compatible wire API; a local [OpenJev](https://github.com/razorback16/openjev) server or a hosted endpoint). Must be an `http://` or `https://` URL with a host. Used only when `critic_backend = "systemone"`. |
+| `systemone_model` / `STET_SYSTEMONE_MODEL` | `openjev-latest` | Model name sent to the System One server. Used only when `critic_backend = "systemone"`. |
+| `systemone_min_keep` / `STET_SYSTEMONE_MIN_KEEP` | `0.5` | P(yes) threshold for the System One critic: findings the server scores at or above this value are kept; lower scores are dropped. Must be between 0 and 1. Used only when `critic_backend = "systemone"`. |
+| `systemone_samples` / `STET_SYSTEMONE_SAMPLES` | `1` | Number of noul (yes/no) samples per finding question sent to the System One server. Must be between 1 and 32. Used only when `critic_backend = "systemone"`. |
 
 The + presets (strict+, default+, lenient+) show more findings by not filtering messages that match the built-in FP kill list.
+
+**System One API key (env only):** Set **`STET_SYSTEMONE_API_KEY`** when the System One decision server requires authentication. It is read from the environment only — there is **no TOML key**, it is never loaded from config files, and it is never printed, logged, or included in error messages. Requests without a key omit the `Authorization` header (typical for a local OpenJev server).
 
 RAG symbol options can also be set via **`--rag-symbol-max-definitions`** and **`--rag-symbol-max-tokens`** on `stet start` and `stet run`; when set, they override config and env. Strictness can also be set via **`--strictness`** on `stet start` and `stet run`; when set, it overrides config and env.
 

@@ -131,6 +131,7 @@ Full precedence and every key are documented in the [CLI–Extension Contract](d
 ## Useful flags
 
 - **`--nitpicky`** — Report style, typos, and grammar (config: `nitpicky = true` or `STET_NITPICKY=1`).
+- **`--verify`** — Run the critic (second-pass verification) on each finding and drop the ones it rejects; add `--critic-backend systemone` to use a System One decision server (one ~100 ms request per hunk) instead of a second LLM pass. Critic keys (including env-only `STET_SYSTEMONE_API_KEY`) are documented in the [CLI–Extension Contract](docs/cli-extension-contract.md#configuration).
 - **`--trace`** — Print internal steps to stderr for debugging (`stet start --trace` or `stet run --trace`).
 - **`--timeout`** — Per-request timeout for long or large-context reviews (e.g. `stet start --timeout 45m`). See [CLI–Extension Contract](docs/cli-extension-contract.md#long-reviews-and-large-context).
 - **`stet benchmark --model MODEL`** — Benchmark a specific model instead of the configured one.

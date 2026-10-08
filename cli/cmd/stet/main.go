@@ -25,10 +25,12 @@ import (
 	"stet/cli/internal/history"
 	"stet/cli/internal/llm"
 	"stet/cli/internal/ollama"
+	"stet/cli/internal/review"
 	"stet/cli/internal/run"
 	"stet/cli/internal/session"
 	"stet/cli/internal/skill"
 	"stet/cli/internal/stats"
+	"stet/cli/internal/systemone"
 	"stet/cli/internal/version"
 
 	_ "stet/cli/internal/rag/go"     // register Go resolver for RAG symbol lookup
@@ -287,6 +289,7 @@ func newStartCmd() *cobra.Command {
 	cmd.Flags().String("strictness", "", "Review strictness preset: strict, default, lenient, strict+, default+, lenient+ (overrides config and env)")
 	cmd.Flags().Bool("nitpicky", false, "Enable nitpicky mode: report typos, grammar, style, and convention violations; do not filter those findings")
 	cmd.Flags().Bool("verify", false, "Run critic (second-pass verification) on each finding; drops findings the critic rejects (increases latency and token usage)")
+	cmd.Flags().String("critic-backend", "", "Critic backend used with --verify: llm (second LLM pass, default) or systemone (System One decision server); overrides config and STET_CRITIC_BACKEND")
 	cmd.Flags().String("context", "", "Context window preset: 4k, 8k, 16k, 32k, 64k, 128k, 256k (sets both context_limit and num_ctx)")
 	cmd.Flags().Int("num-ctx", 0, "Context window size in tokens (0 = use config); overrides config and --context; sets both context_limit and num_ctx")
 	cmd.Flags().String("timeout", "", "Per-request timeout (e.g. 30m, 1h, or integer seconds); overrides config and STET_TIMEOUT")
@@ -382,6 +385,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 		persistContextLimit = &cfg.ContextLimit
 		persistNumCtx = &cfg.NumCtx
 	}
+	soClient, soBaseURL, soModel, soMinKeep, soSamples := systemOneRunOptions(cfg)
 	opts := run.StartOptions{
 		RepoRoot:                       repoRoot,
 		StateDir:                       stateDir,
@@ -412,6 +416,12 @@ func runStart(cmd *cobra.Command, args []string) error {
 		Nitpicky:                       cfg.Nitpicky,
 		CriticEnabled:                  cfg.CriticEnabled,
 		CriticModel:                    cfg.CriticModel,
+		CriticBackend:                  cfg.CriticBackend,
+		SystemOneClient:                soClient,
+		SystemOneBaseURL:               soBaseURL,
+		SystemOneModel:                 soModel,
+		SystemOneMinKeep:               soMinKeep,
+		SystemOneSamples:               soSamples,
 		PersistStrictness:              persistStrictness,
 		PersistRAGSymbolMaxDefinitions: persistRAGDefs,
 		PersistRAGSymbolMaxTokens:      persistRAGTokens,
@@ -489,6 +499,7 @@ func addRunLikeFlags(cmd *cobra.Command) {
 	cmd.Flags().String("strictness", "", "Review strictness preset: strict, default, lenient, strict+, default+, lenient+ (overrides config and env)")
 	cmd.Flags().Bool("nitpicky", false, "Enable nitpicky mode: report typos, grammar, style, and convention violations; do not filter those findings")
 	cmd.Flags().Bool("verify", false, "Run critic (second-pass verification) on each finding; drops findings the critic rejects (increases latency and token usage)")
+	cmd.Flags().String("critic-backend", "", "Critic backend used with --verify: llm (second LLM pass, default) or systemone (System One decision server); overrides config and STET_CRITIC_BACKEND")
 	cmd.Flags().String("context", "", "Context window preset: 4k, 8k, 16k, 32k, 64k, 128k, 256k (sets both context_limit and num_ctx)")
 	cmd.Flags().Int("num-ctx", 0, "Context window size in tokens (0 = use config); overrides config and --context; sets both context_limit and num_ctx")
 	cmd.Flags().String("timeout", "", "Per-request timeout (e.g. 30m, 1h, or integer seconds); overrides config and STET_TIMEOUT")
@@ -546,6 +557,7 @@ func overridesFromFlags(cmd *cobra.Command) (*config.Overrides, error) {
 	strictnessChanged := cmd.Flags().Lookup("strictness") != nil && cmd.Flags().Lookup("strictness").Changed
 	nitpickyChanged := cmd.Flags().Lookup("nitpicky") != nil && cmd.Flags().Lookup("nitpicky").Changed
 	verifyChanged := cmd.Flags().Lookup("verify") != nil && cmd.Flags().Lookup("verify").Changed
+	criticBackendChanged := cmd.Flags().Lookup("critic-backend") != nil && cmd.Flags().Lookup("critic-backend").Changed
 	contextChanged := cmd.Flags().Lookup("context") != nil && cmd.Flags().Lookup("context").Changed
 	numCtxChanged := cmd.Flags().Lookup("num-ctx") != nil && cmd.Flags().Lookup("num-ctx").Changed
 	timeoutChanged := cmd.Flags().Lookup("timeout") != nil && cmd.Flags().Lookup("timeout").Changed
@@ -554,7 +566,7 @@ func overridesFromFlags(cmd *cobra.Command) (*config.Overrides, error) {
 	excludeChanged := cmd.Flags().Lookup("exclude") != nil && cmd.Flags().Lookup("exclude").Changed
 	noExcludeChanged := cmd.Flags().Lookup("no-exclude") != nil && cmd.Flags().Lookup("no-exclude").Changed
 	autoFinishZeroChanged := cmd.Flags().Lookup("auto-finish-zero") != nil && cmd.Flags().Lookup("auto-finish-zero").Changed
-	if !defChanged && !tokChanged && !ragCallGraphChanged && !strictnessChanged && !nitpickyChanged && !verifyChanged && !contextChanged && !numCtxChanged && !timeoutChanged && !providerChanged && !openaiBaseURLChanged && !excludeChanged && !noExcludeChanged && !autoFinishZeroChanged {
+	if !defChanged && !tokChanged && !ragCallGraphChanged && !strictnessChanged && !nitpickyChanged && !verifyChanged && !criticBackendChanged && !contextChanged && !numCtxChanged && !timeoutChanged && !providerChanged && !openaiBaseURLChanged && !excludeChanged && !noExcludeChanged && !autoFinishZeroChanged {
 		return nil, nil
 	}
 	o := &config.Overrides{}
@@ -581,6 +593,16 @@ func overridesFromFlags(cmd *cobra.Command) (*config.Overrides, error) {
 	if verifyChanged {
 		v, _ := cmd.Flags().GetBool("verify")
 		o.CriticEnabled = &v
+	}
+	if criticBackendChanged {
+		s, _ := cmd.Flags().GetString("critic-backend")
+		if s != "" {
+			norm := strings.ToLower(strings.TrimSpace(s))
+			if norm != "llm" && norm != "systemone" {
+				return nil, erruser.New("--critic-backend must be llm or systemone", nil)
+			}
+			o.CriticBackend = &norm
+		}
 	}
 	if numCtxChanged {
 		v, err := cmd.Flags().GetInt("num-ctx")
@@ -638,6 +660,23 @@ func overridesFromFlags(cmd *cobra.Command) (*config.Overrides, error) {
 		o.AutoFinishZeroFindings = &v
 	}
 	return o, nil
+}
+
+// systemOneRunOptions builds the System One fields for run.StartOptions and
+// run.RunOptions from the loaded config. The client is constructed only when
+// the critic is enabled and critic_backend is "systemone"; otherwise
+// SystemOneClient is nil so the critic never attempts System One requests.
+// The API key comes from STET_SYSTEMONE_API_KEY (env only) and is passed to
+// the client, never logged or included in error messages.
+func systemOneRunOptions(cfg *config.Config) (client review.SystemOneDecider, baseURL, model string, minKeep float64, samples int) {
+	baseURL = cfg.SystemOneBaseURL
+	model = cfg.SystemOneModel
+	minKeep = cfg.SystemOneMinKeep
+	samples = cfg.SystemOneSamples
+	if cfg.CriticEnabled && cfg.CriticBackend == "systemone" {
+		client = systemone.NewClient(cfg.SystemOneBaseURL, cfg.SystemOneAPIKey, nil)
+	}
+	return client, baseURL, model, minKeep, samples
 }
 
 func runRun(cmd *cobra.Command, args []string) error {
@@ -737,6 +776,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 	if trace {
 		traceOut = os.Stderr
 	}
+	soClient, soBaseURL, soModel, soMinKeep, soSamples := systemOneRunOptions(cfg)
 	opts := run.RunOptions{
 		RepoRoot:                     repoRoot,
 		StateDir:                     stateDir,
@@ -764,6 +804,12 @@ func runRun(cmd *cobra.Command, args []string) error {
 		Nitpicky:                     effectiveNitpicky,
 		CriticEnabled:                cfg.CriticEnabled,
 		CriticModel:                  cfg.CriticModel,
+		CriticBackend:                cfg.CriticBackend,
+		SystemOneClient:              soClient,
+		SystemOneBaseURL:             soBaseURL,
+		SystemOneModel:               soModel,
+		SystemOneMinKeep:             soMinKeep,
+		SystemOneSamples:             soSamples,
 		TraceOut:                     traceOut,
 		UseSearchReplaceFormat:       getSearchReplaceFlag(cmd),
 		SuppressionEnabled:           cfg.SuppressionEnabled,
@@ -923,6 +969,7 @@ func runRerun(cmd *cobra.Command, args []string) error {
 		traceOut = os.Stderr
 	}
 	replace, _ := cmd.Flags().GetBool("replace")
+	soClient, soBaseURL, soModel, soMinKeep, soSamples := systemOneRunOptions(cfg)
 	opts := run.RunOptions{
 		RepoRoot:                     repoRoot,
 		StateDir:                     stateDir,
@@ -950,13 +997,19 @@ func runRerun(cmd *cobra.Command, args []string) error {
 		Nitpicky:                     effectiveNitpicky,
 		CriticEnabled:                cfg.CriticEnabled,
 		CriticModel:                  cfg.CriticModel,
+		CriticBackend:                cfg.CriticBackend,
+		SystemOneClient:              soClient,
+		SystemOneBaseURL:             soBaseURL,
+		SystemOneModel:               soModel,
+		SystemOneMinKeep:             soMinKeep,
+		SystemOneSamples:             soSamples,
 		TraceOut:                     traceOut,
 		UseSearchReplaceFormat:       getSearchReplaceFlag(cmd),
-		ForceFullReview:             true,
-		ReplaceFindings:             replace,
-		SuppressionEnabled:          cfg.SuppressionEnabled,
-		SuppressionHistoryCount:     cfg.SuppressionHistoryCount,
-		DiffOpts:                    cfg.DiffOptions(),
+		ForceFullReview:              true,
+		ReplaceFindings:              replace,
+		SuppressionEnabled:           cfg.SuppressionEnabled,
+		SuppressionHistoryCount:      cfg.SuppressionHistoryCount,
+		DiffOpts:                     cfg.DiffOptions(),
 	}
 	if stream {
 		opts.StreamOut = findingsWriter()
