@@ -1,0 +1,18 @@
+spine-tasks/SP-020-rules-compliance-research/.DONE
+  h_ae151c586ac6c5 1-7
+spine-tasks/SP-020-rules-compliance-research/.reviews/0-20261008T210130.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-020-rules-compliance-research/.reviews/final-20261008T210156.md
+  h_ae151c586ac6c5 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a335d4b2185850ed92457f8cf114b03ccfc07011",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
