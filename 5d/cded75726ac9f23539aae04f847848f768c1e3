@@ -1,0 +1,21 @@
+cli/internal/systemone/client_test.go
+  s_2cd9b6604b8f97::t_e69b04347ac27f 909-1338
+spine-tasks/SP-032-systemone-choice-questions/STATUS.md
+  s_2cd9b6604b8f97::t_039ee27bfb39f2 1-2,21,23-26,34,41,48-49,58-59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5dcded75726ac9f23539aae04f847848f768c1e3",
+  "prompts": {},
+  "sessions": {
+    "s_2cd9b6604b8f97": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "ec8c24e3-9fb6-4110-be35-7d4456cc8f6e",
+        "model": "default"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
