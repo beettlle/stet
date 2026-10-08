@@ -1,0 +1,4 @@
+SP-025 complete: stet critic-eval implemented (Step 1, feat commit 5c13d34) and tested (Step 2, test commit 2d9df8d).
+Contract testCommand passes (cmd/stet 75.9% pkg coverage); main.go per-file coverage 87.7% (gate 72%).
+Exit codes verified: 1 no-data/load errors, 2 unreachable; API key never printed; .review/ read-only (smoke-verified).
+See STATUS.md for full verification log.

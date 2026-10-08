@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"stet/cli/internal/config"
+	"stet/cli/internal/criticeval"
 	"stet/cli/internal/findings"
 	"stet/cli/internal/git"
 	"stet/cli/internal/history"
@@ -3467,5 +3469,266 @@ func TestRunCLI_doctorSystemOneDisabledMakesNoRequest(t *testing.T) {
 	}
 	if strings.Contains(stdout, "System One") {
 		t.Errorf("stdout must not mention System One when the critic backend is llm; got:\n%s", stdout)
+	}
+}
+
+// ===== critic-eval command tests =====
+
+// criticEvalSysOneServer returns a mock System One decision server for
+// critic-eval tests. Every POST /v1/systemone body is answered with noul 0.9
+// when the body contains the "critic-yes" marker (hunk of a real finding) and
+// noul 0.1 otherwise (false-positive hunk); every requested question key gets
+// an answer. Each request is appended to *reqs as "METHOD path".
+func criticEvalSysOneServer(t *testing.T, reqs *[]string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		*reqs = append(*reqs, r.Method+" "+r.URL.Path)
+		if r.URL.Path != "/v1/systemone" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		var req systemone.Request
+		if err := json.Unmarshal(body, &req); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		noul := 0.1
+		if strings.Contains(string(body), "critic-yes") {
+			noul = 0.9
+		}
+		answers := make(map[string]systemone.NoulAnswer, len(req.Questions))
+		for key := range req.Questions {
+			answers[key] = systemone.NoulAnswer{Noul: noul}
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(systemone.Response{Model: req.Model, Answers: answers})
+	}))
+}
+
+// writeCriticEvalDatasetN writes a curated dataset with keeps keep findings
+// whose hunks contain the "critic-yes" marker (the mock server answers 0.9)
+// and drops drop findings whose hunks contain "critic-no" (answers 0.1).
+// Hunks are unique so every example is its own hunk group (one decision
+// request each), keeping request counts deterministic.
+func writeCriticEvalDatasetN(t *testing.T, keeps, drops int) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "dataset.jsonl")
+	var b strings.Builder
+	for i := 1; i <= keeps; i++ {
+		fmt.Fprintf(&b, `{"finding":{"id":"k%d","file":"keep.go","line":%d,"severity":"warning","category":"bug","confidence":0.9,"message":"real issue %d"},"hunk":"// critic-yes\nfunc keep%d() { _ = %d }\n","label":"keep"}`+"\n", i, i, i, i, i)
+	}
+	for i := 1; i <= drops; i++ {
+		fmt.Fprintf(&b, `{"finding":{"id":"d%d","file":"drop.go","line":%d,"severity":"style","category":"style","confidence":0.5,"message":"nit %d"},"hunk":"// critic-no\nfunc drop%d() { _ = %d }\n","label":"drop"}`+"\n", i, i, i, i, i)
+	}
+	if err := os.WriteFile(path, []byte(b.String()), 0o644); err != nil {
+		t.Fatalf("write dataset: %v", err)
+	}
+	return path
+}
+
+// setCriticEvalEnv configures System One for critic-eval tests: base URL,
+// model, sample count, and a test API key that tests assert never leaks into
+// the command output.
+func setCriticEvalEnv(t *testing.T, sysOneURL string) {
+	t.Helper()
+	setTestEnv(t, "STET_SYSTEMONE_BASE_URL", sysOneURL)
+	setTestEnv(t, "STET_SYSTEMONE_MODEL", "openjev-test")
+	setTestEnv(t, "STET_SYSTEMONE_SAMPLES", "1")
+	setTestEnv(t, "STET_SYSTEMONE_API_KEY", "critic-eval-test-key")
+}
+
+// TestRunCLI_criticEvalHuman runs critic-eval with a curated dataset against
+// the mock System One server. It must exit 0 and print the human report:
+// label and source counts, the threshold table, latency, the recommendation,
+// the small-sample warning, and never the API key. It must work with the
+// critic disabled (critic-eval is an evaluation tool, not a run).
+func TestRunCLI_criticEvalHuman(t *testing.T) {
+	// Do not run in parallel: test sets env and captures stdout/stderr.
+	var sysReqs []string
+	sysSrv := criticEvalSysOneServer(t, &sysReqs)
+	defer sysSrv.Close()
+	datasetPath := writeCriticEvalDatasetN(t, 3, 3)
+	setCriticEvalEnv(t, sysSrv.URL)
+
+	code, stdout, stderr := runCLIWithOutput([]string{"critic-eval", "--dataset", datasetPath})
+	if code != 0 {
+		t.Fatalf("runCLI(critic-eval) = %d, want 0; stderr: %s", code, stderr)
+	}
+	if !strings.Contains(stdout, "Dataset: 3 keep, 3 drop") {
+		t.Errorf("stdout should contain per-label counts; got:\n%s", stdout)
+	}
+	if !strings.Contains(stdout, "Sources: curated 6") {
+		t.Errorf("stdout should contain per-source counts; got:\n%s", stdout)
+	}
+	for _, col := range []string{"threshold", "false positives dropped", "real findings lost", "kept"} {
+		if !strings.Contains(stdout, col) {
+			t.Errorf("stdout table should contain column %q; got:\n%s", col, stdout)
+		}
+	}
+	if !strings.Contains(stdout, "Latency: p50 ") {
+		t.Errorf("stdout should contain latency percentiles; got:\n%s", stdout)
+	}
+	// Keeps all score 0.9, so even threshold 0.9 loses no real findings:
+	// the recommendation must be the highest sweep threshold.
+	if !strings.Contains(stdout, "Recommended systemone_min_keep: 0.9") {
+		t.Errorf("stdout should recommend 0.9; got:\n%s", stdout)
+	}
+	if !strings.Contains(stdout, "Warning: recommendation unreliable") {
+		t.Errorf("stdout should warn the recommendation is unreliable (3+3 examples < 10 per label); got:\n%s", stdout)
+	}
+	if len(sysReqs) != 6 {
+		t.Errorf("System One requests = %v, want 6 POST /v1/systemone (one per unique hunk)", sysReqs)
+	}
+	for _, req := range sysReqs {
+		if req != "POST /v1/systemone" {
+			t.Errorf("unexpected request %q; critic-eval must only POST /v1/systemone", req)
+		}
+	}
+	if strings.Contains(stdout+stderr, "critic-eval-test-key") {
+		t.Error("API key must never appear in critic-eval output")
+	}
+}
+
+// TestRunCLI_criticEvalJSON runs critic-eval with --json: the stdout must be
+// a JSON document that parses to the criticeval.Report shape with the expected
+// counts, nine sweep thresholds, the recommendation, and the warning.
+func TestRunCLI_criticEvalJSON(t *testing.T) {
+	// Do not run in parallel: test sets env and captures stdout/stderr.
+	var sysReqs []string
+	sysSrv := criticEvalSysOneServer(t, &sysReqs)
+	defer sysSrv.Close()
+	datasetPath := writeCriticEvalDatasetN(t, 3, 3)
+	setCriticEvalEnv(t, sysSrv.URL)
+
+	code, stdout, stderr := runCLIWithOutput([]string{"critic-eval", "--dataset", datasetPath, "--json"})
+	if code != 0 {
+		t.Fatalf("runCLI(critic-eval --json) = %d, want 0; stderr: %s", code, stderr)
+	}
+	var rep criticeval.Report
+	if err := json.Unmarshal([]byte(stdout), &rep); err != nil {
+		t.Fatalf("stdout is not a valid critic eval report: %v\nstdout:\n%s", err, stdout)
+	}
+	if rep.Counts[criticeval.LabelKeep] != 3 || rep.Counts[criticeval.LabelDrop] != 3 {
+		t.Errorf("Counts = %v, want keep 3 drop 3", rep.Counts)
+	}
+	if len(rep.Thresholds) != 9 {
+		t.Errorf("len(Thresholds) = %d, want 9 (0.1..0.9)", len(rep.Thresholds))
+	}
+	if rep.Recommended == nil || *rep.Recommended != 0.9 {
+		t.Errorf("Recommended = %v, want 0.9", rep.Recommended)
+	}
+	if len(rep.Warnings) != 1 || rep.Warnings[0] != "recommendation unreliable" {
+		t.Errorf("Warnings = %v, want [recommendation unreliable]", rep.Warnings)
+	}
+	if rep.LatencyP50 < 0 || rep.LatencyP95 < rep.LatencyP50 {
+		t.Errorf("latency percentiles inconsistent: p50=%v p95=%v", rep.LatencyP50, rep.LatencyP95)
+	}
+	if strings.Contains(stdout+stderr, "critic-eval-test-key") {
+		t.Error("API key must never appear in critic-eval JSON output")
+	}
+}
+
+// TestRunCLI_criticEvalEmptyStateExits1 runs critic-eval with no --dataset
+// against an empty state dir: it must exit 1 with a clear message explaining
+// how to create labeled examples, and must not contact System One.
+func TestRunCLI_criticEvalEmptyStateExits1(t *testing.T) {
+	// Do not run in parallel: test sets env and captures stdout/stderr.
+	var sysReqs []string
+	sysSrv := criticEvalSysOneServer(t, &sysReqs)
+	defer sysSrv.Close()
+	setCriticEvalEnv(t, sysSrv.URL)
+	setTestEnv(t, "STET_STATE_DIR", t.TempDir()) // exists but has no history/session
+
+	code, _, stderr := runCLIWithOutput([]string{"critic-eval"})
+	if code != 1 {
+		t.Fatalf("runCLI(critic-eval) with empty state = %d, want 1", code)
+	}
+	if !strings.Contains(stderr, "No labeled examples for critic eval") {
+		t.Errorf("stderr should explain there are no labeled examples; got:\n%s", stderr)
+	}
+	if !strings.Contains(stderr, "false_positive") || !strings.Contains(stderr, "--dataset") {
+		t.Errorf("stderr should explain how to create examples (dismiss with false_positive/wrong_suggestion or pass --dataset); got:\n%s", stderr)
+	}
+	if len(sysReqs) != 0 {
+		t.Errorf("System One requests = %v, want none when there is no dataset", sysReqs)
+	}
+}
+
+// TestRunCLI_criticEvalUnreachableExits2 points the System One base URL at a
+// closed port: critic-eval must exit 2 and name the base URL, matching stet
+// doctor. Uses a one-example dataset so only one retried request (~7s).
+func TestRunCLI_criticEvalUnreachableExits2(t *testing.T) {
+	// Do not run in parallel: test sets env and captures stdout/stderr.
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	addr := listener.Addr().String()
+	if err := listener.Close(); err != nil {
+		t.Fatalf("close listener: %v", err)
+	}
+	baseURL := "http://" + addr
+	datasetPath := writeCriticEvalDatasetN(t, 1, 0)
+	setCriticEvalEnv(t, baseURL)
+
+	code, _, stderr := runCLIWithOutput([]string{"critic-eval", "--dataset", datasetPath})
+	if code != 2 {
+		t.Fatalf("runCLI(critic-eval) with unreachable System One = %d, want 2; stderr: %s", code, stderr)
+	}
+	if !strings.Contains(stderr, "System One server unreachable at "+baseURL) {
+		t.Errorf("stderr should contain the unreachable message with the base URL; got:\n%s", stderr)
+	}
+	if strings.Contains(stderr, "critic-eval-test-key") {
+		t.Error("API key must never appear in critic-eval output")
+	}
+}
+
+// TestRunCLI_criticEvalMissingDatasetExits1 passes a --dataset path that does
+// not exist: critic-eval must exit 1 and report the load failure.
+func TestRunCLI_criticEvalMissingDatasetExits1(t *testing.T) {
+	// Do not run in parallel: test sets env and captures stdout/stderr.
+	var sysReqs []string
+	sysSrv := criticEvalSysOneServer(t, &sysReqs)
+	defer sysSrv.Close()
+	setCriticEvalEnv(t, sysSrv.URL)
+
+	missing := filepath.Join(t.TempDir(), "missing.jsonl")
+	code, _, stderr := runCLIWithOutput([]string{"critic-eval", "--dataset", missing})
+	if code != 1 {
+		t.Fatalf("runCLI(critic-eval --dataset <missing>) = %d, want 1", code)
+	}
+	if !strings.Contains(stderr, "Could not load curated dataset.") {
+		t.Errorf("stderr should report the dataset load failure; got:\n%s", stderr)
+	}
+	if len(sysReqs) != 0 {
+		t.Errorf("System One requests = %v, want none when the dataset fails to load", sysReqs)
+	}
+}
+
+// TestPrintCriticEvalReportNoRecommendation unit-tests the human report when
+// no threshold qualifies: the no-threshold message must be printed, the
+// recommendation line must not, and a nil dataset must omit the Sources line.
+func TestPrintCriticEvalReportNoRecommendation(t *testing.T) {
+	t.Parallel()
+	rep := criticeval.Report{Counts: map[criticeval.Label]int{criticeval.LabelKeep: 4, criticeval.LabelDrop: 1}}
+	var buf bytes.Buffer
+	printCriticEvalReport(&buf, nil, rep)
+	out := buf.String()
+	if !strings.Contains(out, "Dataset: 4 keep, 1 drop") {
+		t.Errorf("report should contain per-label counts; got:\n%s", out)
+	}
+	if !strings.Contains(out, "No threshold keeps real-finding loss ≤ 10%.") {
+		t.Errorf("report should contain the no-threshold message when Recommended is nil; got:\n%s", out)
+	}
+	if strings.Contains(out, "Recommended systemone_min_keep") {
+		t.Errorf("report must not recommend a threshold when Recommended is nil; got:\n%s", out)
+	}
+	if strings.Contains(out, "Sources:") {
+		t.Errorf("nil dataset should omit the Sources line; got:\n%s", out)
 	}
 }
