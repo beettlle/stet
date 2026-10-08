@@ -59,6 +59,7 @@
 | 2026-10-08 | Pre-existing flake | `internal/stats` TempDir RemoveAll cleanup flake (`TestVolume_noNotesInRange`, `TestGitAIMetrics_validNote`) reproduces on pristine baseline (stash-verified); macOS `.git` unlink race, out of SP-014 file scope |
 | 2026-10-08 | Step 2 complete | Env parsing + override application with validation; `applyOverrides` now returns error; package coverage 81.7% |
 | 2026-10-08 | Step 3 complete | API-key security tests added; contract command green; package coverage 81.7% (gate 72%); all four new validators at 100% |
+| 2026-10-08 | Extension verified | `npm test` (vitest + coverage) exit 0; `scripts/check-untracked-coverage.sh` PASS — no tracked paths under `extension/coverage/` |
 
 ## Blockers
 
