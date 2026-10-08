@@ -1,5 +1,5 @@
-**Current Step:** Step 1: Not started
-**Status:** Ready
+**Current Step:** Complete
+**Status:** Done
 **Last Updated:** 2026-10-08
 **Review Level:** 1
 **Review Counter:** 0
@@ -10,19 +10,19 @@
 
 ## Step 1: Recursive glob matching
 
-**Status:** Not Started
+**Status:** Complete
 
-- [ ] `matchGlob` with `**` segment semantics, used by `FilterRules`
-- [ ] Non-`**` behaviour preserved
+- [x] `matchGlob` with `**` segment semantics, used by `FilterRules`
+- [x] Non-`**` behaviour preserved
 
 ## Step 2: Testing & Verification
 
-**Status:** Not Started
+**Status:** Complete
 
-- [ ] Table tests (Mission examples, edge cases, malformed pattern)
-- [ ] Existing rules/prompt tests unchanged and passing
-- [ ] Contract `testCommand` and full `go test ./... -cover`
-- [ ] `rules.go` coverage ≥ 72%
+- [x] Table tests (Mission examples, edge cases, malformed pattern)
+- [x] Existing rules/prompt tests unchanged and passing
+- [x] Contract `testCommand` and full `go test ./... -cover`
+- [x] `rules.go` coverage ≥ 72% (89.6%; per-function ≥ 85.7%)
 
 ---
 
@@ -30,7 +30,8 @@
 
 | Date | Step | Type | Outcome |
 |------|------|------|---------|
-| | | | |
+| 2026-10-08 | 1 | plan | skipped (in-worker reviewer spawn blocked; batch engine runs reviews after .DONE — SP-195) |
+| 2026-10-08 | 2 | plan | skipped (same) |
 
 ## Discoveries
 
@@ -43,6 +44,8 @@
 | Date | Event | Detail |
 |------|-------|--------|
 | 2026-10-08 | Authored | From SP-020 follow-up table |
+| 2026-10-08 | Step 1 done | `matchGlob` + `matchSegments` (segment-wise, `**` = zero or more segments); `FilterRules` now routes through it; commit 351d2e1 |
+| 2026-10-08 | Step 2 done | 39-case `matchGlob` table + `FilterRules` `**`/malformed tests; contract testCommand green; full suite green (3 unrelated `internal/stats` TempDir-cleanup flakes passed on retry); rules coverage 89.6% |
 
 ## Blockers
 

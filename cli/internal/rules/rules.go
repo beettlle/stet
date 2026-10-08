@@ -4,6 +4,7 @@ package rules
 
 import (
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -176,8 +177,6 @@ func FilterRules(rules []CursorRule, targetFile string) []CursorRule {
 	if len(rules) == 0 {
 		return nil
 	}
-	targetSlash := filepath.ToSlash(targetFile)
-	base := filepath.Base(targetFile)
 	var out []CursorRule
 	for _, r := range rules {
 		if r.AlwaysApply {
@@ -188,19 +187,65 @@ func FilterRules(rules []CursorRule, targetFile string) []CursorRule {
 			continue
 		}
 		for _, pat := range r.Globs {
-			patSlash := filepath.ToSlash(pat)
-			var name string
-			if strings.Contains(patSlash, "/") {
-				name = targetSlash
-			} else {
-				name = base
-			}
-			ok, err := filepath.Match(patSlash, name)
-			if err == nil && ok {
+			if matchGlob(pat, targetFile) {
 				out = append(out, r)
 				break
 			}
 		}
 	}
 	return out
+}
+
+// matchGlob reports whether target (a repo-root-relative file path) matches
+// pattern using gitignore/Cursor-style semantics with forward slashes:
+//
+//   - "**" as a full path segment matches zero or more path segments:
+//     "**/*.go" matches "main.go" and "cli/internal/run/run.go"; "cli/**"
+//     matches everything under "cli/"; "cli/**/x_test.go" matches both
+//     "cli/x_test.go" and "cli/a/b/x_test.go".
+//   - Patterns without "/" match the base name of target ("*.ts" matches "src/a.ts").
+//   - Patterns with "/" but no "**" keep filepath.Match semantics against the
+//     full path.
+//
+// Malformed patterns (e.g. "[") return false instead of panicking. Only the
+// standard library is used; "**" inside a segment (not a full segment, e.g.
+// "cli**") degrades to filepath.Match wildcard behaviour for that segment.
+func matchGlob(pattern, target string) bool {
+	pat := filepath.ToSlash(pattern)
+	tgt := filepath.ToSlash(target)
+	if !strings.Contains(pat, "/") {
+		ok, err := path.Match(pat, path.Base(tgt))
+		return err == nil && ok
+	}
+	if !strings.Contains(pat, "**") {
+		ok, err := path.Match(pat, tgt)
+		return err == nil && ok
+	}
+	return matchSegments(strings.Split(pat, "/"), strings.Split(tgt, "/"))
+}
+
+// matchSegments matches pattern segments against target segments (both already
+// slash-separated). A "**" pattern segment matches zero or more target
+// segments; every other segment is matched with path.Match. Returns false for
+// malformed pattern segments (path.Match error).
+func matchSegments(pat, tgt []string) bool {
+	if len(pat) == 0 {
+		return len(tgt) == 0
+	}
+	if pat[0] == "**" {
+		for i := 0; i <= len(tgt); i++ {
+			if matchSegments(pat[1:], tgt[i:]) {
+				return true
+			}
+		}
+		return false
+	}
+	if len(tgt) == 0 {
+		return false
+	}
+	ok, err := path.Match(pat[0], tgt[0])
+	if err != nil || !ok {
+		return false
+	}
+	return matchSegments(pat[1:], tgt[1:])
 }
