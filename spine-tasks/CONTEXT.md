@@ -1,8 +1,8 @@
 # stet — Context
 
-**Last Updated:** 2026-09-30
+**Last Updated:** 2026-10-08
 **Status:** Active
-**Next Task ID:** SP-026
+**Next Task ID:** SP-035
 
 ---
 
@@ -71,6 +71,24 @@ Optional critic backend that verifies findings with a System One decision server
 
 Decomposition (2026-09-30): the original M packets were split where each slice is independently testable and the split enables parallel work. SP-015 → SP-015 + SP-021; SP-017 → SP-017 + SP-022 + SP-023; SP-019 → SP-019 + SP-024 + SP-025. SP-014 and SP-016 were re-sized to S; SP-020 stays M. Reasons are recorded in each packet's STATUS Discoveries.
 
+### Phase 5 — Hygiene and rules-compliance follow-ups (2026-10-08)
+
+From the tech-debt backlog below and the SP-020 research follow-up table (`docs/research/systemone-rules-compliance.md`). SP-032 was added because the System One client modelled only `noul` questions; SP-033/SP-034 split the pipeline wiring out of SP-026/SP-027 so libraries and wiring stay S-sized with disjoint scopes.
+
+| Task | Summary | Size | Status | Deps |
+|------|---------|------|--------|------|
+| SP-026 | Rule-section selector library (`rules/selector.go`, `prompt.AppendRuleSections`) | S | Ready | SP-029, SP-031, SP-032 |
+| SP-027 | Rule-conflict annotation library (`review/rules_annotation.go`, `Finding.RuleConflict`) | S | Ready | SP-026, SP-031, SP-032 |
+| SP-028 | Rule-pairs labeled dataset (≥ 100 pairs) and evaluator (`criticeval/rulepairs.go`) | S | Ready | — |
+| SP-029 | `rules.FilterRules` `**` glob support | S | Ready | — |
+| SP-030 | Isolate git-heavy tests from git-ai daemon (`internal/testutil`) | M | Ready | — |
+| SP-031 | `gofmt` the CLI + guard in `scripts/build-all.sh` | S | Ready | SP-029, SP-030, SP-032 |
+| SP-032 | System One client `choice` questions (`DecideChoice`) | S | Ready | — |
+| SP-033 | Wire selector behind `rules_selector` | M | Ready | SP-026 |
+| SP-034 | Wire annotation behind `rules_annotate` | S | Ready | SP-027, SP-028, SP-033 |
+
+Expected waves: W0 SP-028 ∥ SP-029 ∥ SP-030 ∥ SP-032 → W1 SP-031 (alone; touches most packages) → W2 SP-026 → W3 SP-027 ∥ SP-033 → W4 SP-034.
+
 ### Completed (wave 0 + follow-on)
 
 SP-001, SP-002, SP-003, SP-004, SP-005, SP-008 — `.DONE` on `main`.
@@ -124,6 +142,8 @@ spine batch start SP-025
 ```
 
 ### Tech debt / hygiene backlog (found during execution)
+
+The three rows below are scheduled as SP-031 (gofmt), SP-030 (flaky git tests), and SP-029 (`**` globs) in Phase 5.
 
 | Found | Task area | Detail |
 |-------|-----------|--------|
