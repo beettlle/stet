@@ -1,5 +1,5 @@
-**Current Step:** Step 1: Not started
-**Status:** Ready
+**Current Step:** Step 1: In progress
+**Status:** In Progress
 **Last Updated:** 2026-10-08
 **Review Level:** 1
 **Review Counter:** 0
@@ -10,7 +10,7 @@
 
 ## Step 1: Recursive glob matching
 
-**Status:** Not Started
+**Status:** In Progress
 
 - [ ] `matchGlob` with `**` segment semantics, used by `FilterRules`
 - [ ] Non-`**` behaviour preserved
