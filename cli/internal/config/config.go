@@ -19,6 +19,9 @@
 //   - STET_SUPPRESSION_HISTORY_COUNT (max history records to scan for dismissals; non-negative integer).
 //   - STET_CRITIC_ENABLED (optional second-pass critic: 1/true/yes/on = true, 0/false/no/off = false).
 //   - STET_CRITIC_MODEL (model name for the critic; default qwen3-coder:30b, same as main model).
+//   - STET_CRITIC_BACKEND (critic backend: llm or systemone; default llm).
+//   - STET_SYSTEMONE_BASE_URL, STET_SYSTEMONE_MODEL, STET_SYSTEMONE_MIN_KEEP, STET_SYSTEMONE_SAMPLES (System One decision server; used when critic_backend = systemone).
+//   - STET_SYSTEMONE_API_KEY (System One API key; env-only — never loaded from config files and never printed).
 //   - STET_EXCLUDE_PATTERNS (comma-separated filepath.Match patterns to skip from review; merges with built-in defaults unless replace is set).
 //   - STET_EXCLUDE_PATTERNS_REPLACE (1/true/yes/on = use only STET_EXCLUDE_PATTERNS, not built-in defaults).
 //   - STET_AUTO_FINISH_ZERO (auto-finish session when review completes with zero active findings: 1/true/yes/on = true, 0/false/no/off = false).
@@ -29,6 +32,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -44,21 +48,21 @@ import (
 // Config holds all Stet configuration. Empty string or zero values for
 // StateDir/WorktreeRoot mean "use default behavior" (e.g. .review in repo).
 type Config struct {
-	Model          string        `toml:"model"`
-	Provider       string        `toml:"provider"` // "ollama" or "openai"
-	OllamaBaseURL  string        `toml:"ollama_base_url"`
-	OpenAIBaseURL  string        `toml:"openai_base_url"`
-	ContextLimit   int           `toml:"context_limit"`
+	Model         string        `toml:"model"`
+	Provider      string        `toml:"provider"` // "ollama" or "openai"
+	OllamaBaseURL string        `toml:"ollama_base_url"`
+	OpenAIBaseURL string        `toml:"openai_base_url"`
+	ContextLimit  int           `toml:"context_limit"`
 	WarnThreshold float64       `toml:"warn_threshold"`
 	Timeout       time.Duration `toml:"timeout"`
 	StateDir      string        `toml:"state_dir"`
 	WorktreeRoot  string        `toml:"worktree_root"`
 	// Temperature and NumCtx are passed to Ollama /api/generate options (defaults: 0.2, 32768).
-	Temperature     float64 `toml:"temperature"`
-	NumCtx          int     `toml:"num_ctx"`
+	Temperature float64 `toml:"temperature"`
+	NumCtx      int     `toml:"num_ctx"`
 	// MaxCompletionTokens is the OpenAI-compat completion cap (max_tokens). Ollama ignores it. Default 4096.
-	MaxCompletionTokens int `toml:"max_completion_tokens"`
-	OptimizerScript string `toml:"optimizer_script"` // Command for stet optimize (e.g. python3 scripts/optimize.py).
+	MaxCompletionTokens int    `toml:"max_completion_tokens"`
+	OptimizerScript     string `toml:"optimizer_script"` // Command for stet optimize (e.g. python3 scripts/optimize.py).
 	// RAGSymbolMaxDefinitions is the max number of symbol definitions to inject into the prompt (0 = disable). Default 10.
 	RAGSymbolMaxDefinitions int `toml:"rag_symbol_max_definitions"`
 	// RAGSymbolMaxTokens caps the token size of the symbol-definitions block (0 = no cap). Default 0.
@@ -83,6 +87,18 @@ type Config struct {
 	CriticEnabled bool `toml:"critic_enabled"`
 	// CriticModel is the model name for the critic. Default matches main model (qwen3-coder:30b) so one model stays loaded on memory-constrained machines; set to a different model to use a separate critic model (loads a second model). Used only when CriticEnabled.
 	CriticModel string `toml:"critic_model"`
+	// CriticBackend selects the critic implementation: "llm" (second LLM call, default) or "systemone" (System One decision server). Case-insensitive on input, stored lowercase. Used only when CriticEnabled.
+	CriticBackend string `toml:"critic_backend"`
+	// SystemOneBaseURL is the base URL of the System One decision server (OpenJev-compatible; http/https scheme with a non-empty host). Used only when CriticBackend == "systemone".
+	SystemOneBaseURL string `toml:"systemone_base_url"`
+	// SystemOneModel is the model name sent to the System One server. Used only when CriticBackend == "systemone".
+	SystemOneModel string `toml:"systemone_model"`
+	// SystemOneMinKeep is the minimum P(yes) from the server below which a finding is kept for LLM re-check. Range [0, 1]. Used only when CriticBackend == "systemone".
+	SystemOneMinKeep float64 `toml:"systemone_min_keep"`
+	// SystemOneSamples is the number of noul (yes/no) questions to ask per finding. Range [1, 32]. Used only when CriticBackend == "systemone".
+	SystemOneSamples int `toml:"systemone_samples"`
+	// SystemOneAPIKey is the API key for the System One decision server. Env-only (STET_SYSTEMONE_API_KEY): no TOML key, never loaded from config files, and never included in error messages or dumps.
+	SystemOneAPIKey string `toml:"-"`
 	// ExcludePatterns are filepath.Match patterns for hunks to skip from LLM review (e.g. "*.md").
 	ExcludePatterns []string `toml:"exclude_patterns"`
 	// ExcludePatternsReplace, when true, uses only ExcludePatterns (no merge with built-in defaults).
@@ -94,18 +110,18 @@ type Config struct {
 // Overrides represents optional CLI flag overrides. Non-nil pointer means
 // "override with this value". Used by future Cobra flags; tests pass explicitly.
 type Overrides struct {
-	Model          *string
-	Provider       *string
-	OllamaBaseURL  *string
-	OpenAIBaseURL  *string
-	ContextLimit   *int
-	WarnThreshold *float64
-	Timeout       *time.Duration
-	StateDir      *string
-	WorktreeRoot  *string
-	Temperature     *float64
-	NumCtx          *int
-	OptimizerScript        *string
+	Model                   *string
+	Provider                *string
+	OllamaBaseURL           *string
+	OpenAIBaseURL           *string
+	ContextLimit            *int
+	WarnThreshold           *float64
+	Timeout                 *time.Duration
+	StateDir                *string
+	WorktreeRoot            *string
+	Temperature             *float64
+	NumCtx                  *int
+	OptimizerScript         *string
 	RAGSymbolMaxDefinitions *int
 	RAGSymbolMaxTokens      *int
 	RAGCallGraphEnabled     *bool
@@ -114,10 +130,11 @@ type Overrides struct {
 	RAGCallGraphMaxTokens   *int
 	Strictness              *string
 	Nitpicky                *bool
-	SuppressionEnabled       *bool
-	SuppressionHistoryCount  *int
+	SuppressionEnabled      *bool
+	SuppressionHistoryCount *int
 	CriticEnabled           *bool
 	CriticModel             *string
+	CriticBackend           *string
 	ExcludePatterns         *[]string
 	ExcludePatternsReplace  *bool
 	NoExclude               *bool
@@ -137,25 +154,30 @@ type LoadOptions struct {
 }
 
 const (
-	_defaultModel          = "qwen3-coder:30b"
-	_defaultProvider       = "ollama"
-	_defaultOllamaBaseURL  = "http://localhost:11434"
-	_defaultOpenAIBaseURL  = "http://localhost:1234/v1"
-	_defaultContextLimit   = 32768
-	_defaultWarnThreshold = 0.9
-	_defaultTimeout       = 15 * time.Minute
-	_defaultTemperature          = 0.2
-	_defaultNumCtx               = 32768
-	_defaultMaxCompletionTokens  = 4096
-	_defaultRAGSymbolMaxDefs       = 10
-	_defaultRAGSymbolMaxTokens    = 0
-	_defaultRAGCallGraphEnabled   = false
-	_defaultRAGCallersMax         = 3
-	_defaultRAGCalleesMax         = 3
-	_defaultRAGCallGraphMaxTokens = 0
-	_defaultStrictness             = "default"
+	_defaultModel                   = "qwen3-coder:30b"
+	_defaultProvider                = "ollama"
+	_defaultOllamaBaseURL           = "http://localhost:11434"
+	_defaultOpenAIBaseURL           = "http://localhost:1234/v1"
+	_defaultContextLimit            = 32768
+	_defaultWarnThreshold           = 0.9
+	_defaultTimeout                 = 15 * time.Minute
+	_defaultTemperature             = 0.2
+	_defaultNumCtx                  = 32768
+	_defaultMaxCompletionTokens     = 4096
+	_defaultRAGSymbolMaxDefs        = 10
+	_defaultRAGSymbolMaxTokens      = 0
+	_defaultRAGCallGraphEnabled     = false
+	_defaultRAGCallersMax           = 3
+	_defaultRAGCalleesMax           = 3
+	_defaultRAGCallGraphMaxTokens   = 0
+	_defaultStrictness              = "default"
 	_defaultSuppressionHistoryCount = 50
-	_defaultCriticModel            = "qwen3-coder:30b"
+	_defaultCriticModel             = "qwen3-coder:30b"
+	_defaultCriticBackend           = "llm"
+	_defaultSystemOneBaseURL        = "http://127.0.0.1:8080"
+	_defaultSystemOneModel          = "openjev-latest"
+	_defaultSystemOneMinKeep        = 0.5
+	_defaultSystemOneSamples        = 1
 )
 
 // validStrictness is the set of allowed strictness values (normalized lowercase).
@@ -173,6 +195,46 @@ func validateStrictness(s string) (string, error) {
 	return norm, nil
 }
 
+// validCriticBackends is the set of allowed critic backend values (normalized lowercase).
+var validCriticBackends = map[string]struct{}{
+	"llm": {}, "systemone": {},
+}
+
+// validateCriticBackend normalizes s (trim, lowercase) and returns it if valid; otherwise returns an error naming the key (never any secret value).
+func validateCriticBackend(s string) (string, error) {
+	norm := strings.TrimSpace(strings.ToLower(s))
+	if _, ok := validCriticBackends[norm]; !ok {
+		return "", erruser.New("Invalid critic_backend; use llm or systemone.", nil)
+	}
+	return norm, nil
+}
+
+// validateSystemOneBaseURL parses u and requires an http or https scheme with a non-empty host; otherwise returns an error naming the key.
+func validateSystemOneBaseURL(u string) (string, error) {
+	trimmed := strings.TrimSpace(u)
+	parsed, err := url.Parse(trimmed)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+		return "", erruser.New("Invalid systemone_base_url; must be an http:// or https:// URL with a host.", err)
+	}
+	return trimmed, nil
+}
+
+// validateSystemOneMinKeep requires f in [0, 1]; otherwise returns an error naming the key.
+func validateSystemOneMinKeep(f float64) error {
+	if f < 0 || f > 1 {
+		return erruser.New("Invalid systemone_min_keep; must be between 0 and 1.", nil)
+	}
+	return nil
+}
+
+// validateSystemOneSamples requires n in [1, 32]; otherwise returns an error naming the key.
+func validateSystemOneSamples(n int) error {
+	if n < 1 || n > 32 {
+		return erruser.New("Invalid systemone_samples; must be between 1 and 32.", nil)
+	}
+	return nil
+}
+
 // errIntOverflow is returned when an int64 value does not fit in int (e.g. on 32-bit or huge TOML/env values).
 var errIntOverflow = errors.New("value out of range for int")
 
@@ -187,15 +249,15 @@ func int64ToInt(n int64) (int, error) {
 // DefaultConfig returns the default configuration (no I/O).
 func DefaultConfig() Config {
 	return Config{
-		Model:          _defaultModel,
-		Provider:       _defaultProvider,
-		OllamaBaseURL:  _defaultOllamaBaseURL,
-		OpenAIBaseURL:  _defaultOpenAIBaseURL,
-		ContextLimit:   _defaultContextLimit,
-		WarnThreshold: _defaultWarnThreshold,
-		Timeout:       _defaultTimeout,
-		StateDir:      "",
-		WorktreeRoot:  "",
+		Model:                   _defaultModel,
+		Provider:                _defaultProvider,
+		OllamaBaseURL:           _defaultOllamaBaseURL,
+		OpenAIBaseURL:           _defaultOpenAIBaseURL,
+		ContextLimit:            _defaultContextLimit,
+		WarnThreshold:           _defaultWarnThreshold,
+		Timeout:                 _defaultTimeout,
+		StateDir:                "",
+		WorktreeRoot:            "",
 		Temperature:             _defaultTemperature,
 		NumCtx:                  _defaultNumCtx,
 		MaxCompletionTokens:     _defaultMaxCompletionTokens,
@@ -205,12 +267,17 @@ func DefaultConfig() Config {
 		RAGCallersMax:           _defaultRAGCallersMax,
 		RAGCalleesMax:           _defaultRAGCalleesMax,
 		RAGCallGraphMaxTokens:   _defaultRAGCallGraphMaxTokens,
-		Strictness:                _defaultStrictness,
-		Nitpicky:                  false,
-		SuppressionEnabled:        true,
-		SuppressionHistoryCount:   _defaultSuppressionHistoryCount,
-		CriticEnabled:             false,
-		CriticModel:               _defaultCriticModel,
+		Strictness:              _defaultStrictness,
+		Nitpicky:                false,
+		SuppressionEnabled:      true,
+		SuppressionHistoryCount: _defaultSuppressionHistoryCount,
+		CriticEnabled:           false,
+		CriticModel:             _defaultCriticModel,
+		CriticBackend:           _defaultCriticBackend,
+		SystemOneBaseURL:        _defaultSystemOneBaseURL,
+		SystemOneModel:          _defaultSystemOneModel,
+		SystemOneMinKeep:        _defaultSystemOneMinKeep,
+		SystemOneSamples:        _defaultSystemOneSamples,
 	}
 }
 
@@ -304,33 +371,38 @@ func mergeFile(cfg *Config, path string) error {
 		return erruser.New("Could not read configuration file.", err)
 	}
 	var file struct {
-		Model            *string  `toml:"model"`
-		Provider         *string  `toml:"provider"`
-		OllamaBaseURL    *string  `toml:"ollama_base_url"`
-		OpenAIBaseURL    *string  `toml:"openai_base_url"`
-		ContextLimit     *int64   `toml:"context_limit"`
-		WarnThreshold    *float64 `toml:"warn_threshold"`
-		Timeout          *string  `toml:"timeout"`
-		StateDir         *string  `toml:"state_dir"`
-		WorktreeRoot     *string  `toml:"worktree_root"`
-		Temperature      *float64 `toml:"temperature"`
-		NumCtx           *int64   `toml:"num_ctx"`
-		MaxCompletionTokens *int64 `toml:"max_completion_tokens"`
-		OptimizerScript         *string `toml:"optimizer_script"`
-		RAGSymbolMaxDefinitions *int64  `toml:"rag_symbol_max_definitions"`
-		RAGSymbolMaxTokens      *int64  `toml:"rag_symbol_max_tokens"`
-		RAGCallGraphEnabled     *bool   `toml:"rag_call_graph_enabled"`
-		RAGCallersMax           *int64  `toml:"rag_callers_max"`
-		RAGCalleesMax           *int64  `toml:"rag_callees_max"`
-		RAGCallGraphMaxTokens   *int64  `toml:"rag_call_graph_max_tokens"`
-		Strictness               *string `toml:"strictness"`
-		Nitpicky                 *bool   `toml:"nitpicky"`
-		SuppressionEnabled       *bool   `toml:"suppression_enabled"`
-		SuppressionHistoryCount  *int64  `toml:"suppression_history_count"`
-		CriticEnabled            *bool   `toml:"critic_enabled"`
-		CriticModel              *string `toml:"critic_model"`
-		ExcludePatterns          *[]string `toml:"exclude_patterns"`
-		ExcludePatternsReplace   *bool   `toml:"exclude_patterns_replace"`
+		Model                   *string   `toml:"model"`
+		Provider                *string   `toml:"provider"`
+		OllamaBaseURL           *string   `toml:"ollama_base_url"`
+		OpenAIBaseURL           *string   `toml:"openai_base_url"`
+		ContextLimit            *int64    `toml:"context_limit"`
+		WarnThreshold           *float64  `toml:"warn_threshold"`
+		Timeout                 *string   `toml:"timeout"`
+		StateDir                *string   `toml:"state_dir"`
+		WorktreeRoot            *string   `toml:"worktree_root"`
+		Temperature             *float64  `toml:"temperature"`
+		NumCtx                  *int64    `toml:"num_ctx"`
+		MaxCompletionTokens     *int64    `toml:"max_completion_tokens"`
+		OptimizerScript         *string   `toml:"optimizer_script"`
+		RAGSymbolMaxDefinitions *int64    `toml:"rag_symbol_max_definitions"`
+		RAGSymbolMaxTokens      *int64    `toml:"rag_symbol_max_tokens"`
+		RAGCallGraphEnabled     *bool     `toml:"rag_call_graph_enabled"`
+		RAGCallersMax           *int64    `toml:"rag_callers_max"`
+		RAGCalleesMax           *int64    `toml:"rag_callees_max"`
+		RAGCallGraphMaxTokens   *int64    `toml:"rag_call_graph_max_tokens"`
+		Strictness              *string   `toml:"strictness"`
+		Nitpicky                *bool     `toml:"nitpicky"`
+		SuppressionEnabled      *bool     `toml:"suppression_enabled"`
+		SuppressionHistoryCount *int64    `toml:"suppression_history_count"`
+		CriticEnabled           *bool     `toml:"critic_enabled"`
+		CriticModel             *string   `toml:"critic_model"`
+		CriticBackend           *string   `toml:"critic_backend"`
+		SystemOneBaseURL        *string   `toml:"systemone_base_url"`
+		SystemOneModel          *string   `toml:"systemone_model"`
+		SystemOneMinKeep        *float64  `toml:"systemone_min_keep"`
+		SystemOneSamples        *int64    `toml:"systemone_samples"`
+		ExcludePatterns         *[]string `toml:"exclude_patterns"`
+		ExcludePatternsReplace  *bool     `toml:"exclude_patterns_replace"`
 	}
 	if _, err := toml.Decode(string(data), &file); err != nil {
 		return erruser.New("Invalid configuration in .review/config.toml.", err)
@@ -459,6 +531,39 @@ func mergeFile(cfg *Config, path string) error {
 	if file.CriticModel != nil && *file.CriticModel != "" {
 		cfg.CriticModel = *file.CriticModel
 	}
+	if file.CriticBackend != nil && *file.CriticBackend != "" {
+		norm, err := validateCriticBackend(*file.CriticBackend)
+		if err != nil {
+			return err
+		}
+		cfg.CriticBackend = norm
+	}
+	if file.SystemOneBaseURL != nil && *file.SystemOneBaseURL != "" {
+		clean, err := validateSystemOneBaseURL(*file.SystemOneBaseURL)
+		if err != nil {
+			return err
+		}
+		cfg.SystemOneBaseURL = clean
+	}
+	if file.SystemOneModel != nil && *file.SystemOneModel != "" {
+		cfg.SystemOneModel = *file.SystemOneModel
+	}
+	if file.SystemOneMinKeep != nil {
+		if err := validateSystemOneMinKeep(*file.SystemOneMinKeep); err != nil {
+			return err
+		}
+		cfg.SystemOneMinKeep = *file.SystemOneMinKeep
+	}
+	if file.SystemOneSamples != nil {
+		v, err := int64ToInt(*file.SystemOneSamples)
+		if err != nil {
+			return erruser.New("Configuration systemone_samples value out of range.", err)
+		}
+		if err := validateSystemOneSamples(v); err != nil {
+			return err
+		}
+		cfg.SystemOneSamples = v
+	}
 	if file.ExcludePatterns != nil {
 		cfg.ExcludePatterns = append([]string(nil), (*file.ExcludePatterns)...)
 	}
@@ -495,34 +600,34 @@ func ParseDuration(s string) (time.Duration, error) {
 
 // env key names for config
 const (
-	envModel         = "STET_MODEL"
-	envOllamaBaseURL = "STET_OLLAMA_BASE_URL"
-	envContextLimit  = "STET_CONTEXT_LIMIT"
-	envWarnThreshold = "STET_WARN_THRESHOLD"
-	envTimeout       = "STET_TIMEOUT"
-	envStateDir      = "STET_STATE_DIR"
-	envWorktreeRoot  = "STET_WORKTREE_ROOT"
-	envTemperature     = "STET_TEMPERATURE"
-	envNumCtx                 = "STET_NUM_CTX"
-	envMaxCompletionTokens    = "STET_MAX_COMPLETION_TOKENS"
+	envModel                   = "STET_MODEL"
+	envOllamaBaseURL           = "STET_OLLAMA_BASE_URL"
+	envContextLimit            = "STET_CONTEXT_LIMIT"
+	envWarnThreshold           = "STET_WARN_THRESHOLD"
+	envTimeout                 = "STET_TIMEOUT"
+	envStateDir                = "STET_STATE_DIR"
+	envWorktreeRoot            = "STET_WORKTREE_ROOT"
+	envTemperature             = "STET_TEMPERATURE"
+	envNumCtx                  = "STET_NUM_CTX"
+	envMaxCompletionTokens     = "STET_MAX_COMPLETION_TOKENS"
 	envOptimizerScript         = "STET_OPTIMIZER_SCRIPT"
 	envRAGSymbolMaxDefinitions = "STET_RAG_SYMBOL_MAX_DEFINITIONS"
 	envRAGSymbolMaxTokens      = "STET_RAG_SYMBOL_MAX_TOKENS"
 	envRAGCallGraphEnabled     = "STET_RAG_CALL_GRAPH_ENABLED"
-	envRAGCallersMax            = "STET_RAG_CALLERS_MAX"
-	envRAGCalleesMax            = "STET_RAG_CALLEES_MAX"
-	envRAGCallGraphMaxTokens    = "STET_RAG_CALL_GRAPH_MAX_TOKENS"
-	envStrictness               = "STET_STRICTNESS"
-	envNitpicky                 = "STET_NITPICKY"
-	envSuppressionEnabled       = "STET_SUPPRESSION_ENABLED"
-	envSuppressionHistoryCount  = "STET_SUPPRESSION_HISTORY_COUNT"
-	envCriticEnabled            = "STET_CRITIC_ENABLED"
-	envCriticModel              = "STET_CRITIC_MODEL"
-	envExcludePatterns          = "STET_EXCLUDE_PATTERNS"
-	envExcludePatternsReplace   = "STET_EXCLUDE_PATTERNS_REPLACE"
-	envAutoFinishZero           = "STET_AUTO_FINISH_ZERO"
-	envProvider                 = "STET_PROVIDER"
-	envOpenAIBaseURL            = "STET_OPENAI_BASE_URL"
+	envRAGCallersMax           = "STET_RAG_CALLERS_MAX"
+	envRAGCalleesMax           = "STET_RAG_CALLEES_MAX"
+	envRAGCallGraphMaxTokens   = "STET_RAG_CALL_GRAPH_MAX_TOKENS"
+	envStrictness              = "STET_STRICTNESS"
+	envNitpicky                = "STET_NITPICKY"
+	envSuppressionEnabled      = "STET_SUPPRESSION_ENABLED"
+	envSuppressionHistoryCount = "STET_SUPPRESSION_HISTORY_COUNT"
+	envCriticEnabled           = "STET_CRITIC_ENABLED"
+	envCriticModel             = "STET_CRITIC_MODEL"
+	envExcludePatterns         = "STET_EXCLUDE_PATTERNS"
+	envExcludePatternsReplace  = "STET_EXCLUDE_PATTERNS_REPLACE"
+	envAutoFinishZero          = "STET_AUTO_FINISH_ZERO"
+	envProvider                = "STET_PROVIDER"
+	envOpenAIBaseURL           = "STET_OPENAI_BASE_URL"
 )
 
 func applyEnv(cfg *Config, env []string) error {

@@ -11,11 +11,11 @@ import (
 	"time"
 )
 
-func ptrStr(s string) *string { return &s }
-func ptrInt(n int) *int       { return &n }
-func ptrBool(b bool) *bool    { return &b }
+func ptrStr(s string) *string                    { return &s }
+func ptrInt(n int) *int                          { return &n }
+func ptrBool(b bool) *bool                       { return &b }
 func ptrDuration(d time.Duration) *time.Duration { return &d }
-func ptrFloat64(f float64) *float64 { return &f }
+func ptrFloat64(f float64) *float64              { return &f }
 
 func TestDefaultConfig_fieldsMatchExpectedDefaults(t *testing.T) {
 	t.Parallel()
@@ -1454,5 +1454,113 @@ exclude_patterns_replace = true
 	}
 	if len(cfg.ExcludePatterns) != 1 || !cfg.ExcludePatternsReplace {
 		t.Errorf("exclude: %v replace=%v", cfg.ExcludePatterns, cfg.ExcludePatternsReplace)
+	}
+}
+
+func TestDefaultConfig_systemOneDefaults(t *testing.T) {
+	t.Parallel()
+	c := DefaultConfig()
+	if c.CriticBackend != _defaultCriticBackend {
+		t.Errorf("CriticBackend = %q, want %q", c.CriticBackend, _defaultCriticBackend)
+	}
+	if c.SystemOneBaseURL != _defaultSystemOneBaseURL {
+		t.Errorf("SystemOneBaseURL = %q, want %q", c.SystemOneBaseURL, _defaultSystemOneBaseURL)
+	}
+	if c.SystemOneModel != _defaultSystemOneModel {
+		t.Errorf("SystemOneModel = %q, want %q", c.SystemOneModel, _defaultSystemOneModel)
+	}
+	if c.SystemOneMinKeep != _defaultSystemOneMinKeep {
+		t.Errorf("SystemOneMinKeep = %v, want %v", c.SystemOneMinKeep, _defaultSystemOneMinKeep)
+	}
+	if c.SystemOneSamples != _defaultSystemOneSamples {
+		t.Errorf("SystemOneSamples = %d, want %d", c.SystemOneSamples, _defaultSystemOneSamples)
+	}
+	if c.SystemOneAPIKey != "" {
+		t.Errorf("SystemOneAPIKey = non-empty, want empty by default")
+	}
+}
+
+func TestLoad_systemOneFromTOML(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	repoDir := filepath.Join(dir, "repo")
+	if err := os.MkdirAll(filepath.Join(repoDir, ".review"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	toml := `
+critic_backend = "SystemOne"
+systemone_base_url = "http://localhost:9200"
+systemone_model = "openjev-test"
+systemone_min_keep = 0.75
+systemone_samples = 4
+`
+	if err := os.WriteFile(filepath.Join(repoDir, ".review", "config.toml"), []byte(toml), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(context.Background(), LoadOptions{
+		RepoRoot:         repoDir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.CriticBackend != "systemone" {
+		t.Errorf("CriticBackend = %q, want systemone (case-insensitive, stored lowercase)", cfg.CriticBackend)
+	}
+	if cfg.SystemOneBaseURL != "http://localhost:9200" {
+		t.Errorf("SystemOneBaseURL = %q, want http://localhost:9200", cfg.SystemOneBaseURL)
+	}
+	if cfg.SystemOneModel != "openjev-test" {
+		t.Errorf("SystemOneModel = %q, want openjev-test", cfg.SystemOneModel)
+	}
+	if cfg.SystemOneMinKeep != 0.75 {
+		t.Errorf("SystemOneMinKeep = %v, want 0.75", cfg.SystemOneMinKeep)
+	}
+	if cfg.SystemOneSamples != 4 {
+		t.Errorf("SystemOneSamples = %d, want 4", cfg.SystemOneSamples)
+	}
+}
+
+func TestLoad_systemOneInvalidTOML(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		toml    string
+		wantKey string
+	}{
+		{"invalid backend", `critic_backend = "bogus"`, "critic_backend"},
+		{"wrong scheme", `systemone_base_url = "ftp://example.com"`, "systemone_base_url"},
+		{"no host", `systemone_base_url = "http://"`, "systemone_base_url"},
+		{"not a url", `systemone_base_url = "not a url"`, "systemone_base_url"},
+		{"unparseable url", `systemone_base_url = "://x"`, "systemone_base_url"},
+		{"min_keep too high", `systemone_min_keep = 1.5`, "systemone_min_keep"},
+		{"min_keep negative", `systemone_min_keep = -0.1`, "systemone_min_keep"},
+		{"samples zero", `systemone_samples = 0`, "systemone_samples"},
+		{"samples too many", `systemone_samples = 33`, "systemone_samples"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			repoDir := filepath.Join(dir, "repo")
+			if err := os.MkdirAll(filepath.Join(repoDir, ".review"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(repoDir, ".review", "config.toml"), []byte(tt.toml), 0644); err != nil {
+				t.Fatal(err)
+			}
+			_, err := Load(context.Background(), LoadOptions{
+				RepoRoot:         repoDir,
+				GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+				Env:              []string{},
+			})
+			if err == nil {
+				t.Fatal("Load: want error for invalid value, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantKey) {
+				t.Errorf("Load: want error naming %q, got %v", tt.wantKey, err)
+			}
+		})
 	}
 }
