@@ -222,6 +222,35 @@ func appendContents(b *strings.Builder, ruleList []rules.CursorRule) {
 	}
 }
 
+// AppendRuleSections appends a "## Project review criteria" section to
+// systemPrompt with pre-selected rule sections (see rules.SelectSections) in
+// the given order. The combined text is truncated to maxRuleTokens as a safety
+// net even though selection already respects the budget. Returns systemPrompt
+// unchanged if sections is nil/empty.
+func AppendRuleSections(systemPrompt string, sections []rules.Section, maxRuleTokens int) string {
+	if len(sections) == 0 {
+		return systemPrompt
+	}
+	var b strings.Builder
+	for _, s := range sections {
+		if s.Content == "" {
+			continue
+		}
+		if b.Len() > 0 {
+			b.WriteString("\n\n")
+		}
+		b.WriteString(s.Content)
+	}
+	text := b.String()
+	if maxRuleTokens > 0 {
+		text = truncateToTokenBudget(text, maxRuleTokens)
+	}
+	if text == "" {
+		return systemPrompt
+	}
+	return systemPrompt + "\n\n" + projectReviewCriteriaHeader + text
+}
+
 func truncateToTokenBudget(s string, maxTokens int) string {
 	if tokens.Estimate(s) <= maxTokens {
 		return s

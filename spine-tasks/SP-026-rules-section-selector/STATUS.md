@@ -1,4 +1,4 @@
-**Current Step:** Step 2: Prompt assembly
+**Current Step:** Step 3: Testing & Verification
 **Status:** In Progress
 **Last Updated:** 2026-10-08
 **Review Level:** 1
@@ -17,13 +17,13 @@
 
 ## Step 2: Prompt assembly
 
-**Status:** In Progress
+**Status:** Complete
 
-- [ ] `AppendRuleSections`
+- [x] `AppendRuleSections`
 
 ## Step 3: Testing & Verification
 
-**Status:** Not Started
+**Status:** In Progress
 
 - [ ] Split, select, and prompt tests per PROMPT
 - [ ] Contract `testCommand` and full `go test ./... -cover`
@@ -36,6 +36,7 @@
 | Date | Step | Type | Outcome |
 |------|------|------|---------|
 | 2026-10-08 | 1 | plan | skipped (nested reviewer spawn blocked in pi worker; engine runs review after worker success) |
+| 2026-10-08 | 2 | plan | skipped (nested reviewer spawn blocked in pi worker; engine runs review after worker success) |
 
 ## Discoveries
 
