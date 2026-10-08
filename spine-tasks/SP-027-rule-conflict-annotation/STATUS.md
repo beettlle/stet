@@ -1,5 +1,5 @@
-**Current Step:** Step 1: Not started
-**Status:** Ready
+**Current Step:** Step 1: Finding field
+**Status:** In Progress
 **Last Updated:** 2026-10-08
 **Review Level:** 1
 **Review Counter:** 0
@@ -10,7 +10,7 @@
 
 ## Step 1: Finding field
 
-**Status:** Not Started
+**Status:** In Progress
 
 - [ ] `RuleConflict` + `Finding.RuleConflict`
 

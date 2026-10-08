@@ -77,6 +77,19 @@ func TestFindingRoundtripJSON(t *testing.T) {
 				EvidenceLines: EvidenceLines{10, 12},
 			},
 		},
+		{
+			name: "with_rule_conflict",
+			finding: Finding{
+				File:         "q.go",
+				Line:         7,
+				Severity:     SeverityWarning,
+				Category:     CategoryBestPractice,
+				Confidence:   0.9,
+				Message:      "I/O in loop",
+				Suggestion:   "Batch the calls",
+				RuleConflict: &RuleConflict{Source: "go-1-21-development-standards.mdc", Section: "Performance-First Collection Handling", Probability: 0.87},
+			},
+		},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -132,6 +145,12 @@ func roundtripCompare(t *testing.T, a, b *Finding) {
 	}
 	if !reflect.DeepEqual(a.EvidenceLines, b.EvidenceLines) {
 		t.Errorf("EvidenceLines: got %v want %v", b.EvidenceLines, a.EvidenceLines)
+	}
+	if (a.RuleConflict == nil) != (b.RuleConflict == nil) {
+		t.Errorf("RuleConflict: nil mismatch (got %v want %v)", b.RuleConflict, a.RuleConflict)
+	}
+	if a.RuleConflict != nil && b.RuleConflict != nil && *a.RuleConflict != *b.RuleConflict {
+		t.Errorf("RuleConflict: got %+v want %+v", *b.RuleConflict, *a.RuleConflict)
 	}
 }
 
@@ -368,7 +387,7 @@ func TestMarshalFinding_omitempty(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := string(data)
-	if strings.Contains(s, "suggestion") || strings.Contains(s, "cursor_uri") {
+	if strings.Contains(s, "suggestion") || strings.Contains(s, "cursor_uri") || strings.Contains(s, "rule_conflict") {
 		t.Errorf("optional empty fields should be omitted: %s", s)
 	}
 	if !strings.Contains(s, "line") || !strings.Contains(s, "file") || !strings.Contains(s, "confidence") {
