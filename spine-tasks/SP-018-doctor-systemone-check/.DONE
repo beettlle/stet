@@ -1,0 +1,14 @@
+SP-018 complete 2026-10-08.
+
+Commits:
+- 4e60f3e feat(SP-018): complete Step 1 — Implement doctor check
+- 420eba2 test(SP-018): complete Step 2 — Testing and verification
+
+Verification:
+- Contract: `cd cli && go test ./cmd/stet/... -count=1 -cover -run doctor` → ok
+- Full: `cd cli && go test ./... -cover` → `cli/cmd/stet` ok, 75.1% package coverage; main.go per-file 75.1% ≥ 72% gate
+- New tests: TestRunCLI_doctorSystemOneOK / UnreachableExits2 / HealthUnauthorizedExits2 / ModelsUnauthorizedExits2 / ModelNotFoundExits1 / DisabledMakesNoRequest (all pass; no POST /v1/systemone; API key never in output)
+- go vet + go build + go test -race on doctor tests: clean
+- Pre-existing (baseline-verified, logged in STATUS.md/CONTEXT.md): gofmt violations in untouched hunks; flaky git-subprocess tests in internal/{stats,run,git} under parallel load
+
+File scope respected: only cli/cmd/stet/main.go, cli/cmd/stet/main_test.go (+ task STATUS.md/CONTEXT.md).

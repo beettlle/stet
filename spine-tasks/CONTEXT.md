@@ -123,6 +123,13 @@ spine batch start SP-018
 spine batch start SP-025
 ```
 
+### Tech debt / hygiene backlog (found during execution)
+
+| Found | Task area | Detail |
+|-------|-----------|--------|
+| 2026-10-08 (SP-018) | `gofmt` in `cli/cmd/stet/` | Pre-existing gofmt violations in `cli/cmd/stet/main.go` (~lines 1473–1618, SP-023 struct-literal alignment) and `main_test.go` (~lines 2237, 2347). Not fixed by SP-018 to keep its diff scoped; run `gofmt -w cli/cmd/stet/` in a hygiene task and consider adding a `gofmt -l` CI guard |
+| 2026-10-08 (SP-018) | Flaky git-subprocess tests | Full `go test ./...` intermittently fails different git/TempDir-heavy tests (`internal/stats`, `internal/run`, `internal/git`) under parallel package load on macOS; pass in isolation and with `-p 4`. Candidate hygiene task: serialize git-heavy tests or harden TempDir cleanup |
+
 Phase 4 tasks all touch `cli/**`; run them as the separate named batches above, never as one serial lane. Slices sharing files (SP-015/SP-021 `systemone/client.go`; SP-017/SP-022 `run.go`; SP-019/SP-024 `criticeval/`; SP-023/SP-018/SP-025 `main.go`) are ordered by dependency edges and land in different batches.
 
 **Avoid:** `spine batch start pending --wave 0` — auto-plan serializes SP-009 + SP-010 (both `cli/**`) in one lane, repeating wave-0 contract contamination ([#62](https://github.com/beettlle/pi-spine/issues/62)).

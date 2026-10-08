@@ -3189,3 +3189,283 @@ func setTestEnv(t *testing.T, key, val string) {
 		}
 	})
 }
+
+// doctorLLMServer returns a mock Ollama server whose /api/tags lists the given
+// model names, so the doctor LLM check passes.
+func doctorLLMServer(models ...string) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/tags" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		type tagModel struct {
+			Name string `json:"name"`
+		}
+		resp := struct {
+			Models []tagModel `json:"models"`
+		}{}
+		for _, name := range models {
+			resp.Models = append(resp.Models, tagModel{Name: name})
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+}
+
+// doctorSysOneServer returns a mock System One server for doctor tests with
+// canned responses for /health and /v1/models. Each request it receives is
+// appended to *reqs as "METHOD path" so tests can assert exactly which
+// endpoints doctor called (never POST /v1/systemone).
+func doctorSysOneServer(t *testing.T, reqs *[]string, healthStatus int, healthBody string, modelsStatus int, modelsBody string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		*reqs = append(*reqs, r.Method+" "+r.URL.Path)
+		switch r.URL.Path {
+		case "/health":
+			w.WriteHeader(healthStatus)
+			_, _ = w.Write([]byte(healthBody))
+			return
+		case "/v1/models":
+			w.WriteHeader(modelsStatus)
+			_, _ = w.Write([]byte(modelsBody))
+			return
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+}
+
+// setDoctorSysOneEnv configures the environment for doctor System One tests:
+// a healthy mock Ollama, the critic enabled with the systemone backend, and
+// the given System One server URL and model. STET_SYSTEMONE_API_KEY is set so
+// tests can also assert the key never leaks into output.
+func setDoctorSysOneEnv(t *testing.T, llmURL, sysOneURL string) {
+	t.Helper()
+	setTestEnv(t, "STET_PROVIDER", "ollama")
+	setTestEnv(t, "STET_OLLAMA_BASE_URL", llmURL)
+	setTestEnv(t, "STET_MODEL", "m")
+	setTestEnv(t, "STET_CRITIC_ENABLED", "1")
+	setTestEnv(t, "STET_CRITIC_BACKEND", "systemone")
+	setTestEnv(t, "STET_SYSTEMONE_BASE_URL", sysOneURL)
+	setTestEnv(t, "STET_SYSTEMONE_MODEL", "openjev-test")
+	setTestEnv(t, "STET_SYSTEMONE_API_KEY", "doctor-test-key")
+}
+
+// runCLIWithOutput runs runCLI(args) capturing os.Stdout and os.Stderr.
+// Tests using it must not run in parallel.
+func runCLIWithOutput(args []string) (code int, stdout, stderr string) {
+	stdoutR, stdoutW, err := os.Pipe()
+	if err != nil {
+		panic(err)
+	}
+	stderrR, stderrW, err := os.Pipe()
+	if err != nil {
+		panic(err)
+	}
+	oldStdout, oldStderr := os.Stdout, os.Stderr
+	os.Stdout, os.Stderr = stdoutW, stderrW
+	code = runCLI(args)
+	os.Stdout, os.Stderr = oldStdout, oldStderr
+	_ = stdoutW.Close()
+	_ = stderrW.Close()
+	var stdoutBuf, stderrBuf bytes.Buffer
+	_, _ = stdoutBuf.ReadFrom(stdoutR)
+	_, _ = stderrBuf.ReadFrom(stderrR)
+	return code, stdoutBuf.String(), stderrBuf.String()
+}
+
+// assertNoSystemOneDecisionCall fails the test if doctor issued any request
+// other than /health or /v1/models (e.g. POST /v1/systemone).
+func assertNoSystemOneDecisionCall(t *testing.T, reqs []string) {
+	t.Helper()
+	for _, req := range reqs {
+		if strings.Contains(req, "/v1/systemone") {
+			t.Errorf("doctor issued a decision request %q; it must only check /health and /v1/models", req)
+		}
+	}
+}
+
+// TestRunCLI_doctorSystemOneOK runs doctor with the critic enabled on the
+// systemone backend against healthy mock Ollama and System One servers. It
+// must exit 0, print the OK lines, and only touch /health and /v1/models.
+func TestRunCLI_doctorSystemOneOK(t *testing.T) {
+	// Do not run in parallel: test sets env and captures stdout/stderr.
+	var sysReqs []string
+	sysSrv := doctorSysOneServer(t, &sysReqs,
+		http.StatusOK, `{"status":"ok"}`,
+		http.StatusOK, `{"models":[{"name":"openjev-test"},{"name":"openjev-0.1"}]}`)
+	defer sysSrv.Close()
+	llmSrv := doctorLLMServer("m")
+	defer llmSrv.Close()
+	setDoctorSysOneEnv(t, llmSrv.URL, sysSrv.URL)
+
+	code, stdout, stderr := runCLIWithOutput([]string{"doctor"})
+	if code != 0 {
+		t.Errorf("runCLI(doctor) with healthy System One = %d, want 0; stderr: %s", code, stderr)
+	}
+	if !strings.Contains(stdout, "System One OK") {
+		t.Errorf("stdout should contain 'System One OK'; got:\n%s", stdout)
+	}
+	if !strings.Contains(stdout, "System One model: openjev-test") {
+		t.Errorf("stdout should contain 'System One model: openjev-test'; got:\n%s", stdout)
+	}
+	assertNoSystemOneDecisionCall(t, sysReqs)
+	if len(sysReqs) != 2 {
+		t.Errorf("System One server requests = %v, want exactly [GET /health GET /v1/models]", sysReqs)
+	}
+	if strings.Contains(stdout+stderr, "doctor-test-key") {
+		t.Error("API key must never appear in doctor output")
+	}
+}
+
+// TestRunCLI_doctorSystemOneUnreachableExits2 points the System One base URL
+// at a closed port; doctor must exit 2 and report the server as unreachable.
+// The client retries unreachable connections, so this test takes a few seconds.
+func TestRunCLI_doctorSystemOneUnreachableExits2(t *testing.T) {
+	// Do not run in parallel: test sets env and captures stdout/stderr.
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	addr := listener.Addr().String()
+	if err := listener.Close(); err != nil {
+		t.Fatalf("close listener: %v", err)
+	}
+	baseURL := "http://" + addr
+	llmSrv := doctorLLMServer("m")
+	defer llmSrv.Close()
+	setDoctorSysOneEnv(t, llmSrv.URL, baseURL)
+
+	code, _, stderr := runCLIWithOutput([]string{"doctor"})
+	if code != 2 {
+		t.Errorf("runCLI(doctor) with unreachable System One = %d, want 2; stderr: %s", code, stderr)
+	}
+	if !strings.Contains(stderr, "System One server unreachable at "+baseURL) {
+		t.Errorf("stderr should contain 'System One server unreachable at %s'; got:\n%s", baseURL, stderr)
+	}
+}
+
+// TestRunCLI_doctorSystemOneHealthUnauthorizedExits2 returns 401 from /health;
+// doctor must exit 2, hint at STET_SYSTEMONE_API_KEY, and never print the key.
+func TestRunCLI_doctorSystemOneHealthUnauthorizedExits2(t *testing.T) {
+	// Do not run in parallel: test sets env and captures stdout/stderr.
+	var sysReqs []string
+	sysSrv := doctorSysOneServer(t, &sysReqs,
+		http.StatusUnauthorized, `{"error":"invalid api key"}`,
+		http.StatusOK, `{"models":[{"name":"openjev-test"}]}`)
+	defer sysSrv.Close()
+	llmSrv := doctorLLMServer("m")
+	defer llmSrv.Close()
+	setDoctorSysOneEnv(t, llmSrv.URL, sysSrv.URL)
+
+	code, stdout, stderr := runCLIWithOutput([]string{"doctor"})
+	if code != 2 {
+		t.Errorf("runCLI(doctor) with 401 System One health = %d, want 2; stderr: %s", code, stderr)
+	}
+	if !strings.Contains(stderr, "STET_SYSTEMONE_API_KEY") {
+		t.Errorf("stderr should hint at STET_SYSTEMONE_API_KEY; got:\n%s", stderr)
+	}
+	// Health failed, so Models must not have been requested.
+	if len(sysReqs) != 1 || sysReqs[0] != "GET /health" {
+		t.Errorf("System One server requests = %v, want only [GET /health]", sysReqs)
+	}
+	if strings.Contains(stdout+stderr, "doctor-test-key") {
+		t.Error("API key must never appear in doctor output")
+	}
+}
+
+// TestRunCLI_doctorSystemOneModelsUnauthorizedExits2 returns 401 from
+// /v1/models only; doctor must exit 2 with the API key hint.
+func TestRunCLI_doctorSystemOneModelsUnauthorizedExits2(t *testing.T) {
+	// Do not run in parallel: test sets env and captures stdout/stderr.
+	var sysReqs []string
+	sysSrv := doctorSysOneServer(t, &sysReqs,
+		http.StatusOK, `{"status":"ok"}`,
+		http.StatusUnauthorized, `{"error":"invalid api key"}`)
+	defer sysSrv.Close()
+	llmSrv := doctorLLMServer("m")
+	defer llmSrv.Close()
+	setDoctorSysOneEnv(t, llmSrv.URL, sysSrv.URL)
+
+	code, _, stderr := runCLIWithOutput([]string{"doctor"})
+	if code != 2 {
+		t.Errorf("runCLI(doctor) with 401 System One models = %d, want 2; stderr: %s", code, stderr)
+	}
+	if !strings.Contains(stderr, "STET_SYSTEMONE_API_KEY") {
+		t.Errorf("stderr should hint at STET_SYSTEMONE_API_KEY; got:\n%s", stderr)
+	}
+}
+
+// TestRunCLI_doctorSystemOneModelNotFoundExits1 returns a healthy server whose
+// model list does not include the configured model; doctor must exit 1 and
+// print the configured model, the base URL, and the available names.
+func TestRunCLI_doctorSystemOneModelNotFoundExits1(t *testing.T) {
+	// Do not run in parallel: test sets env and captures stdout/stderr.
+	var sysReqs []string
+	sysSrv := doctorSysOneServer(t, &sysReqs,
+		http.StatusOK, `{"status":"ok"}`,
+		http.StatusOK, `{"models":[{"name":"openjev-latest"},{"name":"openjev-0.1"}]}`)
+	defer sysSrv.Close()
+	llmSrv := doctorLLMServer("m")
+	defer llmSrv.Close()
+	setDoctorSysOneEnv(t, llmSrv.URL, sysSrv.URL)
+
+	code, stdout, stderr := runCLIWithOutput([]string{"doctor"})
+	if code != 1 {
+		t.Errorf("runCLI(doctor) with missing System One model = %d, want 1; stderr: %s", code, stderr)
+	}
+	if !strings.Contains(stderr, `System One model "openjev-test" not found at `+sysSrv.URL) {
+		t.Errorf("stderr should name the missing model and base URL; got:\n%s", stderr)
+	}
+	if !strings.Contains(stderr, "openjev-latest, openjev-0.1") {
+		t.Errorf("stderr should list available model names; got:\n%s", stderr)
+	}
+	if strings.Contains(stdout, "System One OK") {
+		t.Errorf("stdout must not print OK when the model is missing; got:\n%s", stdout)
+	}
+}
+
+// TestRunCLI_doctorSystemOneDisabledMakesNoRequest verifies doctor output is
+// unchanged when the critic is disabled, and when it is enabled but uses the
+// llm backend: no System One request is made and no System One line is printed.
+func TestRunCLI_doctorSystemOneDisabledMakesNoRequest(t *testing.T) {
+	// Do not run in parallel: test sets env and captures stdout/stderr.
+	var sysReqs []string
+	sysSrv := doctorSysOneServer(t, &sysReqs,
+		http.StatusOK, `{"status":"ok"}`,
+		http.StatusOK, `{"models":[{"name":"openjev-test"}]}`)
+	defer sysSrv.Close()
+	llmSrv := doctorLLMServer("m")
+	defer llmSrv.Close()
+	setTestEnv(t, "STET_PROVIDER", "ollama")
+	setTestEnv(t, "STET_OLLAMA_BASE_URL", llmSrv.URL)
+	setTestEnv(t, "STET_MODEL", "m")
+	setTestEnv(t, "STET_SYSTEMONE_BASE_URL", sysSrv.URL)
+	setTestEnv(t, "STET_SYSTEMONE_MODEL", "openjev-test")
+
+	// Critic disabled (default): doctor must not contact the System One server.
+	code, stdout, _ := runCLIWithOutput([]string{"doctor"})
+	if code != 0 {
+		t.Errorf("runCLI(doctor) with critic disabled = %d, want 0", code)
+	}
+	if len(sysReqs) != 0 {
+		t.Errorf("System One server requests = %v with critic disabled, want none", sysReqs)
+	}
+	if strings.Contains(stdout, "System One") {
+		t.Errorf("stdout must not mention System One when the critic is disabled; got:\n%s", stdout)
+	}
+
+	// Critic enabled but backend llm: still no System One requests.
+	setTestEnv(t, "STET_CRITIC_ENABLED", "1")
+	setTestEnv(t, "STET_CRITIC_BACKEND", "llm")
+	code, stdout, _ = runCLIWithOutput([]string{"doctor"})
+	if code != 0 {
+		t.Errorf("runCLI(doctor) with critic backend llm = %d, want 0", code)
+	}
+	if len(sysReqs) != 0 {
+		t.Errorf("System One server requests = %v with critic backend llm, want none", sysReqs)
+	}
+	if strings.Contains(stdout, "System One") {
+		t.Errorf("stdout must not mention System One when the critic backend is llm; got:\n%s", stdout)
+	}
+}

@@ -1840,6 +1840,61 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(os.Stdout, "Ollama OK")
 	}
 	fmt.Fprintf(os.Stdout, "Model: %s\n", cfg.Model)
+	return checkSystemOne(cmd.Context(), cfg)
+}
+
+// checkSystemOne verifies the System One decision server when the critic is
+// enabled with the systemone backend: the server must be reachable and the
+// configured model must exist. When the critic is disabled or uses the llm
+// backend it does nothing, so doctor output is unchanged. It returns an
+// errExit error on failure, mirroring the LLM check exit codes. The API key
+// is never printed: the client redacts it from errors and this helper never
+// logs cfg.SystemOneAPIKey.
+func checkSystemOne(ctx context.Context, cfg *config.Config) error {
+	if !cfg.CriticEnabled || cfg.CriticBackend != "systemone" {
+		return nil
+	}
+	client := systemone.NewClient(cfg.SystemOneBaseURL, cfg.SystemOneAPIKey, nil)
+	if err := client.Health(ctx); err != nil {
+		if errors.Is(err, systemone.ErrUnauthorized) {
+			fmt.Fprintln(os.Stderr, "System One unauthorized. Set STET_SYSTEMONE_API_KEY (env-only; never read from config files).")
+			return errExit(2)
+		}
+		if errors.Is(err, systemone.ErrUnreachable) {
+			fmt.Fprintf(os.Stderr, "System One server unreachable at %s\n", cfg.SystemOneBaseURL)
+			return errExit(2)
+		}
+		fmt.Fprintln(os.Stderr, err.Error())
+		return errExit(1)
+	}
+	models, err := client.Models(ctx)
+	if err != nil {
+		if errors.Is(err, systemone.ErrUnauthorized) {
+			fmt.Fprintln(os.Stderr, "System One unauthorized. Set STET_SYSTEMONE_API_KEY (env-only; never read from config files).")
+			return errExit(2)
+		}
+		fmt.Fprintln(os.Stderr, err.Error())
+		return errExit(1)
+	}
+	model := cfg.SystemOneModel
+	found := false
+	for _, m := range models {
+		if m == model {
+			found = true
+			break
+		}
+	}
+	if !found {
+		available := strings.Join(models, ", ")
+		if available == "" {
+			available = "(none)"
+		}
+		fmt.Fprintf(os.Stderr, "System One model %q not found at %s\n", model, cfg.SystemOneBaseURL)
+		fmt.Fprintf(os.Stderr, "Available models: %s\n", available)
+		return errExit(1)
+	}
+	fmt.Fprintln(os.Stdout, "System One OK")
+	fmt.Fprintf(os.Stdout, "System One model: %s\n", model)
 	return nil
 }
 
