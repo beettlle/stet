@@ -143,7 +143,7 @@
     "cleanupWorktreesOnComplete": true
   },
   "dashboard": {
-    "port": 8129
+    "port": 8169
   },
   "gates": {
     "requireBeforeIntegrate": true,
