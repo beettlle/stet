@@ -1,5 +1,5 @@
-**Current Step:** Step 1: Not started
-**Status:** Ready
+**Current Step:** Step 2: Prompt assembly
+**Status:** In Progress
 **Last Updated:** 2026-10-08
 **Review Level:** 1
 **Review Counter:** 0
@@ -10,14 +10,14 @@
 
 ## Step 1: Sections and selection
 
-**Status:** Not Started
+**Status:** Complete
 
-- [ ] `Section`, `SplitSections`
-- [ ] `ChoiceDecider`, `SelectSections`
+- [x] `Section`, `SplitSections`
+- [x] `ChoiceDecider`, `SelectSections`
 
 ## Step 2: Prompt assembly
 
-**Status:** Not Started
+**Status:** In Progress
 
 - [ ] `AppendRuleSections`
 
@@ -35,7 +35,7 @@
 
 | Date | Step | Type | Outcome |
 |------|------|------|---------|
-| | | | |
+| 2026-10-08 | 1 | plan | skipped (nested reviewer spawn blocked in pi worker; engine runs review after worker success) |
 
 ## Discoveries
 
