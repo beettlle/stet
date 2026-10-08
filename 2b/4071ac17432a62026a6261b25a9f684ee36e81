@@ -1,0 +1,18 @@
+spine-tasks/SP-018-doctor-systemone-check/.DONE
+  h_ae151c586ac6c5 1-14
+spine-tasks/SP-018-doctor-systemone-check/.reviews/1-20261008T200802.md
+  h_ae151c586ac6c5 1-11
+spine-tasks/SP-018-doctor-systemone-check/.reviews/final-20261008T200857.md
+  h_ae151c586ac6c5 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2b4071ac17432a62026a6261b25a9f684ee36e81",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
