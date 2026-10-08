@@ -1,0 +1,18 @@
+spine-tasks/SP-023-critic-backend-flag-docs/.reviews/1-20261008T194234.md
+  h_ae151c586ac6c5 1-12
+spine-tasks/SP-023-critic-backend-flag-docs/.reviews/3-20261008T194309.md
+  h_ae151c586ac6c5 1-15
+spine-tasks/SP-023-critic-backend-flag-docs/.reviews/final-20261008T194733.md
+  h_ae151c586ac6c5 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b748652d56202eadb5f4cdc71c6c1f051bb8315e",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
