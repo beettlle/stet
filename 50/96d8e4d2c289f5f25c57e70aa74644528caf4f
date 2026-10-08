@@ -1,0 +1,18 @@
+spine-tasks/SP-031-gofmt-and-guard/.DONE
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-031-gofmt-and-guard/.reviews/1-20261008T224151.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-031-gofmt-and-guard/.reviews/final-20261008T224218.md
+  h_ae151c586ac6c5 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5096d8e4d2c289f5f25c57e70aa74644528caf4f",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
