@@ -23,6 +23,7 @@ import (
 	"stet/cli/internal/prompt"
 	"stet/cli/internal/review"
 	"stet/cli/internal/session"
+	"stet/cli/internal/systemone"
 	"stet/cli/internal/trace"
 )
 
@@ -82,14 +83,14 @@ func TestStart_createsSessionAndWorktree(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	opts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        true,
-		Model:         "",
-		Provider: "ollama",
-		LLMBaseURL: "",
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       true,
+		Model:        "",
+		Provider:     "ollama",
+		LLMBaseURL:   "",
 	}
 	_, err := Start(ctx, opts)
 	if err != nil {
@@ -168,7 +169,7 @@ func TestStart_refEqualsHEAD_withPersistStrictness_storesInSession(t *testing.T)
 	opts := StartOptions{
 		RepoRoot: repo, StateDir: stateDir, WorktreeRoot: "", Ref: "HEAD", DryRun: true,
 		Model: "", Provider: "ollama",
-		LLMBaseURL: "",
+		LLMBaseURL:        "",
 		PersistStrictness: &strictness,
 	}
 	if _, err := Start(ctx, opts); err != nil {
@@ -212,15 +213,15 @@ func TestStart_persistStrictnessAndRAG_storesInSession(t *testing.T) {
 	ragDefs := 5
 	ragTokens := 1000
 	opts := StartOptions{
-		RepoRoot:                   repo,
-		StateDir:                   stateDir,
-		WorktreeRoot:               "",
-		Ref:                        "HEAD~1",
-		DryRun:                     true,
-		Model:                      "",
-		Provider: "ollama",
-		LLMBaseURL:              "",
-		PersistStrictness:          &strictness,
+		RepoRoot:                       repo,
+		StateDir:                       stateDir,
+		WorktreeRoot:                   "",
+		Ref:                            "HEAD~1",
+		DryRun:                         true,
+		Model:                          "",
+		Provider:                       "ollama",
+		LLMBaseURL:                     "",
+		PersistStrictness:              &strictness,
 		PersistRAGSymbolMaxDefinitions: &ragDefs,
 		PersistRAGSymbolMaxTokens:      &ragTokens,
 	}
@@ -256,8 +257,8 @@ func TestStart_refEqualsHEAD_withPersistContext_storesInSession(t *testing.T) {
 		Ref:                 "HEAD",
 		DryRun:              true,
 		Model:               "",
-		Provider: "ollama",
-		LLMBaseURL:       "",
+		Provider:            "ollama",
+		LLMBaseURL:          "",
 		PersistContextLimit: &contextLimit,
 		PersistNumCtx:       &numCtx,
 	}
@@ -299,15 +300,15 @@ func TestStart_allowDirty_skipsCleanCheck(t *testing.T) {
 	stateDir := filepath.Join(repo, ".review")
 	writeFile(t, repo, "dirty.txt", "x\n")
 	opts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        true,
-		AllowDirty:    true,
-		Model:         "",
-		Provider: "ollama",
-		LLMBaseURL: "",
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       true,
+		AllowDirty:   true,
+		Model:        "",
+		Provider:     "ollama",
+		LLMBaseURL:   "",
 	}
 	_, err := Start(ctx, opts)
 	if err != nil {
@@ -334,15 +335,15 @@ func TestStart_allowDirty_warnsToStderr(t *testing.T) {
 	})
 
 	opts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        true,
-		AllowDirty:    true,
-		Model:         "",
-		Provider: "ollama",
-		LLMBaseURL: "",
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       true,
+		AllowDirty:   true,
+		Model:        "",
+		Provider:     "ollama",
+		LLMBaseURL:   "",
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -368,14 +369,14 @@ func TestStart_concurrentLockFails(t *testing.T) {
 	defer release()
 
 	opts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        true,
-		Model:         "",
-		Provider: "ollama",
-		LLMBaseURL: "",
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       true,
+		Model:        "",
+		Provider:     "ollama",
+		LLMBaseURL:   "",
 	}
 	_, err = Start(ctx, opts)
 	if err == nil {
@@ -652,14 +653,14 @@ func TestStart_dryRun_deterministicFindings(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	opts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        true,
-		Model:         "",
-		Provider: "ollama",
-		LLMBaseURL: "",
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       true,
+		Model:        "",
+		Provider:     "ollama",
+		LLMBaseURL:   "",
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -688,15 +689,15 @@ func TestStart_stream_emitsNDJSON(t *testing.T) {
 	stateDir := filepath.Join(repo, ".review")
 	var buf bytes.Buffer
 	opts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        true,
-		Model:         "",
-		Provider: "ollama",
-		LLMBaseURL: "",
-		StreamOut:     &buf,
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       true,
+		Model:        "",
+		Provider:     "ollama",
+		LLMBaseURL:   "",
+		StreamOut:    &buf,
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -804,14 +805,14 @@ func TestRun_dryRun_incremental(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	startOpts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        true,
-		Model:         "",
-		Provider: "ollama",
-		LLMBaseURL: "",
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       true,
+		Model:        "",
+		Provider:     "ollama",
+		LLMBaseURL:   "",
 	}
 	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -875,14 +876,14 @@ func TestRun_forceFullReview_partitionsAllHunks(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	startOpts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        true,
-		Model:         "",
-		Provider: "ollama",
-		LLMBaseURL: "",
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       true,
+		Model:        "",
+		Provider:     "ollama",
+		LLMBaseURL:   "",
 	}
 	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -925,14 +926,14 @@ func TestRun_replaceFindings(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	startOpts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        true,
-		Model:         "",
-		Provider: "ollama",
-		LLMBaseURL: "",
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       true,
+		Model:        "",
+		Provider:     "ollama",
+		LLMBaseURL:   "",
 	}
 	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -973,14 +974,14 @@ func TestStart_dryRun_noHunks(t *testing.T) {
 	stateDir := filepath.Join(repo, ".review")
 	// Baseline = HEAD so baseline..HEAD is empty (no hunks).
 	opts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD",
-		DryRun:        true,
-		Model:         "",
-		Provider: "ollama",
-		LLMBaseURL: "",
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD",
+		DryRun:       true,
+		Model:        "",
+		Provider:     "ollama",
+		LLMBaseURL:   "",
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1014,14 +1015,14 @@ func TestStart_dryRun_multipleHunksSameFile_distinctIDs(t *testing.T) {
 	runGit(t, repo, "git", "add", "multi.txt")
 	runGit(t, repo, "git", "commit", "-m", "two edits")
 	opts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        true,
-		Model:         "",
-		Provider: "ollama",
-		LLMBaseURL: "",
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       true,
+		Model:        "",
+		Provider:     "ollama",
+		LLMBaseURL:   "",
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1053,14 +1054,14 @@ func TestRun_dryRun_withNewCommitAppendsFindings(t *testing.T) {
 	stateDir := filepath.Join(repo, ".review")
 	// Start at HEAD~1: baseline = c1, last_reviewed_at = HEAD (c2). One hunk to review.
 	startOpts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        true,
-		Model:         "",
-		Provider: "ollama",
-		LLMBaseURL: "",
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       true,
+		Model:        "",
+		Provider:     "ollama",
+		LLMBaseURL:   "",
 	}
 	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1246,7 +1247,7 @@ func TestFilterHunksWithDismissedFindings(t *testing.T) {
 			wantSkipped:     0,
 		},
 		{
-			name:  "finding with Range overlapping hunk -> hunk excluded",
+			name:     "finding with Range overlapping hunk -> hunk excluded",
 			toReview: []diff.Hunk{hunkA},
 			s: &session.Session{
 				DismissedIDs: []string{"f1"},
@@ -1265,9 +1266,9 @@ func TestFilterHunksWithDismissedFindings(t *testing.T) {
 			wantSkipped:     0,
 		},
 		{
-			name:     "multiple hunks one contains dismissed -> only that excluded",
-			toReview: []diff.Hunk{hunkA, hunkB},
-			s:        &session.Session{DismissedIDs: []string{"f1"}, Findings: []findings.Finding{{ID: "f1", File: "a.go", Line: 2}}},
+			name:            "multiple hunks one contains dismissed -> only that excluded",
+			toReview:        []diff.Hunk{hunkA, hunkB},
+			s:               &session.Session{DismissedIDs: []string{"f1"}, Findings: []findings.Finding{{ID: "f1", File: "a.go", Line: 2}}},
 			forceFullReview: false,
 			wantLen:         1,
 			wantSkipped:     1,
@@ -1296,14 +1297,14 @@ func TestRun_dismissedHunksNotSentToModel(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	startOpts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        true,
-		Model:         "",
-		Provider: "ollama",
-		LLMBaseURL: "",
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       true,
+		Model:        "",
+		Provider:     "ollama",
+		LLMBaseURL:   "",
 	}
 	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1349,14 +1350,14 @@ func TestRun_forceFullReview_skipsDismissedFilter(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	startOpts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        true,
-		Model:         "",
-		Provider: "ollama",
-		LLMBaseURL: "",
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       true,
+		Model:        "",
+		Provider:     "ollama",
+		LLMBaseURL:   "",
 	}
 	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1402,14 +1403,14 @@ func TestRun_autoDismiss_addressedFindingNotRereported(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	startOpts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        true,
-		Model:         "",
-		Provider: "ollama",
-		LLMBaseURL: "",
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       true,
+		Model:        "",
+		Provider:     "ollama",
+		LLMBaseURL:   "",
 	}
 	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1509,14 +1510,14 @@ func TestStart_withMockOllama(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	opts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        false,
-		Model:         "m",
-		Provider: "ollama",
-		LLMBaseURL: srv.URL,
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       false,
+		Model:        "m",
+		Provider:     "ollama",
+		LLMBaseURL:   srv.URL,
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1568,14 +1569,14 @@ func TestStart_capturesOllamaUsage_whenNotDryRun(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	opts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        false,
-		Model:         "m",
-		Provider: "ollama",
-		LLMBaseURL: srv.URL,
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       false,
+		Model:        "m",
+		Provider:     "ollama",
+		LLMBaseURL:   srv.URL,
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1639,14 +1640,14 @@ func TestFinish_writesUsageFields_whenCaptureUsageTrue(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	startOpts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        false,
-		Model:         "m",
-		Provider: "ollama",
-		LLMBaseURL: srv.URL,
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       false,
+		Model:        "m",
+		Provider:     "ollama",
+		LLMBaseURL:   srv.URL,
 	}
 	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1713,14 +1714,14 @@ func TestFinish_omitsUsageFields_whenCaptureUsageFalse(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	startOpts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        false,
-		Model:         "m",
-		Provider: "ollama",
-		LLMBaseURL: srv.URL,
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       false,
+		Model:        "m",
+		Provider:     "ollama",
+		LLMBaseURL:   srv.URL,
 	}
 	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1779,14 +1780,14 @@ func TestStart_abstentionFilter_dropsLowConfidence(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	opts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        false,
-		Model:         "m",
-		Provider: "ollama",
-		LLMBaseURL: srv.URL,
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       false,
+		Model:        "m",
+		Provider:     "ollama",
+		LLMBaseURL:   srv.URL,
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1824,14 +1825,14 @@ func TestStart_abstentionFilter_dropsMaintainabilityUnderThreshold(t *testing.T)
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	opts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        false,
-		Model:         "m",
-		Provider: "ollama",
-		LLMBaseURL: srv.URL,
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       false,
+		Model:        "m",
+		Provider:     "ollama",
+		LLMBaseURL:   srv.URL,
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1869,14 +1870,14 @@ func TestStart_abstentionFilter_keepsHighConfidence(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	opts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        false,
-		Model:         "m",
-		Provider: "ollama",
-		LLMBaseURL: srv.URL,
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       false,
+		Model:        "m",
+		Provider:     "ollama",
+		LLMBaseURL:   srv.URL,
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1920,14 +1921,14 @@ func TestStart_fpKillList_filtersBannedPhrase(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	opts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        false,
-		Model:         "m",
-		Provider: "ollama",
-		LLMBaseURL: srv.URL,
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       false,
+		Model:        "m",
+		Provider:     "ollama",
+		LLMBaseURL:   srv.URL,
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -1965,17 +1966,17 @@ func TestStart_strictPreset_keepsLowerConfidence(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	opts := StartOptions{
-		RepoRoot:                   repo,
-		StateDir:                   stateDir,
-		WorktreeRoot:               "",
-		Ref:                        "HEAD~1",
-		DryRun:                     false,
-		Model:                      "m",
-		Provider: "ollama",
-		LLMBaseURL:              srv.URL,
-		MinConfidenceKeep:         0.6,
+		RepoRoot:                     repo,
+		StateDir:                     stateDir,
+		WorktreeRoot:                 "",
+		Ref:                          "HEAD~1",
+		DryRun:                       false,
+		Model:                        "m",
+		Provider:                     "ollama",
+		LLMBaseURL:                   srv.URL,
+		MinConfidenceKeep:            0.6,
 		MinConfidenceMaintainability: 0.7,
-		ApplyFPKillList:            ptrBool(true),
+		ApplyFPKillList:              ptrBool(true),
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -2016,17 +2017,17 @@ func TestStart_strictPlus_keepsBannedPhrase(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	opts := StartOptions{
-		RepoRoot:                   repo,
-		StateDir:                   stateDir,
-		WorktreeRoot:               "",
-		Ref:                        "HEAD~1",
-		DryRun:                     false,
-		Model:                      "m",
-		Provider: "ollama",
-		LLMBaseURL:              srv.URL,
-		MinConfidenceKeep:          0.8,
+		RepoRoot:                     repo,
+		StateDir:                     stateDir,
+		WorktreeRoot:                 "",
+		Ref:                          "HEAD~1",
+		DryRun:                       false,
+		Model:                        "m",
+		Provider:                     "ollama",
+		LLMBaseURL:                   srv.URL,
+		MinConfidenceKeep:            0.8,
 		MinConfidenceMaintainability: 0.9,
-		ApplyFPKillList:            ptrBool(false),
+		ApplyFPKillList:              ptrBool(false),
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -2067,17 +2068,17 @@ func TestStart_nitpicky_keepsBannedPhrase(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	opts := StartOptions{
-		RepoRoot:                    repo,
-		StateDir:                    stateDir,
-		WorktreeRoot:                "",
-		Ref:                         "HEAD~1",
-		DryRun:                      false,
-		Model:                       "m",
-		Provider: "ollama",
-		LLMBaseURL:               srv.URL,
-		MinConfidenceKeep:           0.8,
+		RepoRoot:                     repo,
+		StateDir:                     stateDir,
+		WorktreeRoot:                 "",
+		Ref:                          "HEAD~1",
+		DryRun:                       false,
+		Model:                        "m",
+		Provider:                     "ollama",
+		LLMBaseURL:                   srv.URL,
+		MinConfidenceKeep:            0.8,
 		MinConfidenceMaintainability: 0.9,
-		Nitpicky:                    true,
+		Nitpicky:                     true,
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -2117,14 +2118,14 @@ func TestStart_removesWorktreeOnFailure(t *testing.T) {
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
 	opts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        false,
-		Model:         "m",
-		Provider: "ollama",
-		LLMBaseURL: srv.URL,
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       false,
+		Model:        "m",
+		Provider:     "ollama",
+		LLMBaseURL:   srv.URL,
 	}
 	_, err := Start(ctx, opts)
 	if err == nil {
@@ -2196,8 +2197,8 @@ func TestStart_tokenWarningWhenOverThreshold(t *testing.T) {
 		Ref:           "HEAD~1",
 		DryRun:        false,
 		Model:         "m",
-		Provider: "ollama",
-		LLMBaseURL: srv.URL,
+		Provider:      "ollama",
+		LLMBaseURL:    srv.URL,
 		ContextLimit:  100,
 		WarnThreshold: 0.9,
 	}
@@ -2254,14 +2255,14 @@ func TestRun_tokenWarningWhenOverThreshold(t *testing.T) {
 	stateDir := filepath.Join(repo, ".review")
 	// Start a session with dry-run so Run has something to run against.
 	startOpts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        true,
-		Model:         "",
-		Provider: "ollama",
-		LLMBaseURL: "",
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       true,
+		Model:        "",
+		Provider:     "ollama",
+		LLMBaseURL:   "",
 	}
 	if _, err := Start(ctx, startOpts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -2276,8 +2277,8 @@ func TestRun_tokenWarningWhenOverThreshold(t *testing.T) {
 		StateDir:      stateDir,
 		DryRun:        false,
 		Model:         "m",
-		Provider: "ollama",
-		LLMBaseURL: srv.URL,
+		Provider:      "ollama",
+		LLMBaseURL:    srv.URL,
 		ContextLimit:  100,
 		WarnThreshold: 0.9,
 	}
@@ -2336,14 +2337,14 @@ func TestRun_pipeline_multipleHunks_ordersFindingsAndOneGeneratePerHunk(t *testi
 	runGit(t, repo, "git", "commit", "-m", "c3")
 	// Start with mock: pipeline runs during Start and reviews 2 hunks (f3, f4).
 	opts := StartOptions{
-		RepoRoot:      repo,
-		StateDir:      stateDir,
-		WorktreeRoot:  "",
-		Ref:           "HEAD~1",
-		DryRun:        false,
-		Model:         "m",
-		Provider: "ollama",
-		LLMBaseURL: srv.URL,
+		RepoRoot:     repo,
+		StateDir:     stateDir,
+		WorktreeRoot: "",
+		Ref:          "HEAD~1",
+		DryRun:       false,
+		Model:        "m",
+		Provider:     "ollama",
+		LLMBaseURL:   srv.URL,
 	}
 	if _, err := Start(ctx, opts); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -2878,4 +2879,375 @@ func TestApplyCritic(t *testing.T) {
 			t.Errorf("calls = %d, want 2 (initial + parse retry)", fake.calls)
 		}
 	})
+}
+
+// fakeSystemOneDecider implements review.SystemOneDecider for applyCritic
+// System One tests. It records every request; responses/errors repeat the
+// last entry once the slice is exhausted.
+type fakeSystemOneDecider struct {
+	responses []*systemone.Response // response per Decide call (last repeats)
+	errs      []error               // error per Decide call (last repeats); nil entries succeed
+	calls     int
+	requests  []systemone.Request
+}
+
+func (f *fakeSystemOneDecider) Decide(ctx context.Context, req systemone.Request) (*systemone.Response, error) {
+	f.calls++
+	f.requests = append(f.requests, req)
+	if len(f.errs) > 0 {
+		i := f.calls - 1
+		if i >= len(f.errs) {
+			i = len(f.errs) - 1
+		}
+		if f.errs[i] != nil {
+			return nil, f.errs[i]
+		}
+	}
+	i := len(f.responses) - 1
+	if f.calls-1 < len(f.responses) {
+		i = f.calls - 1
+	}
+	return f.responses[i], nil
+}
+
+// noulResponse builds a System One response mapping question key -> P(yes).
+func noulResponse(probs map[string]float64) *systemone.Response {
+	answers := make(map[string]systemone.NoulAnswer, len(probs))
+	for k, v := range probs {
+		answers[k] = systemone.NoulAnswer{Noul: v}
+	}
+	return &systemone.Response{Model: "openjev-0.1", Answers: answers}
+}
+
+func TestApplyCriticSystemOne(t *testing.T) {
+	t.Parallel()
+	hunk := diff.Hunk{FilePath: "a.go", RawContent: "package main\n"}
+	p := &preparedPrompt{Hunk: hunk}
+	mkBatch := func() []findings.Finding {
+		return []findings.Finding{
+			{ID: "f1", File: "a.go", Line: 1, Severity: "warning", Category: "bug", Message: "m1"},
+			{ID: "f2", File: "a.go", Line: 2, Severity: "warning", Category: "style", Message: "m2"},
+		}
+	}
+	mkOpts := func(decider *fakeSystemOneDecider) reviewPipelineOpts {
+		return reviewPipelineOpts{
+			CriticEnabled:    true,
+			CriticBackend:    "systemone",
+			SystemOneClient:  decider,
+			SystemOneBaseURL: "http://localhost:11434",
+			SystemOneModel:   "openjev-0.1",
+			SystemOneMinKeep: 0.5,
+			SystemOneSamples: 3,
+		}
+	}
+
+	t.Run("disabled returns batch unchanged with no calls", func(t *testing.T) {
+		decider := &fakeSystemOneDecider{responses: []*systemone.Response{noulResponse(map[string]float64{"f0": 0.9, "f1": 0.9})}}
+		opts := mkOpts(decider)
+		opts.CriticEnabled = false
+		in := mkBatch()
+		out, err := applyCritic(context.Background(), opts, p, in)
+		if err != nil {
+			t.Fatalf("applyCritic: %v", err)
+		}
+		if len(out) != 2 || out[0].ID != "f1" || out[1].ID != "f2" {
+			t.Errorf("out = %+v, want input unchanged", out)
+		}
+		if decider.calls != 0 {
+			t.Errorf("decider calls = %d, want 0", decider.calls)
+		}
+	})
+
+	t.Run("empty batch returns unchanged with no calls", func(t *testing.T) {
+		decider := &fakeSystemOneDecider{responses: []*systemone.Response{noulResponse(nil)}}
+		out, err := applyCritic(context.Background(), mkOpts(decider), p, nil)
+		if err != nil {
+			t.Fatalf("applyCritic: %v", err)
+		}
+		if out != nil {
+			t.Errorf("out = %+v, want nil", out)
+		}
+		if decider.calls != 0 {
+			t.Errorf("decider calls = %d, want 0", decider.calls)
+		}
+	})
+
+	t.Run("keeps findings at or above minKeep and drops below", func(t *testing.T) {
+		decider := &fakeSystemOneDecider{responses: []*systemone.Response{noulResponse(map[string]float64{"f0": 0.9997, "f1": 0.2})}}
+		out, err := applyCritic(context.Background(), mkOpts(decider), p, mkBatch())
+		if err != nil {
+			t.Fatalf("applyCritic: %v", err)
+		}
+		if len(out) != 1 || out[0].ID != "f1" {
+			t.Fatalf("kept = %+v, want only f1 (0.9997 >= 0.5; 0.2 dropped)", out)
+		}
+		if decider.calls != 1 {
+			t.Errorf("decider calls = %d, want 1 (one request per hunk)", decider.calls)
+		}
+		req := decider.requests[0]
+		if req.Model != "openjev-0.1" {
+			t.Errorf("request model = %q, want openjev-0.1 (SystemOneModel passed through)", req.Model)
+		}
+		if req.Samples != 3 {
+			t.Errorf("request samples = %d, want 3 (SystemOneSamples passed through)", req.Samples)
+		}
+		if !strings.Contains(req.State, "package main") {
+			t.Errorf("request state = %q, want hunk content (p.Hunk.RawContent) in state", req.State)
+		}
+		if len(req.Questions) != 2 {
+			t.Errorf("request questions = %d, want 2 (one per finding)", len(req.Questions))
+		}
+	})
+
+	t.Run("trace summary and per-finding score lines", func(t *testing.T) {
+		var traceBuf bytes.Buffer
+		decider := &fakeSystemOneDecider{responses: []*systemone.Response{noulResponse(map[string]float64{"f0": 0.9997, "f1": 0.2})}}
+		opts := mkOpts(decider)
+		opts.TraceOut = trace.New(&traceBuf)
+		out, err := applyCritic(context.Background(), opts, p, mkBatch())
+		if err != nil {
+			t.Fatalf("applyCritic: %v", err)
+		}
+		if len(out) != 1 {
+			t.Fatalf("kept %d findings, want 1", len(out))
+		}
+		got := traceBuf.String()
+		for _, want := range []string{
+			"Critic (systemone): 2 -> 1",
+			"score=0.9997 id=f1",
+			"score=0.2000 id=f2",
+		} {
+			if !strings.Contains(got, want) {
+				t.Errorf("trace = %q, want %q", got, want)
+			}
+		}
+		if strings.Contains(got, "questions") || strings.Contains(got, `"state"`) {
+			t.Errorf("trace = %q, want no request bodies logged", got)
+		}
+	})
+
+	t.Run("decider error aborts with user message naming base URL", func(t *testing.T) {
+		var traceBuf bytes.Buffer
+		decideErr := errors.New("connection refused")
+		decider := &fakeSystemOneDecider{errs: []error{decideErr}}
+		opts := mkOpts(decider)
+		opts.TraceOut = trace.New(&traceBuf)
+		out, err := applyCritic(context.Background(), opts, p, mkBatch())
+		if out != nil {
+			t.Errorf("out = %+v, want nil", out)
+		}
+		if err == nil {
+			t.Fatal("applyCritic err = nil, want Critic failed error")
+		}
+		want := "Critic failed for a.go (System One at http://localhost:11434)."
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("err = %v, want it to contain %q", err, want)
+		}
+		if !errors.Is(err, decideErr) {
+			t.Errorf("err %v does not wrap %v", err, decideErr)
+		}
+		if strings.Contains(strings.ToLower(err.Error()), "sk-") {
+			t.Errorf("err = %v, want no API key material", err)
+		}
+		if got := traceBuf.String(); !strings.Contains(got, "Critic request failed:") || !strings.Contains(got, "connection refused") {
+			t.Errorf("trace = %q, want Critic request failed with connection refused", got)
+		}
+		if decider.calls != 1 {
+			t.Errorf("decider calls = %d, want 1 (stop on first error)", decider.calls)
+		}
+	})
+
+	t.Run("nil client aborts instead of silently disabling verification", func(t *testing.T) {
+		opts := mkOpts(nil)
+		opts.SystemOneClient = nil
+		out, err := applyCritic(context.Background(), opts, p, mkBatch())
+		if out != nil {
+			t.Errorf("out = %+v, want nil", out)
+		}
+		if err == nil {
+			t.Fatal("applyCritic err = nil, want Critic failed error")
+		}
+		want := "Critic failed for a.go (System One at http://localhost:11434)."
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("err = %v, want it to contain %q", err, want)
+		}
+	})
+
+	t.Run("empty CriticModel does not block systemone backend", func(t *testing.T) {
+		decider := &fakeSystemOneDecider{responses: []*systemone.Response{noulResponse(map[string]float64{"f0": 0.9})}}
+		opts := mkOpts(decider)
+		opts.CriticModel = "" // LLM guard must not apply to the System One branch
+		out, err := applyCritic(context.Background(), opts, p, mkBatch()[:1])
+		if err != nil {
+			t.Fatalf("applyCritic: %v", err)
+		}
+		if len(out) != 1 {
+			t.Fatalf("kept %d findings, want 1", len(out))
+		}
+		if decider.calls != 1 {
+			t.Errorf("decider calls = %d, want 1", decider.calls)
+		}
+	})
+
+	t.Run("llm backend still uses VerifyFinding", func(t *testing.T) {
+		decider := &fakeSystemOneDecider{responses: []*systemone.Response{noulResponse(map[string]float64{"f0": 0.9})}}
+		llmFake := &fakeCriticLLM{responses: []string{"{\"verdict\":\"yes\",\"reason\":\"ok\"}", "{\"verdict\":\"no\",\"reason\":\"bad\"}"}}
+		opts := reviewPipelineOpts{
+			Client: llmFake, Model: "main", CriticEnabled: true,
+			CriticBackend: "llm", CriticModel: "critic",
+			SystemOneClient:  decider,
+			SystemOneBaseURL: "http://localhost:11434",
+			SystemOneModel:   "openjev-0.1",
+			SystemOneMinKeep: 0.5,
+		}
+		out, err := applyCritic(context.Background(), opts, p, mkBatch())
+		if err != nil {
+			t.Fatalf("applyCritic: %v", err)
+		}
+		if len(out) != 1 || out[0].ID != "f1" {
+			t.Fatalf("kept = %+v, want only f1 (LLM verdicts yes/no)", out)
+		}
+		if llmFake.calls != 2 {
+			t.Errorf("llm calls = %d, want 2 (one per finding)", llmFake.calls)
+		}
+		if decider.calls != 0 {
+			t.Errorf("decider calls = %d, want 0 (llm backend must not touch System One)", decider.calls)
+		}
+	})
+
+	t.Run("default backend empty uses llm critic", func(t *testing.T) {
+		decider := &fakeSystemOneDecider{responses: []*systemone.Response{noulResponse(map[string]float64{"f0": 0.9})}}
+		llmFake := &fakeCriticLLM{responses: []string{"{\"verdict\":\"yes\",\"reason\":\"ok\"}"}}
+		opts := reviewPipelineOpts{
+			Client: llmFake, Model: "main", CriticEnabled: true, CriticModel: "critic",
+			SystemOneClient: decider,
+		}
+		out, err := applyCritic(context.Background(), opts, p, mkBatch()[:1])
+		if err != nil {
+			t.Fatalf("applyCritic: %v", err)
+		}
+		if len(out) != 1 {
+			t.Fatalf("kept %d findings, want 1", len(out))
+		}
+		if llmFake.calls != 1 || decider.calls != 0 {
+			t.Errorf("llm calls = %d, decider calls = %d; want 1 and 0 (default backend unchanged)", llmFake.calls, decider.calls)
+		}
+	})
+}
+
+func TestRunReviewPipeline_systemOneCritic(t *testing.T) {
+	t.Parallel()
+	validResp := `[{"file":"a.go","line":1,"severity":"warning","category":"bug","message":"pipeline-sysone"}]`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		enc := json.NewEncoder(w)
+		_ = enc.Encode(map[string]interface{}{"response": validResp, "done": true})
+	}))
+	defer srv.Close()
+
+	client, err := llm.NewClient("ollama", srv.URL, srv.Client())
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	stateDir := t.TempDir()
+	systemBase, err := prompt.SystemPrompt(stateDir, "")
+	if err != nil {
+		t.Fatalf("SystemPrompt: %v", err)
+	}
+	decider := &fakeSystemOneDecider{responses: []*systemone.Response{noulResponse(map[string]float64{"f0": 0.1})}}
+	var traceBuf bytes.Buffer
+	hunk := diff.Hunk{FilePath: "a.go", RawContent: "@@ -1 +1 @@\npackage main\n", Context: "package main\n"}
+	collected, _, _, _, _, err := runReviewPipeline(context.Background(), reviewPipelineOpts{
+		Client:           client,
+		Model:            "m",
+		Hunks:            []diff.Hunk{hunk},
+		GenOpts:          &ollama.GenerateOptions{},
+		SystemBase:       systemBase,
+		CriticEnabled:    true,
+		CriticBackend:    "systemone",
+		SystemOneClient:  decider,
+		SystemOneBaseURL: srv.URL,
+		SystemOneModel:   "openjev-0.1",
+		SystemOneMinKeep: 0.5,
+		TraceOut:         trace.New(&traceBuf),
+	})
+	if err != nil {
+		t.Fatalf("runReviewPipeline: %v", err)
+	}
+	if len(collected) != 0 {
+		t.Errorf("collected = %+v, want empty (score 0.1 < 0.5)", collected)
+	}
+	if decider.calls != 1 {
+		t.Errorf("decider calls = %d, want 1", decider.calls)
+	}
+	if len(decider.requests) == 1 && !strings.Contains(decider.requests[0].State, "package main") {
+		t.Errorf("request state = %q, want hunk content", decider.requests[0].State)
+	}
+	if got := traceBuf.String(); !strings.Contains(got, "Critic (systemone): 1 -> 0") {
+		t.Errorf("trace = %q, want Critic (systemone): 1 -> 0", got)
+	}
+}
+
+func TestStart_dryRun_neverCallsSystemOne(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	decider := &fakeSystemOneDecider{responses: []*systemone.Response{noulResponse(map[string]float64{"f0": 0.9})}}
+	opts := StartOptions{
+		RepoRoot:         repo,
+		StateDir:         stateDir,
+		WorktreeRoot:     "",
+		Ref:              "HEAD~1",
+		DryRun:           true,
+		Model:            "",
+		Provider:         "ollama",
+		LLMBaseURL:       "",
+		CriticEnabled:    true,
+		CriticBackend:    "systemone",
+		SystemOneClient:  decider,
+		SystemOneBaseURL: "http://localhost:11434",
+		SystemOneModel:   "openjev-0.1",
+		SystemOneMinKeep: 0.5,
+	}
+	if _, err := Start(ctx, opts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	if decider.calls != 0 {
+		t.Errorf("decider calls = %d, want 0 (dry-run must never reach the System One critic)", decider.calls)
+	}
+}
+
+func TestRun_dryRun_neverCallsSystemOne(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	startOpts := StartOptions{
+		RepoRoot: repo, StateDir: stateDir, WorktreeRoot: "", Ref: "HEAD~1", DryRun: true,
+		Model: "", Provider: "ollama", LLMBaseURL: "",
+	}
+	if _, err := Start(ctx, startOpts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	decider := &fakeSystemOneDecider{responses: []*systemone.Response{noulResponse(map[string]float64{"f0": 0.9})}}
+	runOpts := RunOptions{
+		RepoRoot: repo, StateDir: stateDir, DryRun: true,
+		CriticEnabled:    true,
+		CriticBackend:    "systemone",
+		SystemOneClient:  decider,
+		SystemOneBaseURL: "http://localhost:11434",
+		SystemOneModel:   "openjev-0.1",
+		SystemOneMinKeep: 0.5,
+	}
+	if _, err := Run(ctx, runOpts); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if decider.calls != 0 {
+		t.Errorf("decider calls = %d, want 0 (dry-run must never reach the System One critic)", decider.calls)
+	}
 }
