@@ -1,0 +1,19 @@
+cli/internal/rag/python/resolver.go
+  s_9eaa7c5400c567::t_3bec0426c71ca6 186-187
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3019b22e67de9873ccb12e84b8ab6448f730e3e9",
+  "prompts": {},
+  "sessions": {
+    "s_9eaa7c5400c567": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "agent-05e3c619-c4cb-4e87-afb9-4fb44b1ae190",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
