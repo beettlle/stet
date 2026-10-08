@@ -1,0 +1,18 @@
+cli/internal/prompt/prompt.go
+  h_ae151c586ac6c5 225-253
+cli/internal/prompt/prompt_test.go
+  h_ae151c586ac6c5 763-837
+spine-tasks/SP-026-rules-section-selector/STATUS.md
+  h_ae151c586ac6c5 1,20,22,26,39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f09cc59351ccd934cdeb938b17466ba484d572a1",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
