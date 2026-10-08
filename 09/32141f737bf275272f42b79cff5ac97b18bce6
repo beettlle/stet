@@ -1,0 +1,18 @@
+cli/internal/config/config.go
+  h_ae151c586ac6c5 355-357,628-633,862-905,946,948,1043-1049,1063
+cli/internal/config/config_test.go
+  h_ae151c586ac6c5 1567-1711
+spine-tasks/SP-014-critic-backend-config/STATUS.md
+  h_ae151c586ac6c5 1,21,23-25,58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0932141f737bf275272f42b79cff5ac97b18bce6",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
