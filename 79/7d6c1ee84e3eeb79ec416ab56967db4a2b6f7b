@@ -1,0 +1,16 @@
+cli/internal/systemone/client.go
+  h_ae151c586ac6c5 1-358
+spine-tasks/SP-015-systemone-client/STATUS.md
+  h_ae151c586ac6c5 1-3,13,15-17,34,48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "797d6c1ee84e3eeb79ec416ab56967db4a2b6f7b",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
