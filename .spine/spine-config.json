@@ -9,22 +9,119 @@
   },
   "baseBranch": "main",
   "testing": {
-    "build": "cd cli && go build ./... && cd ../extension && npm run compile",
-    "test": "cd cli && go test ./... -count=1 && cd ../extension && npm test",
-    "testWithCoverage": "cd cli && go test ./... -cover && cd ../extension && npm test"
+    "build": "scripts/build-all.sh",
+    "test": "scripts/test-all.sh",
+    "testWithCoverage": "scripts/coverage-all.sh"
   },
   "agents": {
     "worker": {
-      "model": "cursor/auto",
+      "model": "zai/glm-5.3-flash",
       "thinking": "high"
     },
     "reviewer": {
-      "model": "cursor/auto",
-      "thinking": "medium"
+      "model": "google/gemini-3.1-pro-preview",
+      "thinking": "high",
+      "plan": {
+        "model": "google/gemini-3.1-pro-preview",
+        "thinking": "high"
+      },
+      "code": {
+        "model": "google/gemini-3.1-pro-preview",
+        "thinking": "high"
+      },
+      "final": {
+        "model": "google/gemini-3.1-pro-preview",
+        "thinking": "high"
+      }
     },
     "supervisor": {
-      "model": "inherit",
+      "model": "google/gemini-3.5-flash-lite",
       "thinking": "off"
+    },
+    "activeProfile": "default",
+    "profiles": {
+      "default": {
+        "worker": {
+          "model": "zai/glm-5.3-flash",
+          "thinking": "high"
+        },
+        "reviewer": {
+          "model": "google/gemini-3.1-pro-preview",
+          "thinking": "high",
+          "plan": {
+            "model": "google/gemini-3.1-pro-preview",
+            "thinking": "high"
+          },
+          "code": {
+            "model": "google/gemini-3.1-pro-preview",
+            "thinking": "high"
+          },
+          "final": {
+            "model": "google/gemini-3.1-pro-preview",
+            "thinking": "high"
+          }
+        },
+        "supervisor": {
+          "model": "google/gemini-3.5-flash-lite",
+          "thinking": "off"
+        }
+      },
+      "hard": {
+        "worker": {
+          "model": "zai/glm-5.3",
+          "thinking": "high"
+        },
+        "reviewer": {
+          "model": "google/gemini-3.1-pro-preview",
+          "thinking": "high",
+          "plan": {
+            "model": "google/gemini-3.1-pro-preview",
+            "thinking": "high"
+          },
+          "code": {
+            "model": "google/gemini-3.1-pro-preview",
+            "thinking": "high"
+          },
+          "final": {
+            "model": "google/gemini-3.1-pro-preview",
+            "thinking": "high"
+          }
+        },
+        "supervisor": {
+          "model": "google/gemini-3.5-flash-lite",
+          "thinking": "off"
+        }
+      },
+      "allegretto": {
+        "worker": {
+          "model": "kimi-coding/k3",
+          "thinking": "high"
+        },
+        "reviewer": {
+          "model": "google/gemini-3.1-pro-preview",
+          "thinking": "high",
+          "plan": {
+            "model": "google/gemini-3.1-pro-preview",
+            "thinking": "high"
+          },
+          "code": {
+            "model": "google/gemini-3.1-pro-preview",
+            "thinking": "high"
+          },
+          "final": {
+            "model": "google/gemini-3.1-pro-preview",
+            "thinking": "high"
+          }
+        },
+        "supervisor": {
+          "model": "google/gemini-3.5-flash-lite",
+          "thinking": "off"
+        }
+      }
+    },
+    "escalatePolicy": {
+      "enabled": true,
+      "toProfile": "hard"
     }
   },
   "lanes": {
@@ -53,13 +150,19 @@
     "collectBuildEvidence": true,
     "collectTestEvidence": true
   },
+  "integrate": {
+    "isolatedWorktree": true,
+    "allowHumanOnBaseBranch": "warn"
+  },
   "review": {
     "requireFinalVerdict": true,
     "maxFinalAttempts": 3
   },
   "handoff": {
     "path": ".spine/handoff.md",
-    "autoWriteOn": []
+    "autoWriteOn": [
+      "session_start"
+    ]
   },
   "metrics": {
     "enabled": true,
@@ -71,7 +174,7 @@
       "TP-"
     ]
   },
-  "worktreeSetupHook": "",
+  "worktreeSetupHook": "scripts/spine-worktree-setup.sh",
   "worktreeSetupIgnorePaths": [],
   "referenceDocs": [
     "docs/constitution.md"
