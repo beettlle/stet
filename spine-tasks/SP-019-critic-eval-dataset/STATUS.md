@@ -40,7 +40,7 @@
 
 | Date | Step | Type | Outcome |
 |------|------|------|---------|
-| | | | |
+| 2026-10-08 | 0 | plan | skipped — in-worker reviewer spawn blocked (SP-195); batch engine runs final review after `.DONE` |
 
 ## Discoveries
 
@@ -71,3 +71,11 @@
 | | | |
 
 ## Notes
+
+**Completion criteria (2026-10-08):**
+
+- [x] All steps complete (0, 1, 2)
+- [x] All tests passing — contract `testCommand` green: `ok stet/cli/internal/criticeval 94.7%` statements; 11/11 tests green. Full `go test ./...` green except the documented environmental TempDir-cleanup flake (`stats`/`git`/`run`/`cmd/stet`); every affected package passes in isolation
+- [x] Loader never writes to `.review/` — read path only (`os.Stat`, `history.ReadRecords`, `session.Load`, `os.Open`); test asserts state-dir content hash unchanged across `LoadFromState`
+- [x] `dataset.go` coverage 94.7% (gate ≥72%); per-function: `LoadFromState` 92.1%, `LoadDataset` 96.3%
+- [x] File scope respected — only `cli/internal/criticeval/**` + this packet's STATUS changed; `history/**`, `session/**`, `review/**`, `cmd/**`, `extension/**` untouched
