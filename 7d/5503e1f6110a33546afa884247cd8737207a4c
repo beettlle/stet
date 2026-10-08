@@ -1,0 +1,18 @@
+spine-tasks/SP-030-git-test-isolation/.DONE
+  h_ae151c586ac6c5 1-7
+spine-tasks/SP-030-git-test-isolation/.reviews/1-20261008T221848.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-030-git-test-isolation/.reviews/final-20261008T221953.md
+  h_ae151c586ac6c5 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7d5503e1f6110a33546afa884247cd8737207a4c",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
