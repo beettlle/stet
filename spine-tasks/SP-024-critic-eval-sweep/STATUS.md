@@ -1,6 +1,6 @@
-**Current Step:** Step 1: Not started
-**Status:** Ready
-**Last Updated:** 2026-09-30
+**Current Step:** Step 1: Scoring and evaluation
+**Status:** In Progress
+**Last Updated:** 2026-10-08
 **Review Level:** 1
 **Review Counter:** 0
 **Iteration:** 0
@@ -10,7 +10,7 @@
 
 ## Step 1: Scoring and evaluation
 
-**Status:** Not Started
+**Status:** In Progress
 
 - [ ] `Score` (one call per hunk group, latencies)
 - [ ] `Evaluate` (sweep, percentiles, recommendation, warnings)
