@@ -1,0 +1,14 @@
+cli/internal/systemone/client.go
+  h_ae151c586ac6c5 4-5,43-48,279-322
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cd794aab0a4126e888f03f2b0da93c52d42f2df8",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
