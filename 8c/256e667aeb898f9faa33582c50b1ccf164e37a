@@ -1,0 +1,18 @@
+spine-tasks/SP-025-critic-eval-command/.DONE
+  h_ae151c586ac6c5 1-4
+spine-tasks/SP-025-critic-eval-command/.reviews/1-20261008T203221.md
+  h_ae151c586ac6c5 1-9
+spine-tasks/SP-025-critic-eval-command/.reviews/final-20261008T203348.md
+  h_ae151c586ac6c5 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8c256e667aeb898f9faa33582c50b1ccf164e37a",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
