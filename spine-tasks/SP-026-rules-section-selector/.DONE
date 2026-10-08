@@ -1,0 +1,8 @@
+SP-026 complete 2026-10-08.
+
+- rules.Section / SplitSections: fence-aware ##/### heading split, empty sections dropped, preamble Heading = Source
+- rules.ChoiceDecider / SelectSections: single System One choice request per hunk, s0..s63 option cap (maxSelectorOptions=64), option description = "Source: Heading" (never section body), probability ranking with input-order ties, greedy token-budget fill with oversized-section skip; hunk text only in request state ("Code under review:\n" prefix, 4096-char cap); wrapped errors for nil client / empty model / no sections / decider failure / missing answer
+- prompt.AppendRuleSections: same "## Project review criteria" header as AppendCursorRules, order preserved, truncateToTokenBudget safety net, unchanged for empty input
+- Verification: contract testCommand green (vet + rules/prompt/review), full `go test ./... -cover` green (zero failures), scripts/check-coverage.sh PASS (project 82.3%, every file >= 72%), scripts/check-gofmt.sh PASS
+- Scope: only cli/internal/rules/selector.go, cli/internal/rules/selector_test.go, cli/internal/prompt/prompt.go, cli/internal/prompt/prompt_test.go (+ STATUS.md); commits 17012c3, f09cc59, 32e9320
+- Plan reviews at step checkpoints returned skipped (nested reviewer spawn blocked in pi worker; batch engine owns review after worker success)
