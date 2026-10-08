@@ -1,0 +1,4 @@
+SP-021 complete.
+- Step 1: `Health` (GET /health, nil only on `status == "ok"`) and `Models` (GET /v1/models, names in server order) added to `cli/internal/systemone/client.go` via the shared SP-015 `do` helper; package doc updated. Commit cd794aa.
+- Step 2: 10 httptest cases (health ok / wrong body / 500 exhausted, models list with real OpenJev shape / 401→ErrUnauthorized / unreachable→ErrUnreachable, base URL with and without `/v1`). Contract testCommand ok (89.9% pkg coverage); `client.go` 93.6% (gate 72%, Health/Models 100%); full `go test ./... -cover` green. Flaky TempDir cleanup in scope/stats/run logged as pre-existing and unrelated. Commit 657ce5d.
+- `Decide` and request helper untouched; not wired into `stet doctor` (SP-018).
