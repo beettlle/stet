@@ -109,3 +109,6 @@ Add `CriticBackend *string` to `Overrides` so a later task (SP-017) can wire a `
 ---
 
 ## Amendments (Added During Execution)
+
+- `applyOverrides` signature changed from `void` to `error` so an invalid `CriticBackend` override is rejected the same way as env/TOML (`Load` propagates the error). This implements the PROMPT requirement "applyOverrides must validate it the same way as env/TOML"; previously overrides silently ignored invalid values (see `TestLoad_strictnessInvalidFromOverrides_keepsDefault`). Only in-package callers; behavior unchanged when values are valid.
+- Full-suite flake documented: `internal/stats` and `internal/run`/`cmd/stet` tests intermittently fail under full-suite parallel load on this machine (TempDir `.git` unlink races); verified on pristine baseline via `git stash`. All affected packages pass sequentially (`-p 1`) with SP-014 changes applied.

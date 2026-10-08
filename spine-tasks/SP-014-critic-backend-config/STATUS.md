@@ -1,5 +1,5 @@
-**Current Step:** Step 3: Testing and verification
-**Status:** In Progress
+**Current Step:** Complete
+**Status:** Awaiting final review (.DONE created)
 **Last Updated:** 2026-10-08
 **Review Level:** 1
 **Review Counter:** 0
@@ -26,12 +26,12 @@
 
 ## Step 3: Testing and verification
 
-**Status:** Not Started
+**Status:** Complete
 
-- [ ] Table tests (defaults, TOML, env, precedence, invalid values)
-- [ ] API key not loadable from TOML; never in error text
-- [ ] Contract `testCommand` and full `go test ./... -cover`
-- [ ] `config.go` coverage ≥ 72%
+- [x] Table tests (defaults, TOML, env, precedence, invalid values)
+- [x] API key not loadable from TOML; never in error text
+- [x] Contract `testCommand` and full `go test ./... -cover`
+- [x] `config.go` coverage ≥ 72%
 
 ---
 
@@ -39,7 +39,9 @@
 
 | Date | Step | Type | Outcome |
 |------|------|------|---------|
-| | | | |
+| 2026-10-08 | 1 | plan | skipped (engine-owned; nested spawn blocked in worker, SP-195) |
+| 2026-10-08 | 2 | plan | skipped (engine-owned; nested spawn blocked in worker, SP-195) |
+| 2026-10-08 | 3 | plan | skipped (engine-owned; nested spawn blocked in worker, SP-195) |
 
 ## Discoveries
 
@@ -56,6 +58,7 @@
 | 2026-10-08 | Step 1 complete | Fields/defaults/TOML/overrides added; validators shared with env/override paths; package coverage 80.4% |
 | 2026-10-08 | Pre-existing flake | `internal/stats` TempDir RemoveAll cleanup flake (`TestVolume_noNotesInRange`, `TestGitAIMetrics_validNote`) reproduces on pristine baseline (stash-verified); macOS `.git` unlink race, out of SP-014 file scope |
 | 2026-10-08 | Step 2 complete | Env parsing + override application with validation; `applyOverrides` now returns error; package coverage 81.7% |
+| 2026-10-08 | Step 3 complete | API-key security tests added; contract command green; package coverage 81.7% (gate 72%); all four new validators at 100% |
 
 ## Blockers
 

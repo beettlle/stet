@@ -1709,3 +1709,82 @@ func TestLoad_systemOneValidOverride(t *testing.T) {
 		t.Errorf("CriticBackend = %q, want systemone (normalized)", cfg.CriticBackend)
 	}
 }
+
+func TestLoad_systemOneAPIKeyNotFromTOML(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	repoDir := filepath.Join(dir, "repo")
+	if err := os.MkdirAll(filepath.Join(repoDir, ".review"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	toml := `
+systemone_api_key = "toml-secret-key"
+critic_backend = "systemone"
+`
+	if err := os.WriteFile(filepath.Join(repoDir, ".review", "config.toml"), []byte(toml), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(context.Background(), LoadOptions{
+		RepoRoot:         repoDir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v (systemone_api_key in TOML must be ignored, not rejected)", err)
+	}
+	if cfg.SystemOneAPIKey != "" {
+		t.Errorf("SystemOneAPIKey = %q, want empty (env-only; must not load from TOML)", cfg.SystemOneAPIKey)
+	}
+	if cfg.CriticBackend != "systemone" {
+		t.Errorf("CriticBackend = %q, want systemone (other keys in the same file still load)", cfg.CriticBackend)
+	}
+}
+
+func TestLoad_systemOneAPIKeyNeverInErrors(t *testing.T) {
+	t.Parallel()
+	secret := "sk-super-secret-value"
+	dir := t.TempDir()
+	repoDir := filepath.Join(dir, "repo")
+	if err := os.MkdirAll(filepath.Join(repoDir, ".review"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repoDir, ".review", "config.toml"), []byte(`critic_backend = "bogus"`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// TOML-sourced validation error.
+	_, err := Load(context.Background(), LoadOptions{
+		RepoRoot:         repoDir,
+		GlobalConfigPath: filepath.Join(dir, "nope.toml"),
+		Env:              []string{"STET_SYSTEMONE_API_KEY=" + secret},
+	})
+	if err == nil {
+		t.Fatal("Load: want TOML validation error, got nil")
+	}
+	if strings.Contains(err.Error(), secret) {
+		t.Errorf("TOML validation error must not contain the API key value: %v", err)
+	}
+
+	// Env-sourced validation error.
+	_, err = Load(context.Background(), LoadOptions{
+		Env: []string{"STET_SYSTEMONE_API_KEY=" + secret, "STET_SYSTEMONE_BASE_URL=not a url"},
+	})
+	if err == nil {
+		t.Fatal("Load: want env validation error, got nil")
+	}
+	if strings.Contains(err.Error(), secret) {
+		t.Errorf("env validation error must not contain the API key value: %v", err)
+	}
+
+	// Override-sourced validation error.
+	_, err = Load(context.Background(), LoadOptions{
+		Env:       []string{"STET_SYSTEMONE_API_KEY=" + secret},
+		Overrides: &Overrides{CriticBackend: ptrStr("bogus")},
+	})
+	if err == nil {
+		t.Fatal("Load: want override validation error, got nil")
+	}
+	if strings.Contains(err.Error(), secret) {
+		t.Errorf("override validation error must not contain the API key value: %v", err)
+	}
+}
