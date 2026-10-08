@@ -12,6 +12,7 @@ import (
 	"go/token"
 
 	"stet/cli/internal/rag"
+	"stet/cli/internal/testutil"
 )
 
 func TestResolveCallGraph_noEnclosingFunction_returnsNil(t *testing.T) {
@@ -147,7 +148,7 @@ func f() { x.M(); y() }
 
 func initCallGraphRepo(t *testing.T) string {
 	t.Helper()
-	dir := t.TempDir()
+	dir := testutil.TempGitDir(t)
 	cmd := exec.Command("git", "init")
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_SYSTEM=/dev/null")

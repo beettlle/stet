@@ -8,7 +8,15 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"stet/cli/internal/testutil"
 )
+
+// TestMain isolates the package's tests from host git configuration and
+// background git daemons (see cli/internal/testutil).
+func TestMain(m *testing.M) {
+	os.Exit(testutil.RunIsolatedGit(m))
+}
 
 func TestRepoRoot_fromRoot(t *testing.T) {
 	t.Parallel()

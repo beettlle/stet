@@ -19,6 +19,7 @@ import (
 	"stet/cli/internal/rules"
 	"stet/cli/internal/tokens"
 	"stet/cli/internal/trace"
+	"stet/cli/internal/testutil"
 
 	_ "stet/cli/internal/rag/go"     // register Go resolver for RAG tests
 	_ "stet/cli/internal/rag/python" // register Python resolver
@@ -27,6 +28,12 @@ import (
 	_ "stet/cli/internal/rag/js"     // register JavaScript/TypeScript resolver
 	_ "stet/cli/internal/rag/rust"   // register Rust resolver
 )
+
+// TestMain isolates the package's tests from host git configuration and
+// background git daemons (see cli/internal/testutil).
+func TestMain(m *testing.M) {
+	os.Exit(testutil.RunIsolatedGit(m))
+}
 
 func TestEffectiveRAGTokenCap(t *testing.T) {
 	t.Parallel()
@@ -489,7 +496,7 @@ func TestReviewHunk_injectsCursorRulesIntoSystemPrompt(t *testing.T) {
 // RAG is enabled (ragMaxDefs > 0) and the hunk references a symbol defined in the
 // repo, the user prompt sent to Ollama must contain the symbol definitions section.
 func TestReviewHunk_withRAG_injectsSymbolDefinitions(t *testing.T) {
-	dir := t.TempDir()
+	dir := testutil.TempGitDir(t)
 	initGitRepo(t, dir)
 	pkgDir := filepath.Join(dir, "pkg")
 	if err := os.MkdirAll(pkgDir, 0755); err != nil {
@@ -539,7 +546,7 @@ func TestReviewHunk_withRAG_injectsSymbolDefinitions(t *testing.T) {
 // is set and ragMaxTokens is 0, the per-hunk RAG token cap is computed and the symbol-definitions
 // block is truncated to fit.
 func TestReviewHunk_perHunkAdaptiveRAG_truncatesToFitContext(t *testing.T) {
-	dir := t.TempDir()
+	dir := testutil.TempGitDir(t)
 	initGitRepo(t, dir)
 	pkgDir := filepath.Join(dir, "pkg")
 	if err := os.MkdirAll(pkgDir, 0755); err != nil {

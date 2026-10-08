@@ -7,7 +7,15 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"stet/cli/internal/testutil"
 )
+
+// TestMain isolates the package's tests from host git configuration and
+// background git daemons (see cli/internal/testutil).
+func TestMain(m *testing.M) {
+	os.Exit(testutil.RunIsolatedGit(m))
+}
 
 // testRepo holds a temp repo directory and the SHA of each commit so tests
 // reference explicit SHAs instead of brittle relative refs like HEAD~1.
@@ -31,7 +39,7 @@ func gitHEAD(t *testing.T, dir string) string {
 
 func initRepoDiff(t *testing.T) testRepo {
 	t.Helper()
-	dir := t.TempDir()
+	dir := testutil.TempGitDir(t)
 	runGit(t, dir, "git", "init")
 	runGit(t, dir, "git", "config", "user.email", "test@stet.local")
 	runGit(t, dir, "git", "config", "user.name", "Test")

@@ -8,11 +8,13 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"stet/cli/internal/testutil"
 )
 
 func initRepo(t *testing.T) string {
 	t.Helper()
-	dir := t.TempDir()
+	dir := testutil.TempGitDir(t)
 	run(t, dir, "git", "init")
 	run(t, dir, "git", "config", "user.email", "test@stet.local")
 	run(t, dir, "git", "config", "user.name", "Test")

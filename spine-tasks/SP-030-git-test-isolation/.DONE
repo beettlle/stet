@@ -1,0 +1,7 @@
+SP-030 complete 2026-10-08.
+
+- Step 1: cli/internal/testutil (RunIsolatedGit + TempGitDir with bounded RemoveAll retry) + unit tests (coverage 79.5%).
+- Step 2: TestMain(testutil.RunIsolatedGit) added to 13 in-scope packages; git-repo temp dirs switched to TempGitDir; non-git t.TempDir() untouched; TempGitDir prefix gitrepo-test-* to preserve the "stet-" worktree sentinel.
+- Step 3: contract testCommand green (vet + -count=3); 5/5 consecutive full-suite runs PASS (36 pkgs); coverage gate PASS (project 81.7%, all files >= 72%); npm test 93/93; untracked-coverage guard PASS.
+- Commits: d65ff16 (Step 1), b6c1c42 (Step 2), 73bb2e6 (Step 3). Worktree clean.
+- No production (non-_test.go) changes outside cli/internal/testutil/.
