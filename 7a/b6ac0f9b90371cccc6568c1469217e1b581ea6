@@ -1,0 +1,14 @@
+spine-tasks/SP-019-critic-eval-dataset/STATUS.md
+  h_ae151c586ac6c5 1-2,13,15-16,51-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7ab6ac0f9b90371cccc6568c1469217e1b581ea6",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
