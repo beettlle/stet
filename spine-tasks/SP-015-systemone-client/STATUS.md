@@ -1,6 +1,6 @@
-**Current Step:** Step 1: Not started
-**Status:** Ready
-**Last Updated:** 2026-09-30
+**Current Step:** Step 2: Testing and verification
+**Status:** Step 1 complete; Step 2 in progress
+**Last Updated:** 2026-10-08
 **Review Level:** 2
 **Review Counter:** 0
 **Iteration:** 0
@@ -10,11 +10,11 @@
 
 ## Step 1: Types, shared request helper, Decide
 
-**Status:** Not Started
+**Status:** Complete (2026-10-08)
 
-- [ ] Request/response types (noul only)
-- [ ] Shared request helper (auth, errors, retry, size cap, redaction)
-- [ ] `Decide` with response validation
+- [x] Request/response types (noul only)
+- [x] Shared request helper (auth, errors, retry, size cap, redaction)
+- [x] `Decide` with response validation
 
 ## Step 2: Testing and verification
 
@@ -31,7 +31,7 @@
 
 | Date | Step | Type | Outcome |
 |------|------|------|---------|
-| | | | |
+| 2026-10-08 | 1 | plan | skipped — nested reviewer spawn blocked in worker session (SP-195); engine runs reviews after worker success |
 
 ## Discoveries
 
@@ -45,6 +45,7 @@
 |------|-------|--------|
 | 2026-09-30 | Authored | Packet created |
 | 2026-09-30 | Split | Health/Models → SP-021 |
+| 2026-10-08 | Step 1 | client.go implemented; gofmt/vet/build clean; wire shape verified against OpenJev `api.py` (NoulCriteria true/false keys, samples optional, 401/403 detail shape) |
 
 ## Blockers
 
