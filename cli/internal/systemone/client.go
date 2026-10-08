@@ -20,15 +20,16 @@ import (
 const (
 	_defaultTimeout        = 10 * time.Second
 	_maxRetries            = 3
-	_maxResponseBytes      = 10 * 1024 * 1024
 	_maxHTTPErrorBodyBytes = 2048
 )
 
-// Backoff bounds are vars so tests can shorten them; production callers get
-// the same 1s..16s capped exponential backoff as the other stet clients.
+// Response/error bounds and backoff bounds are vars so tests can shorten or
+// shrink them; production callers get the same 10MB response cap and
+// 1s..16s capped exponential backoff as the other stet clients.
 var (
-	_initialBackoff = 1 * time.Second
-	_maxBackoff     = 16 * time.Second
+	_maxResponseBytes = 10 * 1024 * 1024
+	_initialBackoff   = 1 * time.Second
+	_maxBackoff       = 16 * time.Second
 )
 
 // statusOverloaded is the non-standard status a System One server returns when
@@ -344,7 +345,7 @@ func (c *Client) doWithRetries(ctx context.Context, method, path string, body, o
 // into out. An over-long body is an error, not a silent truncation.
 func decodeResponse(prefix string, body io.ReadCloser, out any) error {
 	defer body.Close()
-	b, err := io.ReadAll(io.LimitReader(body, _maxResponseBytes+1))
+	b, err := io.ReadAll(io.LimitReader(body, int64(_maxResponseBytes)+1))
 	if err != nil {
 		return fmt.Errorf("%s: read response: %w", prefix, err)
 	}
