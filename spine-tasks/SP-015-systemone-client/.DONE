@@ -1,0 +1,20 @@
+SP-015 complete.
+
+- Step 1: cli/internal/systemone/client.go — Decide client (noul only), shared
+  unexported do() helper for SP-021 reuse, sentinel errors, bounded retries,
+  response-size cap, truncated error bodies, bearer-token redaction.
+- Step 2: cli/internal/systemone/client_test.go — 23 httptest cases per PROMPT
+  (success shape, missing answer, out-of-range/NaN noul, 400/401/403/422,
+  429-then-200, 529/500 exhausted, other-4xx, oversized body, malformed JSON,
+  cancelled context, deadline-not-retried, unreachable host, transient network
+  retry, auth header present only with key, key never in error strings,
+  endpoint URL table, MarshalJSON noul discriminator).
+- Verification: contract testCommand green — 88.8% statements (gate 72%);
+  go vet + gofmt clean; go test -race clean x2; no go.mod changes.
+- Known baseline (documented in STATUS Discoveries): intermittent macOS
+  TempDir/git cleanup flake in run/stats/cmd tests; reproduced at base commit
+  c6809b3, cleanup-only, passes on re-run — not caused by this packet.
+
+Commits:
+- 797d6c1 feat(SP-015): complete Step 1 — Types, shared request helper, Decide
+- 36a3fdb test(SP-015): complete Step 2 — Testing and verification
