@@ -1,0 +1,20 @@
+spine-tasks/SP-022-systemone-critic-branch/.reviews/1-20261008T191514.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-022-systemone-critic-branch/.reviews/3-20261008T191555.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-022-systemone-critic-branch/.reviews/contract-fail-2026-10-08T19-17-58-027Z.log
+  h_ae151c586ac6c5 1-22
+spine-tasks/SP-022-systemone-critic-branch/.reviews/final-20261008T191814.md
+  h_ae151c586ac6c5 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ffd0f468136a128f4be5f771e49adab62852c421",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
