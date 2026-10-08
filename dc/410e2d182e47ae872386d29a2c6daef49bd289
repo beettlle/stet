@@ -1,0 +1,22 @@
+spine-tasks/SP-017-extract-apply-critic/.DONE
+  h_ae151c586ac6c5 1-7
+spine-tasks/SP-017-extract-apply-critic/.reviews/1-20261008T175549.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-017-extract-apply-critic/.reviews/2-20261008T182225.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-017-extract-apply-critic/.reviews/contract-fail-2026-10-08T18-24-42-428Z.log
+  h_ae151c586ac6c5 1-15
+spine-tasks/SP-017-extract-apply-critic/.reviews/final-20261008T182457.md
+  h_ae151c586ac6c5 1-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dc410e2d182e47ae872386d29a2c6daef49bd289",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
