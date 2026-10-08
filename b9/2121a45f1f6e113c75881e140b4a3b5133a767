@@ -1,0 +1,18 @@
+spine-tasks/SP-027-rule-conflict-annotation/.DONE
+  h_ae151c586ac6c5 1-10
+spine-tasks/SP-027-rule-conflict-annotation/.reviews/1-20261008T231408.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-027-rule-conflict-annotation/.reviews/final-20261008T231440.md
+  h_ae151c586ac6c5 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b92121a45f1f6e113c75881e140b4a3b5133a767",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
