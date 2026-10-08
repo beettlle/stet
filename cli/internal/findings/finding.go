@@ -85,6 +85,20 @@ func (e *EvidenceLines) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// RuleConflict records the project guideline section a finding's suggestion
+// most likely conflicts with, as judged by an optional System One choice
+// annotation (review.AnnotateRuleConflicts). Human-visible only: findings are
+// never dropped, reordered, or rescored based on it.
+type RuleConflict struct {
+	// Source is the rule file the conflicting section came from
+	// (e.g. "go-1-21-development-standards.mdc").
+	Source string `json:"source"`
+	// Section is the section heading within the rule file.
+	Section string `json:"section"`
+	// Probability is P(choice) from the System One decision.
+	Probability float64 `json:"probability"`
+}
+
 // Finding is a single code review finding with a stable id, location, severity,
 // category, confidence, message, and optional suggestion and cursor URI.
 type Finding struct {
@@ -99,4 +113,7 @@ type Finding struct {
 	Suggestion    string        `json:"suggestion,omitempty"`
 	CursorURI     string        `json:"cursor_uri,omitempty"`
 	EvidenceLines EvidenceLines `json:"evidence_lines,omitempty"`
+	// RuleConflict is the optional rules-compliance annotation; nil unless a
+	// System One annotation pass judged a guideline conflict above threshold.
+	RuleConflict *RuleConflict `json:"rule_conflict,omitempty"`
 }

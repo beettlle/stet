@@ -1,0 +1,10 @@
+SP-027 complete.
+
+Steps 1-3 done and committed (0912bf3, b6a83fd, 842e7b5). Verification evidence in STATUS.md:
+
+- Contract testCommand: go vet + go test ./internal/review/... ./internal/findings/... -count=1 -cover -> review 88.3%, findings 94.4%, zero failures
+- go test ./... -count=1 -> every package ok, zero failures
+- Per-file coverage >= 72%: rules_annotation.go 100% (61/61), finding.go 76.9% (20/26)
+- gofmt -l and go vet clean; go build ./... ok
+- Cumulative diff vs main touches only fileScopeMustChange/File Scope paths (cli/internal/findings/finding.go, finding_test.go, cli/internal/review/rules_annotation.go, rules_annotation_test.go); no fileScopeMustNotChange path modified
+- No pipeline wiring (SP-034 scope); findings never dropped, reordered, or rescored
