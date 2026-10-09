@@ -1,8 +1,8 @@
 # stet — Context
 
-**Last Updated:** 2026-10-08
+**Last Updated:** 2026-10-09
 **Status:** Active
-**Next Task ID:** SP-035
+**Next Task ID:** SP-037
 
 ---
 
@@ -77,17 +77,28 @@ From the tech-debt backlog below and the SP-020 research follow-up table (`docs/
 
 | Task | Summary | Size | Status | Deps |
 |------|---------|------|--------|------|
-| SP-026 | Rule-section selector library (`rules/selector.go`, `prompt.AppendRuleSections`) | S | Ready | SP-029, SP-031, SP-032 |
-| SP-027 | Rule-conflict annotation library (`review/rules_annotation.go`, `Finding.RuleConflict`) | S | Ready | SP-026, SP-031, SP-032 |
-| SP-028 | Rule-pairs labeled dataset (≥ 100 pairs) and evaluator (`criticeval/rulepairs.go`) | S | Ready | — |
-| SP-029 | `rules.FilterRules` `**` glob support | S | Ready | — |
-| SP-030 | Isolate git-heavy tests from git-ai daemon (`internal/testutil`) | M | Ready | — |
-| SP-031 | `gofmt` the CLI + guard in `scripts/build-all.sh` | S | Ready | SP-029, SP-030, SP-032 |
-| SP-032 | System One client `choice` questions (`DecideChoice`) | S | Ready | — |
-| SP-033 | Wire selector behind `rules_selector` | M | Ready | SP-026 |
-| SP-034 | Wire annotation behind `rules_annotate` | S | Ready | SP-027, SP-028, SP-033 |
+| SP-026 | Rule-section selector library (`rules/selector.go`, `prompt.AppendRuleSections`) | S | Done | SP-029, SP-031, SP-032 |
+| SP-027 | Rule-conflict annotation library (`review/rules_annotation.go`, `Finding.RuleConflict`) | S | Done | SP-026, SP-031, SP-032 |
+| SP-028 | Rule-pairs labeled dataset (≥ 100 pairs) and evaluator (`criticeval/rulepairs.go`) | S | Done | — |
+| SP-029 | `rules.FilterRules` `**` glob support | S | Done | — |
+| SP-030 | Isolate git-heavy tests from git-ai daemon (`internal/testutil`) | M | Done | — |
+| SP-031 | `gofmt` the CLI + guard in `scripts/build-all.sh` | S | Done | SP-029, SP-030, SP-032 |
+| SP-032 | System One client `choice` questions (`DecideChoice`) | S | Done | — |
+| SP-033 | Wire selector behind `rules_selector` | M | Done | SP-026 |
+| SP-034 | Wire annotation behind `rules_annotate` | S | Done | SP-027, SP-028, SP-033 |
 
-Expected waves: W0 SP-028 ∥ SP-029 ∥ SP-030 ∥ SP-032 → W1 SP-031 (alone; touches most packages) → W2 SP-026 → W3 SP-027 ∥ SP-033 → W4 SP-034.
+Landed 2026-10-08 in waves W0 SP-028 ∥ SP-029 ∥ SP-030 ∥ SP-032 → W1 SP-031 → W2 SP-026 → W3 SP-027 ∥ SP-033 → W4 SP-034.
+
+### Phase 6 — Stet in spine (dogfooding, 2026-10-09)
+
+First packets whose contracts review their own diff with stet (see [Stet in spine](#stet-in-spine-dogfooding)).
+
+| Task | Summary | Size | Status | Deps |
+|------|---------|------|--------|------|
+| SP-035 | `stet doctor` probes System One when `rules_selector` / `rules_annotate` are on | S | Ready | — |
+| SP-036 | `systemone_timeout` / `STET_SYSTEMONE_TIMEOUT` (default 10s, `[1s, 30m]`) | S | Ready | SP-035 |
+
+Waves: W0 SP-035 → W1 SP-036 (both edit `main.go`). After SP-036 lands, the operator sets `systemone_timeout` (for example `"90s"`) and `critic_enabled = true` in `.review/config.toml`.
 
 ### Completed (wave 0 + follow-on)
 
@@ -100,11 +111,26 @@ SP-001, SP-002, SP-003, SP-004, SP-005, SP-008 — `.DONE` on `main`.
 1. **Preflight** before every batch: `spine preflight`.
 2. **One CLI core task per serial lane** — never chain SP-001-style `cli/**` tasks in one lane; use disjoint parallel batches. `spine plan pending` may still serialize SP-009 + SP-010 in lane-2 — **do not use** `pending --wave N` when that happens; start named task batches instead.
 3. **Parallel lanes** only when `fileScopeMustChange` paths are disjoint (see waves below).
-4. **Land loop:** `spine gate approve` → `spine integrate` → `spine batch complete` (or `complete --detect-manual-merge` after manual lane merge).
+4. **Land loop:** `bash scripts/stet-wave-review.sh orch/spine-<batchId>` (advisory) → `spine gate approve` → `spine integrate` → `spine batch complete` (or `complete --detect-manual-merge` after manual lane merge).
 5. **Never** ban `spine-tasks/**` in `fileScopeMustNotChange`.
 6. **Pre-landed paths:** Narrow `fileScopeMustChange` to new deliverables when preflight warns.
 7. **Before extension batches:** run `scripts/check-untracked-coverage.sh` once SP-013 lands.
 8. **Prefer named batches** over `spine batch start pending --wave N` when tasks share `cli/**`, `extension/**`, or dependency chains that the auto-planner serializes unsafely.
+9. **Reviewer env:** export `HEADROOM_URL=http://127.0.0.1:9` for `spine batch start` / `resume` until the pi-headroom `thought_signature` ticket is fixed.
+
+---
+
+## Stet in spine (dogfooding)
+
+Spine lanes review their own diff with the locally built `stet` binary, using the repo `.review/config.toml` (LM Studio `qwen/qwen3-coder-next` at `http://127.0.0.1:1234`; System One critic off until SP-036). Secrets stay env-only (`STET_SYSTEMONE_API_KEY`).
+
+- **Lane setup:** `.spine/spine-config.json` `worktreeSetupHook` runs `scripts/spine-worktree-setup.sh`, which opens a stet session at the pre-worker HEAD and writes `.review/spine-stet-baseline.ref`. It skips (exit 0) when `stet` is not on PATH.
+- **Contract convention:** append the review to the task's tests: `<tests> && cd .. && bash scripts/spine-stet-contract-run.sh <level>`. The script restores a lost session from the baseline ref, runs `stet run --strictness <level>`, fails with triage instructions when `stet list` has active findings, and runs `stet finish` at zero findings.
+- **Level by task:** S tasks with low risk → omit or `lenient`; M tasks → `default`; review / critic / rag / systemone / security / config / session code → `strict`.
+- **Time budget:** the contract `testCommand` has a 10-minute wall clock (not configurable). A first review of a small Go diff took ~3m20s, re-runs after dismissals are incremental (<1s). Use `maxParallel` 2 for stet-gated waves so lanes do not starve LM Studio.
+- **Triage:** fix real defects; dismiss others with `stet dismiss <id> <reason>` (`false_positive`, `already_correct`, `wrong_suggestion`, `out_of_scope`); record stet reviewer bugs under the task's STATUS Discoveries.
+- **Wave review (operator):** before `spine gate approve`, run `bash scripts/stet-wave-review.sh orch/spine-<batchId>`. It reviews the orch branch against its merge-base with `main` in a throwaway worktree, writes JSON to `/tmp/stet-wave-<branch>.json`, and prints active findings. Advisory: exits 0 for any finding count, non-zero only when stet fails. The worktree reads the branch's own `.review/config.toml`; override with env (for example `STET_CRITIC_ENABLED=false`) if that config is stale.
+- **Packet scope:** stet-gated packets list `.review/**` in `fileScopeMustNotChange`; `.review/*` except `config.toml` is gitignored.
 
 ---
 

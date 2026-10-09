@@ -46,8 +46,9 @@ scripts/__pycache__/
 # Dev container: .devcontainer/ and devcontainer.json are committed.
 # Add below any local devcontainer logs/cache if generated in-repo.
 
-# Project: review worktrees (see docs/PRD.md)
-.review/
+# Project: review worktrees (see docs/PRD.md); repo review config is committed.
+.review/*
+!.review/config.toml
 .worktrees/
 
 # OS

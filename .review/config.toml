@@ -1,0 +1,34 @@
+# Repo stet config used when stet reviews its own changes (spine lanes and
+# operator wave review). Secrets stay env-only: STET_SYSTEMONE_API_KEY.
+
+provider = "openai"
+model = "qwen/qwen3-coder-next"
+openai_base_url = "http://127.0.0.1:1234/v1"
+
+num_ctx = 65536
+context_limit = 65536
+max_completion_tokens = 4096
+
+timeout = "30m"
+strictness = "default"
+nitpicky = false
+auto_finish_zero_findings = false
+
+# Second-pass verification via the local OpenJev System One server. Off until
+# SP-036 makes the System One request timeout configurable (fixed 10s today;
+# local OpenJev takes 7-51s per request).
+critic_enabled = false
+critic_backend = "systemone"
+systemone_base_url = "http://127.0.0.1:8080"
+systemone_model = "openjev-latest"
+
+# Off until the pilot measures the contract time budget.
+rules_selector = false
+rules_annotate = false
+
+exclude_patterns = [
+  "*.md", "*.mdc", "*.txt", "*.json", "*.jsonc", "*.jsonl", "*.toml", "*.yaml", "*.yml", "*.lock",
+  "*.sum", "*.html", "*.xml", "*.svg", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.ico",
+  "*.woff", "*.woff2", "*.eot", "*.csv", "*.rst", "*.adoc", "*.log", "*.patch", "*.diff",
+  "*.gitignore", "*.npmrc", "*.editorconfig", "*.prettierrc", "*.eslintrc", "*.nvmrc",
+]
