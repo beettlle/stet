@@ -1,0 +1,19 @@
+cli/internal/findings/smoke_tmp.go
+  s_15f5490b7b8813::t_767f8969294d21 1-16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8212d79ae509030ae2f4e4cc8f13582a56a589ba",
+  "prompts": {},
+  "sessions": {
+    "s_15f5490b7b8813": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "agent-bf6d64c1-3074-48a9-81d4-f89a287f5c09",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
