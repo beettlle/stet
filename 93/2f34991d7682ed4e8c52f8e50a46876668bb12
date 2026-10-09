@@ -1,0 +1,27 @@
+.gitignore
+  s_15f5490b7b8813::t_b1ceb976d01bb8 49-51
+.review/config.toml
+  s_15f5490b7b8813::t_070b749bb62e1f 1-32
+scripts/spine-stet-contract-run.sh
+  s_15f5490b7b8813::t_a59cd61aa96925 1-65
+scripts/spine-worktree-setup.sh
+  s_15f5490b7b8813::t_bf699f820b8292 1-16
+scripts/stet-wave-review.sh
+  s_15f5490b7b8813::t_d14783b41af5ca 1-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "932f34991d7682ed4e8c52f8e50a46876668bb12",
+  "prompts": {},
+  "sessions": {
+    "s_15f5490b7b8813": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "agent-bf6d64c1-3074-48a9-81d4-f89a287f5c09",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
