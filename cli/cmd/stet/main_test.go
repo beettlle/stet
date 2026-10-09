@@ -2884,6 +2884,10 @@ func TestRunCLI_doctorReachableExits0(t *testing.T) {
 		_ = os.Setenv("STET_OLLAMA_BASE_URL", origURL)
 		_ = os.Setenv("STET_MODEL", origModel)
 	})
+	// The test runs inside the stet repo, whose .review/config.toml selects
+	// an OpenAI-compatible provider and may enable the System One critic.
+	t.Setenv("STET_PROVIDER", "ollama")
+	t.Setenv("STET_CRITIC_ENABLED", "false")
 	if got := runCLI([]string{"doctor"}); got != 0 {
 		t.Errorf("runCLI(doctor) reachable = %d, want 0", got)
 	}
