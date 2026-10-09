@@ -1,0 +1,55 @@
+scripts/stet-wave-review.sh
+  s_15f5490b7b8813::t_bb603caadbd758 33
+  s_15f5490b7b8813::t_4fdb8ee11ca2e7 1-32,34-48
+spine-tasks/SP-036-systemone-timeout-config/PROMPT.md
+  s_7384fb583e8f15::t_424b7b89565929 1-103
+spine-tasks/SP-035-doctor-systemone-rules-probe/STATUS.md
+  s_7384fb583e8f15::t_ad69a1beb56d56 1-52
+.review/config.toml
+  s_7384fb583e8f15::t_f58a88d8b2bf9e 17-20
+  s_15f5490b7b8813::t_8cf0f6b147b25a 1-16,21-34
+spine-tasks/dependencies.json
+  s_7384fb583e8f15::t_b8832588ff4673 20-21
+scripts/spine-worktree-setup.sh
+  s_15f5490b7b8813::t_323e2be92cc665 13
+  s_15f5490b7b8813::t_8d614cb72b6c64 1-12,14-16
+spine-tasks/SP-035-doctor-systemone-rules-probe/PROMPT.md
+  s_7384fb583e8f15::t_c0aa706da0f181 1-36,38-95
+  s_7384fb583e8f15::t_f1e6a44bea2355 37
+spine-tasks/SP-036-systemone-timeout-config/STATUS.md
+  s_7384fb583e8f15::t_a56f957de7bebd 1-58
+scripts/spine-stet-contract-run.sh
+  s_15f5490b7b8813::t_0ec43fdb1a2484 37-41
+  s_15f5490b7b8813::t_9433a7b88ca6b4 1-36,42-65
+.gitignore
+  s_15f5490b7b8813::t_a01013cd463b02 49-51
+spine-tasks/CONTEXT.md
+  s_7384fb583e8f15::t_ef6f149fa95edd 3,5
+  s_7384fb583e8f15::t_3e97e9c03f2fde 114
+  s_7384fb583e8f15::t_1ee1b424068851 80-101
+  s_7384fb583e8f15::t_ff150ac8140570 119-133
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dbd3ade0783ef7f770b6fe9d254839b2569bf439",
+  "prompts": {},
+  "sessions": {
+    "s_15f5490b7b8813": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "agent-bf6d64c1-3074-48a9-81d4-f89a287f5c09",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    },
+    "s_7384fb583e8f15": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "agent-b1e673cc-7557-41b1-88d3-f8428e8caf8a",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
