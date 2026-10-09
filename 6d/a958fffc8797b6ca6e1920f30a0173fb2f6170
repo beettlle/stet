@@ -1,0 +1,23 @@
+README.md
+  b48aadbc646b601a 51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.3",
+  "base_commit_sha": "6da958fffc8797b6ca6e1920f30a0173fb2f6170",
+  "prompts": {
+    "b48aadbc646b601a": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "9b92922d-4c3a-4227-b00b-f7204ac6786b",
+        "model": "default"
+      },
+      "human_author": "Cesar Delgado <beettlle@gmail.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
