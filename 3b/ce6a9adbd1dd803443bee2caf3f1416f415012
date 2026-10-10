@@ -1,0 +1,20 @@
+cli/internal/prompt/prompt.go
+  h_ae151c586ac6c5 70-72,416,429,431-434
+cli/internal/prompt/prompt_test.go
+  h_ae151c586ac6c5 566
+cli/internal/review/review.go
+  h_ae151c586ac6c5 272-276,332-333,342
+cli/internal/run/run_test.go
+  h_ae151c586ac6c5 2392-2393,2426
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3bce6a9adbd1dd803443bee2caf3f1416f415012",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
