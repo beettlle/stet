@@ -1,0 +1,29 @@
+Contract testCommand failure log
+Command: cd cli && go test ./cmd/stet/... -count=1 && go vet ./... && cd .. && bash scripts/spine-stet-contract-run.sh default
+Exit code: 1
+Attempt: 1 of 2
+Timestamp: 2026-10-10T18:45:32.444Z
+Buffer overflow: no
+---
+ok  	stet/cli/cmd/stet	62.821s
+3d4a5b9  cli/cmd/stet/main.go:1927  WARNING  The condition `!wantCritic && !cfg.RulesSelector && !cfg.RulesAnnotate` may incorrectly skip System One checks when `cfg.RulesAnnotate` is a typo for `cfg.RulesAnnotator`.
+716c2e1  cli/cmd/stet/main_test.go:3582  ERROR  Test case 'critic llm, selector and annotate off' sets STET_CRITIC_ENABLED to '1', but the test expects no System One probe. If STET_CRITIC_ENABLED is enabled, the critic backend must be 'systemone' to trigger System One; otherwise, the test expectation is incorrect.
+a547c2e  cli/cmd/stet/main_test.go:3644  WARNING  The test sets STET_SYSTEMONE_API_KEY to 'doctor-test-key' but does not verify that the key is redacted in error messages or logs beyond stdout/stderr. If the doctor command logs errors to a file or uses a logger that outputs to stderr, the key may leak.
+15547de  cli/cmd/stet/main_test.go:3667  ERROR  Test 'TestRunCLI_doctorSystemOneSelectorUnreachableExits2' closes the listener immediately after getting the address, which may cause the OS to reuse the port before the test starts, leading to flaky behavior. The test should bind and keep the listener open until after the doctor command completes.
+4 finding(s).
+3d4a5b9  cli/cmd/stet/main.go:1927  WARNING  The condition `!wantCritic && !cfg.RulesSelector && !cfg.RulesAnnotate` may incorrectly skip System One checks when `cfg.RulesAnnotate` is a typo for `cfg.RulesAnnotator`.
+716c2e1  cli/cmd/stet/main_test.go:3582  ERROR  Test case 'critic llm, selector and annotate off' sets STET_CRITIC_ENABLED to '1', but the test expects no System One probe. If STET_CRITIC_ENABLED is enabled, the critic backend must be 'systemone' to trigger System One; otherwise, the test expectation is incorrect.
+a547c2e  cli/cmd/stet/main_test.go:3644  WARNING  The test sets STET_SYSTEMONE_API_KEY to 'doctor-test-key' but does not verify that the key is redacted in error messages or logs beyond stdout/stderr. If the doctor command logs errors to a file or uses a logger that outputs to stderr, the key may leak.
+15547de  cli/cmd/stet/main_test.go:3667  ERROR  Test 'TestRunCLI_doctorSystemOneSelectorUnreachableExits2' closes the listener immediately after getting the address, which may cause the OS to reuse the port before the test starts, leading to flaky behavior. The test should bind and keep the listener open until after the doctor command completes.
+4 finding(s).
+
+Warning: proceeding with uncommitted changes; review scope may be unclear
+stet: contract review found 4 active finding(s). Triage, then re-run the contract:
+
+  stet list
+  stet dismiss <id> <reason>
+
+Dismiss reasons: false_positive, already_correct, wrong_suggestion, out_of_scope.
+Fix real defects in this task's diff. If a finding exposes a stet reviewer bug (bad prompt,
+parser, critic), dismiss it with a reason and record it under Discoveries in STATUS.md.
+Never dismiss a real defect without fixing it.
