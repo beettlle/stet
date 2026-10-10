@@ -1,0 +1,18 @@
+scripts/model_eval.py
+  h_ae151c586ac6c5 1-682
+scripts/tests/test_model_eval.py
+  h_ae151c586ac6c5 1-595
+spine-tasks/SP-037-model-eval-harness/STATUS.md
+  h_ae151c586ac6c5 1-2,9-14,19,21-22,56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a91aba5b862a4d2edc1327eefe59db8ac72fefa8",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
