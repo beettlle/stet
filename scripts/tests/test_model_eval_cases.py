@@ -174,6 +174,12 @@ def test_bug_lines_in_diff_and_control_edit_far_away(case_dir):
         else:
             changed = changed_after_lines(before_lines, after_lines)
         ranges = ranges_by_file.get(rel, [])
+        for start, end in ranges:
+            bug_range = set(range(start, end + 1))
+            assert bug_range.intersection(changed), (
+                f"{case_dir.name}/{rel}: seeded bug lines {start}-{end} do not "
+                "intersect the before -> after diff"
+            )
         for line in sorted(changed):
             if not ranges or (
                 distance_to_ranges(line, ranges) >= CONTROL_EDIT_MIN_DISTANCE

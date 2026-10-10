@@ -1,5 +1,5 @@
 **Current Step:** Complete
-**Status:** Done — all completion criteria met
+**Status:** Done — all completion criteria met (final-review REVISE feedback fixed)
 **Last Updated:** 2026-10-10
 **Review Level:** 1
 **Review Counter:** 0
@@ -45,6 +45,8 @@
 
 | Date | Step | Type | Outcome |
 |------|------|------|---------|
+| 2026-10-10 | 1 | plan | APPROVE |
+| 2026-10-10 | final | code | REVISE — test did not assert bug ranges intersect the diff; fixed in `test(SP-038)` commit |
 
 ## Discoveries
 
@@ -60,6 +62,7 @@
 | 2026-10-10 | Step 1 done | 7 Go cases (6 buggy + `go-clean-refactor`), diff geometry verified |
 | 2026-10-10 | Step 2 done | 3 TS + 3 Python cases, diff geometry verified |
 | 2026-10-10 | Step 3 done | `scripts/tests/test_model_eval_cases.py` added; contract command: 86 passed, 14 skipped; full `scripts/tests/`: 129 passed, 14 skipped |
+| 2026-10-10 | REVISE fixed | Added `bug_range.intersection(changed)` assertion to `test_bug_lines_in_diff_and_control_edit_far_away`; removed scratch `scripts/tests/check_bug_intersection.py`; contract command re-run: 86 passed, 14 skipped |
 
 ## Blockers
 
