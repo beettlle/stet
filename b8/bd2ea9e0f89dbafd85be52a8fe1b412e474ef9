@@ -1,0 +1,16 @@
+spine-tasks/SP-038-model-eval-fixtures/.DONE
+  h_ae151c586ac6c5 1-9
+spine-tasks/SP-038-model-eval-fixtures/.reviews/final-20261010T185305.md
+  h_ae151c586ac6c5 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b8bd2ea9e0f89dbafd85be52a8fe1b412e474ef9",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
