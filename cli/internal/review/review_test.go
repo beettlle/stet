@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"stet/cli/internal/diff"
+	"stet/cli/internal/findings"
 	"stet/cli/internal/llm"
 	"stet/cli/internal/ollama"
 	"stet/cli/internal/prompt"
@@ -101,6 +102,109 @@ func TestReviewHunk_successFirstTry(t *testing.T) {
 	}
 	if list[0].ID == "" || list[0].File != "a.go" {
 		t.Errorf("finding: %+v", list[0])
+	}
+}
+
+// TestReviewHunk_proseThenFencedJSON_noRetry asserts that a first response of
+// prose followed by a fenced JSON array parses via the recovery fallback with
+// no retry (exactly 1 Generate call).
+func TestReviewHunk_proseThenFencedJSON_noRetry(t *testing.T) {
+	resp := "Looking at the code, I need to check the loop bounds carefully.\n\n```json\n" +
+		`[{"file":"c.go","line":3,"severity":"warning","category":"bug","message":"off by one","confidence":0.8}]` +
+		"\n```"
+	callCount := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		callCount++
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": resp, "done": true})
+	}))
+	defer srv.Close()
+
+	client, _ := llm.NewClient("ollama", srv.URL, srv.Client())
+	dir := t.TempDir()
+	hunk := diff.Hunk{FilePath: "c.go", RawContent: "code", Context: "code"}
+	ctx := context.Background()
+
+	list, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil, nil)
+	if err != nil {
+		t.Fatalf("ReviewHunk: %v", err)
+	}
+	if callCount != 1 {
+		t.Errorf("expected 1 generate call (no retry), got %d", callCount)
+	}
+	if len(list) != 1 {
+		t.Fatalf("len(list) = %d, want 1", len(list))
+	}
+	f := list[0]
+	if f.File != "c.go" || f.Line != 3 || f.Severity != findings.SeverityWarning || f.Category != findings.CategoryBug || f.Message != "off by one" || f.Confidence != 0.8 {
+		t.Errorf("finding content: %+v", f)
+	}
+}
+
+// TestReviewHunk_retryUserMessage_containsJSONOnlyInstruction asserts the single
+// retry appends the JSON-only instruction to the user message (and the original
+// first request does not carry it), still sends exactly 2 Generate calls, and
+// the trace records that the retry used the instruction.
+func TestReviewHunk_retryUserMessage_containsJSONOnlyInstruction(t *testing.T) {
+	validResp := `[{"file":"b.go","line":2,"severity":"info","category":"maintainability","message":"ok"}]`
+	callCount := 0
+	var prompts []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		var req struct {
+			Prompt string `json:"prompt"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Errorf("decode request body: %v", err)
+		}
+		prompts = append(prompts, req.Prompt)
+		callCount++
+		w.WriteHeader(http.StatusOK)
+		if callCount == 1 {
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": "I analyzed the hunk and here is my prose-only conclusion.", "done": true})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": validResp, "done": true})
+	}))
+	defer srv.Close()
+
+	client, _ := llm.NewClient("ollama", srv.URL, srv.Client())
+	dir := t.TempDir()
+	hunk := diff.Hunk{FilePath: "b.go", RawContent: "x", Context: "x"}
+	ctx := context.Background()
+
+	var traceBuf strings.Builder
+	list, _, err := ReviewHunk(ctx, client, "m", dir, hunk, nil, nil, nil, "", 0, 0, 0, false, 0, 0, 0, nil, false, false, nil, trace.New(&traceBuf))
+	if err != nil {
+		t.Fatalf("ReviewHunk: %v", err)
+	}
+	if callCount != 2 {
+		t.Errorf("expected exactly 2 generate calls, got %d", callCount)
+	}
+	if len(prompts) != 2 {
+		t.Fatalf("captured %d prompts, want 2", len(prompts))
+	}
+	if strings.Contains(prompts[0], jsonOnlyRetryInstruction) {
+		t.Errorf("first request must not contain the JSON-only instruction; prompt:\n%s", prompts[0])
+	}
+	if !strings.Contains(prompts[1], jsonOnlyRetryInstruction) {
+		t.Errorf("retry request must append the JSON-only instruction; prompt:\n%s", prompts[1])
+	}
+	if !strings.HasSuffix(prompts[1], jsonOnlyRetryInstruction) {
+		t.Errorf("retry prompt should end with the instruction; prompt tail:\n%s", prompts[1][max(0, len(prompts[1])-200):])
+	}
+	if !strings.Contains(traceBuf.String(), "JSON-only instruction") {
+		t.Errorf("trace must record the JSON-only retry instruction; trace:\n%s", traceBuf.String())
+	}
+	if len(list) != 1 || list[0].File != "b.go" {
+		t.Fatalf("list = %+v, want 1 finding for b.go", list)
 	}
 }
 
@@ -811,7 +915,7 @@ func TestPrepareHunkPrompt_defaultPath_traceListsApplied(t *testing.T) {
 
 // TestPrepareHunkPrompt_suppressionPerHunk asserts that when suppressionExamples
 // and a generous contextLimit are passed, the returned system prompt contains
-// the "Do not report issues similar to" section and the example text.
+// the "Previously dismissed false positives" section and the example text.
 func TestPrepareHunkPrompt_suppressionPerHunk(t *testing.T) {
 	hunk := diff.Hunk{
 		FilePath:   "pkg/foo.go",
@@ -824,7 +928,7 @@ func TestPrepareHunkPrompt_suppressionPerHunk(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PrepareHunkPrompt: %v", err)
 	}
-	if !strings.Contains(system, "## Do not report issues similar to") {
+	if !strings.Contains(system, "## Previously dismissed false positives (do not report or discuss)") {
 		t.Error("system prompt should contain suppression section header")
 	}
 	wantEx := "pkg/foo.go:42: Consider adding comments"

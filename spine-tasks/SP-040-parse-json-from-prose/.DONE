@@ -1,0 +1,7 @@
+SP-040 complete.
+
+- Step 1: extraction fallback (fenced blocks newest-first, balanced spans backwards, 64-candidate cap) wired into ParseFindingsResponse; original error preserved; merge combined-parse kept strict so per-part behavior is unchanged (5b417e1).
+- Step 2: JSON-only retry instruction appended to the retry user message (one extra Generate), trace note; new suppression header, shadow intro framing, closing output-format sentence; assertions updated (3bce6a9).
+- Step 3: 12-case recovery table + extractor/payload/span unit tests, merge prose+fenced tests, retry tests; contract `bash scripts/spine-stet-contract-run.sh default` exits 0 with 0 active findings after triage (1 real test improvement fixed, rest dismissed with gofmt/build/vet evidence); coverage gate PASS (project 83.3%, all files >= 72%); extension npm test 93/93 (8ef78e9, 12ee577).
+
+STATUS.md has full triage and verification evidence.
