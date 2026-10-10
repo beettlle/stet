@@ -1,0 +1,54 @@
+scripts/model-eval-cases/py-bare-except/after/app/billing.py.txt
+  h_ae151c586ac6c5 1-51
+scripts/model-eval-cases/py-bare-except/before/app/billing.py.txt
+  h_ae151c586ac6c5 1-51
+scripts/model-eval-cases/py-bare-except/expected.json
+  h_ae151c586ac6c5 1-13
+scripts/model-eval-cases/py-int-division/after/app/reporting/stats.py.txt
+  h_ae151c586ac6c5 1-47
+scripts/model-eval-cases/py-int-division/before/app/reporting/stats.py.txt
+  h_ae151c586ac6c5 1-42
+scripts/model-eval-cases/py-int-division/expected.json
+  h_ae151c586ac6c5 1-13
+scripts/model-eval-cases/py-mutable-default/after/app/cart.py.txt
+  h_ae151c586ac6c5 1-44
+scripts/model-eval-cases/py-mutable-default/before/app/cart.py.txt
+  h_ae151c586ac6c5 1-46
+scripts/model-eval-cases/py-mutable-default/expected.json
+  h_ae151c586ac6c5 1-13
+scripts/model-eval-cases/ts-clean-rename/after/src/invoice/pricing.ts.txt
+  h_ae151c586ac6c5 1-48
+scripts/model-eval-cases/ts-clean-rename/before/src/invoice/pricing.ts.txt
+  h_ae151c586ac6c5 1-48
+scripts/model-eval-cases/ts-clean-rename/expected.json
+  h_ae151c586ac6c5 1-6
+scripts/model-eval-cases/ts-inverted-guard/after/src/middleware/requireAdmin.ts.txt
+  h_ae151c586ac6c5 1-51
+scripts/model-eval-cases/ts-inverted-guard/before/src/middleware/requireAdmin.ts.txt
+  h_ae151c586ac6c5 1-47
+scripts/model-eval-cases/ts-inverted-guard/expected.json
+  h_ae151c586ac6c5 1-13
+scripts/model-eval-cases/ts-missing-await/after/src/services/userService.ts.txt
+  h_ae151c586ac6c5 1-69
+scripts/model-eval-cases/ts-missing-await/before/src/services/userService.ts.txt
+  h_ae151c586ac6c5 1-65
+scripts/model-eval-cases/ts-missing-await/expected.json
+  h_ae151c586ac6c5 1-13
+scripts/model-eval-cases/ts-path-traversal/after/src/routes/files.ts.txt
+  h_ae151c586ac6c5 1-44
+scripts/model-eval-cases/ts-path-traversal/before/src/routes/files.ts.txt
+  h_ae151c586ac6c5 1-47
+scripts/model-eval-cases/ts-path-traversal/expected.json
+  h_ae151c586ac6c5 1-13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "85dafa9b10cc443bf837b9ec5003d01da60b803c",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
