@@ -1,8 +1,8 @@
 # stet — Context
 
-**Last Updated:** 2026-10-09
+**Last Updated:** 2026-10-10
 **Status:** Active
-**Next Task ID:** SP-037
+**Next Task ID:** SP-040
 
 ---
 
@@ -100,6 +100,20 @@ First packets whose contracts review their own diff with stet (see [Stet in spin
 
 Waves: W0 SP-035 → W1 SP-036 (both edit `main.go`). After SP-036 lands, the operator sets `systemone_timeout` (for example `"90s"`) and `critic_enabled = true` in `.review/config.toml`.
 
+### Phase 7 — Model benchmark (2026-10-10)
+
+`qwen/qwen3-coder-next` (repo default in `.review/config.toml`) does not fit in memory alongside OpenJev; `qwen/qwen3.8-27b` does. Measure what stet loses with the 27B model on seeded-bug fixtures and real stet commits, then recommend a model with a pre-registered decision rule.
+
+| Task | Summary | Size | Status | Deps |
+|------|---------|------|--------|------|
+| SP-037 | Harness `scripts/model_eval.py` (`run` / `score` / `export-blind`, stdlib only) | S | Ready | — |
+| SP-038 | 14 seeded-bug and clean fixture cases under `scripts/model-eval-cases/` | S | Ready | — |
+| SP-039 | Run both models, blind-judge real diffs, write `docs/research/model-comparison-qwen3-coder-next-vs-qwen3.8-27b.md` | M | Ready | SP-037, SP-038 |
+
+Waves: **W0** SP-037 ∥ SP-038 (disjoint scopes; SP-037 is stet-gated `lenient`, SP-038 has no stet gate) → **W1** SP-039 alone.
+
+**SP-039 operator checklist (before `spine batch start SP-039`):** stop OpenJev; no other batch running; identical LM Studio inference presets for both models (Repeat Penalty off, Top P 0.9, Top K 40, Min P off, Context Overflow "Stop at Limit", Limit Response Length off, Reasoning Parsing on, empty System Prompt, Structured Output off, default prompt template); LM Studio server up at `http://127.0.0.1:1234`. SP-039 swaps the loaded model with `lms` and takes ≈2–3 h; it reloads `qwen/qwen3-coder-next` at 65536 when done.
+
 ### Completed (wave 0 + follow-on)
 
 SP-001, SP-002, SP-003, SP-004, SP-005, SP-008 — `.DONE` on `main`.
@@ -150,6 +164,8 @@ Spine lanes review their own diff with the locally built `stet` binary, using th
 | S5 | SP-018 | 1 | Doctor check; `main.go` |
 | S6 | SP-025 | 1 | `stet critic-eval`; `main.go` |
 | — | SP-020 | — | Deferred research; schedule manually |
+| M0 | SP-037, SP-038 | 2 | Model benchmark harness ∥ fixtures; disjoint (`scripts/model_eval.py` vs `scripts/model-eval-cases/`) |
+| M1 | SP-039 | 1 | Model benchmark run; exclusive LM Studio; operator checklist in Phase 7 |
 
 **Start commands:**
 
@@ -165,6 +181,8 @@ spine batch start SP-022 SP-024
 spine batch start SP-023
 spine batch start SP-018
 spine batch start SP-025
+spine batch start SP-037 SP-038
+spine batch start SP-039
 ```
 
 ### Tech debt / hygiene backlog (found during execution)
