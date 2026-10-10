@@ -1,0 +1,13 @@
+{
+  "id": "py-int-division",
+  "language": "python",
+  "clean": false,
+  "bugs": [
+    {
+      "file": "app/reporting/stats.py",
+      "lines": [17, 17],
+      "category": "correctness",
+      "description": "floor division truncates the percentage, collapsing partial completion to zero percent"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+"""Shopping cart helpers for the checkout service."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass
+class Item:
+    """A purchasable line item."""
+
+    sku: str
+    unit_price_cents: int
+    quantity: int = 1
+
+
+def add_item(item: Item, items: list[Item] | None = None) -> list[Item]:
+    """Append item to items, returning the resulting list."""
+    if items is None:
+        items = []
+    items.append(item)
+    return items
+
+
+def remove_item(sku: str, items: list[Item]) -> list[Item]:
+    """Drop the first item matching sku, keeping order."""
+    for index, item in enumerate(items):
+        if item.sku == sku:
+            del items[index]
+            break
+    return items
+
+
+def total_cents(items: list[Item]) -> int:
+    """Return the cart total in cents."""
+    return sum(item.unit_price_cents * item.quantity for item in items)
+
+
+def format_receipt(items: list[Item]) -> str:
+    """Render a plain-text receipt for the cart."""
+    lines = [
+        f"{item.quantity} x {item.sku} @ {item.unit_price_cents}c"
+        for item in items
+    ]
+    lines.append(f"total: {total_cents(items)}c")
+    return "\n".join(lines)

@@ -1,0 +1,51 @@
+import { Request, Response, NextFunction } from "express";
+
+export interface AuthenticatedUser {
+  id: string;
+  email: string;
+  isAdmin: boolean;
+}
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: AuthenticatedUser;
+    }
+  }
+}
+
+interface RoleRequest extends Request {
+  user?: AuthenticatedUser;
+}
+
+/**
+ * Returns middleware that allows only admin users through.
+ * Users without the admin role receive a stable 403 body.
+ */
+export function requireAdmin(): (req: RoleRequest, res: Response, next: NextFunction) => void {
+  return (req, res, next) => {
+    const user = req.user;
+    if (!user) {
+      res.status(401).json({ error: "authentication required" });
+      return;
+    }
+    if (user.isAdmin) {
+      res.status(403).json({ error: "admin role required" });
+      return;
+    }
+    next();
+  };
+}
+
+export function optionalUser(): (req: RoleRequest, res: Response, next: NextFunction) => void {
+  return (req, res, next) => {
+    if (req.user) {
+      res.locals.userEmail = req.user.email;
+    }
+    next();
+  };
+}
+
+export function isAdminUser(user: AuthenticatedUser | undefined): boolean {
+  return user !== undefined && user.isAdmin;
+}
