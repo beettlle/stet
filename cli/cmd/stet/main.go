@@ -1911,15 +1911,19 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	return checkSystemOne(cmd.Context(), cfg)
 }
 
-// checkSystemOne verifies the System One decision server when the critic is
-// enabled with the systemone backend: the server must be reachable and the
-// configured model must exist. When the critic is disabled or uses the llm
-// backend it does nothing, so doctor output is unchanged. It returns an
-// errExit error on failure, mirroring the LLM check exit codes. The API key
-// is never printed: the client redacts it from errors and this helper never
-// logs cfg.SystemOneAPIKey.
+// checkSystemOne verifies the System One decision server when any of its
+// consumers is enabled: the critic (enabled with the systemone backend), the
+// rules selector (rules_selector), or the rules annotator (rules_annotate).
+// The server must be reachable and the configured model must exist. Doctor has
+// no --dry-run flag, so the selector and annotator count whenever set,
+// mirroring the want* booleans in systemOneRunOptions without the dry-run
+// condition. When none are enabled it does nothing, so doctor output is
+// unchanged. It returns an errExit error on failure, mirroring the LLM check
+// exit codes. The API key is never printed: the client redacts it from errors
+// and this helper never logs cfg.SystemOneAPIKey.
 func checkSystemOne(ctx context.Context, cfg *config.Config) error {
-	if !cfg.CriticEnabled || cfg.CriticBackend != "systemone" {
+	wantCritic := cfg.CriticEnabled && cfg.CriticBackend == "systemone"
+	if !wantCritic && !cfg.RulesSelector && !cfg.RulesAnnotate {
 		return nil
 	}
 	client := systemone.NewClient(cfg.SystemOneBaseURL, cfg.SystemOneAPIKey, nil)
