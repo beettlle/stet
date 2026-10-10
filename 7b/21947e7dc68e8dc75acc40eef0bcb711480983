@@ -1,0 +1,24 @@
+spine-tasks/SP-035-doctor-systemone-rules-probe/.DONE
+  h_ae151c586ac6c5 1
+spine-tasks/SP-035-doctor-systemone-rules-probe/.reviews/1-20261010T184220.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-035-doctor-systemone-rules-probe/.reviews/contract-fail-2026-10-10T18-45-32-444Z.log
+  h_ae151c586ac6c5 1-29
+spine-tasks/SP-035-doctor-systemone-rules-probe/.reviews/contract-fail-2026-10-10T18-46-40-556Z.log
+  h_ae151c586ac6c5 1-23
+spine-tasks/SP-035-doctor-systemone-rules-probe/.reviews/contract-fail-2026-10-10T19-20-18-456Z.log
+  h_ae151c586ac6c5 1-25
+spine-tasks/SP-035-doctor-systemone-rules-probe/.reviews/final-20261010T192130.md
+  h_ae151c586ac6c5 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7b21947e7dc68e8dc75acc40eef0bcb711480983",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
