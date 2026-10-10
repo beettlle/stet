@@ -1,0 +1,6 @@
+{
+  "id": "go-clean-refactor",
+  "language": "go",
+  "clean": true,
+  "bugs": []
+}

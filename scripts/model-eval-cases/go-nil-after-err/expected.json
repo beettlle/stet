@@ -1,0 +1,13 @@
+{
+  "id": "go-nil-after-err",
+  "language": "go",
+  "clean": false,
+  "bugs": [
+    {
+      "file": "internal/userstore/store.go",
+      "lines": [46, 49],
+      "category": "correctness",
+      "description": "FindByEmail error discarded with _, then the possibly-nil user pointer is dereferenced"
+    }
+  ]
+}

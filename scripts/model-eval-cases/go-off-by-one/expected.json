@@ -1,0 +1,13 @@
+{
+  "id": "go-off-by-one",
+  "language": "go",
+  "clean": false,
+  "bugs": [
+    {
+      "file": "internal/pagination/page.go",
+      "lines": [71, 71],
+      "category": "correctness",
+      "description": "loop bound uses <= and indexes one row past the end of the page slice"
+    }
+  ]
+}
