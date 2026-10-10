@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"stet/cli/internal/diff"
+	"stet/cli/internal/findings"
 	"stet/cli/internal/llm"
 	"stet/cli/internal/ollama"
 	"stet/cli/internal/prompt"
@@ -135,8 +136,12 @@ func TestReviewHunk_proseThenFencedJSON_noRetry(t *testing.T) {
 	if callCount != 1 {
 		t.Errorf("expected 1 generate call (no retry), got %d", callCount)
 	}
-	if len(list) != 1 || list[0].File != "c.go" {
-		t.Fatalf("list = %+v, want 1 finding for c.go", list)
+	if len(list) != 1 {
+		t.Fatalf("len(list) = %d, want 1", len(list))
+	}
+	f := list[0]
+	if f.File != "c.go" || f.Line != 3 || f.Severity != findings.SeverityWarning || f.Category != findings.CategoryBug || f.Message != "off by one" || f.Confidence != 0.8 {
+		t.Errorf("finding content: %+v", f)
 	}
 }
 

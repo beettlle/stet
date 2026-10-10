@@ -24,38 +24,38 @@ func TestParseFindingsResponse_recovery(t *testing.T) {
 	}{
 		{
 			// The observed failure shape: prose analysis, then a fenced json array.
-			name: "prose_then_fenced_json_array",
-			resp: "Looking at the code, I need to check the loop bounds.\n\nThe variable `i` starts at 1, which skips index 0. Note [brackets] and {braces} in prose.\n\n```json\n[" + recoveryFindingJSON + "]\n```\n",
+			name:    "prose_then_fenced_json_array",
+			resp:    "Looking at the code, I need to check the loop bounds.\n\nThe variable `i` starts at 1, which skips index 0. Note [brackets] and {braces} in prose.\n\n```json\n[" + recoveryFindingJSON + "]\n```\n",
 			wantLen: 1, wantFile: "x.py",
 		},
 		{
-			name: "prose_then_bare_array",
-			resp: "Analysis: the diff touches the loop. Inline `code` and [bracket] text.\n\n[" + recoveryFindingJSON + "]\n",
+			name:    "prose_then_bare_array",
+			resp:    "Analysis: the diff touches the loop. Inline `code` and [bracket] text.\n\n[" + recoveryFindingJSON + "]\n",
 			wantLen: 1, wantFile: "x.py",
 		},
 		{
-			name: "prose_with_junk_brackets_before_real_array",
-			resp: "First [x] then {y} plus `inline code` and [a, b] lists.\n\n[" + recoveryFindingJSON + "]\n",
+			name:    "prose_with_junk_brackets_before_real_array",
+			resp:    "First [x] then {y} plus `inline code` and [a, b] lists.\n\n[" + recoveryFindingJSON + "]\n",
 			wantLen: 1, wantFile: "x.py",
 		},
 		{
-			name: "two_fenced_blocks_last_valid_wins",
-			resp: "```json\n[" + recoveryFindingJSON + "]\n```\nWait, correcting myself:\n\n```json\n[{\"file\":\"new.py\",\"line\":20,\"severity\":\"info\",\"category\":\"bug\",\"message\":\"newer finding\",\"confidence\":0.7}]\n```",
+			name:    "two_fenced_blocks_last_valid_wins",
+			resp:    "```json\n[" + recoveryFindingJSON + "]\n```\nWait, correcting myself:\n\n```json\n[{\"file\":\"new.py\",\"line\":20,\"severity\":\"info\",\"category\":\"bug\",\"message\":\"newer finding\",\"confidence\":0.7}]\n```",
 			wantLen: 1, wantFile: "new.py",
 		},
 		{
-			name: "last_fenced_block_truncated_earlier_valid_wins",
-			resp: "```json\n[" + recoveryFindingJSON + "]\n```\nAdditional notes:\n\n```json\n[{\"file\":\"new.py\",\"line\":20",
+			name:    "last_fenced_block_truncated_earlier_valid_wins",
+			resp:    "```json\n[" + recoveryFindingJSON + "]\n```\nAdditional notes:\n\n```json\n[{\"file\":\"new.py\",\"line\":20",
 			wantLen: 1, wantFile: "x.py",
 		},
 		{
-			name: "last_bare_span_truncated_earlier_valid_wins",
-			resp: "[" + recoveryFindingJSON + "]\nCorrection attempt: [{\"file\":\"new.py\"",
+			name:    "last_bare_span_truncated_earlier_valid_wins",
+			resp:    "[" + recoveryFindingJSON + "]\nCorrection attempt: [{\"file\":\"new.py\"",
 			wantLen: 1, wantFile: "x.py",
 		},
 		{
-			name: "wrapper_in_prose",
-			resp: "Here is my review:\n{\"findings\":[" + recoveryFindingJSON + "]}\nHope that helps!",
+			name:    "wrapper_in_prose",
+			resp:    "Here is my review:\n{\"findings\":[" + recoveryFindingJSON + "]}\nHope that helps!",
 			wantLen: 1, wantFile: "x.py",
 		},
 		{
