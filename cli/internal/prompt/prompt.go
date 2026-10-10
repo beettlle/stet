@@ -67,7 +67,9 @@ Respond with a single JSON array of findings. Each finding is an object with:
 - cursor_uri (string, optional): file URI for deep linking
 - evidence_lines (array of integers, optional): line numbers in the diff that support this finding.
 
-Set confidence to how sure you are for each finding. Return only the JSON array, no other text. Example: [{"file":"pkg.go","line":10,"severity":"warning","category":"style","confidence":0.9,"message":"Use consistent naming"}]`
+Set confidence to how sure you are for each finding. Return only the JSON array, no other text. Example: [{"file":"pkg.go","line":10,"severity":"warning","category":"style","confidence":0.9,"message":"Use consistent naming"}]
+
+Respond with only the JSON array. Do not include analysis, prose, or Markdown.`
 
 // SystemPrompt returns the system prompt for the review model with precedence:
 // optimized (stateDir/system_prompt_optimized.txt) > repo (.review/prompt.md
@@ -411,7 +413,7 @@ func AppendPromptShadows(system string, shadows []Shadow) string {
 	}
 	var b strings.Builder
 	b.WriteString("\n\n## Negative examples (do not report)\n\n")
-	b.WriteString("The following code contexts previously produced findings that the user dismissed. Do not report similar issues for similar code.\n\n")
+	b.WriteString("The following code contexts previously produced findings that the user dismissed as false positives. They are context, not hints: do not report similar issues and do not discuss them.\n\n")
 	for i := len(shadows) - n; i < len(shadows); i++ {
 		ctx := shadows[i].PromptContext
 		if len(ctx) > maxShadowContextChars {
@@ -424,11 +426,12 @@ func AppendPromptShadows(system string, shadows []Shadow) string {
 	return system + b.String()
 }
 
-const suppressionExamplesHeader = "\n\n## Do not report issues similar to\n\n"
+const suppressionExamplesHeader = "\n\n## Previously dismissed false positives (do not report or discuss)\n\n"
 
-// AppendSuppressionExamples appends a "## Do not report issues similar to" section
-// with one line per example (from history dismissals). Returns systemPrompt
-// unchanged if examples is nil or empty. Used for history-based suppression (roadmap 9.1).
+// AppendSuppressionExamples appends the "Previously dismissed false positives"
+// section (previously dismissed false positives, not hints; do not report or
+// discuss them) with one line per example (from history dismissals). Returns
+// systemPrompt unchanged if examples is nil or empty. Used for history-based suppression (roadmap 9.1).
 func AppendSuppressionExamples(systemPrompt string, examples []string) string {
 	if len(examples) == 0 {
 		return systemPrompt

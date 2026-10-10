@@ -563,7 +563,7 @@ func TestAppendSuppressionExamples_nonEmpty_appendsSection(t *testing.T) {
 	base := "System prompt."
 	examples := []string{"a.go:1: msg1"}
 	got := AppendSuppressionExamples(base, examples)
-	if !strings.Contains(got, "## Do not report issues similar to") {
+	if !strings.Contains(got, suppressionExamplesHeader) {
 		t.Errorf("AppendSuppressionExamples: want section header; got:\n%s", got)
 	}
 	if !strings.Contains(got, "a.go:1: msg1") {

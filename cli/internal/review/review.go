@@ -269,6 +269,11 @@ func PrepareHunkPrompt(ctx context.Context, systemBase string, hunk diff.Hunk, r
 	return system, user, nil
 }
 
+// jsonOnlyRetryInstruction is appended to the user message on the single retry
+// after a parse failure, so the model does not repeat the prose that broke
+// parsing: the reply must be only the JSON array.
+const jsonOnlyRetryInstruction = "\n\nYour previous reply was not valid JSON. Reply again with only the JSON array of findings: no analysis, no prose, and no Markdown code fences."
+
 // ProcessReviewResponse parses the LLM response, retries Generate once on parse
 // failure, then assigns finding IDs. Callers use this after client.Generate.
 func ProcessReviewResponse(ctx context.Context, result *ollama.GenerateResult, hunk diff.Hunk, client llm.Client, model, system, user string, generateOpts *ollama.GenerateOptions, traceOut *trace.Tracer) ([]findings.Finding, *HunkUsage, error) {
@@ -324,7 +329,8 @@ func ProcessReviewResponse(ctx context.Context, result *ollama.GenerateResult, h
 			}
 		}
 		if err != nil {
-			result2, retryErr := client.Generate(ctx, model, system, user, generateOpts)
+			retryUser := user + jsonOnlyRetryInstruction
+			result2, retryErr := client.Generate(ctx, model, system, retryUser, generateOpts)
 			if retryErr != nil {
 				return nil, nil, fmt.Errorf("review: parse failed then retry generate failed: %w", retryErr)
 			}
@@ -333,6 +339,7 @@ func ProcessReviewResponse(ctx context.Context, result *ollama.GenerateResult, h
 			}
 			if traceOut != nil && traceOut.Enabled() {
 				traceOut.Section("LLM response (raw) retry")
+				traceOut.Printf("retry used JSON-only instruction (appended to user message after parse failure)\n")
 				traceOut.Printf("model=%s prompt_eval_count=%d eval_count=%d eval_duration=%d\n", result2.Model, result2.PromptEvalCount, result2.EvalCount, result2.EvalDuration)
 				traceOut.Printf("%s\n", result2.Response)
 			}

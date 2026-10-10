@@ -2389,8 +2389,8 @@ func TestRun_pipeline_multipleHunks_ordersFindingsAndOneGeneratePerHunk(t *testi
 
 // TestSuppressionWiring_systemPromptContainsSection asserts that when suppression
 // examples are loaded from history and passed to PrepareHunkPrompt (per-hunk
-// wiring), the returned system prompt contains the "Do not report issues similar to"
-// section with the example.
+// wiring), the returned system prompt contains the "Previously dismissed false
+// positives" section with the example.
 func TestSuppressionWiring_systemPromptContainsSection(t *testing.T) {
 	t.Parallel()
 	stateDir := t.TempDir()
@@ -2423,7 +2423,7 @@ func TestSuppressionWiring_systemPromptContainsSection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PrepareHunkPrompt: %v", err)
 	}
-	if !strings.Contains(system, "## Do not report issues similar to") {
+	if !strings.Contains(system, "## Previously dismissed false positives (do not report or discuss)") {
 		t.Error("system prompt should contain suppression section header")
 	}
 	wantEx := "pkg/foo.go:42: Consider adding comments"
