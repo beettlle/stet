@@ -1,0 +1,16 @@
+cli/internal/review/extract_json_test.go
+  h_ae151c586ac6c5 1-263
+cli/internal/review/review_test.go
+  h_ae151c586ac6c5 107-205,913,926
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8ef78e94cadb6233d560513103d4ceca641d073a",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
