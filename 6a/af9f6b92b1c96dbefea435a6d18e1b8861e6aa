@@ -1,0 +1,21 @@
+cli/internal/review/extract_json.go
+  s_55430a395537e8::t_a9328fc1c6d83c 10-18,22-26,29,31-32,39-50,54-55,59,62-67,69-75,155-162,166,171,175,178-191
+cli/internal/review/extract_json_test.go
+  s_55430a395537e8::t_b375c5aa5568b8 6,87-107,207-235
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6aaf9f6b92b1c96dbefea435a6d18e1b8861e6aa",
+  "prompts": {},
+  "sessions": {
+    "s_55430a395537e8": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "agent-a37f8c50-c470-4d5e-a824-d34df94518c9",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
