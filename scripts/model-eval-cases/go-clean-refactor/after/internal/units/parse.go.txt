@@ -1,0 +1,62 @@
+package units
+
+import (
+	"fmt"
+	"strconv"
+	"strings"
+)
+
+// ParseByteSize converts a human byte size such as "10GB" or "512kB" into a
+// number of bytes.
+func ParseByteSize(input string) (int64, error) {
+	normalized := strings.TrimSpace(strings.ToLower(input))
+	if normalized == "" {
+		return 0, fmt.Errorf("byte size must not be empty")
+	}
+	numPart, unitPart, hasUnit := splitNumberUnit(normalized)
+	if !hasUnit {
+		size, err := strconv.ParseFloat(normalized, 64)
+		if err != nil {
+			return 0, fmt.Errorf("parse %q: %w", input, err)
+		}
+		return int64(size), nil
+	}
+	size, err := strconv.ParseFloat(numPart, 64)
+	if err != nil {
+		return 0, fmt.Errorf("parse %q: %w", input, err)
+	}
+	mult, ok := unitMultiplier(unitPart)
+	if !ok {
+		return 0, fmt.Errorf("unknown unit %q", unitPart)
+	}
+	return int64(size*mult), nil
+}
+
+// splitNumberUnit splits a normalized size into its numeric prefix and unit
+// suffix. hasUnit is false when the input carries no unit suffix.
+func splitNumberUnit(s string) (num, unit string, hasUnit bool) {
+	for i := 0; i < len(s); i++ {
+		if (s[i] < '0' || s[i] > '9') && s[i] != '.' {
+			return s[:i], strings.TrimSpace(s[i:]), true
+		}
+	}
+	return s, "", false
+}
+
+// unitMultiplier maps a unit suffix to its size in bytes.
+func unitMultiplier(unit string) (float64, bool) {
+	switch unit {
+	case "b":
+		return 1, true
+	case "kb", "k":
+		return 1 << 10, true
+	case "mb", "m":
+		return 1 << 20, true
+	case "gb", "g":
+		return 1 << 30, true
+	case "tb", "t":
+		return 1 << 40, true
+	default:
+		return 0, false
+	}
+}

@@ -1,0 +1,13 @@
+{
+  "id": "py-mutable-default",
+  "language": "python",
+  "clean": false,
+  "bugs": [
+    {
+      "file": "app/cart.py",
+      "lines": [17, 17],
+      "category": "correctness",
+      "description": "mutable default argument is shared across calls and mutated by append"
+    }
+  ]
+}

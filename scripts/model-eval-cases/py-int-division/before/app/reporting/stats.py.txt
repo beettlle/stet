@@ -1,0 +1,42 @@
+"""Aggregation helpers for the weekly stats report."""
+
+from __future__ import annotations
+
+
+def average_score(scores: list[float]) -> float:
+    """Return the mean score, or 0.0 for an empty list."""
+    if not scores:
+        return 0.0
+    return sum(scores) / len(scores)
+
+
+def completion_percentage(completed: int, total: int) -> float:
+    """Return the share of completed tasks as a percentage."""
+    if total <= 0:
+        return 0.0
+    return completed / total * 100
+
+
+def median_score(scores: list[float]) -> float:
+    """Return the median score, or 0.0 for an empty list."""
+    if not scores:
+        return 0.0
+    ordered = sorted(scores)
+    middle = len(ordered) // 2
+    if len(ordered) % 2 == 1:
+        return ordered[middle]
+    return (ordered[middle - 1] + ordered[middle]) / 2
+
+
+def format_percentage(value: float) -> str:
+    """Render a percentage with one decimal place."""
+    return f"{value:.1f}%"
+
+
+def bucket_for_percentage(value: float) -> str:
+    """Map a percentage to a display bucket."""
+    if value >= 90.0:
+        return "high"
+    if value >= 50.0:
+        return "medium"
+    return "low"

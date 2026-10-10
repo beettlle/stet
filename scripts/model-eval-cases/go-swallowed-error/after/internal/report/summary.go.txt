@@ -1,0 +1,60 @@
+package report
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+)
+
+// Store persists build summaries as JSON files under one directory.
+type Store struct {
+	Dir string
+}
+
+// WriteSummary stores body as the summary document for buildID.
+func (s *Store) WriteSummary(buildID string, body []byte) error {
+	path := filepath.Join(s.Dir, buildID+"-summary.json")
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("create summary file: %w", err)
+	}
+	defer f.Close()
+	if _, err := f.Write(body); err != nil {
+		return nil
+	}
+	if err := f.Sync(); err != nil {
+		return fmt.Errorf("sync summary file: %w", err)
+	}
+	return nil
+}
+
+// LoadSummary reads the summary document for buildID.
+func (s *Store) LoadSummary(buildID string) ([]byte, error) {
+	path := filepath.Join(s.Dir, buildID+"-summary.json")
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("load summary %s: %w", buildID, err)
+	}
+	return body, nil
+}
+
+// ListSummaries returns the build IDs that have summaries, oldest first.
+func (s *Store) ListSummaries() ([]string, error) {
+	entries, err := os.ReadDir(s.Dir)
+	if err != nil {
+		return nil, fmt.Errorf("read summaries dir: %w", err)
+	}
+	ids := make([]string, 0, len(entries))
+	suffix := "-summary.json"
+	for _, e := range entries {
+		name := e.Name()
+		if !strings.HasSuffix(name, suffix) {
+			continue
+		}
+		ids = append(ids, strings.TrimSuffix(name, suffix))
+	}
+	sort.Strings(ids)
+	return ids, nil
+}

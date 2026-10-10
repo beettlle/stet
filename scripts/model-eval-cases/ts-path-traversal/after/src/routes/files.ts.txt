@@ -1,0 +1,44 @@
+import { Router } from "express";
+import { promises as fs } from "node:fs";
+import path from "node:path";
+
+import { HttpError } from "../errors";
+
+const router = Router();
+
+const BASE_DIR = path.resolve(__dirname, "..", "public-docs");
+
+router.get("/files", async (req, res, next) => {
+  try {
+    const requested = String(req.query.file ?? "");
+    if (requested === "") {
+      throw new HttpError(400, "file query parameter is required");
+    }
+    const resolved = path.join(BASE_DIR, requested);
+    const content = await fs.readFile(resolved, "utf8");
+    res.type("text/plain; charset=utf-8").send(content);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/files/:name/meta", async (req, res, next) => {
+  try {
+    const name = path.basename(String(req.params.name ?? ""));
+    const target = path.join(BASE_DIR, `${name}.meta.json`);
+    const raw = await fs.readFile(target, "utf8");
+    res.type("application/json").send(raw);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.use("/files", (err, req, res, next) => {
+  if (err instanceof HttpError) {
+    res.status(err.status).json({ error: err.message, ok: false });
+    return;
+  }
+  next(err);
+});
+
+export default router;

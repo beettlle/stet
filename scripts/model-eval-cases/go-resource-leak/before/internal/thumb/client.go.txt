@@ -1,0 +1,60 @@
+package thumb
+
+import (
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+)
+
+// Client downloads thumbnails from the media service.
+type Client struct {
+	BaseURL string
+	HTTP    *http.Client
+}
+
+// NewClient returns a client rooted at the media service base URL.
+func NewClient(baseURL string) *Client {
+	return &Client{
+		BaseURL: baseURL,
+		HTTP:    http.DefaultClient,
+	}
+}
+
+// Fetch downloads the thumbnail for mediaID into dest and returns the number
+// of bytes written.
+func (c *Client) Fetch(mediaID, dest string) (int64, error) {
+	resp, err := c.HTTP.Get(c.BaseURL + "/media/" + mediaID + "/thumbnail")
+	if err != nil {
+		return 0, fmt.Errorf("request thumbnail: %w", err)
+	}
+	defer resp.Body.Close()
+
+	out, err := os.Create(filepath.Clean(dest))
+	if err != nil {
+		return 0, fmt.Errorf("create %s: %w", dest, err)
+	}
+	defer out.Close()
+
+	n, err := io.Copy(out, resp.Body)
+	if err != nil {
+		return 0, fmt.Errorf("copy thumbnail for %s: %w", mediaID, err)
+	}
+	return n, nil
+}
+
+// URL returns the thumbnail endpoint for mediaID.
+func (c *Client) URL(mediaID string) string {
+	return c.BaseURL + "/media/" + mediaID + "/thumbnail"
+}
+
+// Exists reports whether the media service knows the given media ID.
+func (c *Client) Exists(mediaID string) (bool, error) {
+	resp, err := c.HTTP.Head(c.BaseURL + "/media/" + mediaID)
+	if err != nil {
+		return false, fmt.Errorf("head media %s: %w", mediaID, err)
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == http.StatusOK, nil
+}

@@ -1,0 +1,13 @@
+{
+  "id": "py-bare-except",
+  "language": "python",
+  "clean": false,
+  "bugs": [
+    {
+      "file": "app/billing.py",
+      "lines": [36, 37],
+      "category": "correctness",
+      "description": "bare except swallows every gateway failure and falls through as if the charge succeeded"
+    }
+  ]
+}

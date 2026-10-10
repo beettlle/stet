@@ -1,0 +1,9 @@
+SP-038 complete.
+
+All 14 seeded-bug/clean fixture cases under scripts/model-eval-cases/ plus
+scripts/tests/test_model_eval_cases.py. Final-review REVISE feedback addressed:
+test_bug_lines_in_diff_and_control_edit_far_away now asserts each bug range
+intersects the before -> after diff (commit e03e207).
+
+Contract testCommand: python3 -m pytest scripts/tests/test_model_eval_cases.py -q
+=> 86 passed, 14 skipped. Full scripts/tests/: 129 passed, 14 skipped.

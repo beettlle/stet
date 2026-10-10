@@ -1,0 +1,13 @@
+{
+  "id": "go-resource-leak",
+  "language": "go",
+  "clean": false,
+  "bugs": [
+    {
+      "file": "internal/thumb/client.go",
+      "lines": [43, 43],
+      "category": "performance",
+      "description": "response body is closed only on the success path; create and copy error returns leak the body"
+    }
+  ]
+}
