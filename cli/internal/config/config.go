@@ -20,7 +20,9 @@
 //   - STET_CRITIC_ENABLED (optional second-pass critic: 1/true/yes/on = true, 0/false/no/off = false).
 //   - STET_CRITIC_MODEL (model name for the critic; default qwen3-coder:30b, same as main model).
 //   - STET_CRITIC_BACKEND (critic backend: llm or systemone; default llm).
-//   - STET_SYSTEMONE_BASE_URL, STET_SYSTEMONE_MODEL, STET_SYSTEMONE_MIN_KEEP, STET_SYSTEMONE_SAMPLES (System One decision server; used when critic_backend = systemone).
+//   - STET_SYSTEMONE_BASE_URL, STET_SYSTEMONE_MODEL, STET_SYSTEMONE_MIN_KEEP, STET_SYSTEMONE_SAMPLES,
+//   - STET_SYSTEMONE_TIMEOUT (per-request HTTP timeout; Go duration string or integer seconds; System One decision server).
+//   - (all System One keys are used when critic_backend = systemone, plus the rules selector/annotator and critic-eval).
 //   - STET_SYSTEMONE_API_KEY (System One API key; env-only — never loaded from config files and never printed).
 //   - STET_RULES_SELECTOR (rule-section selector: 1/true/yes/on = true, 0/false/no/off = false; reuses systemone_base_url/systemone_model and STET_SYSTEMONE_API_KEY).
 //   - STET_RULES_ANNOTATE (rule-conflict annotation: 1/true/yes/on = true, 0/false/no/off = false; reuses systemone_base_url/systemone_model and STET_SYSTEMONE_API_KEY).
@@ -99,6 +101,10 @@ type Config struct {
 	SystemOneMinKeep float64 `toml:"systemone_min_keep"`
 	// SystemOneSamples is the number of noul (yes/no) questions to ask per finding. Range [1, 32]. Used only when CriticBackend == "systemone".
 	SystemOneSamples int `toml:"systemone_samples"`
+	// SystemOneTimeout is the per-request HTTP timeout for the System One decision server. Range [1s, 30m];
+	// default 10s. Applies to every System One consumer (critic, rules selector, rules annotator, doctor,
+	// critic-eval); raise it for slow local servers (e.g. OpenJev on CPU).
+	SystemOneTimeout time.Duration `toml:"systemone_timeout"`
 	// SystemOneAPIKey is the API key for the System One decision server. Env-only (STET_SYSTEMONE_API_KEY): no TOML key, never loaded from config files, and never included in error messages or dumps.
 	SystemOneAPIKey string `toml:"-"`
 	// RulesSelector enables the rule-section selector (SP-026): when true and not dry-run, each hunk's
@@ -196,6 +202,7 @@ const (
 	_defaultSystemOneModel          = "openjev-latest"
 	_defaultSystemOneMinKeep        = 0.5
 	_defaultSystemOneSamples        = 1
+	_defaultSystemOneTimeout        = 10 * time.Second
 )
 
 // validStrictness is the set of allowed strictness values (normalized lowercase).
@@ -253,6 +260,14 @@ func validateSystemOneSamples(n int) error {
 	return nil
 }
 
+// validateSystemOneTimeout requires d in [1s, 30m]; otherwise returns an error naming the key.
+func validateSystemOneTimeout(d time.Duration) error {
+	if d < time.Second || d > 30*time.Minute {
+		return erruser.New("Invalid systemone_timeout; must be between 1s and 30m.", nil)
+	}
+	return nil
+}
+
 // errIntOverflow is returned when an int64 value does not fit in int (e.g. on 32-bit or huge TOML/env values).
 var errIntOverflow = errors.New("value out of range for int")
 
@@ -296,6 +311,7 @@ func DefaultConfig() Config {
 		SystemOneModel:          _defaultSystemOneModel,
 		SystemOneMinKeep:        _defaultSystemOneMinKeep,
 		SystemOneSamples:        _defaultSystemOneSamples,
+		SystemOneTimeout:        _defaultSystemOneTimeout,
 		RulesSelector:           false,
 		RulesAnnotate:           false,
 	}
@@ -423,6 +439,7 @@ func mergeFile(cfg *Config, path string) error {
 		SystemOneModel          *string   `toml:"systemone_model"`
 		SystemOneMinKeep        *float64  `toml:"systemone_min_keep"`
 		SystemOneSamples        *int64    `toml:"systemone_samples"`
+		SystemOneTimeout        *string   `toml:"systemone_timeout"`
 		RulesSelector           *bool     `toml:"rules_selector"`
 		RulesAnnotate           *bool     `toml:"rules_annotate"`
 		ExcludePatterns         *[]string `toml:"exclude_patterns"`
@@ -588,6 +605,16 @@ func mergeFile(cfg *Config, path string) error {
 		}
 		cfg.SystemOneSamples = v
 	}
+	if file.SystemOneTimeout != nil && *file.SystemOneTimeout != "" {
+		d, err := parseDuration(*file.SystemOneTimeout)
+		if err != nil {
+			return erruser.New("Configuration systemone_timeout is invalid.", err)
+		}
+		if err := validateSystemOneTimeout(d); err != nil {
+			return err
+		}
+		cfg.SystemOneTimeout = d
+	}
 	if file.RulesSelector != nil {
 		cfg.RulesSelector = *file.RulesSelector
 	}
@@ -658,6 +685,7 @@ const (
 	envSystemOneModel          = "STET_SYSTEMONE_MODEL"
 	envSystemOneMinKeep        = "STET_SYSTEMONE_MIN_KEEP"
 	envSystemOneSamples        = "STET_SYSTEMONE_SAMPLES"
+	envSystemOneTimeout        = "STET_SYSTEMONE_TIMEOUT"
 	envSystemOneAPIKey         = "STET_SYSTEMONE_API_KEY"
 	envRulesSelector           = "STET_RULES_SELECTOR"
 	envRulesAnnotate           = "STET_RULES_ANNOTATE"
@@ -929,6 +957,16 @@ func applyEnv(cfg *Config, env []string) error {
 			return err
 		}
 		cfg.SystemOneSamples = samples
+	}
+	if v, ok := vals[envSystemOneTimeout]; ok && v != "" {
+		d, err := parseDuration(v)
+		if err != nil {
+			return erruser.New("STET_SYSTEMONE_TIMEOUT must be a valid duration.", err)
+		}
+		if err := validateSystemOneTimeout(d); err != nil {
+			return err
+		}
+		cfg.SystemOneTimeout = d
 	}
 	if v, ok := vals[envSystemOneAPIKey]; ok && v != "" {
 		cfg.SystemOneAPIKey = v
