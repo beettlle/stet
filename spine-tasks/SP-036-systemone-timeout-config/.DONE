@@ -1,0 +1,6 @@
+SP-036 complete. All completion criteria met and re-verified at c118716:
+- Config: SystemOneTimeout (TOML systemone_timeout / env STET_SYSTEMONE_TIMEOUT), default 10s, range [1s,30m], parseDuration semantics, env > file > default.
+- CLI: newSystemOneClient helper used by systemOneRunOptions, checkSystemOne, runCriticEval; no other systemone.NewClient in main.go.
+- Docs: contract row at docs/cli-extension-contract.md.
+- Verification: go test (config/systemone/cmd/stet) ok, go vet clean, coverage gate PASS (83.1%, all files >= 72%), extension npm test 93/93 + untracked-coverage guard PASS, scripts/spine-stet-contract-run.sh default exit 0 (0 findings).
+- Commits: cad43f9 (config), 3cc273a (wiring+docs), 3bbe18a (doctor timeout test), 0074ec1 (evidence/triage), c118716 (re-verification).

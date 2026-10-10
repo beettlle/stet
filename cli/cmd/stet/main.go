@@ -700,6 +700,17 @@ type systemOneRunOpts struct {
 	AnnotateModel string
 }
 
+// newSystemOneClient builds the System One client from config: the configured
+// base URL, the env-only API key, and an HTTP client with the configured
+// per-request timeout (systemone_timeout / STET_SYSTEMONE_TIMEOUT, default
+// 10s). All System One consumers in this package — the critic, the rules
+// selector, the rules annotator, doctor, and critic-eval — construct their
+// client through this helper so the configured timeout applies uniformly. The
+// API key is passed to the client, never logged or included in error messages.
+func newSystemOneClient(cfg *config.Config) *systemone.Client {
+	return systemone.NewClient(cfg.SystemOneBaseURL, cfg.SystemOneAPIKey, &http.Client{Timeout: cfg.SystemOneTimeout})
+}
+
 // systemOneRunOptions builds the System One fields for run.StartOptions and
 // run.RunOptions from the loaded config. Exactly one *systemone.Client is
 // constructed when any of the System One critic (critic enabled with backend
@@ -719,7 +730,7 @@ func systemOneRunOptions(cfg *config.Config, dryRun bool) systemOneRunOpts {
 	wantSelector := cfg.RulesSelector && !dryRun
 	wantAnnotate := cfg.RulesAnnotate && !dryRun
 	if wantCritic || wantSelector || wantAnnotate {
-		client := systemone.NewClient(cfg.SystemOneBaseURL, cfg.SystemOneAPIKey, nil)
+		client := newSystemOneClient(cfg)
 		if wantCritic {
 			o.Client = client
 		}
@@ -1926,7 +1937,7 @@ func checkSystemOne(ctx context.Context, cfg *config.Config) error {
 	if !wantCritic && !cfg.RulesSelector && !cfg.RulesAnnotate {
 		return nil
 	}
-	client := systemone.NewClient(cfg.SystemOneBaseURL, cfg.SystemOneAPIKey, nil)
+	client := newSystemOneClient(cfg)
 	if err := client.Health(ctx); err != nil {
 		if errors.Is(err, systemone.ErrUnauthorized) {
 			fmt.Fprintln(os.Stderr, "System One unauthorized. Set STET_SYSTEMONE_API_KEY (env-only; never read from config files).")
@@ -2006,7 +2017,7 @@ func runCriticEval(cmd *cobra.Command, args []string) error {
 	}
 	// critic-eval is an evaluation tool: it always uses the systemone_* config
 	// keys, whether or not critic_enabled is set, and never writes to .review.
-	client := systemone.NewClient(cfg.SystemOneBaseURL, cfg.SystemOneAPIKey, nil)
+	client := newSystemOneClient(cfg)
 	scores, latencies, err := criticeval.Score(cmd.Context(), client, cfg.SystemOneModel, cfg.SystemOneSamples, ds)
 	if err != nil {
 		if errors.Is(err, systemone.ErrUnauthorized) {

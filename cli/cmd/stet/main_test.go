@@ -3414,6 +3414,56 @@ func TestRunCLI_doctorSystemOneOK(t *testing.T) {
 	}
 }
 
+// TestRunCLI_doctorSystemOneTimeoutConfigurable runs doctor against a System
+// One server whose /health answer is slower than a 1s client timeout: with
+// systemone_timeout = 1s the request fails as unreachable (exit 2), and with
+// the timeout raised above the server's delay (integer-seconds form "2")
+// doctor succeeds (exit 0). Only /health sleeps, keeping total test sleep at
+// 1.2s; /v1/models goes through the same configured client.
+func TestRunCLI_doctorSystemOneTimeoutConfigurable(t *testing.T) {
+	// Do not run in parallel: test sets env and captures stdout/stderr.
+	sysSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/health" {
+			time.Sleep(1200 * time.Millisecond) // slower than a 1s timeout, faster than 2s
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"status":"ok"}`))
+			return
+		}
+		if r.URL.Path == "/v1/models" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"models":[{"name":"openjev-test"}]}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer sysSrv.Close()
+	llmSrv := doctorLLMServer("m")
+	defer llmSrv.Close()
+
+	t.Run("1s timeout fails as unreachable", func(t *testing.T) {
+		setDoctorSysOneEnv(t, llmSrv.URL, sysSrv.URL)
+		setTestEnv(t, "STET_SYSTEMONE_TIMEOUT", "1s")
+		code, _, stderr := runCLIWithOutput([]string{"doctor"})
+		if code != 2 {
+			t.Errorf("runCLI(doctor) with 1s timeout vs 1.2s server = %d, want 2; stderr: %s", code, stderr)
+		}
+		if !strings.Contains(stderr, "System One server unreachable at "+sysSrv.URL) {
+			t.Errorf("stderr should report the server unreachable; got:\n%s", stderr)
+		}
+	})
+	t.Run("timeout raised above sleep succeeds", func(t *testing.T) {
+		setDoctorSysOneEnv(t, llmSrv.URL, sysSrv.URL)
+		setTestEnv(t, "STET_SYSTEMONE_TIMEOUT", "2") // integer seconds form
+		code, stdout, stderr := runCLIWithOutput([]string{"doctor"})
+		if code != 0 {
+			t.Errorf("runCLI(doctor) with 2s timeout vs 1.2s server = %d, want 0; stderr: %s", code, stderr)
+		}
+		if !strings.Contains(stdout, "System One OK") {
+			t.Errorf("stdout should contain 'System One OK'; got:\n%s", stdout)
+		}
+	})
+}
+
 // TestRunCLI_doctorSystemOneUnreachableExits2 points the System One base URL
 // at a closed port; doctor must exit 2 and report the server as unreachable.
 // The client retries unreachable connections, so this test takes a few seconds.

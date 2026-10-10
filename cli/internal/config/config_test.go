@@ -1475,6 +1475,9 @@ func TestDefaultConfig_systemOneDefaults(t *testing.T) {
 	if c.SystemOneSamples != _defaultSystemOneSamples {
 		t.Errorf("SystemOneSamples = %d, want %d", c.SystemOneSamples, _defaultSystemOneSamples)
 	}
+	if c.SystemOneTimeout != _defaultSystemOneTimeout {
+		t.Errorf("SystemOneTimeout = %v, want %v", c.SystemOneTimeout, _defaultSystemOneTimeout)
+	}
 	if c.SystemOneAPIKey != "" {
 		t.Errorf("SystemOneAPIKey = non-empty, want empty by default")
 	}
@@ -1707,6 +1710,7 @@ systemone_base_url = "http://localhost:9200"
 systemone_model = "openjev-test"
 systemone_min_keep = 0.75
 systemone_samples = 4
+systemone_timeout = "45s"
 `
 	if err := os.WriteFile(filepath.Join(repoDir, ".review", "config.toml"), []byte(toml), 0644); err != nil {
 		t.Fatal(err)
@@ -1734,6 +1738,9 @@ systemone_samples = 4
 	if cfg.SystemOneSamples != 4 {
 		t.Errorf("SystemOneSamples = %d, want 4", cfg.SystemOneSamples)
 	}
+	if cfg.SystemOneTimeout != 45*time.Second {
+		t.Errorf("SystemOneTimeout = %v, want 45s", cfg.SystemOneTimeout)
+	}
 }
 
 func TestLoad_systemOneInvalidTOML(t *testing.T) {
@@ -1752,6 +1759,10 @@ func TestLoad_systemOneInvalidTOML(t *testing.T) {
 		{"min_keep negative", `systemone_min_keep = -0.1`, "systemone_min_keep"},
 		{"samples zero", `systemone_samples = 0`, "systemone_samples"},
 		{"samples too many", `systemone_samples = 33`, "systemone_samples"},
+		{"timeout zero", `systemone_timeout = "0s"`, "systemone_timeout"},
+		{"timeout too short", `systemone_timeout = "500ms"`, "systemone_timeout"},
+		{"timeout too long", `systemone_timeout = "31m"`, "systemone_timeout"},
+		{"timeout garbage", `systemone_timeout = "abc"`, "systemone_timeout"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1788,6 +1799,7 @@ func TestLoad_systemOneFromEnv(t *testing.T) {
 			"STET_SYSTEMONE_MODEL=openjev-env",
 			"STET_SYSTEMONE_MIN_KEEP=0.9",
 			"STET_SYSTEMONE_SAMPLES=8",
+			"STET_SYSTEMONE_TIMEOUT=90",
 			"STET_SYSTEMONE_API_KEY=env-secret-key",
 		},
 	})
@@ -1808,6 +1820,9 @@ func TestLoad_systemOneFromEnv(t *testing.T) {
 	}
 	if cfg.SystemOneSamples != 8 {
 		t.Errorf("SystemOneSamples = %d, want 8", cfg.SystemOneSamples)
+	}
+	if cfg.SystemOneTimeout != 90*time.Second {
+		t.Errorf("SystemOneTimeout = %v, want 90s (integer seconds)", cfg.SystemOneTimeout)
 	}
 	if cfg.SystemOneAPIKey != "env-secret-key" {
 		t.Errorf("SystemOneAPIKey should be set from STET_SYSTEMONE_API_KEY")
@@ -1832,6 +1847,9 @@ func TestLoad_systemOneInvalidEnv(t *testing.T) {
 		{"samples not a number", "STET_SYSTEMONE_SAMPLES=abc", "STET_SYSTEMONE_SAMPLES"},
 		{"samples zero", "STET_SYSTEMONE_SAMPLES=0", "systemone_samples"},
 		{"samples too many", "STET_SYSTEMONE_SAMPLES=33", "systemone_samples"},
+		{"timeout not a duration", "STET_SYSTEMONE_TIMEOUT=abc", "STET_SYSTEMONE_TIMEOUT"},
+		{"timeout zero", "STET_SYSTEMONE_TIMEOUT=0s", "systemone_timeout"},
+		{"timeout too long", "STET_SYSTEMONE_TIMEOUT=31m", "systemone_timeout"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1860,6 +1878,7 @@ systemone_base_url = "http://toml:9000"
 systemone_model = "openjev-toml"
 systemone_min_keep = 0.6
 systemone_samples = 2
+systemone_timeout = "5s"
 `
 	if err := os.WriteFile(filepath.Join(repoDir, ".review", "config.toml"), []byte(toml), 0644); err != nil {
 		t.Fatal(err)
@@ -1873,6 +1892,7 @@ systemone_samples = 2
 			"STET_SYSTEMONE_MODEL=openjev-env",
 			"STET_SYSTEMONE_MIN_KEEP=0.8",
 			"STET_SYSTEMONE_SAMPLES=6",
+			"STET_SYSTEMONE_TIMEOUT=8",
 		},
 		Overrides: &Overrides{
 			CriticBackend: ptrStr("LLM"),
@@ -1895,6 +1915,9 @@ systemone_samples = 2
 	}
 	if cfg.SystemOneSamples != 6 {
 		t.Errorf("SystemOneSamples = %d, want 6 (env beats TOML)", cfg.SystemOneSamples)
+	}
+	if cfg.SystemOneTimeout != 8*time.Second {
+		t.Errorf("SystemOneTimeout = %v, want 8s (env beats TOML, integer seconds)", cfg.SystemOneTimeout)
 	}
 }
 
