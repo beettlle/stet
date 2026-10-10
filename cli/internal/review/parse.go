@@ -26,7 +26,29 @@ type ParseOptions struct {
 // Single-object fallback: normalize then validate (same coercion as array path); validation failure returns error.
 // File may be omitted and filled later from the hunk; line and range are optional (file-only
 // findings are valid). IDs are not set; use AssignFindingIDs after parsing.
+// If the strict parse fails, a recovery fallback (extractFindingsJSON) tries to
+// pull a findings payload embedded in prose (fenced code block or bare JSON
+// span); when nothing decodes, the original strict-parse error is returned.
 func ParseFindingsResponse(jsonStr string, opts ...ParseOptions) ([]findings.Finding, error) {
+	list, err := parseFindingsStrict(jsonStr, opts...)
+	if err == nil {
+		return list, nil
+	}
+	// Recovery fallback: some models write prose analysis and only then emit the
+	// findings JSON (fenced block or bare array). Try to recover the payload;
+	// on failure return the original strict-parse error unchanged.
+	if recovered, ok := extractFindingsJSON(jsonStr); ok {
+		if rlist, rerr := parseFindingsStrict(recovered, opts...); rerr == nil {
+			return rlist, nil
+		}
+	}
+	return nil, err
+}
+
+// parseFindingsStrict is the strict JSON parse used by ParseFindingsResponse:
+// the whole response (after stripping a leading/trailing Markdown fence) must
+// be the findings JSON.
+func parseFindingsStrict(jsonStr string, opts ...ParseOptions) ([]findings.Finding, error) {
 	jsonStr = trimSpace(jsonStr)
 	jsonStr = stripMarkdownCodeFence(jsonStr)
 	jsonStr = trimSpace(jsonStr)
@@ -69,7 +91,11 @@ func ParseFindingsResponse(jsonStr string, opts ...ParseOptions) ([]findings.Fin
 }
 
 // MergeFindingsFromParts combines multiple response parts (e.g. from continuation rounds) into one findings list.
-// Tries parsing the joined string first; if that fails, parses each part (wrapping in brackets if needed) and concatenates.
+// Tries strict-parsing the joined string first; if that fails, parses each part
+// (wrapping in brackets if needed) and concatenates. The joined attempt uses the
+// strict parser only: a joined string of several valid parts must not be
+// "recovered" as just its last embedded array, so per-part concatenation keeps
+// combining every parseable part (each part still gets the recovery fallback).
 func MergeFindingsFromParts(parts []string, opts ...ParseOptions) ([]findings.Finding, error) {
 	if len(parts) == 0 {
 		return nil, fmt.Errorf("merge findings: no parts")
@@ -78,7 +104,7 @@ func MergeFindingsFromParts(parts []string, opts ...ParseOptions) ([]findings.Fi
 	if combined == "" {
 		return nil, fmt.Errorf("merge findings: empty after join")
 	}
-	if list, err := ParseFindingsResponse(combined, opts...); err == nil {
+	if list, err := parseFindingsStrict(combined, opts...); err == nil {
 		return list, nil
 	}
 	var all []findings.Finding
