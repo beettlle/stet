@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-10-10
 **Status:** Active
-**Next Task ID:** SP-040
+**Next Task ID:** SP-041
 
 ---
 
@@ -106,13 +106,23 @@ Waves: W0 SP-035 → W1 SP-036 (both edit `main.go`). After SP-036 lands, the op
 
 | Task | Summary | Size | Status | Deps |
 |------|---------|------|--------|------|
-| SP-037 | Harness `scripts/model_eval.py` (`run` / `score` / `export-blind`, stdlib only) | S | Ready | — |
-| SP-038 | 14 seeded-bug and clean fixture cases under `scripts/model-eval-cases/` | S | Ready | — |
+| SP-037 | Harness `scripts/model_eval.py` (`run` / `score` / `export-blind`, stdlib only) | S | Ready | SP-040 |
+| SP-038 | 14 seeded-bug and clean fixture cases under `scripts/model-eval-cases/` | S | Done | — |
 | SP-039 | Run both models, blind-judge real diffs, write `docs/research/model-comparison-qwen3-coder-next-vs-qwen3.8-27b.md` | M | Ready | SP-037, SP-038 |
 
 Waves: **W0** SP-037 ∥ SP-038 (disjoint scopes; SP-037 is stet-gated `lenient`, SP-038 has no stet gate) → **W1** SP-039 alone.
 
 **SP-039 operator checklist (before `spine batch start SP-039`):** stop OpenJev; no other batch running; identical LM Studio inference presets for both models (Repeat Penalty off, Top P 0.9, Top K 40, Min P off, Context Overflow "Stop at Limit", Limit Response Length off, Reasoning Parsing on, empty System Prompt, Structured Output off, default prompt template); LM Studio server up at `http://127.0.0.1:1234`. SP-039 swaps the loaded model with `lms` and takes ≈2–3 h; it reloads `qwen/qwen3-coder-next` at 65536 when done.
+
+SP-038 landed in batch `20261010T182206-c796`. SP-037 was skipped there: its stet contract failed with `parse failed (after retry): invalid character 'L'` because the reviewer wrote prose before a fenced JSON block. SP-037 now depends on SP-040.
+
+### Phase 8 — Stet reviewer robustness (2026-10-10)
+
+| Task | Summary | Size | Status | Deps |
+|------|---------|------|--------|------|
+| SP-040 | Recover findings JSON from prose responses; JSON-only retry; suppression/shadow sections framed as dismissed false positives | S | Ready | — |
+
+Waves: **R0** SP-040 → reinstall `stet` from `main` (`cd cli && go build -o ~/.local/bin/stet ./cmd/stet`) → SP-037 → SP-039.
 
 ### Completed (wave 0 + follow-on)
 
@@ -167,6 +177,7 @@ Spine lanes review their own diff with the locally built `stet` binary, using th
 | — | SP-020 | — | Deferred research; schedule manually |
 | M0 | SP-037, SP-038 | 2 | Model benchmark harness ∥ fixtures; disjoint (`scripts/model_eval.py` vs `scripts/model-eval-cases/`) |
 | M1 | SP-039 | 1 | Model benchmark run; exclusive LM Studio; operator checklist in Phase 7 |
+| R0 | SP-040 | 1 | Stet parser fix; reinstall `stet` before SP-037 |
 
 **Start commands:**
 
