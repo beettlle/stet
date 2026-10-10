@@ -1,0 +1,54 @@
+scripts/model-eval-cases/go-clean-refactor/after/internal/units/parse.go.txt
+  h_ae151c586ac6c5 1-62
+scripts/model-eval-cases/go-clean-refactor/before/internal/units/parse.go.txt
+  h_ae151c586ac6c5 1-59
+scripts/model-eval-cases/go-clean-refactor/expected.json
+  h_ae151c586ac6c5 1-6
+scripts/model-eval-cases/go-map-race/after/internal/metrics/collector.go.txt
+  h_ae151c586ac6c5 1-68
+scripts/model-eval-cases/go-map-race/before/internal/metrics/collector.go.txt
+  h_ae151c586ac6c5 1-61
+scripts/model-eval-cases/go-map-race/expected.json
+  h_ae151c586ac6c5 1-13
+scripts/model-eval-cases/go-nil-after-err/after/internal/userstore/store.go.txt
+  h_ae151c586ac6c5 1-78
+scripts/model-eval-cases/go-nil-after-err/before/internal/userstore/store.go.txt
+  h_ae151c586ac6c5 1-81
+scripts/model-eval-cases/go-nil-after-err/expected.json
+  h_ae151c586ac6c5 1-13
+scripts/model-eval-cases/go-off-by-one/after/internal/pagination/page.go.txt
+  h_ae151c586ac6c5 1-88
+scripts/model-eval-cases/go-off-by-one/before/internal/pagination/page.go.txt
+  h_ae151c586ac6c5 1-88
+scripts/model-eval-cases/go-off-by-one/expected.json
+  h_ae151c586ac6c5 1-13
+scripts/model-eval-cases/go-resource-leak/after/internal/thumb/client.go.txt
+  h_ae151c586ac6c5 1-60
+scripts/model-eval-cases/go-resource-leak/before/internal/thumb/client.go.txt
+  h_ae151c586ac6c5 1-60
+scripts/model-eval-cases/go-resource-leak/expected.json
+  h_ae151c586ac6c5 1-13
+scripts/model-eval-cases/go-sql-concat/after/internal/catalog/search.go.txt
+  h_ae151c586ac6c5 1-64
+scripts/model-eval-cases/go-sql-concat/before/internal/catalog/search.go.txt
+  h_ae151c586ac6c5 1-64
+scripts/model-eval-cases/go-sql-concat/expected.json
+  h_ae151c586ac6c5 1-13
+scripts/model-eval-cases/go-swallowed-error/after/internal/report/summary.go.txt
+  h_ae151c586ac6c5 1-60
+scripts/model-eval-cases/go-swallowed-error/before/internal/report/summary.go.txt
+  h_ae151c586ac6c5 1-60
+scripts/model-eval-cases/go-swallowed-error/expected.json
+  h_ae151c586ac6c5 1-13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d899874669155b400512b00e173e6c94782dd78c",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
