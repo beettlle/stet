@@ -1,0 +1,18 @@
+scripts/model_eval.py
+  h_ae151c586ac6c5 182-183,561-566,576,637-642,650-651,672-673,705-706,708,710-711,847-860,870-872,885-887,1049-1050
+scripts/tests/test_model_eval.py
+  h_ae151c586ac6c5 1-1045
+spine-tasks/SP-037-model-eval-harness/STATUS.md
+  h_ae151c586ac6c5 1,20,22-23,27,29-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e6ee90a1bf623f40870ee20bff62209590400350",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
