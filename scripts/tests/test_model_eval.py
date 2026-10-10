@@ -6,6 +6,7 @@ import argparse
 import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -1126,3 +1127,63 @@ class TestLabels:
         self._rewrite_labels(tsv_path, 1, 8, "")
         labels = model_eval.load_labels(tsv_path, tmp_path / "blind-key.json")
         assert len(labels) == 4
+
+
+# ---------------------------------------------------------------------------
+# Step 3: --dry-run integration test (real stet, skipped when unavailable)
+# ---------------------------------------------------------------------------
+
+
+SCRIPT_PATH = Path(__file__).resolve().parents[1] / "model_eval.py"
+
+
+@pytest.mark.skipif(shutil.which("stet") is None, reason="stet not on PATH")
+@pytest.mark.skipif(shutil.which("git") is None, reason="git not on PATH")
+class TestDryRunIntegration:
+    def test_run_then_score_on_one_case_fixture(self, tmp_path: Path) -> None:
+        make_case(tmp_path / "cases", case_id="go-integration")
+        out_dir = tmp_path / "out"
+        run_proc = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT_PATH),
+                "run",
+                "--dry-run",
+                "--runs",
+                "1",
+                "--cases",
+                str(tmp_path / "cases"),
+                "--out",
+                str(out_dir),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        assert run_proc.returncode == model_eval.EXIT_OK, run_proc.stderr
+        meta_path = out_dir / "dry-run" / "cases" / "go-integration" / "run1.meta.json"
+        assert meta_path.is_file()
+        meta = json.loads(meta_path.read_text())
+        assert meta["status"] == "ok"
+        assert meta["hunks_total"] >= 1
+        assert meta["kind"] == "case"
+        assert (out_dir / "dry-run" / "cases" / "go-integration" / "run1.json").is_file()
+
+        score_proc = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT_PATH),
+                "score",
+                "--cases",
+                str(tmp_path / "cases"),
+                "--results",
+                str(out_dir),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert score_proc.returncode == model_eval.EXIT_OK, score_proc.stderr
+        summary = json.loads(score_proc.stdout)
+        assert "dry-run" in summary
+        assert summary["dry-run"]["reliability"]["ok"] == 1
