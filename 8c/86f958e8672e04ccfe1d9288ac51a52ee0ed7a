@@ -1,0 +1,14 @@
+spine-tasks/SP-037-model-eval-harness/PROMPT.md
+  h_ae151c586ac6c5 156-157
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8c86f958e8672e04ccfe1d9288ac51a52ee0ed7a",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
