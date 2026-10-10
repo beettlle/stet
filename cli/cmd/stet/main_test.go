@@ -3566,6 +3566,118 @@ func TestRunCLI_doctorSystemOneDisabledMakesNoRequest(t *testing.T) {
 	}
 }
 
+// TestRunCLI_doctorSystemOneTriggerCombinations verifies checkSystemOne fires
+// for every consumer: the critic with the systemone backend, the rules
+// selector (rules_selector), and the rules annotator (rules_annotate). Any
+// trigger alone probes health + models and prints "System One OK"; when none
+// is on (or the critic uses the llm backend) doctor makes no System One
+// request and prints no System One line.
+func TestRunCLI_doctorSystemOneTriggerCombinations(t *testing.T) {
+	// Do not run in parallel: test sets env and captures stdout/stderr.
+	cases := []struct {
+		name          string
+		criticEnabled string
+		criticBackend string
+		rulesSelector string
+		rulesAnnotate string
+		wantProbe     bool
+	}{
+		{name: "none on", wantProbe: false},
+		{name: "critic systemone alone", criticEnabled: "1", criticBackend: "systemone", wantProbe: true},
+		{name: "selector alone", rulesSelector: "1", wantProbe: true},
+		{name: "annotate alone", rulesAnnotate: "1", wantProbe: true},
+		{name: "selector and annotate", rulesSelector: "1", rulesAnnotate: "1", wantProbe: true},
+		{name: "all three on", criticEnabled: "1", criticBackend: "systemone", rulesSelector: "1", rulesAnnotate: "1", wantProbe: true},
+		{name: "critic llm, selector and annotate off", criticEnabled: "1", criticBackend: "llm", wantProbe: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var sysReqs []string
+			sysSrv := doctorSysOneServer(t, &sysReqs,
+				http.StatusOK, `{"status":"ok"}`,
+				http.StatusOK, `{"models":[{"name":"openjev-test"}]}`)
+			defer sysSrv.Close()
+			llmSrv := doctorLLMServer("m")
+			defer llmSrv.Close()
+			setTestEnv(t, "STET_PROVIDER", "ollama")
+			setTestEnv(t, "STET_OLLAMA_BASE_URL", llmSrv.URL)
+			setTestEnv(t, "STET_MODEL", "m")
+			setTestEnv(t, "STET_SYSTEMONE_BASE_URL", sysSrv.URL)
+			setTestEnv(t, "STET_SYSTEMONE_MODEL", "openjev-test")
+			setTestEnv(t, "STET_SYSTEMONE_API_KEY", "doctor-test-key")
+			// Empty values are ignored by config parsing, so setting ""
+			// resets knobs left over from a previous case.
+			setTestEnv(t, "STET_CRITIC_ENABLED", tc.criticEnabled)
+			setTestEnv(t, "STET_CRITIC_BACKEND", tc.criticBackend)
+			setTestEnv(t, "STET_RULES_SELECTOR", tc.rulesSelector)
+			setTestEnv(t, "STET_RULES_ANNOTATE", tc.rulesAnnotate)
+
+			code, stdout, stderr := runCLIWithOutput([]string{"doctor"})
+			if code != 0 {
+				t.Errorf("runCLI(doctor) = %d, want 0; stderr: %s", code, stderr)
+			}
+			assertNoSystemOneDecisionCall(t, sysReqs)
+			if !tc.wantProbe {
+				if len(sysReqs) != 0 {
+					t.Errorf("System One server requests = %v, want none", sysReqs)
+				}
+				if strings.Contains(stdout, "System One") {
+					t.Errorf("stdout must not mention System One; got:\n%s", stdout)
+				}
+				return
+			}
+			if len(sysReqs) != 2 || sysReqs[0] != "GET /health" || sysReqs[1] != "GET /v1/models" {
+				t.Errorf("System One server requests = %v, want exactly [GET /health GET /v1/models]", sysReqs)
+			}
+			if !strings.Contains(stdout, "System One OK") {
+				t.Errorf("stdout should contain 'System One OK'; got:\n%s", stdout)
+			}
+			if !strings.Contains(stdout, "System One model: openjev-test") {
+				t.Errorf("stdout should contain 'System One model: openjev-test'; got:\n%s", stdout)
+			}
+			if strings.Contains(stdout+stderr, "doctor-test-key") {
+				t.Error("API key must never appear in doctor output")
+			}
+		})
+	}
+}
+
+// TestRunCLI_doctorSystemOneSelectorUnreachableExits2 enables only the rules
+// selector and points the System One base URL at a closed port; doctor must
+// exit 2 and report the server as unreachable. The client retries unreachable
+// connections, so this test takes a few seconds.
+func TestRunCLI_doctorSystemOneSelectorUnreachableExits2(t *testing.T) {
+	// Do not run in parallel: test sets env and captures stdout/stderr.
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	addr := listener.Addr().String()
+	if err := listener.Close(); err != nil {
+		t.Fatalf("close listener: %v", err)
+	}
+	baseURL := "http://" + addr
+	llmSrv := doctorLLMServer("m")
+	defer llmSrv.Close()
+	setTestEnv(t, "STET_PROVIDER", "ollama")
+	setTestEnv(t, "STET_OLLAMA_BASE_URL", llmSrv.URL)
+	setTestEnv(t, "STET_MODEL", "m")
+	setTestEnv(t, "STET_CRITIC_ENABLED", "")
+	setTestEnv(t, "STET_CRITIC_BACKEND", "")
+	setTestEnv(t, "STET_RULES_SELECTOR", "1")
+	setTestEnv(t, "STET_RULES_ANNOTATE", "")
+	setTestEnv(t, "STET_SYSTEMONE_BASE_URL", baseURL)
+	setTestEnv(t, "STET_SYSTEMONE_MODEL", "openjev-test")
+
+	code, _, stderr := runCLIWithOutput([]string{"doctor"})
+	if code != 2 {
+		t.Errorf("runCLI(doctor) with selector on and unreachable System One = %d, want 2; stderr: %s", code, stderr)
+	}
+	if !strings.Contains(stderr, "System One server unreachable at "+baseURL) {
+		t.Errorf("stderr should contain 'System One server unreachable at %s'; got:\n%s", baseURL, stderr)
+	}
+}
+
 // ===== critic-eval command tests =====
 
 // criticEvalSysOneServer returns a mock System One decision server for
