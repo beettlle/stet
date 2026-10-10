@@ -1,0 +1,20 @@
+scripts/tests/test_model_eval_cases.py
+  h_ae151c586ac6c5 177-182
+spine-tasks/SP-038-model-eval-fixtures/.reviews/1-20261010T184448.md
+  h_ae151c586ac6c5 1-9
+spine-tasks/SP-038-model-eval-fixtures/.reviews/final-20261010T184531.md
+  h_ae151c586ac6c5 1-12
+spine-tasks/SP-038-model-eval-fixtures/STATUS.md
+  h_ae151c586ac6c5 2,48-49,65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e03e207c288cb438bcdc0f10a58225763610c464",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
