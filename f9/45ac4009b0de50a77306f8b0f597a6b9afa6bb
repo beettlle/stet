@@ -1,0 +1,16 @@
+scripts/model_eval.py
+  h_ae151c586ac6c5 343,473,479,559-572,587-588,593
+scripts/tests/test_model_eval.py
+  h_ae151c586ac6c5 1190-1211
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f945ac4009b0de50a77306f8b0f597a6b9afa6bb",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
