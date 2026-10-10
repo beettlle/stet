@@ -30,8 +30,10 @@ extension/coverage/
 go.work
 go.work.sum
 
-#Python stuff
-scripts/__pycache__/
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
 
 # env file
 .env
