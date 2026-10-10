@@ -1,0 +1,22 @@
+spine-tasks/SP-036-systemone-timeout-config/.DONE
+  h_ae151c586ac6c5 1-6
+spine-tasks/SP-036-systemone-timeout-config/.reviews/1-20261010T200801.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-036-systemone-timeout-config/.reviews/contract-fail-2026-10-10T20-10-12-696Z.log
+  h_ae151c586ac6c5 1-22
+spine-tasks/SP-036-systemone-timeout-config/.reviews/contract-fail-2026-10-10T20-11-22-565Z.log
+  h_ae151c586ac6c5 1-22
+spine-tasks/SP-036-systemone-timeout-config/.reviews/final-20261010T201741.md
+  h_ae151c586ac6c5 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c53779d593d419aee8a8928e61c586a59f8bdef8",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
