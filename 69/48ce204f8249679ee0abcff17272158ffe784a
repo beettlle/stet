@@ -1,0 +1,16 @@
+spine-tasks/CONTEXT.md
+  h_ae151c586ac6c5 146
+spine-tasks/SP-035-doctor-systemone-rules-probe/STATUS.md
+  h_ae151c586ac6c5 26-27,38-39,46-47,58-59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6948ce204f8249679ee0abcff17272158ffe784a",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
