@@ -1,0 +1,16 @@
+cli/internal/config/config.go
+  h_ae151c586ac6c5 23-25,104-107,205,263-270,314,442,608-617,688,961-970
+cli/internal/config/config_test.go
+  h_ae151c586ac6c5 1478-1480,1713,1741-1743,1762-1765,1802,1824-1826,1850-1852,1881,1895,1919-1921
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cad43f91b61c9881d0cffdccaed1565705c8a7cb",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
