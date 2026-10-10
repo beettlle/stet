@@ -1,0 +1,13 @@
+{
+  "id": "ts-inverted-guard",
+  "language": "typescript",
+  "clean": false,
+  "bugs": [
+    {
+      "file": "src/middleware/requireAdmin.ts",
+      "lines": [32, 32],
+      "category": "security",
+      "description": "role check negation dropped, so the middleware blocks admins and lets every non-admin through"
+    }
+  ]
+}

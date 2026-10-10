@@ -1,0 +1,59 @@
+package units
+
+import (
+	"fmt"
+	"strconv"
+	"strings"
+)
+
+// ParseByteSize converts a human byte size such as "10GB" or "512kB" into a
+// number of bytes.
+func ParseByteSize(input string) (int64, error) {
+	value := strings.TrimSpace(strings.ToLower(input))
+	if value == "" {
+		return 0, fmt.Errorf("byte size must not be empty")
+	}
+	numStart := -1
+	for i := 0; i < len(value); i++ {
+		if (value[i] < '0' || value[i] > '9') && value[i] != '.' {
+			numStart = i
+			break
+		}
+	}
+	if numStart < 0 {
+		size, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return 0, fmt.Errorf("parse %q: %w", input, err)
+		}
+		return int64(size), nil
+	}
+	numPart := value[:numStart]
+	unitPart := strings.TrimSpace(value[numStart:])
+	size, err := strconv.ParseFloat(numPart, 64)
+	if err != nil {
+		return 0, fmt.Errorf("parse %q: %w", input, err)
+	}
+	mult, ok := unitMultiplier(unitPart)
+	if !ok {
+		return 0, fmt.Errorf("unknown unit %q", unitPart)
+	}
+	return int64(size*mult), nil
+}
+
+// unitMultiplier maps a unit suffix to its size in bytes.
+func unitMultiplier(unit string) (float64, bool) {
+	switch unit {
+	case "b":
+		return 1, true
+	case "kb", "k":
+		return 1 << 10, true
+	case "mb", "m":
+		return 1 << 20, true
+	case "gb", "g":
+		return 1 << 30, true
+	case "tb", "t":
+		return 1 << 40, true
+	default:
+		return 0, false
+	}
+}

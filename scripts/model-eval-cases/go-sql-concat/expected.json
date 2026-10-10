@@ -1,0 +1,13 @@
+{
+  "id": "go-sql-concat",
+  "language": "go",
+  "clean": false,
+  "bugs": [
+    {
+      "file": "internal/catalog/search.go",
+      "lines": [32, 33],
+      "category": "security",
+      "description": "query built by concatenating untrusted input, then passed to db.Query without a placeholder"
+    }
+  ]
+}

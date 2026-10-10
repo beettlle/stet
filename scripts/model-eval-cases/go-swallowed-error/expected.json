@@ -1,0 +1,13 @@
+{
+  "id": "go-swallowed-error",
+  "language": "go",
+  "clean": false,
+  "bugs": [
+    {
+      "file": "internal/report/summary.go",
+      "lines": [25, 25],
+      "category": "correctness",
+      "description": "write failure returns nil, so a dropped summary is reported as written successfully"
+    }
+  ]
+}

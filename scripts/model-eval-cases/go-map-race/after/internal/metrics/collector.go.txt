@@ -1,0 +1,68 @@
+package metrics
+
+import (
+	"fmt"
+	"sync"
+)
+
+// Probe measures one endpoint and reports a latency sample in milliseconds.
+type Probe struct {
+	Name  string
+	Fetch func() (int, error)
+}
+
+// Collector gathers latency samples from probes concurrently.
+type Collector struct {
+	probes []Probe
+}
+
+// NewCollector returns a collector for the given probes.
+func NewCollector(probes ...Probe) *Collector {
+	return &Collector{probes: probes}
+}
+
+// Collect runs every probe and returns one sample per probe name. It fails
+// on the first probe error after all probes have finished.
+func (c *Collector) Collect() (map[string]int, error) {
+	out := make(map[string]int, len(c.probes))
+	counts := make(map[string]int, len(c.probes))
+	errs := make([]error, len(c.probes))
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	for i, p := range c.probes {
+		wg.Add(1)
+		go func(i int, p Probe) {
+			defer wg.Done()
+			ms, err := p.Fetch()
+			if err != nil {
+				errs[i] = fmt.Errorf("probe %s: %w", p.Name, err)
+				return
+			}
+			mu.Lock()
+			out[p.Name] = ms
+			mu.Unlock()
+			counts[p.Name]++
+		}(i, p)
+	}
+	wg.Wait()
+	for name, n := range counts {
+		if n != 1 {
+			return nil, fmt.Errorf("probe %s reported %d samples", name, n)
+		}
+	}
+	for _, err := range errs {
+		if err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+// Describe renders the probe list for the status page.
+func (c *Collector) Describe() string {
+	names := make([]string, 0, len(c.probes))
+	for _, p := range c.probes {
+		names = append(names, p.Name)
+	}
+	return fmt.Sprintf("%d probes registered", len(names))
+}

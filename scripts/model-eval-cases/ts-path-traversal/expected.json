@@ -1,0 +1,13 @@
+{
+  "id": "ts-path-traversal",
+  "language": "typescript",
+  "clean": false,
+  "bugs": [
+    {
+      "file": "src/routes/files.ts",
+      "lines": [17, 17],
+      "category": "security",
+      "description": "user-controlled query parameter joined and read without normalization or containment check"
+    }
+  ]
+}

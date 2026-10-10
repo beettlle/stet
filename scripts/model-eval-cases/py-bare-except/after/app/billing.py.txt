@@ -1,0 +1,51 @@
+"""Payment gateway glue for the billing worker."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+class GatewayError(Exception):
+    """Raised when the payment gateway rejects or fails a request."""
+
+
+class PaymentError(Exception):
+    """Raised when an order cannot be charged."""
+
+
+@dataclass
+class Order:
+    """An order awaiting payment."""
+
+    id: str
+    total_cents: int
+    payment_token: str
+
+
+@dataclass
+class ChargeResult:
+    """The gateway response for a successful charge."""
+
+    transaction_id: str
+
+
+def charge_order(order: Order, charge) -> ChargeResult:
+    """Charge the order total through the payment gateway."""
+    try:
+        result = charge(order.total_cents, order.payment_token)
+    except:
+        pass
+    return result
+
+
+def refund_order(order: Order, refund) -> None:
+    """Refund a previously charged order."""
+    try:
+        refund(order.payment_token)
+    except GatewayError as exc:
+        raise PaymentError(f"refund failed for order {order.id}: {exc}") from exc
+
+
+def record_attempt(order: Order, log) -> None:
+    """Write one payment-attempt line to the worker log."""
+    log(f"order {order.id}: charge attempt for {order.total_cents}c")

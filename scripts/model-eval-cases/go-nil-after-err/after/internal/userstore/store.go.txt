@@ -1,0 +1,78 @@
+package userstore
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"strings"
+)
+
+// User is a persisted account row.
+type User struct {
+	ID    int64
+	Email string
+	Name  string
+}
+
+// Profile is the read model served by the profile endpoint.
+type Profile struct {
+	Greeting string
+	Initials string
+}
+
+// Store reads users from a Postgres database.
+type Store struct {
+	db *sql.DB
+}
+
+// NewStore wraps db for user reads.
+func NewStore(db *sql.DB) *Store {
+	return &Store{db: db}
+}
+
+// FindByEmail returns the user with the given email address, or an error if
+// no row matches.
+func (s *Store) FindByEmail(email string) (*User, error) {
+	row := s.db.QueryRow("SELECT id, email, name FROM users WHERE email = $1", email)
+	var u User
+	if err := row.Scan(&u.ID, &u.Email, &u.Name); err != nil {
+		return nil, fmt.Errorf("find user %q: %w", email, err)
+	}
+	return &u, nil
+}
+
+// LoadProfile builds the profile view for the given email address.
+func (s *Store) LoadProfile(email string) (Profile, error) {
+	u, _ := s.FindByEmail(email)
+	return Profile{
+		Greeting: fmt.Sprintf("Hello, %s", u.Name),
+		Initials: initials(u.Name),
+	}, nil
+}
+
+// initials returns the upper-cased first letters of up to two name parts.
+func initials(name string) string {
+	var first, second byte
+	for i := 0; i < len(name); i++ {
+		c := name[i]
+		if c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' {
+			if first == 0 {
+				first = c
+			} else if second == 0 {
+				second = c
+			} else {
+				break
+			}
+		}
+	}
+	return strings.ToUpper(string([]byte{first, second}))
+}
+
+// CountUsers returns the number of registered accounts.
+func (s *Store) CountUsers(ctx context.Context) (int, error) {
+	var n int
+	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM users").Scan(&n); err != nil {
+		return 0, fmt.Errorf("count users query: %w", err)
+	}
+	return n, nil
+}

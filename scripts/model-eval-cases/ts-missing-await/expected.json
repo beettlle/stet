@@ -1,0 +1,13 @@
+{
+  "id": "ts-missing-await",
+  "language": "typescript",
+  "clean": false,
+  "bugs": [
+    {
+      "file": "src/services/userService.ts",
+      "lines": [38, 38],
+      "category": "correctness",
+      "description": "saveUser returns a Promise that is never awaited, so the ok response is sent before the write settles"
+    }
+  ]
+}

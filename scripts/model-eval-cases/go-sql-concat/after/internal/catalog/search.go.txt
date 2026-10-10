@@ -1,0 +1,64 @@
+package catalog
+
+import (
+	"database/sql"
+	"fmt"
+	"strings"
+)
+
+// Product is one row of the catalog table.
+type Product struct {
+	ID    int64
+	SKU   string
+	Title string
+}
+
+// Searcher runs read-only queries against the catalog database.
+type Searcher struct {
+	db *sql.DB
+}
+
+// NewSearcher wraps db for catalog searches.
+func NewSearcher(db *sql.DB) *Searcher {
+	return &Searcher{db: db}
+}
+
+// ByTitle returns products whose title equals the given search term.
+func (s *Searcher) ByTitle(term string) ([]Product, error) {
+	term = strings.TrimSpace(term)
+	if term == "" {
+		return nil, fmt.Errorf("search term must not be empty")
+	}
+	query := "SELECT id, sku, title FROM products WHERE title = '" + term + "'"
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("search products: %w", err)
+	}
+	defer rows.Close()
+	var out []Product
+	for rows.Next() {
+		var p Product
+		if err := rows.Scan(&p.ID, &p.SKU, &p.Title); err != nil {
+			return nil, fmt.Errorf("scan product: %w", err)
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// CountByPrefix returns how many products have a SKU starting with prefix.
+func (s *Searcher) CountByPrefix(prefix string) (int, error) {
+	rows, err := s.db.Query("SELECT COUNT(*) FROM products WHERE sku LIKE $1", prefix+"%")
+	if err != nil {
+		return 0, fmt.Errorf("count products for prefix: %w", err)
+	}
+	defer rows.Close()
+	var n int
+	if !rows.Next() {
+		return 0, rows.Err()
+	}
+	if err := rows.Scan(&n); err != nil {
+		return 0, fmt.Errorf("scan count: %w", err)
+	}
+	return n, nil
+}

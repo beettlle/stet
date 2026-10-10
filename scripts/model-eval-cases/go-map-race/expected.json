@@ -1,0 +1,13 @@
+{
+  "id": "go-map-race",
+  "language": "go",
+  "clean": false,
+  "bugs": [
+    {
+      "file": "internal/metrics/collector.go",
+      "lines": [44, 44],
+      "category": "correctness",
+      "description": "counts map written from concurrent goroutines outside the mutex that guards the other map"
+    }
+  ]
+}

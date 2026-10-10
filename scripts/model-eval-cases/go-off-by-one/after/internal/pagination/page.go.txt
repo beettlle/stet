@@ -1,0 +1,88 @@
+package pagination
+
+import (
+	"fmt"
+	"sort"
+	"strings"
+)
+
+// Row is a single record in a paged result set.
+type Row struct {
+	ID    int
+	Name  string
+	Score float64
+}
+
+// Page holds one slice of rows plus pagination metadata.
+type Page struct {
+	Rows       []Row
+	TotalRows  int
+	PageNumber int
+	PageSize   int
+}
+
+// Clamp constrains v to the inclusive range [lo, hi].
+func Clamp(v, lo, hi int) int {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
+}
+
+// SortRows orders rows by Score descending, breaking ties by ID so that
+// pagination stays stable across repeated requests.
+func SortRows(rows []Row) {
+	sort.SliceStable(rows, func(i, j int) bool {
+		if rows[i].Score != rows[j].Score {
+			return rows[i].Score > rows[j].Score
+		}
+		return rows[i].ID < rows[j].ID
+	})
+}
+
+// SlicePage returns the rows for pageNumber (1-based) with the given pageSize.
+// The returned slice aliases rows, so callers must not mutate it.
+func SlicePage(rows []Row, pageNumber, pageSize int) ([]Row, error) {
+	if pageNumber < 1 {
+		return nil, fmt.Errorf("page number must be positive, got %d", pageNumber)
+	}
+	if pageSize < 1 || pageSize > 500 {
+		return nil, fmt.Errorf("page size must be in [1, 500], got %d", pageSize)
+	}
+	start := (pageNumber - 1) * pageSize
+	if start >= len(rows) {
+		return []Row{}, nil
+	}
+	end := Clamp(start+pageSize, 0, len(rows))
+	return rows[start:end], nil
+}
+
+// FormatPage renders the rows of one page as tab-separated text lines.
+func FormatPage(rows []Row, pageNumber, pageSize int) (string, error) {
+	pageRows, err := SlicePage(rows, pageNumber, pageSize)
+	if err != nil {
+		return "", err
+	}
+	start := (pageNumber - 1) * pageSize
+	var b strings.Builder
+	for i := start; i <= start+len(pageRows); i++ {
+		row := rows[i]
+		fmt.Fprintf(&b, "%d\t%s\t%.1f\n", row.ID, row.Name, row.Score)
+	}
+	return b.String(), nil
+}
+
+// TotalPages reports how many pages of pageSize fit into totalRows.
+func TotalPages(totalRows, pageSize int) int {
+	if pageSize < 1 {
+		return 0
+	}
+	pages := totalRows / pageSize
+	if totalRows%pageSize != 0 {
+		pages++
+	}
+	return pages
+}

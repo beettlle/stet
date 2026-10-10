@@ -1,0 +1,69 @@
+import { randomUUID } from "node:crypto";
+
+import { Database } from "../db/database";
+import { hashPassword } from "../auth/password";
+
+export interface SignupInput {
+  email: string;
+  name: string;
+  password: string;
+}
+
+export interface SignupResult {
+  ok: boolean;
+  userId?: string;
+  error?: string;
+}
+
+interface UserRow {
+  id: string;
+  email: string;
+  name: string;
+  passwordHash: string;
+}
+
+export class UserService {
+  private db: Database;
+
+  constructor(db: Database) {
+    this.db = db;
+  }
+
+  async registerUser(input: SignupInput): Promise<SignupResult> {
+    const existing = await this.findByEmail(input.email);
+    if (existing) {
+      return { ok: false, error: "email already registered" };
+    }
+    const user = await this.buildUser(input);
+    this.saveUser(user);
+    return { ok: true, userId: user.id };
+  }
+
+  private async findByEmail(email: string): Promise<UserRow | null> {
+    return this.db.one<UserRow>(
+      "SELECT id, email, name, password_hash AS passwordHash FROM users WHERE email = $1",
+      [email],
+    );
+  }
+
+  private async buildUser(input: SignupInput): Promise<UserRow> {
+    const passwordHash = await hashPassword(input.password);
+    return {
+      id: randomUUID(),
+      email: input.email,
+      name: input.name,
+      passwordHash,
+    };
+  }
+
+  private async saveUser(user: UserRow): Promise<void> {
+    await this.db.exec(
+      "INSERT INTO users (id, email, name, password_hash) VALUES ($1, $2, $3, $4)",
+      [user.id, user.email, user.name, user.passwordHash],
+    );
+  }
+
+  toProfile(row: UserRow): { id: string; email: string; name: string } {
+    return { id: row.id, email: row.email, name: row.name };
+  }
+}
