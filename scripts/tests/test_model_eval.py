@@ -1187,3 +1187,25 @@ class TestDryRunIntegration:
         summary = json.loads(score_proc.stdout)
         assert "dry-run" in summary
         assert summary["dry-run"]["reliability"]["ok"] == 1
+
+
+class TestInputValidation:
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            {"real_refs": ["--upload-pack=evil"]},
+            {"base_url": "file:///etc/passwd"},
+            {"base_url": "not-a-url"},
+        ],
+    )
+    def test_malicious_options_exits_1(self, tmp_path: Path, fake_tools: FakeSimple, kwargs: dict) -> None:
+        make_case(tmp_path / "cases")
+        assert model_eval.cmd_run(make_run_args(tmp_path, **kwargs), clock=FakeClock()) == model_eval.EXIT_ERROR
+
+    def test_valid_refs_and_urls_pass(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        make_case(tmp_path / "cases")
+        monkeypatch.setattr(model_eval, "run_simple", FakeSimple())
+        monkeypatch.setattr(model_eval, "run_stream", FakeRunner())
+        monkeypatch.setattr(model_eval, "which", lambda name: f"/fake-bin/{name}")
+        args = make_run_args(tmp_path, real_refs=["abc123", "deadbeef"], base_url="https://llm.local/v1")
+        assert model_eval.cmd_run(args, clock=FakeClock()) == model_eval.EXIT_OK

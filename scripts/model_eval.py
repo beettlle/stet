@@ -340,6 +340,7 @@ def materialize_case_repo(case: Case, tmp: str) -> None:
 
 def clone_and_checkout(repo: str | Path, sha: str, tmp: str) -> None:
     """Clone repo into tmp and detach to sha (never touches the source repo)."""
+    _validate_real_ref(sha)  # option-looking SHAs could add git arguments
     _git(["git", "clone", "--quiet", "--no-hardlinks", str(repo), tmp], cwd=None, what=f"git clone of {repo}")
     _git(["git", "checkout", "--quiet", "--detach", sha], cwd=tmp, what=f"git checkout {sha}")
 
@@ -469,11 +470,13 @@ def perform_review(item: WorkItem, opts: RunOptions, clock=time.monotonic) -> Re
             materialize_case_repo(item.case, tmp)
             ref = "HEAD~1"
         else:
+            _validate_real_ref(item.target)  # option-looking refs could add stet arguments
             clone_and_checkout(opts.repo, item.target, tmp)
             ref = f"{item.target}~1"
         argv = ["stet", "start", ref, "--json", "--stream"]
         if opts.dry_run:
             argv.append("--dry-run")
+        _validate_base_url(opts.base_url)  # only http(s) endpoints may be pinned
         env = {**os.environ, **pinned_env(opts.model, opts.base_url)}
         started = clock()
         result = run_stream(argv, cwd=tmp, env=env, timeout_secs=opts.review_timeout_secs)
@@ -553,6 +556,20 @@ def _validate_tooling() -> None:
         raise HarnessError("stet not found on PATH")
 
 
+def _validate_base_url(base_url: str) -> str:
+    """Require an http(s) URL so the value cannot smuggle other schemes."""
+    if not (base_url.startswith("http://") or base_url.startswith("https://")):
+        raise HarnessError(f"--base-url must be an http(s) URL (got {base_url!r})")
+    return base_url
+
+
+def _validate_real_ref(sha: str) -> str:
+    """Reject option-looking refs so they cannot add git/stet arguments."""
+    if sha.startswith("-"):
+        raise HarnessError(f"--real-ref must not start with '-' (got {sha!r})")
+    return sha
+
+
 def _run_options_from_args(args: argparse.Namespace) -> RunOptions:
     if args.dry_run:
         model = args.model or MODEL_TAG_DRY_RUN
@@ -567,11 +584,13 @@ def _run_options_from_args(args: argparse.Namespace) -> RunOptions:
     if args.review_timeout_minutes <= 0:
         raise HarnessError("--review-timeout-minutes must be > 0")
     _validate_tooling()
+    _validate_base_url(args.base_url)
+    real_refs = tuple(_validate_real_ref(sha) for sha in args.real_refs)
     return RunOptions(
         model=model,
         base_url=args.base_url,
         runs=args.runs,
-        real_refs=tuple(args.real_refs),
+        real_refs=real_refs,
         real_runs=args.real_runs,
         repo=str(args.repo),
         review_timeout_secs=int(args.review_timeout_minutes * 60),
@@ -582,7 +601,6 @@ def _run_options_from_args(args: argparse.Namespace) -> RunOptions:
         out_dir=Path(args.out),
         stet_version=_stet_version(),
     )
-
 
 def _work_items(opts: RunOptions, cases: list[Case]) -> list[WorkItem]:
     items: list[WorkItem] = []
