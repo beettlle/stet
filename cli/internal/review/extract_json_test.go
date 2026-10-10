@@ -3,6 +3,7 @@
 package review
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -81,6 +82,27 @@ func TestParseFindingsResponse_recovery(t *testing.T) {
 		{
 			name:    "leading_fence_unchanged",
 			resp:    "```json\n[" + recoveryFindingJSON + "]\n```",
+			wantLen: 1, wantFile: "x.py",
+		},
+		{
+			// A nested empty array inside a finding must not be recovered as "no findings".
+			name:    "bare_array_with_nested_empty_evidence_lines",
+			resp:    "Looking at the code, I see one issue.\n\n[{\"file\":\"x.py\",\"line\":3,\"severity\":\"warning\",\"category\":\"bug\",\"message\":\"real\",\"confidence\":0.8,\"evidence_lines\":[]}]",
+			wantLen: 1, wantFile: "x.py",
+		},
+		{
+			name:    "bare_array_with_many_nested_objects",
+			resp:    "Analysis prose here.\n\n" + manyFindingsWithRanges(40),
+			wantLen: 40, wantFile: "a.go",
+		},
+		{
+			name:    "stray_empty_array_after_real_array",
+			resp:    "[" + recoveryFindingJSON + "]\nIf there were no issues I would have returned [] instead.",
+			wantLen: 1, wantFile: "x.py",
+		},
+		{
+			name:    "placeholder_object_array_after_real_array",
+			resp:    "Findings: [" + recoveryFindingJSON + "]\nSchema reminder: [{}]",
 			wantLen: 1, wantFile: "x.py",
 		},
 	}
@@ -179,6 +201,35 @@ func TestIsFindingsPayload_acceptsOnlyArraysAndWrappers(t *testing.T) {
 		if isFindingsPayload(c) {
 			t.Errorf("isFindingsPayload(%q) = true, want false", c)
 		}
+	}
+}
+
+// manyFindingsWithRanges returns a bare JSON array of n findings for a.go, each
+// with a nested range object.
+func manyFindingsWithRanges(n int) string {
+	var b strings.Builder
+	b.WriteString("[")
+	for i := 0; i < n; i++ {
+		if i > 0 {
+			b.WriteString(",")
+		}
+		fmt.Fprintf(&b, `{"file":"a.go","line":%d,"range":{"start":%d,"end":%d},"severity":"warning","category":"bug","message":"m%d","confidence":0.8}`, i+1, i+1, i+2, i)
+	}
+	b.WriteString("]")
+	return b.String()
+}
+
+func TestLastBareFindingsSpan_budgetExceededGivesUp(t *testing.T) {
+	prose := strings.Repeat("[x] ", maxSpanCandidates+1)
+	if got, ok := lastBareFindingsSpan(prose + "[" + recoveryFindingJSON + "]"); ok {
+		t.Errorf("over budget: ok=true got=%q, want false", got)
+	}
+}
+
+func TestLastBareFindingsSpan_emptyOnlyWhenNoFindings(t *testing.T) {
+	got, ok := lastBareFindingsSpan(`no issues: [] and {"findings":[]}`)
+	if !ok || got != `{"findings":[]}` {
+		t.Errorf("got=%q ok=%v, want last empty payload", got, ok)
 	}
 }
 

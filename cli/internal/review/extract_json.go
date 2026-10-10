@@ -7,48 +7,72 @@ import (
 	"stet/cli/internal/findings"
 )
 
-// maxExtractCandidates bounds how many JSON candidates (fenced blocks plus
-// balanced spans) the recovery fallback will try per response, so pathological
-// prose cannot make parsing O(n^2) unbounded.
-const maxExtractCandidates = 64
+// maxFencedCandidates bounds how many fenced blocks the recovery fallback
+// decodes per response.
+const maxFencedCandidates = 64
+
+// maxSpanCandidates bounds how many top-level '[' / '{' start positions the
+// balanced-span stage examines. Each costs at most one O(n) scan, so prose
+// heavy with brackets stays linear in practice; when exceeded, recovery gives
+// up rather than return an older payload than the one the model ended with.
+const maxSpanCandidates = 1024
 
 // extractFindingsJSON recovers a findings payload embedded in a prose response:
 // some models write analysis first and only then emit the JSON array, often
-// inside a fenced code block. Candidates are tried newest first (fenced blocks
-// from last to first, then balanced JSON spans scanning start positions from
-// the end of the text backwards). The first candidate that decodes into a
-// findings payload (array of finding objects, or a {"findings": [...]} wrapper)
-// is returned. An empty array is a valid payload. ok is false when no candidate
-// decodes (or the candidate budget is exhausted).
+// inside a fenced code block. Fenced blocks are tried newest first; the first
+// that decodes into a findings payload (array of finding objects, or a
+// {"findings": [...]} wrapper; an empty array counts) wins. Otherwise
+// lastBareFindingsSpan scans bare JSON spans. ok is false when nothing decodes
+// or a candidate budget is exhausted.
 func extractFindingsJSON(s string) (string, bool) {
-	attempts := 0
-	// 1. Fenced code blocks (``` with optional language tag), newest first.
 	blocks := collectFencedBlocks(s)
+	tried := 0
 	for i := len(blocks) - 1; i >= 0; i-- {
-		attempts++
-		if attempts > maxExtractCandidates {
+		tried++
+		if tried > maxFencedCandidates {
 			return "", false
 		}
 		if isFindingsPayload(blocks[i]) {
 			return blocks[i], true
 		}
 	}
-	// 2. Balanced JSON spans starting at [ or {, newest (last) first.
-	for start := len(s) - 1; start >= 0; start-- {
+	return lastBareFindingsSpan(s)
+}
+
+// lastBareFindingsSpan scans '[' / '{' start positions left to right. A span
+// that decodes as any JSON value is skipped over whole, so arrays nested in a
+// finding (e.g. "evidence_lines": []) are never candidates on their own. The
+// last non-empty findings payload wins; an empty payload is returned only when
+// no non-empty one exists, so a stray "[]" in prose cannot hide real findings.
+func lastBareFindingsSpan(s string) (string, bool) {
+	var lastNonEmpty, lastEmpty string
+	examined := 0
+	for start := 0; start < len(s); start++ {
 		if c := s[start]; c != '[' && c != '{' {
 			continue
 		}
-		attempts++
-		if attempts > maxExtractCandidates {
+		examined++
+		if examined > maxSpanCandidates {
 			return "", false
 		}
 		span, ok := balancedJSONSpan(s, start)
-		if !ok {
+		if !ok || !json.Valid([]byte(span)) {
 			continue
 		}
-		if isFindingsPayload(span) {
-			return span, true
+		if n, isPayload := findingsPayloadLen(span); isPayload {
+			if n > 0 {
+				lastNonEmpty = span
+			} else {
+				lastEmpty = span
+			}
 		}
+		start += len(span) - 1
+	}
+	if lastNonEmpty != "" {
+		return lastNonEmpty, true
+	}
+	if lastEmpty != "" {
+		return lastEmpty, true
 	}
 	return "", false
 }
@@ -128,20 +152,41 @@ func balancedJSONSpan(s string, start int) (string, bool) {
 // with a "findings" array. Single finding objects are rejected; json.Decoder
 // ignores trailing text after the first value.
 func isFindingsPayload(cand string) bool {
+	_, ok := findingsPayloadLen(cand)
+	return ok
+}
+
+// findingsPayloadLen decodes cand like isFindingsPayload and also returns how
+// many entries carry a non-empty message, so placeholder arrays such as [{}]
+// do not outrank a real findings array.
+func findingsPayloadLen(cand string) (int, bool) {
 	dec := json.NewDecoder(strings.NewReader(cand))
 	var arr []findings.Finding
 	if err := dec.Decode(&arr); err == nil {
-		return true
+		return countWithMessage(arr), true
 	}
 	dec = json.NewDecoder(strings.NewReader(cand))
 	var wrapper map[string]json.RawMessage
 	if err := dec.Decode(&wrapper); err != nil {
-		return false
+		return 0, false
 	}
 	raw, has := wrapper["findings"]
 	if !has {
-		return false
+		return 0, false
 	}
 	var list []findings.Finding
-	return json.Unmarshal(raw, &list) == nil
+	if err := json.Unmarshal(raw, &list); err != nil {
+		return 0, false
+	}
+	return countWithMessage(list), true
+}
+
+func countWithMessage(list []findings.Finding) int {
+	n := 0
+	for i := range list {
+		if strings.TrimSpace(list[i].Message) != "" {
+			n++
+		}
+	}
+	return n
 }
