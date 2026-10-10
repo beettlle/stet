@@ -1,0 +1,25 @@
+Contract testCommand failure log
+Command: cd cli && go test ./cmd/stet/... -count=1 && go vet ./... && cd .. && bash scripts/spine-stet-contract-run.sh default
+Exit code: 1
+Attempt: 1 of 2
+Timestamp: 2026-10-10T19:20:18.456Z
+Buffer overflow: no
+---
+ok  	stet/cli/cmd/stet	63.597s
+ee5ba11  cli/cmd/stet/main.go:1927  WARNING  The condition `!wantCritic && !cfg.RulesSelector && !cfg.RulesAnnotate` may incorrectly skip System One checks when `cfg.RulesAnnotate` is a typo for `cfg.RulesAnnotator`. The comment refers to `rules_annotate`, but the config field is likely named `RulesAnnotator` (plural 's' missing in 'annotator').
+123fe5e  cli/cmd/stet/main_test.go:3667  WARNING  The test closes the listener immediately after getting the address, which may cause the OS to reuse the port before the doctor command attempts to connect, leading to flaky behavior.
+2 finding(s).
+ee5ba11  cli/cmd/stet/main.go:1927  WARNING  The condition `!wantCritic && !cfg.RulesSelector && !cfg.RulesAnnotate` may incorrectly skip System One checks when `cfg.RulesAnnotate` is a typo for `cfg.RulesAnnotator`. The comment refers to `rules_annotate`, but the config field is likely named `RulesAnnotator` (plural 's' missing in 'annotator').
+123fe5e  cli/cmd/stet/main_test.go:3667  WARNING  The test closes the listener immediately after getting the address, which may cause the OS to reuse the port before the doctor command attempts to connect, leading to flaky behavior.
+2 finding(s).
+
+Warning: proceeding with uncommitted changes; review scope may be unclear
+stet: contract review found 2 active finding(s). Triage, then re-run the contract:
+
+  stet list
+  stet dismiss <id> <reason>
+
+Dismiss reasons: false_positive, already_correct, wrong_suggestion, out_of_scope.
+Fix real defects in this task's diff. If a finding exposes a stet reviewer bug (bad prompt,
+parser, critic), dismiss it with a reason and record it under Discoveries in STATUS.md.
+Never dismiss a real defect without fixing it.
