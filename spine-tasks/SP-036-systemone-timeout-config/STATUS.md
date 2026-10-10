@@ -39,6 +39,7 @@
 - Coverage gate `scripts/check-coverage.sh` → PASS: project 83.1%, all files ≥ 72%; `newSystemOneClient` 100% covered.
 - Extension `npm test` → 93/93 pass, 6/6 files (no extension changes in this task; the expected `finishReview.test.ts` stderr line appeared).
 - `scripts/check-untracked-coverage.sh` → PASS (coverage output untracked/gitignored).
+- **Re-verification (2026-10-10, finalize session, worktree at 0074ec1):** testCommand re-run → all 3 packages ok, vet clean; coverage gate PASS (83.1% / ≥72% per file, artifact reverted); extension `npm test` 93/93 + guard PASS; `scripts/spine-stet-contract-run.sh default` re-run → exit 0, `0 finding(s)` (prior dismissals held, no new findings).
 
 ## Reviews
 
@@ -65,3 +66,4 @@
 | 2026-10-10 | Step 2 | feat(SP-036): `newSystemOneClient` helper; all 3 call sites converted (`systemOneRunOptions`, `checkSystemOne`, `runCriticEval`); contract doc row — 3cc273a |
 | 2026-10-10 | Step 3 | test(SP-036): slow-server doctor test (1s timeout → exit 2; integer-seconds "2" → exit 0) — 3bbe18a; contract round 1 triage (18 dismissals), round 2 exit 0; coverage gate PASS |
 | 2026-10-10 | Done | All completion criteria met |
+| 2026-10-10 | Finalize | Independent re-verification of every criterion (tests, vet, coverage, extension tests + guard, stet contract exit 0); session re-opened via `.review/session.json`; created .DONE |
