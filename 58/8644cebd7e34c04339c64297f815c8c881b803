@@ -1,0 +1,25 @@
+spine-tasks/CONTEXT.md
+  s_55430a395537e8::t_d68098ae52975f 5,109-110,117-126,180
+spine-tasks/SP-040-parse-json-from-prose/PROMPT.md
+  s_55430a395537e8::t_d01de7c55531bd 1-130
+spine-tasks/SP-040-parse-json-from-prose/STATUS.md
+  s_55430a395537e8::t_80e6797c28aef6 1-58
+spine-tasks/dependencies.json
+  s_55430a395537e8::t_c1f8b3e111e706 22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "588644cebd7e34c04339c64297f815c8c881b803",
+  "prompts": {},
+  "sessions": {
+    "s_55430a395537e8": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "agent-a37f8c50-c470-4d5e-a824-d34df94518c9",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
