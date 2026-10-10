@@ -1,0 +1,16 @@
+spine-tasks/CONTEXT.md
+  h_ae151c586ac6c5 159
+spine-tasks/SP-040-parse-json-from-prose/STATUS.md
+  h_ae151c586ac6c5 1-2,13,15-16,20,22-24,28,30-32,40,46-48,55-59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f7778a61253c5ab6b895c613dbcb694a8e85082c",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
