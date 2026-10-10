@@ -20,13 +20,20 @@ The worker cannot do these; if Step 0 shows any of them is not done, record a Bl
 
 1. OpenJev stopped (frees memory for `qwen3-coder-next`).
 2. No other spine batch running; nothing else using LM Studio.
-3. LM Studio per-model inference presets set **identically** for both models (stet only sends temperature and `max_tokens`; everything else comes from these presets): Repeat Penalty off (or 1.0), Top P 0.9, Top K 40, Min P off, Context Overflow "Stop at Limit", Limit Response Length off, Reasoning Parsing on, System Prompt empty, Structured Output off, default Jinja prompt template.
-4. LM Studio server running at `http://127.0.0.1:1234`.
+3. LM Studio per-model presets set to these exact values on **both** models (stet only sends temperature and `max_tokens`; everything else comes from these presets). Set each one explicitly in the UI so the saved config files carry the same keys; Step 0 compares them:
+   - Sampling: Top K 20 (on), Top P 0.9 (on), Min P off, Repeat Penalty off
+   - Settings: Context Overflow "Stop at Limit", Limit Response Length off, Reasoning Parsing on
+   - No draft model, System Prompt empty, Structured Output off, default Jinja prompt template
+   - Load tab: Max Concurrent Predictions 1
+   These match `qwen/qwen3-coder-next`'s current preset; on 2026-10-10 `qwen/qwen3.8-27b` had Top P 0.8, Min P 0.5 (on), and no Top K / Repeat Penalty keys, so it needs changing.
+4. Speculative decoding off at load time: SP-039 passes `--no-speculative-draft-mtp` on every `lms load`. Do not load either model by hand (UI, JIT, or `lms`) while the batch runs.
+5. LM Studio server running at `http://127.0.0.1:1234`.
 
 ### Fixed run conditions
 
 - Harness-pinned stet env (see SP-037): temperature 0.1, `max_completion_tokens` 8192, context 32768, strictness `default`, critic / rules selector / rules annotate off.
-- LM Studio load: `lms load <model> -c 49152 --parallel 1 -y` (32k prompt + 8k output + margin), one model loaded at a time.
+- LM Studio load: `lms load <model> -c 49152 --parallel 1 --no-speculative-draft-mtp -y` (32k prompt + 8k output + margin), one model loaded at a time. MTP drafting must stay off: on `qwen3_next` under MLX it fails every request ("Speculative decoding is not supported for batched MLX models" with parallel > 1, and "requires a trimmable prompt cache (got ArraysCache)" after a reload, because Qwen3-Next's hybrid-attention cache cannot be trimmed).
+- `qwen/qwen3.8-27b` is a reasoning model (LM Studio returns `reasoning_content`). Its reasoning tokens count against `max_completion_tokens` (8192) and its `seconds_per_case` includes thinking time. Report output-token usage per model where the stderr logs or LM Studio usage allow.
 - Fixture cases: 3 runs per model. Real refs: 1 run per model each:
   - `3ee3055f13cf00b5cb4e182f169829b78961743e` — SP-034 step 1 (config key/env, `main.go`, `run.go`)
   - `2326c0487a36e9b306edbed7da91dda1b536d00b` — SP-033 step 3 (shared System One client, `main.go`)
@@ -98,11 +105,44 @@ Write all output to `docs/research/model-eval/preflight.txt`.
 - [ ] `lms ls`, `lms ps`, `stet --version`, `python3 scripts/model_eval.py --help`, `git rev-parse HEAD`
 - [ ] `lms load qwen/qwen3-coder-next --estimate-only -c 49152` and the same for `qwen/qwen3.8-27b`; if coder-next's estimate does not fit, Blocker "OpenJev still running?" and stop
 - [ ] Verify the three real-ref SHAs exist (`git cat-file -e <sha>^{commit}`)
-- [ ] Load `qwen/qwen3.8-27b` (`lms unload --all && lms load qwen/qwen3.8-27b -c 49152 --parallel 1 -y`) and send one tiny chat request (`curl -s http://127.0.0.1:1234/v1/chat/completions -H 'Content-Type: application/json' -d '{"model":"qwen/qwen3.8-27b","messages":[{"role":"user","content":"Reply with the JSON array [] only."}],"temperature":0.1,"max_tokens":512}'`). Record whether `message.content` contains `<think>` and whether `message.reasoning_content` is present. If `<think>` text appears in `content`, Blocker "enable Reasoning Parsing for qwen3.8-27b" and stop (stet would fail to parse findings).
+- [ ] **Preset parity check** (operator checklist item 3). Run this and append its output to `preflight.txt`; on exit 1, Blocker "LM Studio presets differ: <lines>" and stop. Min P and Repeat Penalty count as off when the key is absent or unchecked.
+
+  ```bash
+  python3 - <<'EOF'
+  import json, os
+  base = os.path.expanduser("~/.lmstudio/.internal/user-concrete-model-default-config/qwen")
+  want = {
+      "llm.prediction.topKSampling": 20,
+      "llm.prediction.topPSampling": {"checked": True, "value": 0.9},
+      "llm.prediction.contextOverflowPolicy": "stopAtLimit",
+      "llm.load.numParallelSessions": 1,
+  }
+  off_or_absent = ["llm.prediction.minPSampling", "llm.prediction.repeatPenalty"]
+  problems = []
+  for name in ("qwen3-coder-next", "qwen3.8-27b"):
+      with open(os.path.join(base, name + ".json")) as fh:
+          cfg = json.load(fh)
+      fields = {f["key"]: f["value"] for sec in ("operation", "load") for f in cfg[sec]["fields"]}
+      for key, value in want.items():
+          if fields.get(key) != value:
+              problems.append(f"{name}: {key} = {fields.get(key)!r}, want {value!r}")
+      for key in off_or_absent:
+          if key in fields and fields[key].get("checked"):
+              problems.append(f"{name}: {key} is on ({fields[key]!r})")
+      for key in fields:
+          if "speculative" in key.lower() or "draft" in key.lower():
+              problems.append(f"{name}: unexpected {key} = {fields[key]!r}")
+  print("\n".join(problems) or "preset parity OK")
+  raise SystemExit(1 if problems else 0)
+  EOF
+  ```
+
+- [ ] **Smoke request per model.** For each model: `lms unload --all && lms load <model> -c 49152 --parallel 1 --no-speculative-draft-mtp -y`, then `curl -s -w '\nHTTP %{http_code}\n' http://127.0.0.1:1234/v1/chat/completions -H 'Content-Type: application/json' -d '{"model":"<model>","messages":[{"role":"user","content":"Reply with OK."}],"temperature":0.1,"max_tokens":<N>}'` with `N` = 64 for `qwen/qwen3-coder-next` and 512 for `qwen/qwen3.8-27b`. Pass = HTTP 200 and `finish_reason` `"stop"`. HTTP 5xx, "Channel Error", or "Speculative decoding" in the body → Blocker "MTP or speculative decoding still active for <model>" and stop. Append both responses to `preflight.txt`.
+- [ ] **Reasoning probe** (27b still loaded from the smoke request): send `{"model":"qwen/qwen3.8-27b","messages":[{"role":"user","content":"Reply with the JSON array [] only."}],"temperature":0.1,"max_tokens":512}` to the same endpoint. Expected pass: `message.reasoning_content` present and `message.content` free of `<think>`. If `<think>` text appears in `content`, Blocker "enable Reasoning Parsing for qwen3.8-27b" and stop (stet would fail to parse findings). Record the result and `usage.completion_tokens_details.reasoning_tokens`.
 
 ### Step 1: Run qwen/qwen3-coder-next
 
-- [ ] `lms unload --all && lms load qwen/qwen3-coder-next -c 49152 --parallel 1 -y`; confirm with `lms ps`
+- [ ] `lms unload --all && lms load qwen/qwen3-coder-next -c 49152 --parallel 1 --no-speculative-draft-mtp -y`; confirm with `lms ps` (expect `parallel` 1, context 49152)
 - [ ] `mkdir -p docs/research/model-eval/results/qwen__qwen3-coder-next && STET_PROVIDER=openai STET_OPENAI_BASE_URL=http://127.0.0.1:1234/v1 stet benchmark --model qwen/qwen3-coder-next --warmup > docs/research/model-eval/results/qwen__qwen3-coder-next/benchmark.txt 2>&1` (`score` only reads `cases/` and `real/` under each model tag)
 - [ ] Repeat until it exits 0 (exit 3 = budget reached, re-invoke; each invocation ≤ 25 min so the lane never looks stalled):
   `python3 scripts/model_eval.py run --model qwen/qwen3-coder-next --cases scripts/model-eval-cases --out docs/research/model-eval/results --runs 3 --real-ref 3ee3055f13cf00b5cb4e182f169829b78961743e --real-ref 2326c0487a36e9b306edbed7da91dda1b536d00b --real-ref e9b2e61f637cf165c630061c6d8f89c5e9f39404 --real-runs 1 --max-minutes 25`
@@ -111,7 +151,7 @@ Write all output to `docs/research/model-eval/preflight.txt`.
 
 ### Step 2: Run qwen/qwen3.8-27b
 
-- [ ] Same as Step 1 with `qwen/qwen3.8-27b` (tag `qwen__qwen3.8-27b`)
+- [ ] Same as Step 1 with `qwen/qwen3.8-27b` (tag `qwen__qwen3.8-27b`), loading with `lms unload --all && lms load qwen/qwen3.8-27b -c 49152 --parallel 1 --no-speculative-draft-mtp -y`
 - [ ] Commit results
 
 ### Step 3: Blind-judge real-diff findings
@@ -134,13 +174,13 @@ Write all output to `docs/research/model-eval/preflight.txt`.
   - **Summary** — the recommendation in 2–3 sentences
   - **Setup** — models and sizes, LM Studio load settings and the operator presets (as a controlled confound), pinned stet env, reasoning probe result, harness commands, stet version/commit
   - **Results** — tables per model: recall (mean, all-runs, some-runs) and per category; seeded bugs each model missed (case ids); unexpected findings by severity and on clean cases; repeatability; reliability; seconds per case and per real ref; `stet benchmark` tokens/s; real-diff label counts and actionable rate
-  - **Threats to validity** — 12 synthetic bugs, single author, LLM-as-judge for real diffs, temperature 0.1 sampling variance, preset parity depends on the operator
+  - **Threats to validity** — 12 synthetic bugs, single author, LLM-as-judge for real diffs, temperature 0.1 sampling variance; sampling parity was verified from the saved LM Studio presets in Step 0, not observed per request; MTP speculative decoding disabled for both models; 27b's reasoning tokens share the 8192-token output cap
   - **`## Recommendation`** — apply the decision rule above condition by condition, with the numbers, then the outcome
   - **Follow-ups** — e.g. the `.review/config.toml` change the operator should make (do not make it here)
 
 ### Step 6: Restore LM Studio
 
-- [ ] Restore the repo default: `lms unload --all && lms load qwen/qwen3-coder-next -c 65536 -y` (matches `.review/config.toml`); note in Execution Log that OpenJev can be restarted only if the recommendation allows it
+- [ ] Restore the repo default: `lms unload --all && lms load qwen/qwen3-coder-next -c 65536 --parallel 1 --no-speculative-draft-mtp -y` (matches `.review/config.toml`); note in Execution Log that OpenJev can be restarted only if the recommendation allows it
 
 ### Step 7: Testing & Verification
 
@@ -165,6 +205,7 @@ Write all output to `docs/research/model-eval/preflight.txt`.
 - Change the decision rule, run counts, models, real refs, or pinned settings after seeing results (if something forces a change, add an Amendment explaining why **before** re-running)
 - Open `blind-key.json` before `real-labels.tsv` is committed
 - Edit `.review/config.toml` or any LM Studio preset
+- Load a model without `--no-speculative-draft-mtp`
 - Run stet against the lane worktree itself (the harness uses temp repos/clones)
 - Edit fixtures under `scripts/model-eval-cases/`
 - Modify `.spine/`, `AGENTS.md`, `CLAUDE.md`, `.gitnexus/`
@@ -173,3 +214,5 @@ Write all output to `docs/research/model-eval/preflight.txt`.
 ---
 
 ## Amendments (Added During Execution)
+
+- 2026-10-10 (operator, pre-run — no results exist yet): LM Studio setup fixes from the W0 batch (SP-035/037/038). (1) `qwen/qwen3-coder-next` failed every request with load-time MTP speculative decoding, which LM Studio enables by default and the Inference tab does not show ("not supported for batched MLX models" at parallel 3; "requires a trimmable prompt cache (got ArraysCache)" after a reload; the first successful request came only after a reload with MTP off); every `lms load` now passes `--no-speculative-draft-mtp`. (2) Max Concurrent Predictions set to 1 in both saved presets. (3) The two presets' sampling differed (27b: Top P 0.8, Min P 0.5 on, no Top K); the operator checklist now names exact values and Step 0 verifies them from the saved config files, plus a smoke request per model. (4) `qwen/qwen3.8-27b` confirmed as a reasoning model (`reasoning_content`). Decision rule, models, run counts, real refs, and pinned stet settings are unchanged.

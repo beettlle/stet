@@ -13,6 +13,8 @@
 **Status:** Not started
 
 - [ ] Tool versions, `lms` estimates, real-ref SHAs
+- [ ] Preset parity check (saved LM Studio presets for both models)
+- [ ] Smoke request per model (loaded with `--no-speculative-draft-mtp`)
 - [ ] Reasoning probe for `qwen/qwen3.8-27b`
 
 ## Step 1: Run qwen/qwen3-coder-next
@@ -71,12 +73,14 @@
 
 | Date | Finding | Impact |
 |------|---------|--------|
+| 2026-10-10 | During the W0 batch, `qwen/qwen3-coder-next` failed every chat request: load-time MTP speculative decoding (LM Studio default, not shown in the Inference tab) errors with "not supported for batched MLX models" at parallel 3 and "requires a trimmable prompt cache (got ArraysCache)" after a reload. Saved presets also differed: 27b had Top P 0.8, Min P 0.5 on, no Top K | PROMPT amended pre-run: `--no-speculative-draft-mtp` on every load, exact preset values in the operator checklist, Step 0 preset parity check and smoke request per model |
 
 ## Execution Log
 
 | Date | Event | Detail |
 |------|-------|--------|
 | 2026-10-10 | Authored | Phase 7 model benchmark; real ref `e9b2e61` replaces the test-only `3248a08` from the draft plan |
+| 2026-10-10 | Amended pre-run | MTP off on all loads, preset parity check, per-model smoke request, reasoning-model note (see PROMPT Amendments) |
 
 ## Blockers
 
