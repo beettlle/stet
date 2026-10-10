@@ -33,6 +33,7 @@ import sys
 import tempfile
 import time
 from dataclasses import dataclass
+from itertools import combinations
 from pathlib import Path
 from shutil import which
 
@@ -634,6 +635,529 @@ def cmd_run(args: argparse.Namespace, clock=time.monotonic) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Matching rule (findings vs. seeded bugs)
+# ---------------------------------------------------------------------------
+
+
+def finding_span(finding: dict) -> tuple[int, int] | None:
+    """Inclusive 1-based line span of a finding: range.start..range.end when a
+    well-formed ``range`` object is present, else line..line; None when the
+    finding carries no line information at all."""
+    span_range = finding.get("range")
+    if isinstance(span_range, dict):
+        start, end = span_range.get("start"), span_range.get("end")
+        if (
+            isinstance(start, int)
+            and not isinstance(start, bool)
+            and isinstance(end, int)
+            and not isinstance(end, bool)
+        ):
+            return start, end
+    line = finding.get("line")
+    if isinstance(line, int) and not isinstance(line, bool):
+        return line, line
+    return None
+
+
+def bug_spans_whole_file(bug: Bug, case: Case) -> bool:
+    """True when the bug's [start, end] covers every line of the after file."""
+    total = case.bug_file_lines.get(bug.file)
+    return total is not None and bug.start == 1 and bug.end == total
+
+
+def finding_matches(finding: dict, bug: Bug, window: int, bug_whole_file: bool = False) -> bool:
+    """Match rule: a finding catches a bug when it names the bug's file and its
+    line span intersects ``[bug.start - window, bug.end + window]``.
+
+    Edge case (documented per task contract): a finding with no line
+    information matches on file alone only when the bug spans the whole file —
+    a file-level finding plausibly addresses the only bug only when that bug is
+    the entire file content; otherwise it cannot be credited to a specific bug.
+    """
+    if finding.get("file") != bug.file:
+        return False
+    span = finding_span(finding)
+    if span is None:
+        return bug_whole_file
+    start, end = span
+    return start <= bug.end + window and end >= bug.start - window
+
+
+def bugs_caught_indices(case: Case, findings: list[dict], window: int) -> set[int]:
+    """Indices of the case's bugs caught by at least one finding."""
+    caught: set[int] = set()
+    for index, bug in enumerate(case.bugs):
+        whole = bug_spans_whole_file(bug, case)
+        if any(finding_matches(f, bug, window, whole) for f in findings):
+            caught.add(index)
+    return caught
+
+
+# ---------------------------------------------------------------------------
+# Results tree loading
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class RecordedRun:
+    """One recorded run: its meta plus parsed findings."""
+
+    meta: dict
+    findings: list[dict]
+
+
+@dataclass
+class ModelResults:
+    """All recorded runs for one model tag."""
+
+    tag: str
+    cases: dict[str, dict[int, RecordedRun]]
+    real: dict[str, dict[int, RecordedRun]]
+
+
+_RUN_FILE_RE = re.compile(r"^run(\d+)\.json$")
+
+
+def load_results(results_dir: str | Path) -> dict[str, ModelResults]:
+    """Load every ``<tag>/{cases,real}/<target>/run<N>.json`` under results_dir."""
+    results_dir = Path(results_dir)
+    if not results_dir.is_dir():
+        raise HarnessError(f"results directory not found: {results_dir}")
+    models: dict[str, ModelResults] = {}
+    for tag_dir in sorted(p for p in results_dir.iterdir() if p.is_dir()):
+        model = ModelResults(tag=tag_dir.name, cases={}, real={})
+        for group, key in (("cases", "cases"), ("real", "real")):
+            group_dir = tag_dir / group
+            if not group_dir.is_dir():
+                continue
+            target_map = getattr(model, key)
+            for target_dir in sorted(p for p in group_dir.iterdir() if p.is_dir()):
+                runs = _load_recorded_runs(target_dir)
+                if runs:
+                    target_map[target_dir.name] = runs
+        models[tag_dir.name] = model
+    return models
+
+
+def _load_recorded_runs(dir_path: Path) -> dict[int, RecordedRun]:
+    runs: dict[int, RecordedRun] = {}
+    for entry in sorted(dir_path.iterdir()):
+        match = _RUN_FILE_RE.match(entry.name)
+        if not match:
+            continue
+        meta_path = dir_path / f"run{match.group(1)}.meta.json"
+        if not meta_path.is_file():
+            raise HarnessError(f"missing {meta_path} for findings file {entry}")
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            data = json.loads(entry.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise HarnessError(f"unreadable run artifacts in {dir_path}: {exc}") from exc
+        if not isinstance(meta, dict):
+            raise HarnessError(f"{meta_path} must be a JSON object")
+        findings = data.get("findings") if isinstance(data, dict) else None
+        if not isinstance(findings, list):
+            raise HarnessError(f"{entry} must be a JSON object with a findings list")
+        runs[int(match.group(1))] = RecordedRun(meta=meta, findings=findings)
+    return runs
+
+
+# ---------------------------------------------------------------------------
+# score subcommand
+# ---------------------------------------------------------------------------
+
+
+def _mean(values: list[float]) -> float:
+    return sum(values) / len(values) if values else 0.0
+
+
+def _round_floats(obj):
+    """Recursively round floats to 4 places for deterministic output."""
+    if isinstance(obj, float):
+        return round(obj, 4)
+    if isinstance(obj, dict):
+        return {key: _round_floats(value) for key, value in obj.items()}
+    if isinstance(obj, list):
+        return [_round_floats(value) for value in obj]
+    return obj
+
+
+def _known_ok_runs(model: ModelResults, cases_by_id: dict[str, Case], warn_tag: str) -> list[tuple[Case, int, RecordedRun]]:
+    """All ok (case, run_n, run) triples for cases with a known fixture."""
+    triples: list[tuple[Case, int, RecordedRun]] = []
+    for case_id in sorted(model.cases):
+        case = cases_by_id.get(case_id)
+        if case is None:
+            print(
+                f"model_eval: warning: results case {case_id} has no fixture in cases dir; scoring model {warn_tag} without it",
+                file=sys.stderr,
+            )
+            continue
+        for run_n in sorted(model.cases[case_id]):
+            run = model.cases[case_id][run_n]
+            if run.meta.get("status") == STATUS_OK:
+                triples.append((case, run_n, run))
+    return triples
+
+
+def _run_recall(
+    model: ModelResults, cases: list[Case], cases_by_id: dict[str, Case], window: int, category: str | None
+) -> list[float]:
+    """Per-run-number recall: each run n is a full pass over the suite; a case
+    contributes to run n only when its run n is ok. category=None selects all
+    bugs; otherwise only bugs whose category matches."""
+    selected: list[tuple[Case, list[int]]] = []
+    for case in cases:
+        indices = [i for i, bug in enumerate(case.bugs) if category is None or bug.category == category]
+        if indices:
+            selected.append((case, indices))
+    total = sum(len(indices) for _case, indices in selected)
+    run_numbers = sorted(
+        {
+            run_n
+            for case_id in model.cases
+            if case_id in cases_by_id
+            for run_n in model.cases[case_id]
+        }
+    )
+    recalls: list[float] = []
+    for run_n in run_numbers:
+        caught = 0
+        for case, indices in selected:
+            run = model.cases.get(case.case_id, {}).get(run_n)
+            if run is None or run.meta.get("status") != STATUS_OK:
+                continue
+            caught += len(bugs_caught_indices(case, run.findings, window) & set(indices))
+        recalls.append(caught / total if total else 0.0)
+    return recalls
+
+
+def _finding_buckets(findings: list[dict]) -> set[tuple[str, int]]:
+    """Coarse finding identity for repeatability: (file, line // 5). Findings
+    without line information share one bucket per file (line -1 // 5 = -1)."""
+    buckets: set[tuple[str, int]] = set()
+    for f in findings:
+        span = finding_span(f)
+        line = span[0] if span else -1
+        buckets.add((str(f.get("file", "")), line // 5))
+    return buckets
+
+
+def _jaccard(a: set, b: set) -> float:
+    union = a | b
+    return len(a & b) / len(union) if union else 1.0
+
+
+def build_model_summary(model: ModelResults, cases_by_id: dict[str, Case], window: int) -> dict:
+    """Per-model metrics over the recorded results tree."""
+    non_clean = [case for case in sorted(cases_by_id.values(), key=lambda c: c.case_id) if not case.clean]
+    total_bugs = sum(len(case.bugs) for case in non_clean)
+
+    recall_mean = _mean(_run_recall(model, non_clean, cases_by_id, window, category=None))
+
+    caught_all: list[str] = []
+    caught_some: list[str] = []
+    missed_all: list[str] = []
+    for case in non_clean:
+        ok_findings = [
+            run.findings
+            for run_n, run in sorted(model.cases.get(case.case_id, {}).items())
+            if run.meta.get("status") == STATUS_OK
+        ]
+        if not ok_findings:
+            continue
+        per_run = [bugs_caught_indices(case, findings, window) for findings in ok_findings]
+        caught_any: set[int] = set()
+        for indices in per_run:
+            caught_any |= indices
+        caught_every = set.intersection(*per_run)
+        if len(caught_every) == len(case.bugs):
+            caught_all.append(case.case_id)
+        elif caught_any:
+            caught_some.append(case.case_id)
+        else:
+            missed_all.append(case.case_id)
+
+    categories = sorted({bug.category for case in non_clean for bug in case.bugs})
+    recall_by_category = {}
+    for category in categories:
+        recalls = _run_recall(model, non_clean, cases_by_id, window, category=category)
+        total = sum(1 for case in non_clean for bug in case.bugs if bug.category == category)
+        recall_by_category[category] = {"caught_mean": _mean(recalls), "total": total}
+
+    ok_triples = _known_ok_runs(model, cases_by_id, model.tag)
+    unexpected_total = 0
+    unexpected_by_severity: dict[str, int] = {severity: 0 for severity in SEVERITIES}
+    unexpected_on_clean = 0
+    for case, _run_n, run in ok_triples:
+        for f in run.findings:
+            if any(
+                finding_matches(f, bug, window, bug_spans_whole_file(bug, case)) for bug in case.bugs
+            ):
+                continue
+            unexpected_total += 1
+            severity = str(f.get("severity", "unknown"))
+            unexpected_by_severity[severity] = unexpected_by_severity.get(severity, 0) + 1
+            if case.clean:
+                unexpected_on_clean += 1
+
+    case_jaccards: list[float] = []
+    excluded_cases = 0
+    for case_id in sorted(set(cases_by_id) | set(model.cases)):
+        if case_id not in cases_by_id:
+            continue  # results without a fixture are warned about in _known_ok_runs
+        bucket_sets = [
+            _finding_buckets(run.findings)
+            for _run_n, run in sorted(model.cases.get(case_id, {}).items())
+            if run.meta.get("status") == STATUS_OK
+        ]
+        if len(bucket_sets) < 2:
+            excluded_cases += 1
+            continue
+        case_jaccards.append(_mean([_jaccard(a, b) for a, b in combinations(bucket_sets, 2)]))
+
+    reliability = {status: 0 for status in (STATUS_OK, STATUS_FAILED, STATUS_TIMEOUT, STATUS_ZERO_HUNKS)}
+    ok_case_walls: list[float] = []
+    for case_id in sorted(model.cases):
+        for _run_n, run in sorted(model.cases[case_id].items()):
+            status = run.meta.get("status")
+            if status not in reliability:
+                print(
+                    f"model_eval: warning: unknown status {status!r} in {model.tag}/cases/{case_id}",
+                    file=sys.stderr,
+                )
+                continue
+            reliability[status] += 1
+            if status == STATUS_OK:
+                wall = run.meta.get("wall_seconds")
+                if isinstance(wall, (int, float)):
+                    ok_case_walls.append(float(wall))
+    ok_real_walls: list[float] = []
+    for sha in sorted(model.real):
+        for _run_n, run in sorted(model.real[sha].items()):
+            status = run.meta.get("status")
+            if status not in reliability:
+                print(
+                    f"model_eval: warning: unknown status {status!r} in {model.tag}/real/{sha}",
+                    file=sys.stderr,
+                )
+                continue
+            reliability[status] += 1
+            if status == STATUS_OK:
+                wall = run.meta.get("wall_seconds")
+                if isinstance(wall, (int, float)):
+                    ok_real_walls.append(float(wall))
+
+    return {
+        "bugs_caught_all_runs": caught_all,
+        "bugs_caught_some_runs": caught_some,
+        "bugs_missed_all_runs": missed_all,
+        "recall_by_category": recall_by_category,
+        "recall_mean": recall_mean,
+        "repeatability_cases_excluded": excluded_cases,
+        "repeatability_jaccard_mean": _mean(case_jaccards),
+        "reliability": reliability,
+        "seconds_per_case_mean": _mean(ok_case_walls),
+        "seconds_per_real_ref_mean": _mean(ok_real_walls),
+        "unexpected": {
+            "by_severity": unexpected_by_severity,
+            "mean_per_run": unexpected_total / len(ok_triples) if ok_triples else 0.0,
+            "on_clean_cases": unexpected_on_clean,
+            "total": unexpected_total,
+        },
+    }
+
+
+def load_labels(labels_path: str | Path, key_path: str | Path) -> dict[str, str]:
+    """Read the labeled blind TSV against the de-anonymization key.
+
+    Returns {anon_id: label} for rows that carry a label. Errors name the
+    offending row: unknown anon_ids (not in the key) and unknown labels.
+    Rows with an empty label are treated as unlabeled and skipped.
+    """
+    key_path, labels_path = Path(key_path), Path(labels_path)
+    try:
+        key = json.loads(key_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise HarnessError(f"unreadable blind key {key_path}: {exc}") from exc
+    if not isinstance(key, dict):
+        raise HarnessError(f"blind key {key_path} must be a JSON object")
+    try:
+        text = labels_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise HarnessError(f"unreadable labels file {labels_path}: {exc}") from exc
+    labels: dict[str, str] = {}
+    for lineno, line in enumerate(text.splitlines(), 1):
+        if not line.strip():
+            continue
+        cols = line.split("\t")
+        anon_id = cols[0].strip()
+        if anon_id == "anon_id":
+            continue  # header
+        if not anon_id:
+            raise HarnessError(f"labels row {lineno}: missing anon_id")
+        if anon_id not in key:
+            raise HarnessError(f"labels row {lineno}: unknown anon_id '{anon_id}'")
+        label = cols[8].strip() if len(cols) > 8 else ""
+        if not label:
+            continue  # unlabeled row; excluded from real_diff counts
+        if label not in VALID_LABELS:
+            raise HarnessError(f"labels row {lineno}: unknown label '{label}' (anon_id {anon_id})")
+        labels[anon_id] = label
+    return labels
+
+
+def attach_real_diff(
+    summary: dict, labels_by_anon: dict[str, str], blind_key: dict
+) -> None:
+    """Add real_diff (per-label counts + actionable_rate) to each model entry."""
+    counts_by_tag: dict[str, dict[str, int]] = {}
+    for anon_id in sorted(labels_by_anon):
+        entry = blind_key.get(anon_id)
+        model_tag = str(entry.get("model_tag", "")) if isinstance(entry, dict) else ""
+        if model_tag not in summary:
+            print(
+                f"model_eval: warning: labels anon_id {anon_id} maps to model tag '{model_tag}' absent from results",
+                file=sys.stderr,
+            )
+        tag_counts = counts_by_tag.setdefault(
+            model_tag, {label: 0 for label in VALID_LABELS}
+        )
+        tag_counts[labels_by_anon[anon_id]] += 1
+    for model_tag, metrics in summary.items():
+        tag_counts = counts_by_tag.get(
+            model_tag, {label: 0 for label in VALID_LABELS}
+        )
+        labeled = sum(tag_counts.values())
+        actionable_rate = tag_counts[LABEL_ACTIONABLE] / labeled if labeled else 0.0
+        metrics["real_diff"] = {
+            "actionable_rate": actionable_rate,
+            "labeled": labeled,
+            "labels": {label: tag_counts[label] for label in VALID_LABELS},
+        }
+
+
+def build_summary(
+    cases_by_id: dict[str, Case],
+    models: dict[str, ModelResults],
+    window: int,
+    labels_by_anon: dict[str, str] | None,
+    blind_key: dict | None,
+) -> dict:
+    """Deterministic score summary keyed by model tag."""
+    summary = {
+        tag: build_model_summary(model, cases_by_id, window) for tag, model in sorted(models.items())
+    }
+    if labels_by_anon is not None:
+        if blind_key is None:  # pragma: no cover - guarded by cmd_score
+            raise HarnessError("blind key required with labels")
+        attach_real_diff(summary, labels_by_anon, blind_key)
+    return _round_floats(summary)
+
+
+def cmd_score(args: argparse.Namespace) -> int:
+    """Compare recorded runs against fixture ground truth; emit JSON summary."""
+    try:
+        if (args.labels is None) != (args.blind_key is None):
+            raise HarnessError("--labels and --blind-key must be used together")
+        if args.window < 0:
+            raise HarnessError("--window must be >= 0")
+        cases = load_cases(args.cases)
+        cases_by_id = {case.case_id: case for case in cases}
+        models = load_results(args.results)
+        labels_by_anon = load_labels(args.labels, args.blind_key) if args.labels else None
+        summary = build_summary(cases_by_id, models, args.window, labels_by_anon, args.blind_key)
+        text = json.dumps(summary, sort_keys=True, indent=2) + "\n"
+        if args.out is not None:
+            args.out.parent.mkdir(parents=True, exist_ok=True)
+            args.out.write_text(text, encoding="utf-8")
+        if args.check is not None:
+            try:
+                expected = json.loads(Path(args.check).read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                raise HarnessError(f"unreadable check file {args.check}: {exc}") from exc
+            if expected == summary:
+                print("model_eval: check ok", flush=True)
+                return EXIT_OK
+            differing = sorted(
+                key for key in set(expected) | set(summary) if expected.get(key) != summary.get(key)
+            )
+            print(
+                f"model_eval: check mismatch; differing top-level keys: {', '.join(differing)}",
+                flush=True,
+            )
+            return EXIT_CHECK_MISMATCH
+        print(text, end="")
+        return EXIT_OK
+    except HarnessError as exc:
+        print(f"model_eval: error: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+
+
+# ---------------------------------------------------------------------------
+# export-blind subcommand
+# ---------------------------------------------------------------------------
+
+
+def _tsv_cell(value) -> str:
+    """TSV-safe cell text: tabs and newlines collapse to spaces."""
+    return str(value).replace("\t", " ").replace("\r", " ").replace("\n", " ")
+
+
+def collect_real_findings(models: dict[str, ModelResults]) -> list[tuple[str, str, int, int, dict]]:
+    """Every (model_tag, ref, run, index, finding) from real runs, in a
+    deterministic pre-shuffle order."""
+    items: list[tuple[str, str, int, int, dict]] = []
+    for tag in sorted(models):
+        for sha in sorted(models[tag].real):
+            for run_n in sorted(models[tag].real[sha]):
+                for index, f in enumerate(models[tag].real[sha][run_n].findings):
+                    items.append((tag, sha, run_n, index, f))
+    return items
+
+
+def cmd_export_blind(args: argparse.Namespace) -> int:
+    """Export real-ref findings to an anonymized TSV plus a de-anonymization key."""
+    try:
+        models = load_results(args.results)
+        items = collect_real_findings(models)
+        random.Random(args.seed).shuffle(items)
+        key: dict[str, dict] = {}
+        rows: list[list[str]] = [list(BLIND_TSV_COLUMNS)]
+        for position, (tag, sha, run_n, index, f) in enumerate(items, 1):
+            anon_id = f"F{position:03d}"
+            key[anon_id] = {"model_tag": tag, "ref": sha, "run": run_n, "index": index}
+            span = finding_span(f)
+            line = f.get("line")
+            if not isinstance(line, int) or isinstance(line, bool):
+                line = span[0] if span else ""
+            rows.append(
+                [
+                    anon_id,
+                    _tsv_cell(sha),
+                    _tsv_cell(f.get("file", "")),
+                    str(line),
+                    _tsv_cell(f.get("severity", "")),
+                    _tsv_cell(f.get("category", "")),
+                    _tsv_cell(f.get("message", "")),
+                    _tsv_cell(f.get("suggestion", "")),
+                    "",
+                    "",
+                ]
+            )
+        tsv_text = "\n".join("\t".join(row) for row in rows) + "\n"
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(tsv_text, encoding="utf-8")
+        args.key.parent.mkdir(parents=True, exist_ok=True)
+        args.key.write_text(json.dumps(key, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+        print(f"model_eval: exported {len(items)} findings to {args.out}", flush=True)
+        return EXIT_OK
+    except HarnessError as exc:
+        print(f"model_eval: error: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -667,6 +1191,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run_parser.add_argument("--retry-failed", action="store_true", help="Re-run runs whose status is not ok")
     run_parser.add_argument("--dry-run", action="store_true", help="Pass --dry-run to stet start (no LLM)")
+
+    score_parser = sub.add_parser("score", help="Score recorded runs against fixture ground truth")
+    score_parser.add_argument("--cases", type=Path, required=True, help="Fixture cases directory")
+    score_parser.add_argument("--results", type=Path, required=True, help="Results directory written by run")
+    score_parser.add_argument("--labels", type=Path, default=None, help="Labeled blind TSV (with --blind-key)")
+    score_parser.add_argument("--blind-key", type=Path, default=None, help="De-anonymization key JSON (with --labels)")
+    score_parser.add_argument("--out", type=Path, default=None, help="Also write the summary JSON to this file")
+    score_parser.add_argument("--check", type=Path, default=None, help="Compare summary to this JSON file; exit 2 on diff")
+    score_parser.add_argument("--window", type=int, default=DEFAULT_MATCH_WINDOW, help="Line match window (default 3)")
+
+    export_parser = sub.add_parser("export-blind", help="Export real findings to an anonymized TSV for blind triage")
+    export_parser.add_argument("--results", type=Path, required=True, help="Results directory written by run")
+    export_parser.add_argument("--out", type=Path, required=True, help="Output blind TSV path")
+    export_parser.add_argument("--key", type=Path, required=True, help="Output de-anonymization key JSON path")
+    export_parser.add_argument("--seed", type=int, default=DEFAULT_BLIND_SEED, help="Shuffle seed (default 20261010)")
     return parser
 
 
@@ -674,6 +1213,10 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "run":
         return cmd_run(args)
+    if args.command == "score":
+        return cmd_score(args)
+    if args.command == "export-blind":
+        return cmd_export_blind(args)
     print(f"model_eval: error: unknown command: {args.command}", file=sys.stderr)
     return EXIT_ERROR
 

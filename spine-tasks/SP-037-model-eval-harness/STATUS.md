@@ -1,4 +1,4 @@
-**Current Step:** 2
+**Current Step:** 3
 **Status:** In progress
 **Last Updated:** 2026-10-10
 **Review Level:** 1
@@ -23,14 +23,14 @@
 
 ## Step 2: `score` and `export-blind`
 
-**Status:** Not started
+**Status:** Complete
 
-- [ ] Match rule, metrics, deterministic JSON, `--check`
-- [ ] Blind export and label ingestion
+- [x] Match rule, metrics, deterministic JSON, `--check`
+- [x] Blind export and label ingestion
 
 ## Step 3: Testing & Verification
 
-**Status:** Not started
+**Status:** In progress
 
 - [ ] Unit tests for every Step 3 bullet in PROMPT
 - [ ] `--dry-run` integration test
@@ -54,6 +54,7 @@
 |------|-------|--------|
 | 2026-10-10 | Authored | Phase 7 model benchmark (harness for SP-039) |
 | 2026-10-10 | Step 1 | `scripts/model_eval.py` run subcommand + 36 tests; real `stet --dry-run` smoke test ok (hunks_total 1, meta correct) |
+| 2026-10-10 | Step 2 | `score` + `export-blind`; 68 tests total; CLI chain smoke (run real-ref clone → score recall 1.0 → export-blind TSV) ok |
 
 ## Blockers
 

@@ -593,3 +593,536 @@ class TestCmdRunSetupErrors:
 
     def test_invalid_runs(self, tmp_path: Path, fake_tools: FakeSimple) -> None:
         assert model_eval.cmd_run(make_run_args(tmp_path, runs=0), clock=FakeClock()) == model_eval.EXIT_ERROR
+
+
+# ---------------------------------------------------------------------------
+# Step 2: score helpers
+# ---------------------------------------------------------------------------
+
+
+def f_at(file: str, line: int | None = None, severity: str = "error", rng: tuple[int, int] | None = None) -> dict:
+    result: dict = {"file": file, "severity": severity, "category": "correctness", "message": "m"}
+    if rng is not None:
+        result["range"] = {"start": rng[0], "end": rng[1]}
+    elif line is not None:
+        result["line"] = line
+    return result
+
+
+class TestFindingMatches:
+    BUG = model_eval.Bug(file="a.go", start=10, end=12, category="correctness", description="d")
+
+    def test_exact_window_edges_match(self) -> None:
+        assert model_eval.finding_matches(f_at("a.go", 10), self.BUG, 3)
+        assert model_eval.finding_matches(f_at("a.go", 12), self.BUG, 3)
+        assert model_eval.finding_matches(f_at("a.go", 7), self.BUG, 3)  # start - window
+        assert model_eval.finding_matches(f_at("a.go", 15), self.BUG, 3)  # end + window
+
+    def test_one_line_beyond_window_does_not_match(self) -> None:
+        assert not model_eval.finding_matches(f_at("a.go", 6), self.BUG, 3)
+        assert not model_eval.finding_matches(f_at("a.go", 16), self.BUG, 3)
+
+    def test_range_overlap_matches_by_intersection(self) -> None:
+        assert model_eval.finding_matches(f_at("a.go", rng=(11, 40)), self.BUG, 3)
+        assert model_eval.finding_matches(f_at("a.go", rng=(14, 20)), self.BUG, 3)
+        assert not model_eval.finding_matches(f_at("a.go", rng=(1, 4)), self.BUG, 3)  # ends before 10-3
+        assert not model_eval.finding_matches(f_at("a.go", rng=(1, 2)), self.BUG, 3)
+        assert not model_eval.finding_matches(f_at("a.go", rng=(20, 30)), self.BUG, 3)
+
+    def test_wrong_file_never_matches(self) -> None:
+        assert not model_eval.finding_matches(f_at("b.go", 10), self.BUG, 3)
+        assert not model_eval.finding_matches(f_at("b.go", 11), self.BUG, 3)
+
+    def test_no_line_finding_matches_only_whole_file_bugs(self) -> None:
+        no_line = f_at("a.go")
+        assert not model_eval.finding_matches(no_line, self.BUG, 3, bug_whole_file=False)
+        assert model_eval.finding_matches(no_line, self.BUG, 3, bug_whole_file=True)
+
+    def test_bug_spans_whole_file(self, tmp_path: Path) -> None:
+        case_dir = make_case(
+            tmp_path / "cases",
+            case_id="whole",
+            bugs=[{"file": "internal/page/page.go", "lines": [1, 5], "category": "correctness", "description": "d"}],
+        )
+        case = model_eval.load_cases(case_dir.parent)[0]
+        assert case.bug_file_lines["internal/page/page.go"] == 5
+        assert model_eval.bug_spans_whole_file(case.bugs[0], case)
+        partial_bug = model_eval.Bug(file="internal/page/page.go", start=1, end=4, category="c", description="d")
+        assert not model_eval.bug_spans_whole_file(partial_bug, case)
+        # End-to-end: a no-line finding on that file catches the whole-file bug.
+        assert model_eval.bugs_caught_indices(case, [f_at("internal/page/page.go")], 3) == {0}
+
+    def test_finding_span_prefers_range_over_line(self) -> None:
+        assert model_eval.finding_span({"file": "a", "line": 5, "range": {"start": 2, "end": 9}}) == (2, 9)
+        assert model_eval.finding_span({"file": "a", "line": 5}) == (5, 5)
+        assert model_eval.finding_span({"file": "a"}) is None
+        assert model_eval.finding_span({"file": "a", "range": {"start": "x", "end": 3}}) is None
+
+
+# ---------------------------------------------------------------------------
+# Step 2: hand-built results tree with exact expected numbers
+# ---------------------------------------------------------------------------
+
+
+def write_run(
+    out: Path,
+    tag: str,
+    kind: str,
+    target: str,
+    run_n: int,
+    status: str = "ok",
+    findings: list[dict] | None = None,
+    wall: float = 10.0,
+    model: str = "m/1",
+) -> None:
+    base = out / tag / ("cases" if kind == "case" else "real") / target
+    base.mkdir(parents=True, exist_ok=True)
+    (base / f"run{run_n}.json").write_text(json.dumps({"findings": findings or []}), encoding="utf-8")
+    meta = {
+        "env": {},
+        "exit_code": 0 if status == "ok" else 1,
+        "findings_count": len(findings or []),
+        "hunks_total": 1,
+        "kind": kind,
+        "model": model,
+        "run": run_n,
+        "status": status,
+        "stet_version": "stet version fake",
+        "target": target,
+        "wall_seconds": wall,
+    }
+    (base / f"run{run_n}.meta.json").write_text(json.dumps(meta), encoding="utf-8")
+
+
+def build_benchmark_cases(tmp_path: Path) -> Path:
+    """Two buggy cases (2 bugs, 1 bug) + one clean case."""
+    cases = tmp_path / "cases"
+    make_case(
+        cases,
+        case_id="case-a",
+        bugs=[
+            {"file": "internal/page/page.go", "lines": [4, 4], "category": "correctness", "description": "b0"},
+            {"file": "internal/page/page.go", "lines": [8, 8], "category": "performance", "description": "b1"},
+        ],
+    )
+    make_case(
+        cases,
+        case_id="case-b",
+        bugs=[{"file": "cmd/main.go", "lines": [3, 3], "category": "correctness", "description": "b0"}],
+    )
+    # cmd/main.go must exist in after/ for validation
+    (cases / "case-b" / "after" / "cmd").mkdir(parents=True, exist_ok=True)
+    (cases / "case-b" / "after" / "cmd" / "main.go.txt").write_text("a\nb\nc\nd\ne\nf\n", encoding="utf-8")
+    (cases / "case-b" / "before" / "cmd").mkdir(parents=True, exist_ok=True)
+    (cases / "case-b" / "before" / "cmd" / "main.go.txt").write_text("a\nb\nc\n", encoding="utf-8")
+    make_case(cases, case_id="case-c", clean=True)
+    return cases
+
+
+def build_benchmark_results(tmp_path: Path) -> Path:
+    """Model m__1: exact recall/unexpected/jaccard numbers asserted in tests."""
+    out = tmp_path / "results"
+    a = "internal/page/page.go"
+    # case-a: bug0 caught in runs 1-3, bug1 only in run 1
+    write_run(out, "m__1", "case", "case-a", 1, findings=[f_at(a, 4), f_at(a, 8)], wall=10.0)
+    write_run(out, "m__1", "case", "case-a", 2, findings=[f_at(a, 4)], wall=20.0)
+    write_run(out, "m__1", "case", "case-a", 3, findings=[f_at(a, 4)], wall=30.0)
+    # case-b: caught in runs 1 and 3; run 2 has an off-file finding (unexpected warning)
+    write_run(out, "m__1", "case", "case-b", 1, findings=[f_at("cmd/main.go", 3)], wall=5.0)
+    write_run(out, "m__1", "case", "case-b", 2, findings=[f_at("other/thing.go", 3, severity="warning")], wall=5.0)
+    write_run(out, "m__1", "case", "case-b", 3, findings=[f_at("cmd/main.go", 3)], wall=5.0)
+    # clean case: one unexpected error finding in run 1
+    write_run(out, "m__1", "case", "case-c", 1, findings=[f_at("internal/page/page.go", 1)], wall=1.0)
+    write_run(out, "m__1", "case", "case-c", 2, wall=1.0)
+    write_run(out, "m__1", "case", "case-c", 3, wall=1.0)
+    return out
+
+
+class TestScoreMetrics:
+    @pytest.fixture
+    def summary(self, tmp_path: Path) -> dict:
+        cases = build_benchmark_cases(tmp_path)
+        results = build_benchmark_results(tmp_path)
+        cases_by_id = {case.case_id: case for case in model_eval.load_cases(cases)}
+        models = model_eval.load_results(results)
+        return model_eval.build_summary(cases_by_id, models, window=3, labels_by_anon=None, blind_key=None)
+
+    def test_recall_mean_exact(self, summary: dict) -> None:
+        # Runs: 3/3, 1/3, 2/3 -> mean 2/3
+        assert summary["m__1"]["recall_mean"] == 0.6667
+
+    def test_caught_lists(self, summary: dict) -> None:
+        metrics = summary["m__1"]
+        assert metrics["bugs_caught_all_runs"] == []
+        assert metrics["bugs_caught_some_runs"] == ["case-a", "case-b"]
+        assert metrics["bugs_missed_all_runs"] == []
+
+    def test_recall_by_category_exact(self, summary: dict) -> None:
+        by_category = summary["m__1"]["recall_by_category"]
+        assert by_category["correctness"] == {"caught_mean": 0.8333, "total": 2}
+        assert by_category["performance"] == {"caught_mean": 0.3333, "total": 1}
+
+    def test_unexpected_exact(self, summary: dict) -> None:
+        unexpected = summary["m__1"]["unexpected"]
+        assert unexpected["total"] == 2
+        assert unexpected["mean_per_run"] == 0.2222
+        assert unexpected["by_severity"] == {"error": 1, "info": 0, "nitpick": 0, "warning": 1}
+        assert unexpected["on_clean_cases"] == 1
+
+    def test_repeatability_exact(self, summary: dict) -> None:
+        metrics = summary["m__1"]
+        # case-a: 0.5/0.5/1.0 -> 2/3; case-b: 0/1/0 -> 1/3; case-c: 0/0/1.0 (two
+        # empty runs agree) -> 1/3; mean = 4/9
+        assert metrics["repeatability_jaccard_mean"] == 0.4444
+        assert metrics["repeatability_cases_excluded"] == 0
+
+    def test_reliability_and_seconds(self, summary: dict) -> None:
+        metrics = summary["m__1"]
+        assert metrics["reliability"] == {"failed": 0, "ok": 9, "timeout": 0, "zero_hunks": 0}
+        assert metrics["seconds_per_case_mean"] == 8.6667
+        assert metrics["seconds_per_real_ref_mean"] == 0.0
+
+    def test_failed_runs_count_in_reliability_and_missed(self, tmp_path: Path) -> None:
+        cases = build_benchmark_cases(tmp_path)
+        results = build_benchmark_results(tmp_path)
+        write_run(results, "z__2", "case", "case-a", 1, findings=[])
+        write_run(results, "z__2", "case", "case-b", 1, findings=[])
+        write_run(results, "z__2", "case", "case-b", 2, status="failed")
+        write_run(results, "z__2", "real", "abc123", 1, wall=60.0)
+        cases_by_id = {case.case_id: case for case in model_eval.load_cases(cases)}
+        models = model_eval.load_results(results)
+        summary = model_eval.build_summary(cases_by_id, models, window=3, labels_by_anon=None, blind_key=None)
+        metrics = summary["z__2"]
+        assert metrics["recall_mean"] == 0.0
+        assert metrics["bugs_missed_all_runs"] == ["case-a", "case-b"]
+        assert metrics["reliability"] == {"failed": 1, "ok": 3, "timeout": 0, "zero_hunks": 0}
+        assert metrics["seconds_per_real_ref_mean"] == 60.0
+        # Single ok run per case -> every case excluded from repeatability.
+        assert metrics["repeatability_cases_excluded"] == 3
+        assert metrics["repeatability_jaccard_mean"] == 0.0
+
+    def test_jaccard_identical_disjoint_and_excluded(self, tmp_path: Path) -> None:
+        cases = build_benchmark_cases(tmp_path)
+        results = tmp_path / "results"
+        a = "internal/page/page.go"
+        # identical pair -> 1.0
+        write_run(results, "j__1", "case", "case-a", 1, findings=[f_at(a, 4)])
+        write_run(results, "j__1", "case", "case-a", 2, findings=[f_at(a, 4)])
+        # disjoint pair -> 0.0 (different files)
+        write_run(results, "j__1", "case", "case-b", 1, findings=[f_at("cmd/main.go", 3)])
+        write_run(results, "j__1", "case", "case-b", 2, findings=[f_at("other/thing.go", 3)])
+        cases_by_id = {case.case_id: case for case in model_eval.load_cases(cases)}
+        models = model_eval.load_results(results)
+        summary = model_eval.build_summary(cases_by_id, models, window=3, labels_by_anon=None, blind_key=None)
+        metrics = summary["j__1"]
+        # mean over the two cases: (1.0 + 0.0) / 2; single-run case-c excluded
+        assert metrics["repeatability_jaccard_mean"] == 0.5
+        assert metrics["repeatability_cases_excluded"] == 1
+
+    def test_empty_results_give_zeroed_metrics(self, tmp_path: Path) -> None:
+        cases = build_benchmark_cases(tmp_path)
+        results = tmp_path / "results"
+        results.mkdir()
+        (results / "empty__tag").mkdir()
+        cases_by_id = {case.case_id: case for case in model_eval.load_cases(cases)}
+        summary = model_eval.build_summary(
+            cases_by_id, model_eval.load_results(results), window=3, labels_by_anon=None, blind_key=None
+        )
+        metrics = summary["empty__tag"]
+        assert metrics["recall_mean"] == 0.0
+        assert metrics["reliability"] == {"failed": 0, "ok": 0, "timeout": 0, "zero_hunks": 0}
+        assert metrics["unexpected"] == {
+            "by_severity": {"error": 0, "info": 0, "nitpick": 0, "warning": 0},
+            "mean_per_run": 0.0,
+            "on_clean_cases": 0,
+            "total": 0,
+        }
+
+
+class TestScoreCommand:
+    def test_deterministic_bytes_across_invocations(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        build_benchmark_cases(tmp_path)
+        build_benchmark_results(tmp_path)
+        args = argparse.Namespace(
+            cases=tmp_path / "cases",
+            results=tmp_path / "results",
+            labels=None,
+            blind_key=None,
+            out=None,
+            check=None,
+            window=3,
+        )
+        assert model_eval.cmd_score(args) == model_eval.EXIT_OK
+        first = capsys.readouterr().out
+        assert model_eval.cmd_score(args) == model_eval.EXIT_OK
+        second = capsys.readouterr().out
+        assert first == second
+        assert first.endswith("\n")
+        parsed = json.loads(first)
+        assert list(parsed) == ["m__1"]
+
+    def test_out_writes_same_bytes(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        build_benchmark_cases(tmp_path)
+        build_benchmark_results(tmp_path)
+        out_file = tmp_path / "summary.json"
+        args = argparse.Namespace(
+            cases=tmp_path / "cases",
+            results=tmp_path / "results",
+            labels=None,
+            blind_key=None,
+            out=out_file,
+            check=None,
+            window=3,
+        )
+        assert model_eval.cmd_score(args) == model_eval.EXIT_OK
+        assert out_file.read_text() == capsys.readouterr().out
+
+    def test_check_equal_exits_zero(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        build_benchmark_cases(tmp_path)
+        build_benchmark_results(tmp_path)
+        summary_file = tmp_path / "expected-summary.json"
+        score_args = argparse.Namespace(
+            cases=tmp_path / "cases",
+            results=tmp_path / "results",
+            labels=None,
+            blind_key=None,
+            out=None,
+            check=None,
+            window=3,
+        )
+        assert model_eval.cmd_score(score_args) == model_eval.EXIT_OK
+        summary_file.write_text(capsys.readouterr().out, encoding="utf-8")
+        check_args = argparse.Namespace(
+            cases=tmp_path / "cases",
+            results=tmp_path / "results",
+            labels=None,
+            blind_key=None,
+            out=None,
+            check=summary_file,
+            window=3,
+        )
+        assert model_eval.cmd_score(check_args) == model_eval.EXIT_OK
+        assert "check ok" in capsys.readouterr().out
+
+    def test_check_mismatch_exits_2_and_names_keys(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        build_benchmark_cases(tmp_path)
+        build_benchmark_results(tmp_path)
+        summary_file = tmp_path / "expected-summary.json"
+        score_args = argparse.Namespace(
+            cases=tmp_path / "cases",
+            results=tmp_path / "results",
+            labels=None,
+            blind_key=None,
+            out=None,
+            check=None,
+            window=3,
+        )
+        assert model_eval.cmd_score(score_args) == model_eval.EXIT_OK
+        summary = json.loads(capsys.readouterr().out)
+        summary["recall_mean"] = 9.99
+        summary["extra_key"] = 1
+        summary_file.write_text(json.dumps(summary), encoding="utf-8")
+        check_args = argparse.Namespace(
+            cases=tmp_path / "cases",
+            results=tmp_path / "results",
+            labels=None,
+            blind_key=None,
+            out=None,
+            check=summary_file,
+            window=3,
+        )
+        assert model_eval.cmd_score(check_args) == model_eval.EXIT_CHECK_MISMATCH
+        out_text = capsys.readouterr().out
+        assert "check mismatch" in out_text
+        assert "recall_mean" in out_text
+        assert "extra_key" in out_text
+
+    def test_labels_without_blind_key_is_error(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        build_benchmark_cases(tmp_path)
+        build_benchmark_results(tmp_path)
+        args = argparse.Namespace(
+            cases=tmp_path / "cases",
+            results=tmp_path / "results",
+            labels=tmp_path / "labels.tsv",
+            blind_key=None,
+            out=None,
+            check=None,
+            window=3,
+        )
+        assert model_eval.cmd_score(args) == model_eval.EXIT_ERROR
+        assert "--labels and --blind-key" in capsys.readouterr().err
+
+    def test_missing_results_dir_exits_1(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        build_benchmark_cases(tmp_path)
+        args = argparse.Namespace(
+            cases=tmp_path / "cases",
+            results=tmp_path / "nope",
+            labels=None,
+            blind_key=None,
+            out=None,
+            check=None,
+            window=3,
+        )
+        assert model_eval.cmd_score(args) == model_eval.EXIT_ERROR
+
+    def test_run_json_without_meta_exits_1(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        build_benchmark_cases(tmp_path)
+        results = build_benchmark_results(tmp_path)
+        (results / "m__1" / "cases" / "case-a" / "run1.meta.json").unlink()
+        args = argparse.Namespace(
+            cases=tmp_path / "cases",
+            results=results,
+            labels=None,
+            blind_key=None,
+            out=None,
+            check=None,
+            window=3,
+        )
+        assert model_eval.cmd_score(args) == model_eval.EXIT_ERROR
+        assert "run1.meta.json" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------
+# Step 2: export-blind and label ingestion
+# ---------------------------------------------------------------------------
+
+
+def build_real_results(tmp_path: Path) -> Path:
+    out = tmp_path / "results"
+    write_run(
+        out, "alpha__m", "real", "aaa111", 1,
+        findings=[f_at("a.go", 4), f_at("b.go", 9, severity="warning")], model="alpha/m",
+    )
+    write_run(out, "alpha__m", "real", "bbb222", 1, findings=[f_at("c.go", 2)], model="alpha/m")
+    write_run(out, "beta__m", "real", "aaa111", 1, findings=[f_at("d.go", 7)], model="beta/m")
+    write_run(out, "beta__m", "real", "aaa111", 2, findings=[f_at("e.go", 1, severity="info")], model="beta/m")
+    return out
+
+
+class TestExportBlind:
+    def make_args(self, tmp_path: Path, seed: int = model_eval.DEFAULT_BLIND_SEED) -> argparse.Namespace:
+        return argparse.Namespace(
+            results=tmp_path / "results",
+            out=tmp_path / "blind.tsv",
+            key=tmp_path / "blind-key.json",
+            seed=seed,
+        )
+
+    def test_deterministic_for_seed_and_hides_model(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        build_real_results(tmp_path)
+        assert model_eval.cmd_export_blind(self.make_args(tmp_path)) == model_eval.EXIT_OK
+        first_tsv = (tmp_path / "blind.tsv").read_text()
+        first_key = (tmp_path / "blind-key.json").read_text()
+        assert model_eval.cmd_export_blind(self.make_args(tmp_path)) == model_eval.EXIT_OK
+        assert (tmp_path / "blind.tsv").read_text() == first_tsv
+        assert (tmp_path / "blind-key.json").read_text() == first_key
+
+        # No model identity anywhere in the TSV.
+        for fragment in ("alpha", "beta", "alpha__m", "beta__m"):
+            assert fragment not in first_tsv
+        # Header + 5 findings, 10 columns, empty label/notes.
+        lines = first_tsv.rstrip("\n").split("\n")
+        assert lines[0].split("\t") == list(model_eval.BLIND_TSV_COLUMNS)
+        assert len(lines) == 6
+        for line in lines[1:]:
+            cols = line.split("\t")
+            assert len(cols) == 10
+            assert cols[8] == "" and cols[9] == ""
+        # Anon ids are F001..F005; the key maps back to models.
+        key = json.loads(first_key)
+        assert sorted(key) == [f"F{i:03d}" for i in range(1, 6)]
+        model_tags = {entry["model_tag"] for entry in key.values()}
+        assert model_tags == {"alpha__m", "beta__m"}
+        assert "exported 5 findings" in capsys.readouterr().out
+
+    def test_different_seed_changes_order(self, tmp_path: Path) -> None:
+        build_real_results(tmp_path)
+        model_eval.cmd_export_blind(self.make_args(tmp_path, seed=1))
+        tsv_seed_1 = (tmp_path / "blind.tsv").read_text()
+        model_eval.cmd_export_blind(self.make_args(tmp_path, seed=2))
+        tsv_seed_2 = (tmp_path / "blind.tsv").read_text()
+        assert tsv_seed_1 != tsv_seed_2
+
+    def test_empty_results_exports_header_only(self, tmp_path: Path) -> None:
+        (tmp_path / "results").mkdir()
+        assert model_eval.cmd_export_blind(self.make_args(tmp_path)) == model_eval.EXIT_OK
+        tsv = (tmp_path / "blind.tsv").read_text()
+        assert tsv.rstrip("\n").split("\t") == list(model_eval.BLIND_TSV_COLUMNS)
+        assert json.loads((tmp_path / "blind-key.json").read_text()) == {}
+
+    def test_missing_results_dir_exits_1(self, tmp_path: Path) -> None:
+        args = self.make_args(tmp_path)
+        args.results = tmp_path / "nope"
+        assert model_eval.cmd_export_blind(args) == model_eval.EXIT_ERROR
+
+
+class TestLabels:
+    @pytest.fixture
+    def labeled(self, tmp_path: Path) -> tuple[dict, dict, Path]:
+        build_benchmark_cases(tmp_path)
+        build_real_results(tmp_path)
+        tsv_path = tmp_path / "blind.tsv"
+        key_path = tmp_path / "blind-key.json"
+        args = argparse.Namespace(results=tmp_path / "results", out=tsv_path, key=key_path, seed=42)
+        assert model_eval.cmd_export_blind(args) == model_eval.EXIT_OK
+        key = json.loads(key_path.read_text())
+        lines = tsv_path.read_text().rstrip("\n").split("\n")
+        # Label the 5 findings: two actionable, one false_positive, one out_of_scope, one wrong_suggestion.
+        chosen_labels = ["actionable", "false_positive", "actionable", "out_of_scope", "wrong_suggestion"]
+        relabeled = [lines[0]]
+        for line, label in zip(lines[1:], chosen_labels):
+            cols = line.split("\t")
+            cols[8] = label
+            relabeled.append("\t".join(cols))
+        tsv_path.write_text("\n".join(relabeled) + "\n", encoding="utf-8")
+        return key, {"rows": relabeled}, tsv_path
+
+    def test_load_labels_against_key(self, labeled) -> None:
+        key, _rows, tsv_path = labeled
+        tmp_path = tsv_path.parent
+        labels = model_eval.load_labels(tsv_path, tmp_path / "blind-key.json")
+        assert len(labels) == 5
+        assert set(labels.values()) == {"actionable", "false_positive", "out_of_scope", "wrong_suggestion"}
+
+    def test_real_diff_per_model(self, tmp_path: Path, labeled, capsys: pytest.CaptureFixture[str]) -> None:
+        key, _rows, tsv_path = labeled
+        key_path = tmp_path / "blind-key.json"
+        labels_by_anon = model_eval.load_labels(tsv_path, key_path)
+        cases_by_id = {case.case_id: case for case in model_eval.load_cases(tmp_path / "cases")}
+        models = model_eval.load_results(tmp_path / "results")
+        summary = model_eval.build_summary(cases_by_id, models, 3, labels_by_anon, json.loads(key_path.read_text()))
+        alpha = summary["alpha__m"]["real_diff"]
+        beta = summary["beta__m"]["real_diff"]
+        assert alpha["labeled"] + beta["labeled"] == 5
+        for metrics in (alpha, beta):
+            assert set(metrics["labels"]) == set(model_eval.VALID_LABELS)
+            assert metrics["actionable_rate"] == round(metrics["labels"]["actionable"] / metrics["labeled"], 4)
+        # All 5 labeled findings are split across exactly the two models.
+        assert sorted(
+            [summary["alpha__m"]["real_diff"]["labeled"], summary["beta__m"]["real_diff"]["labeled"]]
+        ) == [2, 3]
+
+    def _rewrite_labels(self, tsv_path: Path, row_index: int, column: int, value: str) -> None:
+        lines = tsv_path.read_text().rstrip("\n").split("\n")
+        cols = lines[row_index].split("\t")
+        cols[column] = value
+        lines[row_index] = "\t".join(cols)
+        tsv_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    def test_unknown_label_names_row(self, tmp_path: Path, labeled, capsys: pytest.CaptureFixture[str]) -> None:
+        _key, _rows, tsv_path = labeled
+        self._rewrite_labels(tsv_path, 2, 8, "maybe")  # file line 3
+        with pytest.raises(model_eval.HarnessError, match=r"labels row 3.*'maybe'"):
+            model_eval.load_labels(tsv_path, tmp_path / "blind-key.json")
+
+    def test_unknown_anon_id_names_row(self, tmp_path: Path, labeled, capsys: pytest.CaptureFixture[str]) -> None:
+        _key, _rows, tsv_path = labeled
+        self._rewrite_labels(tsv_path, 3, 0, "F999")  # file line 4
+        with pytest.raises(model_eval.HarnessError, match=r"labels row 4.*F999"):
+            model_eval.load_labels(tsv_path, tmp_path / "blind-key.json")
+
+    def test_unlabeled_rows_are_skipped(self, tmp_path: Path, labeled) -> None:
+        _key, _rows, tsv_path = labeled
+        self._rewrite_labels(tsv_path, 1, 8, "")
+        labels = model_eval.load_labels(tsv_path, tmp_path / "blind-key.json")
+        assert len(labels) == 4
