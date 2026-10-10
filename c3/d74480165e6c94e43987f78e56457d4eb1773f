@@ -1,0 +1,18 @@
+spine-tasks/SP-040-parse-json-from-prose/.DONE
+  h_ae151c586ac6c5 1-7
+spine-tasks/SP-040-parse-json-from-prose/.reviews/1-20261010T213500.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-040-parse-json-from-prose/.reviews/final-20261010T214014.md
+  h_ae151c586ac6c5 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c3d74480165e6c94e43987f78e56457d4eb1773f",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
