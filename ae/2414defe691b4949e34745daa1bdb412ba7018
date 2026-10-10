@@ -1,0 +1,21 @@
+spine-tasks/SP-039-model-comparison-run/PROMPT.md
+  s_efd5d8f31f9c8f::t_1704dd12e096b3 23-30,35-36,108-141,145,154,177,183,208,217-218
+spine-tasks/SP-039-model-comparison-run/STATUS.md
+  s_efd5d8f31f9c8f::t_ea1680b3ccb44c 16-17,76,83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ae2414defe691b4949e34745daa1bdb412ba7018",
+  "prompts": {},
+  "sessions": {
+    "s_efd5d8f31f9c8f": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "52819d83-46b1-409a-822b-0d601ff7b3a4",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
