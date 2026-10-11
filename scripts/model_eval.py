@@ -986,6 +986,18 @@ def build_model_summary(model: ModelResults, cases_by_id: dict[str, Case], windo
     }
 
 
+def load_blind_key(key_path: str | Path) -> dict:
+    """Read and validate the de-anonymization key JSON (anon_id -> entry)."""
+    key_path = Path(key_path)
+    try:
+        key = json.loads(key_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise HarnessError(f"unreadable blind key {key_path}: {exc}") from exc
+    if not isinstance(key, dict):
+        raise HarnessError(f"blind key {key_path} must be a JSON object")
+    return key
+
+
 def load_labels(labels_path: str | Path, key_path: str | Path) -> dict[str, str]:
     """Read the labeled blind TSV against the de-anonymization key.
 
@@ -993,13 +1005,8 @@ def load_labels(labels_path: str | Path, key_path: str | Path) -> dict[str, str]
     offending row: unknown anon_ids (not in the key) and unknown labels.
     Rows with an empty label are treated as unlabeled and skipped.
     """
-    key_path, labels_path = Path(key_path), Path(labels_path)
-    try:
-        key = json.loads(key_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise HarnessError(f"unreadable blind key {key_path}: {exc}") from exc
-    if not isinstance(key, dict):
-        raise HarnessError(f"blind key {key_path} must be a JSON object")
+    labels_path = Path(labels_path)
+    key = load_blind_key(key_path)
     try:
         text = labels_path.read_text(encoding="utf-8")
     except OSError as exc:
@@ -1084,7 +1091,10 @@ def cmd_score(args: argparse.Namespace) -> int:
         cases_by_id = {case.case_id: case for case in cases}
         models = load_results(args.results)
         labels_by_anon = load_labels(args.labels, args.blind_key) if args.labels else None
-        summary = build_summary(cases_by_id, models, args.window, labels_by_anon, args.blind_key)
+        # build_summary/attach_real_diff need the key dict itself, not its path
+        # (regression: a Path here crashed with AttributeError on .get).
+        blind_key = load_blind_key(args.blind_key) if args.blind_key else None
+        summary = build_summary(cases_by_id, models, args.window, labels_by_anon, blind_key)
         text = json.dumps(summary, sort_keys=True, indent=2) + "\n"
         if args.out is not None:
             args.out.parent.mkdir(parents=True, exist_ok=True)

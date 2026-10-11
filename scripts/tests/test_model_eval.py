@@ -1128,6 +1128,33 @@ class TestLabels:
         labels = model_eval.load_labels(tsv_path, tmp_path / "blind-key.json")
         assert len(labels) == 4
 
+    def test_cmd_score_with_labels_takes_key_paths(self, tmp_path: Path, labeled, capsys: pytest.CaptureFixture[str]) -> None:
+        """Regression: cmd_score passed the blind-key *path* to build_summary,
+        which crashed with AttributeError ('PosixPath' object has no attribute
+        'get'). The CLI form (paths for --labels/--blind-key) must score and
+        attach real-diff metrics."""
+        _key, _rows, tsv_path = labeled
+        key_path = tmp_path / "blind-key.json"
+        out_path = tmp_path / "summary.json"
+        args = argparse.Namespace(
+            cases=tmp_path / "cases",
+            results=tmp_path / "results",
+            labels=tsv_path,
+            blind_key=key_path,
+            out=out_path,
+            check=None,
+            window=3,
+        )
+        assert model_eval.cmd_score(args) == model_eval.EXIT_OK
+        summary = json.loads(out_path.read_text())
+        labeled_total = 0
+        for metrics in summary.values():
+            real = metrics.get("real_diff")
+            if real is not None:
+                labeled_total += real["labeled"]
+                assert real["actionable_rate"] == round(real["labels"]["actionable"] / real["labeled"], 4)
+        assert labeled_total == 5
+
 
 # ---------------------------------------------------------------------------
 # Step 3: --dry-run integration test (real stet, skipped when unavailable)
