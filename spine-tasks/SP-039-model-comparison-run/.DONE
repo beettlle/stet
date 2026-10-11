@@ -1,0 +1,11 @@
+SP-039 complete.
+
+All completion criteria met:
+- Step 0 preflight green (preset parity OK, both smoke requests HTTP 200/stop, 27b reasoning probe PASS).
+- coder-next: 45/45 ok (recall_mean 0.9167, missed go-map-race in all 3 runs — hallucinated findings at lines 28/51 instead of the race at line 44; 9.9 s/case, 249 s/real-ref).
+- 27b: 45/45 ok (recall_mean 1.0, catches go-map-race at line 44 in 3/3; 14.6 s/case, 580 s/real-ref; thinking off verified).
+- 70 real-diff findings blind-labeled (0 actionable, 60 false_positive, 8 out_of_scope, 2 wrong_suggestion); actionable_rate 0.00 both models.
+- Pre-registered decision rule, applied mechanically from summary.json: (1) (0.9167-1.0)×12 = -1.00 ≤ 1 PASS; (2) Q error+warning/run 0.3810 ≤ 1.25×0.3095 = 0.3869 PASS; (3) 0.00-0.00 = 0 ≤ 0.10 PASS; (4) 0 non-ok ≤ 2 PASS. → Adopt qwen/qwen3.8-27b as stet's default model.
+- One harness bug fix (score passed blind-key path instead of dict) with regression test + PROMPT Amendment (b05ecf5).
+- Contract testCommand green: 74/74 harness tests, summary.json check ok, ## Recommendation present. Extension npm test 93/93 (untouched, batch hygiene). git status clean; nothing outside File Scope changed.
+- LM Studio restored to qwen/qwen3-coder-next @ 65536 / parallel 1, MTP off. OpenJev may restart; operator follow-up: switch .review/config.toml to qwen/qwen3.8-27b.
