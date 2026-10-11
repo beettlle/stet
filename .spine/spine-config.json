@@ -120,7 +120,7 @@
       }
     },
     "escalatePolicy": {
-      "enabled": false,
+      "enabled": true,
       "toProfile": "hard"
     }
   },

@@ -95,8 +95,8 @@ First packets whose contracts review their own diff with stet (see [Stet in spin
 
 | Task | Summary | Size | Status | Deps |
 |------|---------|------|--------|------|
-| SP-035 | `stet doctor` probes System One when `rules_selector` / `rules_annotate` are on | S | Ready | — |
-| SP-036 | `systemone_timeout` / `STET_SYSTEMONE_TIMEOUT` (default 10s, `[1s, 30m]`) | S | Ready | SP-035 |
+| SP-035 | `stet doctor` probes System One when `rules_selector` / `rules_annotate` are on | S | Done | — |
+| SP-036 | `systemone_timeout` / `STET_SYSTEMONE_TIMEOUT` (default 10s, `[1s, 30m]`) | S | Done | SP-035 |
 
 Waves: W0 SP-035 → W1 SP-036 (both edit `main.go`). After SP-036 lands, the operator sets `systemone_timeout` (for example `"90s"`) and `critic_enabled = true` in `.review/config.toml`.
 
@@ -106,9 +106,9 @@ Waves: W0 SP-035 → W1 SP-036 (both edit `main.go`). After SP-036 lands, the op
 
 | Task | Summary | Size | Status | Deps |
 |------|---------|------|--------|------|
-| SP-037 | Harness `scripts/model_eval.py` (`run` / `score` / `export-blind`, stdlib only) | S | Ready | SP-040 |
+| SP-037 | Harness `scripts/model_eval.py` (`run` / `score` / `export-blind`, stdlib only) | S | Done | SP-040 |
 | SP-038 | 14 seeded-bug and clean fixture cases under `scripts/model-eval-cases/` | S | Done | — |
-| SP-039 | Run both models, blind-judge real diffs, write `docs/research/model-comparison-qwen3-coder-next-vs-qwen3.8-27b.md` | M | Ready | SP-037, SP-038 |
+| SP-039 | Run both models, blind-judge real diffs, write `docs/research/model-comparison-qwen3-coder-next-vs-qwen3.8-27b.md` | M | Done | SP-037, SP-038 |
 
 Waves: **W0** SP-037 ∥ SP-038 (disjoint scopes; SP-037 is stet-gated `lenient`, SP-038 has no stet gate) → **W1** SP-039 alone.
 
@@ -116,11 +116,13 @@ Waves: **W0** SP-037 ∥ SP-038 (disjoint scopes; SP-037 is stet-gated `lenient`
 
 SP-038 landed in batch `20261010T182206-c796`. SP-037 was skipped there: its stet contract failed with `parse failed (after retry): invalid character 'L'` because the reviewer wrote prose before a fenced JSON block. SP-037 now depends on SP-040.
 
+SP-037 landed in batch `20261010T215242-59b9`. SP-039 landed in batch `20261011T202931-a926` after an aborted first run (`20261011T174423-6acb`). That run led to stet fixes for issues #2 and #3, a 64k context / 4096 output cap harness pin, and 27b with thinking off (SP-039 PROMPT Amendments; pre-fix data in `docs/research/model-eval/baseline-pre-fix/`). **Outcome:** all four decision-rule conditions hold, so the doc recommends `qwen/qwen3.8-27b` as stet's default; the noise condition passed by 0.006 and both models scored 0 actionable on the real diffs. Changing `.review/config.toml` is an operator decision, not made by SP-039.
+
 ### Phase 8 — Stet reviewer robustness (2026-10-10)
 
 | Task | Summary | Size | Status | Deps |
 |------|---------|------|--------|------|
-| SP-040 | Recover findings JSON from prose responses; JSON-only retry; suppression/shadow sections framed as dismissed false positives | S | Ready | — |
+| SP-040 | Recover findings JSON from prose responses; JSON-only retry; suppression/shadow sections framed as dismissed false positives | S | Done | — |
 
 Waves: **R0** SP-040 → reinstall `stet` from `main` (`cd cli && go build -o ~/.local/bin/stet ./cmd/stet`) → SP-037 → SP-039.
 
@@ -140,7 +142,7 @@ SP-001, SP-002, SP-003, SP-004, SP-005, SP-008 — `.DONE` on `main`.
 6. **Pre-landed paths:** Narrow `fileScopeMustChange` to new deliverables when preflight warns.
 7. **Before extension batches:** run `scripts/check-untracked-coverage.sh` once SP-013 lands.
 8. **Prefer named batches** over `spine batch start pending --wave N` when tasks share `cli/**`, `extension/**`, or dependency chains that the auto-planner serializes unsafely.
-9. **Reviewer env:** export `HEADROOM_URL=http://127.0.0.1:9` for `spine batch start` / `resume` until the pi-headroom `thought_signature` ticket is fixed.
+9. **Batch env:** export `HEADROOM_URL=http://127.0.0.1:9` for `spine batch start` / `resume` until the pi-headroom `thought_signature` ticket is fixed (the proxy strips Gemini's `thought_signature`, so reviewer spawns fail through it). Also export `SPINE_STET_NO_AUTO_FINISH=1` (see the SP-035 hazard below) and `PYTHONDONTWRITEBYTECODE=1` (lanes created before `b66603b` still track `__pycache__`, and a dirty `.pyc` fails `fileScopeMustNotChange`).
 
 ---
 
@@ -207,7 +209,9 @@ The three rows below are scheduled as SP-031 (gofmt), SP-030 (flaky git tests), 
 | 2026-10-08 (SP-018) | `gofmt` in `cli/cmd/stet/` | Pre-existing gofmt violations in `cli/cmd/stet/main.go` (~lines 1473–1618, SP-023 struct-literal alignment) and `main_test.go` (~lines 2237, 2347). Not fixed by SP-018 to keep its diff scoped; run `gofmt -w cli/cmd/stet/` in a hygiene task and consider adding a `gofmt -l` CI guard |
 | 2026-10-08 (SP-018) | Flaky git-subprocess tests | Full `go test ./...` intermittently fails different git/TempDir-heavy tests (`internal/stats`, `internal/run`, `internal/git`) under parallel package load on macOS; pass in isolation and with `-p 4`. Candidate hygiene task: serialize git-heavy tests or harden TempDir cleanup |
 | 2026-10-08 (SP-020) | `rules.FilterRules` `**` glob support | `filepath.Match` does not support `**`; frontmatter globs like `**/*.go` (most language rule files) never match multi-segment paths (nor bare filenames, since the pattern requires a `/`). Only `alwaysApply` rules are injected today — measured in `docs/research/systemone-rules-compliance.md`. Candidate SP-029 (S): support recursive `**` or normalize globs at load, with table tests |
-| 2026-10-10 (SP-038) | Tracked `__pycache__` under `scripts/` | `scripts/tests/__pycache__/*.pyc` and `scripts/optimizer/__pycache__/*.pyc` are tracked in git (`.gitignore` only covers `scripts/__pycache__/`), so every pytest run dirties the worktree. Candidate hygiene task: `git rm -r --cached scripts/tests/__pycache__ scripts/optimizer/__pycache__` and ignore `**/__pycache__/` |
+| 2026-10-10 (SP-038) | Tracked `__pycache__` under `scripts/` | `scripts/tests/__pycache__/*.pyc` and `scripts/optimizer/__pycache__/*.pyc` are tracked in git (`.gitignore` only covers `scripts/__pycache__/`), so every pytest run dirties the worktree. **Fixed** in `b66603b` (untracked, `__pycache__/` ignored) |
+| 2026-10-11 (SP-039) | `stet benchmark` tokens/s on OpenAI-compat | `stet benchmark` reports `Eval rate: 0.0 t/s` against LM Studio: it reads Ollama-style eval-duration fields the OpenAI-compatible client does not populate. Candidate S task: time the request client-side for `provider = "openai"` |
+| 2026-10-11 (SP-039) | Wave review shows findings outside the diff | `scripts/stet-wave-review.sh` on the SP-039 branch (empty `cli/**` diff) listed 21 `cli/` findings matching the SP-033/SP-034 real refs the harness had just reviewed. Likely stet session state shared across the harness clones and the review worktree. Investigate before trusting wave-review counts after a model-eval run |
 
 Phase 4 tasks all touch `cli/**`; run them as the separate named batches above, never as one serial lane. Slices sharing files (SP-015/SP-021 `systemone/client.go`; SP-017/SP-022 `run.go`; SP-019/SP-024 `criticeval/`; SP-023/SP-018/SP-025 `main.go`) are ordered by dependency edges and land in different batches.
 
