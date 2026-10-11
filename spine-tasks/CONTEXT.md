@@ -98,11 +98,11 @@ First packets whose contracts review their own diff with stet (see [Stet in spin
 | SP-035 | `stet doctor` probes System One when `rules_selector` / `rules_annotate` are on | S | Done | — |
 | SP-036 | `systemone_timeout` / `STET_SYSTEMONE_TIMEOUT` (default 10s, `[1s, 30m]`) | S | Done | SP-035 |
 
-Waves: W0 SP-035 → W1 SP-036 (both edit `main.go`). After SP-036 lands, the operator sets `systemone_timeout` (for example `"90s"`) and `critic_enabled = true` in `.review/config.toml`.
+Waves: W0 SP-035 → W1 SP-036 (both edit `main.go`). After SP-036 landed, the operator set `systemone_timeout = "90s"` and `critic_enabled = true` in `.review/config.toml` (2026-10-11, with the SP-039 model switch).
 
 ### Phase 7 — Model benchmark (2026-10-10)
 
-`qwen/qwen3-coder-next` (repo default in `.review/config.toml`) does not fit in memory alongside OpenJev; `qwen/qwen3.8-27b` does. Measure what stet loses with the 27B model on seeded-bug fixtures and real stet commits, then recommend a model with a pre-registered decision rule.
+`qwen/qwen3-coder-next` (repo default in `.review/config.toml` until SP-039) does not fit in memory alongside OpenJev; `qwen/qwen3.8-27b` does. Measure what stet loses with the 27B model on seeded-bug fixtures and real stet commits, then recommend a model with a pre-registered decision rule.
 
 | Task | Summary | Size | Status | Deps |
 |------|---------|------|--------|------|
@@ -116,7 +116,7 @@ Waves: **W0** SP-037 ∥ SP-038 (disjoint scopes; SP-037 is stet-gated `lenient`
 
 SP-038 landed in batch `20261010T182206-c796`. SP-037 was skipped there: its stet contract failed with `parse failed (after retry): invalid character 'L'` because the reviewer wrote prose before a fenced JSON block. SP-037 now depends on SP-040.
 
-SP-037 landed in batch `20261010T215242-59b9`. SP-039 landed in batch `20261011T202931-a926` after an aborted first run (`20261011T174423-6acb`). That run led to stet fixes for issues #2 and #3, a 64k context / 4096 output cap harness pin, and 27b with thinking off (SP-039 PROMPT Amendments; pre-fix data in `docs/research/model-eval/baseline-pre-fix/`). **Outcome:** all four decision-rule conditions hold, so the doc recommends `qwen/qwen3.8-27b` as stet's default; the noise condition passed by 0.006 and both models scored 0 actionable on the real diffs. Changing `.review/config.toml` is an operator decision, not made by SP-039.
+SP-037 landed in batch `20261010T215242-59b9`. SP-039 landed in batch `20261011T202931-a926` after an aborted first run (`20261011T174423-6acb`). That run led to stet fixes for issues #2 and #3, a 64k context / 4096 output cap harness pin, and 27b with thinking off (SP-039 PROMPT Amendments; pre-fix data in `docs/research/model-eval/baseline-pre-fix/`). **Outcome:** all four decision-rule conditions hold, so the doc recommends `qwen/qwen3.8-27b` as stet's default; the noise condition passed by 0.006 and both models scored 0 actionable on the real diffs. The operator then switched `.review/config.toml` to `qwen/qwen3.8-27b` with the OpenJev critic on (2026-10-11).
 
 ### Phase 8 — Stet reviewer robustness (2026-10-10)
 
@@ -148,7 +148,7 @@ SP-001, SP-002, SP-003, SP-004, SP-005, SP-008 — `.DONE` on `main`.
 
 ## Stet in spine (dogfooding)
 
-Spine lanes review their own diff with the locally built `stet` binary, using the repo `.review/config.toml` (LM Studio `qwen/qwen3-coder-next` at `http://127.0.0.1:1234`; System One critic off until SP-036). Secrets stay env-only (`STET_SYSTEMONE_API_KEY`).
+Spine lanes review their own diff with the locally built `stet` binary, using the repo `.review/config.toml` (LM Studio `qwen/qwen3.8-27b` with thinking off at `http://127.0.0.1:1234`; System One critic on via local OpenJev at `http://127.0.0.1:8080`, `systemone_timeout = "90s"`). OpenJev must be running for lane contracts and wave review; otherwise set `STET_CRITIC_ENABLED=false`. Secrets stay env-only (`STET_SYSTEMONE_API_KEY`).
 
 - **Lane setup:** `.spine/spine-config.json` `worktreeSetupHook` runs `scripts/spine-worktree-setup.sh`, which opens a stet session at the pre-worker HEAD and writes `.review/spine-stet-baseline.ref`. It skips (exit 0) when `stet` is not on PATH.
 - **Contract convention:** append the review to the task's tests: `<tests> && cd .. && bash scripts/spine-stet-contract-run.sh <level>`. The script restores a lost session from the baseline ref, runs `stet run --strictness <level>`, fails with triage instructions when `stet list` has active findings, and runs `stet finish` at zero findings.
