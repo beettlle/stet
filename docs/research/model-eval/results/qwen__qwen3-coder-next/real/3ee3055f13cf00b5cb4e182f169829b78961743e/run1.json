@@ -1,0 +1,169 @@
+{
+  "findings": [
+    {
+      "category": "security",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-mwwrindn/cli/cmd/stet/main.go#L720",
+      "file": "cli/cmd/stet/main.go",
+      "id": "5571414c717dbc8b8855472237b08c63bd28ccf5beb1ca56e43d0ca5206a8d30",
+      "line": 720,
+      "message": "The client is created with cfg.SystemOneAPIKey but there is no check for empty/missing API key before passing it to systemone.NewClient, which may lead to authentication failures or unintended behavior if the key is empty.",
+      "severity": "error",
+      "suggestion": "Add a validation check for cfg.SystemOneAPIKey before creating the client, or ensure systemone.NewClient handles empty keys gracefully (e.g., by returning an error)."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-mwwrindn/cli/cmd/stet/main.go#L731",
+      "file": "cli/cmd/stet/main.go",
+      "id": "26828480b4b9983261b70be2c6560c134aad5b630773b935c0e3ec337ce2d935",
+      "line": 731,
+      "message": "The `AnnotateClient` and `AnnotateModel` fields are set inside the `if wantAnnotate` block, but the `client` variable is only initialized inside the outer `if wantCritic || wantSelector || wantAnnotate` block. If `wantAnnotate` is true but `wantCritic` and `wantSelector` are false, `client` will be uninitialized (nil), causing a nil pointer dereference when passed to `systemone.NewClient`.",
+      "severity": "error",
+      "suggestion": "Move the client initialization outside the conditional block or ensure it's initialized before use in the `wantAnnotate` branch, e.g., by duplicating the client creation inside the `wantAnnotate` block or restructuring the logic to guarantee `client` is non-nil when needed."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-mwwrindn/cli/cmd/stet/main.go#L1071",
+      "file": "cli/cmd/stet/main.go",
+      "id": "0beacdf965cc59c83e19d87e81e5ac653e973d3071c58ee4b92e5671d66180ad",
+      "line": 1071,
+      "message": "RulesAnnotateBaseURL is incorrectly assigned so.BaseURL instead of a dedicated base URL for the annotator; this may cause incorrect routing to the rules annotation service.",
+      "severity": "error",
+      "suggestion": "Use a dedicated base URL field (e.g., so.AnnotateBaseURL) if available, or verify that so.BaseURL is intentionally reused for RulesAnnotateBaseURL."
+    },
+    {
+      "category": "testing",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-mwwrindn/cli/cmd/stet/main_test.go#L3072",
+      "file": "cli/cmd/stet/main_test.go",
+      "id": "1d3efaaef6a364b643e90c7efbdab6e2e9e4e83b349bd22fc3f0e1306234de0f",
+      "line": 3072,
+      "message": "Added assertion to verify AnnotateClient is nil when rules_annotate is off in the 'nil client when critic disabled' test case",
+      "severity": "info",
+      "suggestion": "This assertion improves test coverage by ensuring the annotate client is correctly nil when rules_annotate is disabled, aligning with the behavior of selector client and overall design intent."
+    },
+    {
+      "category": "best_practice",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-mwwrindn/cli/internal/config/config.go#L115",
+      "file": "cli/internal/config/config.go",
+      "id": "ee2994caeb6865cb4a6053453980465049f53c7c6a37091d548e502f8e3bc611",
+      "line": 115,
+      "message": "The comment for RulesAnnotate mentions 'dry-run' but there is no indication in this hunk that dry-run state is checked before calling AnnotateRuleConflicts; ensure the implementation enforces 'when true and not dry-run' as documented.",
+      "severity": "info",
+      "suggestion": "Verify that the annotation logic checks dry-run mode before invoking AnnotateRuleConflicts, and add a comment or assertion if needed."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-mwwrindn/cli/internal/config/config.go#L300",
+      "file": "cli/internal/config/config.go",
+      "id": "e01ac4d437e7068a989487789e4e3bdcaed287f0e906983c8c495dc79b0b11ca",
+      "line": 300,
+      "message": "Field 'RulesAnnotate' is added to Config struct initialization but its field definition is not visible in the provided hunk; if the field does not exist in the Config struct, this will cause a compile error.",
+      "severity": "error",
+      "suggestion": "Verify that the Config struct has a RulesAnnotate field defined (e.g., RulesAnnotate bool `toml:\"rules_annotate\"`) and that it is initialized correctly."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-mwwrindn/cli/internal/config/config.go#L427",
+      "file": "cli/internal/config/config.go",
+      "id": "80f54844aafea720b3b382329a595553aa9ecd602fe8334d4b2d97ebd5ceec2c",
+      "line": 427,
+      "message": "The `RulesAnnotate` field is added to the internal `file` struct but there is no corresponding field in the `Config` struct, causing a compile error when assigning `cfg.RulesAnnotate = *file.RulesAnnotate`.",
+      "severity": "error",
+      "suggestion": "Add `RulesAnnotate *bool` field to the `Config` struct definition in cli/internal/config/config.go at line ~52."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-mwwrindn/cli/internal/config/config.go#L943",
+      "file": "cli/internal/config/config.go",
+      "id": "145ef6643deaaa629bb05cd59eface067261e190f816370564274d34a18bfcf2",
+      "line": 943,
+      "message": "The condition `v != \"\"` is redundant because `vals[envRulesAnnotate]` is only set when the environment variable contains an '=' sign, and the key/value parsing trims whitespace \u2014 but if the value is empty (e.g., `STET_RULES_ANNOTATE=`), it will still be present in `vals` as an empty string. However, the check `v != \"\"` prevents setting `cfg.RulesAnnotate` when the env var is explicitly set to an empty value, which may be unintended. If the intent is to allow empty values to reset the config field, the check should be removed or adjusted.",
+      "severity": "error",
+      "suggestion": "Remove the `&& v != \"\"` condition if empty values should be allowed to set the field to its zero value (false for bool). Otherwise, document why empty values are disallowed."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-mwwrindn/cli/internal/config/config.go#L1097",
+      "file": "cli/internal/config/config.go",
+      "id": "5af56342f194559c4e9006538f06fdc397caff2676717c21ecc9e5001ed6c1de",
+      "line": 1097,
+      "message": "Missing nil check before dereferencing o.RulesAnnotate; if o.RulesAnnotate is non-nil but points to an empty string, it will overwrite cfg.RulesAnnotate with an empty value without validation, potentially bypassing intended default behavior.",
+      "severity": "error",
+      "suggestion": "Add a non-empty check before assignment: if o.RulesAnnotate != nil && *o.RulesAnnotate != \"\" { cfg.RulesAnnotate = *o.RulesAnnotate }"
+    },
+    {
+      "category": "security",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-mwwrindn/cli/internal/run/run.go#L289",
+      "file": "cli/internal/run/run.go",
+      "id": "0f5a135ed273ee70bc650d384a24c58e3d2867b5e5a8e35ed7b912f748dc9c4f",
+      "line": 289,
+      "message": "The `hunk.RawContent` (attacker-influenced input) is passed directly to `review.AnnotateRuleConflicts`. While the function signature indicates it's used only in request state and not echoed into instructions, the code under review does not validate or sanitize the hunk content before passing it to the annotator, risking potential injection or resource exhaustion if `RawContent` is extremely large or malformed.",
+      "severity": "warning",
+      "suggestion": "Add a length check on `hunk.RawContent` before calling `AnnotateRuleConflicts`, e.g., `if len(hunk.RawContent) > maxHunkSize { return batch }`, to prevent oversized inputs from reaching the annotator."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-mwwrindn/cli/internal/run/run.go#L507",
+      "file": "cli/internal/run/run.go",
+      "id": "b6d4eb12c1fa846f3b87017a69f0fb33838ebbb7c87500cab16b18f97f4df4bd",
+      "line": 507,
+      "message": "The code calls `annotateRuleConflictsForBatch` with `kept` as the batch parameter, but `kept` is the result of `applyCritic`, which may return findings that have already been filtered and processed. The function `annotateRuleConflictsForBatch` expects the input batch to be the raw output from `ProcessReviewResponse` before any filtering (e.g., abstention, FP kill list, hunk line filtering). This can cause incorrect annotation behavior or missed annotations because the batch passed to `annotateRuleConflictsForBatch` is not the original review output.",
+      "severity": "error",
+      "suggestion": "Pass the original `batch` (before `applyCritic`) to `annotateRuleConflictsForBatch`, or ensure `annotateRuleConflictsForBatch` is called on the correct batch (e.g., the one after `ProcessReviewResponse` and before `applyCritic`)."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-mwwrindn/cli/internal/run/run.go#L588",
+      "file": "cli/internal/run/run.go",
+      "id": "8e0bfe5aa710782224ccb362e2925afb1b3a6246c234615a518ae2c02e173162",
+      "line": 588,
+      "message": "The code calls annotateRuleConflictsForBatch with 'kept' as the batch parameter, but the function may return a different slice length than 'kept'. Subsequent code uses 'batch' (the annotated result) for SetCursorURIs and iteration, which is correct, but the original 'kept' slice is no longer used after this line. Ensure that annotateRuleConflictsForBatch handles empty or nil inputs safely and that the returned slice is properly used.",
+      "severity": "error",
+      "suggestion": "Verify that annotateRuleConflictsForBatch correctly handles edge cases (nil, empty, or modified-length slices) and that no downstream code relies on the original 'kept' slice after this assignment."
+    },
+    {
+      "category": "design",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-mwwrindn/cli/internal/run/run.go#L1073",
+      "file": "cli/internal/run/run.go",
+      "id": "97407366807d99620e0f86c986f58a38f015c5f60537c6cf98a4be27640baa62",
+      "line": 1073,
+      "message": "The comment for RulesAnnotateClient states that Dry-run never contacts the annotation server, but the struct field itself does not prevent usage in DryRun mode; ensure the implementation enforces this constraint to avoid accidental server calls during dry runs.",
+      "severity": "info",
+      "suggestion": "Add a comment or validation in the code that calls AnnotateRuleConflicts to skip annotation when DryRun is true, to align with the documented behavior."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-mwwrindn/cli/internal/run/run.go#L1435",
+      "file": "cli/internal/run/run.go",
+      "id": "6d286b1c12bba2b84e8127a07fcbae34e54e55465add2f89c68c54011d0b403e",
+      "line": 1435,
+      "message": "The fields RulesAnnotateClient, RulesAnnotateBaseURL, and RulesAnnotateModel are being passed to reviewPipelineOpts, but there is no corresponding field in the reviewPipelineOpts struct (as inferred from the diff and surrounding code), which will cause a compile error.",
+      "severity": "error",
+      "suggestion": "Verify that reviewPipelineOpts struct has the fields RulesAnnotateClient, RulesAnnotateBaseURL, and RulesAnnotateModel. If not, either add them to reviewPipelineOpts or remove these lines."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-mwwrindn/cli/internal/run/run.go#L1870",
+      "file": "cli/internal/run/run.go",
+      "id": "cf2dc55db8658b8462ac0861c1ddf1f15da4e148c561f98c7fdade32b41e6ac0",
+      "line": 1870,
+      "message": "The diff hunk adds RulesAnnotateClient, RulesAnnotateBaseURL, and RulesAnnotateModel fields to the reviewPipelineOpts struct, but the code does not validate or handle the case where RulesAnnotateClient is provided but RulesAnnotateModel is empty, which could lead to runtime errors when initializing the rules annotation client.",
+      "severity": "error",
+      "suggestion": "Add validation to ensure RulesAnnotateModel is non-empty when RulesAnnotateClient is provided, or handle empty model gracefully in the rules annotation client initialization."
+    }
+  ]
+}

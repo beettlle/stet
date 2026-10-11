@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ryeoodza/internal/report/summary.go#L25",
+      "file": "internal/report/summary.go",
+      "id": "8a7aa6b0d7c2cec4ae56ed926280c9d7d2ebf8e71967c881fcbd86108f312470",
+      "line": 25,
+      "message": "WriteSummary returns nil on write error instead of propagating the error, causing data loss to go undetected.",
+      "severity": "error",
+      "suggestion": "Change `return nil` to `return fmt.Errorf(\"write summary: %w\", err)` to properly propagate write errors."
+    }
+  ]
+}

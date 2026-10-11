@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-n74cbjyc/internal/report/summary.go#L25",
+      "file": "internal/report/summary.go",
+      "id": "90c1c8dd5cf811b0f6da68eebdb45dc7dab586a17ac2c2efbcbd41e2bd6949ec",
+      "line": 25,
+      "message": "WriteSummary returns nil on write error instead of propagating the error, causing silent failures.",
+      "severity": "error",
+      "suggestion": "Change `return nil` to `return fmt.Errorf(\"write summary: %w\", err)` to properly propagate write errors."
+    }
+  ]
+}

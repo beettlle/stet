@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ipp53m3z/internal/userstore/store.go#L46",
+      "file": "internal/userstore/store.go",
+      "id": "bed9a1ed77be14178bbc485bcda967d36d4b79e469ed7991a92aed3f154f0b82",
+      "line": 46,
+      "message": "Ignoring error from FindByEmail may cause nil pointer dereference when u is nil; the function should handle the error to avoid panics.",
+      "severity": "error",
+      "suggestion": "Restore error handling: check err and return an empty Profile with the error, e.g., `if err != nil { return Profile{}, fmt.Errorf(\"load profile for %q: %w\", email, err) }`"
+    }
+  ]
+}

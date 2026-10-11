@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ylwrhoxn/app/cart.py#L17",
+      "file": "app/cart.py",
+      "id": "46aa05ac15ac2104d1a91e1808fe6dbd113fe99b4f8278e1a2f55acd911a1832",
+      "line": 17,
+      "message": "Default mutable argument `items: list[Item] = []` causes shared state across function calls; each call modifies the same list instance.",
+      "severity": "error",
+      "suggestion": "Use `items: list[Item] | None = None` as the default and initialize a new list inside the function when `items is None`. Revert the removal of the `if items is None: items = []` check."
+    }
+  ]
+}

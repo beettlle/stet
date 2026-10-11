@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-6edst_zj/internal/units/parse.go#L44",
+      "file": "internal/units/parse.go",
+      "id": "1f6fb5561dce43e318c919c74f9f4c550faa663f12b5168ba410fdc11d3fee67",
+      "line": 44,
+      "message": "The splitNumberUnit function may return an empty unit string with hasUnit=true when the input contains only a number (e.g., \"123\") because the loop never enters the if condition and falls through to the final return, but the comment says hasUnit is false when no unit suffix exists. However, the current implementation returns hasUnit=true only when a non-digit/non-dot character is found, which is correct, but the edge case of empty string or single dot needs verification.",
+      "severity": "warning",
+      "suggestion": "Add explicit handling for edge cases like empty string or strings containing only digits/dots to ensure hasUnit is false when no unit is present."
+    }
+  ]
+}

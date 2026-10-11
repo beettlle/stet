@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "security",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-nlzozcxc/internal/catalog/search.go#L33",
+      "file": "internal/catalog/search.go",
+      "id": "6ce53404ab5774c886ef01a5cb87a7429ee7d8183cd86f082c3a704afae04435",
+      "line": 33,
+      "message": "SQL injection vulnerability: user input 'term' is directly concatenated into the SQL query string instead of using parameterized queries.",
+      "severity": "error",
+      "suggestion": "Use parameterized queries: change the query to use a placeholder (e.g., $1) and pass the term as a separate argument to db.Query."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-nlzozcxc/internal/catalog/search.go#L53",
+      "file": "internal/catalog/search.go",
+      "id": "b4b6263714a781d990b5e9dfa11edd3a3946fd5141bc3a9f57bf251ee8fb3ea3",
+      "line": 53,
+      "message": "Error message changed from 'count products by prefix' to 'count products for prefix'; both are acceptable, but the new wording is slightly more natural and consistent with SQL LIKE semantics",
+      "severity": "info",
+      "suggestion": "No change needed; this is a minor wording improvement"
+    }
+  ]
+}

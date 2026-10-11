@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-zkpghmu4/internal/metrics/collector.go#L28",
+      "file": "internal/metrics/collector.go",
+      "id": "1cf1f93b07f81623a91423d775eda611d727e4cf8f31d0cfa523e80b339e330e",
+      "line": 28,
+      "message": "Variable 'counts' is declared but never used, indicating a likely logic error or incomplete implementation.",
+      "severity": "error",
+      "suggestion": "Remove the unused 'counts' variable or integrate it into the logic (e.g., to track probe counts per name)."
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-zkpghmu4/internal/metrics/collector.go#L51",
+      "file": "internal/metrics/collector.go",
+      "id": "ad21a6f1e6b2d5e71c064bf192a511ed4c1b39d6504c72ca0b8df1516aa27533",
+      "line": 51,
+      "message": "The error check loop for `errs` does not skip nil errors, causing it to return the first nil error (which is always falsey) and potentially masking actual errors.",
+      "severity": "error",
+      "suggestion": "Change the error loop to check `if err != nil` before returning, or ensure the loop only processes non-nil errors."
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1hefpjgw/cli/cmd/stet/main.go#L392",
+      "file": "cli/cmd/stet/main.go",
+      "id": "bb9c4d0447dc58b6127cfa04781d90c938717b2f013b59a99a3e21112d185d82",
+      "line": 392,
+      "message": "The function call `systemOneRunOptions(cfg, dryRun)` returns a struct, but the code assigns it to a variable `so` and then accesses fields like `so.Client`, `so.BaseURL`, etc. However, the diff shows the previous line was `soClient, soBaseURL, soModel, soMinKeep, soSamples := systemOneRunOptions(cfg)` \u2014 indicating the function previously returned multiple values, not a struct. If the function signature changed to return a struct, the code must be updated to match, but the current usage of `so.Client`, `so.BaseURL`, etc., implies the struct fields match. However, the diff hunk only shows the assignment change, not the struct field usage \u2014 if the function now returns a struct but the caller still expects multiple return values, this will cause a compile error. Given the context and symbol definition, `systemOneRunOptions` returns a struct `systemOneRunOpts`, so the assignment is correct, but the previous line was unpacking multiple values. The issue is that the diff hunk does not show the full struct field assignments, but the code under review shows they are correctly using `so.Client`, etc. Therefore, the issue is likely that the function signature was changed to accept `dryRun`, but the struct fields may not be populated correctly based on `dryRun`. However, the symbol definition confirms the function signature is `func systemOneRunOptions(cfg *config.Config, dryRun bool) systemOneRunOpts`, so the change is correct. No defect found in this hunk.",
+      "severity": "error",
+      "suggestion": "Verify that the `systemOneRunOpts` struct has fields `Client`, `BaseURL`, `Model`, `MinKeep`, `Samples`, and `SelectorClient` that are correctly populated based on `dryRun`. If the function implementation is correct, no change is needed."
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1hefpjgw/cli/cmd/stet/main.go#L428",
+      "file": "cli/cmd/stet/main.go",
+      "id": "dac5c79a57f5e43e361fccd7be400a0407aadaeed84324b29b27b011a008271a",
+      "line": 428,
+      "message": "The field `RulesSelectorBaseURL` is assigned `so.BaseURL`, but it should likely be assigned `so.SelectorBaseURL` to match the pattern of other selector fields and avoid using the main LLM base URL for the rules selector.",
+      "severity": "error",
+      "suggestion": "Change `RulesSelectorBaseURL: so.BaseURL,` to `RulesSelectorBaseURL: so.SelectorBaseURL,` if `so.SelectorBaseURL` exists and is intended for the rules selector base URL."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1hefpjgw/cli/cmd/stet/main.go#L707",
+      "file": "cli/cmd/stet/main.go",
+      "id": "33450f937d40534f3ed15d2d41e3c4989947622c55abb4414377bd6b14394b3f",
+      "line": 707,
+      "message": "SelectorModel is only set when wantSelector is true, but the comment indicates it 'reuses systemone_model' and BaseURL is 'also used for the selector fail-open warning', suggesting SelectorModel should always be set for fail-open warnings regardless of selector enablement.",
+      "severity": "error",
+      "suggestion": "Move 'o.SelectorModel = cfg.SystemOneModel' outside the 'if wantSelector' block to always set SelectorModel when BaseURL is set."
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1hefpjgw/cli/cmd/stet/main.go#L818",
+      "file": "cli/cmd/stet/main.go",
+      "id": "3ce8fb1b56417e61fa92410e1102007e9e2278a0b9dca05dd9e9335494eabfdd",
+      "line": 818,
+      "message": "The call to systemOneRunOptions now takes two arguments (cfg, dryRun), but the code still uses the old unpacking style (soClient, soBaseURL, ...). After the change, so is a struct, so fields like so.Client, so.BaseURL, etc., must be used instead of unpacked variables.",
+      "severity": "error",
+      "suggestion": "Ensure that all usages of the return values from systemOneRunOptions are updated to use the struct fields (e.g., so.Client, so.BaseURL) instead of unpacked variables."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1hefpjgw/cli/cmd/stet/main.go#L851",
+      "file": "cli/cmd/stet/main.go",
+      "id": "24075af0a3549005aecd714b9b8e891f4e28f76d5e5e096d5eb9fc2ee070da99",
+      "line": 851,
+      "message": "RulesSelectorBaseURL is incorrectly assigned so.BaseURL instead of a dedicated selector base URL; this may cause misconfiguration when SystemOne and RulesSelector use different endpoints.",
+      "severity": "error",
+      "suggestion": "Use a dedicated field such as so.SelectorBaseURL for RulesSelectorBaseURL if available, or verify that so.BaseURL is intentionally shared between SystemOne and RulesSelector."
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1hefpjgw/cli/cmd/stet/main.go#L1014",
+      "file": "cli/cmd/stet/main.go",
+      "id": "39d3edd80716b3b3d8e67a1c6d4d65bc062124b4895a34f6068ab792cfb62de0",
+      "line": 1014,
+      "message": "The call to systemOneRunOptions now passes dryRun as a second argument, but the function signature in cli/cmd/stet/main.go (line 699) expects (cfg *config.Config, dryRun bool). However, the diff shows the old call was missing dryRun entirely, and the new call correctly passes it. The issue is that the function definition in cli/cmd/stet/main.go (line 699) is not shown in the hunk, but the symbol definition confirms it accepts dryRun. Since the change correctly passes dryRun, there is no bug here. However, the original code before the diff did not pass dryRun, which would have caused incorrect behavior in systemOneRunOptions. Since the diff fixes that, there is no defect in the resulting code.",
+      "severity": "error",
+      "suggestion": "No change needed; the fix is correct."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1hefpjgw/cli/cmd/stet/main.go#L1043",
+      "file": "cli/cmd/stet/main.go",
+      "id": "b02b32b205668da65bca8ddfd7f13fb54602c1f64bf5fe46d622667747d7c887",
+      "line": 1043,
+      "message": "RulesSelectorBaseURL is set to so.BaseURL, but it should likely use a dedicated selector base URL (e.g., so.SelectorBaseURL) to avoid misconfiguration when SystemOne and RulesSelector use different endpoints.",
+      "severity": "error",
+      "suggestion": "If a separate selector base URL exists, use so.SelectorBaseURL instead of so.BaseURL for RulesSelectorBaseURL. Otherwise, verify that sharing the same base URL is intentional and document why."
+    },
+    {
+      "category": "documentation",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1hefpjgw/docs/cli-extension-contract.md#L146",
+      "file": "docs/cli-extension-contract.md",
+      "id": "3b6ade0cadb50b09ad77bc3b76804b8a2097ef74eb410a4d16563cf23b1150d8",
+      "line": 146,
+      "message": "The line 'The same key authenticates the **rule-section selector** when `rules_selector = true`...' duplicates information already present in the table row for `rules_selector`. Consider consolidating to avoid redundancy.",
+      "severity": "info",
+      "suggestion": "Remove the duplicated explanation in the paragraph below the table to keep the documentation concise and avoid inconsistency risk."
+    }
+  ]
+}

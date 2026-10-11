@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-dehoe0hn/internal/units/parse.go#L44",
+      "file": "internal/units/parse.go",
+      "id": "c11b6e8b7c84fba1bb966c4aa455c89fabd4e53e333b057ec0507708ecead5b1",
+      "line": 44,
+      "message": "The splitNumberUnit function does not handle negative numbers correctly; it treats '-' as a unit character, causing incorrect splitting of inputs like \"-5KB\".",
+      "severity": "error",
+      "suggestion": "Modify the condition to allow '-' only at the start of the string (i.e., when i == 0)."
+    }
+  ]
+}
