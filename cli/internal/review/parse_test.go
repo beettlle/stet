@@ -245,6 +245,26 @@ func TestParseFindingsResponse_evidenceLines_unmarshals(t *testing.T) {
 	}
 }
 
+// TestParseFindingsResponse_prettyAndCompactWithoutOptionalFields asserts the
+// parser accepts pretty-printed and compact JSON alike, with or without the
+// fields dropped from the model-facing schema (cursor_uri, evidence_lines).
+func TestParseFindingsResponse_prettyAndCompactWithoutOptionalFields(t *testing.T) {
+	compact := `[{"file":"p.go","line":5,"severity":"warning","category":"bug","confidence":0.9,"message":"m"}]`
+	pretty := "[\n  {\n    \"file\": \"p.go\",\n    \"line\": 5,\n    \"severity\": \"warning\",\n    \"category\": \"bug\",\n    \"confidence\": 0.9,\n    \"message\": \"m\",\n    \"cursor_uri\": \"file:///p.go#L5\"\n  }\n]"
+	for name, in := range map[string]string{"compact": compact, "pretty": pretty} {
+		list, err := ParseFindingsResponse(in)
+		if err != nil {
+			t.Fatalf("%s: ParseFindingsResponse: %v", name, err)
+		}
+		if len(list) != 1 || list[0].File != "p.go" || list[0].Line != 5 || list[0].Message != "m" {
+			t.Errorf("%s: list = %+v", name, list)
+		}
+		if len(list[0].EvidenceLines) != 0 {
+			t.Errorf("%s: evidence_lines = %v, want empty", name, list[0].EvidenceLines)
+		}
+	}
+}
+
 func TestAssignFindingIDs_setsIDAndValidates(t *testing.T) {
 	list := []findings.Finding{
 		{File: "a.go", Line: 5, Severity: findings.SeverityWarning, Category: findings.CategoryStyle, Confidence: 1.0, Message: "msg"},

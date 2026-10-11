@@ -64,10 +64,8 @@ Respond with a single JSON array of findings. Each finding is an object with:
 - confidence (number, required): your certainty 0.0–1.0 (1.0 = definite defect, lower = possible issue)
 - message (string, required): review comment
 - suggestion (string, optional): suggested fix
-- cursor_uri (string, optional): file URI for deep linking
-- evidence_lines (array of integers, optional): line numbers in the diff that support this finding.
 
-Set confidence to how sure you are for each finding. Return only the JSON array, no other text. Example: [{"file":"pkg.go","line":10,"severity":"warning","category":"style","confidence":0.9,"message":"Use consistent naming"}]
+Set confidence to how sure you are for each finding. Return only the JSON array, no other text. Use compact single-line JSON with no indentation or line breaks. Example: [{"file":"pkg.go","line":10,"severity":"warning","category":"style","confidence":0.9,"message":"Use consistent naming"}]
 
 Respond with only the JSON array. Do not include analysis, prose, or Markdown.`
 

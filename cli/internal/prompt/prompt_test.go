@@ -74,6 +74,26 @@ func TestDefaultSystemPrompt_containsNegativeExamplesSection(t *testing.T) {
 	}
 }
 
+// TestDefaultSystemPrompt_compactSchema asserts the model-facing schema asks
+// for compact JSON and omits fields stet derives itself (cursor_uri) or that
+// invite unbounded output (evidence_lines; see issue #2).
+func TestDefaultSystemPrompt_compactSchema(t *testing.T) {
+	got := DefaultSystemPrompt
+	if !strings.Contains(got, "compact single-line JSON with no indentation or line breaks") {
+		t.Error("default prompt should ask for compact single-line JSON")
+	}
+	for _, field := range []string{"cursor_uri", "evidence_lines"} {
+		if strings.Contains(got, field) {
+			t.Errorf("default prompt should not ask the model for %s", field)
+		}
+	}
+	for _, field := range []string{"- file (string, required)", "- message (string, required)", "- suggestion (string, optional)"} {
+		if !strings.Contains(got, field) {
+			t.Errorf("default prompt schema missing %q", field)
+		}
+	}
+}
+
 func TestSystemPrompt_absentFile_returnsDefault(t *testing.T) {
 	dir := t.TempDir()
 	got, err := SystemPrompt(dir, "")
