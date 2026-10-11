@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-z5dxrh_o/src/services/userService.ts#L38",
+      "file": "src/services/userService.ts",
+      "id": "8abddc278f855893c1aa834ab715986e17ba6dcc227c034045041a38df6ca012",
+      "line": 38,
+      "message": "Removing the `await` keyword causes `saveUser` to run asynchronously without being awaited. The function returns `{ ok: true }` immediately, before the user is actually persisted to the database. If `saveUser` fails, the error will be unhandled, and the client will be told the registration succeeded even if it didn't.",
+      "severity": "error",
+      "suggestion": "Restore the `await` keyword: `await this.saveUser(user);`"
+    }
+  ]
+}

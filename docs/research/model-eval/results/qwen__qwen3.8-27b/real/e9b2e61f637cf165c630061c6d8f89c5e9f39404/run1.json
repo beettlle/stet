@@ -1,0 +1,162 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ihdi05oh/cli/internal/review/review.go#L100-102",
+      "file": "cli/internal/review/review.go",
+      "id": "0b5cd88f115c0b438fee1381069d76eed6e35e2688be762bfef8ec3fc59d6a06",
+      "line": 100,
+      "message": "The trace section header is hardcoded to \"Cursor rules\" even when using the new ruleSections path. This is misleading for debugging/observability since the content being traced is now selected rule sections, not Cursor rules.",
+      "range": {
+        "end": 102,
+        "start": 100
+      },
+      "severity": "warning",
+      "suggestion": "Change the trace section header to be conditional, e.g. traceOut.Section(\"Rule sections\") when ruleSections != nil, or use a generic header like \"Rules\"."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ihdi05oh/cli/internal/review/review.go#L411",
+      "file": "cli/internal/review/review.go",
+      "id": "95025c0f42e9bdf392dcfa18ebc49caa17f89c4837b571a854153949ea8ae6c3",
+      "line": 411,
+      "message": "The `ruleSections` parameter of `PrepareHunkPrompt` is being passed as `nil`. This disables the rule-based filtering logic inside `PrepareHunkPrompt` (which checks `if ruleSections != nil`), causing the LLM to receive unfiltered rules and potentially ignoring the provided `ruleList` or failing to apply specific rule sections intended for the hunk.",
+      "severity": "warning",
+      "suggestion": "Pass the appropriate `ruleSections` variable (e.g., `ruleSections` or a derived slice) instead of `nil` to ensure rule filtering is applied."
+    },
+    {
+      "category": "testing",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ihdi05oh/cli/internal/review/review_test.go#L731",
+      "file": "cli/internal/review/review_test.go",
+      "id": "178b251e6d69119fab01466ed888f4c5b02f17a8c3758837fad09bfa159de333",
+      "line": 731,
+      "message": "The test asserts that the system prompt for a.txt does not contain the content of the ts.mdc rule (which matches *.ts). However, the rule content is '## TS standard\\n\\nPrefer const.' and the assertion checks for the substring 'Prefer const.'. If the rule matching logic in AppendCursorRules or PrepareHunkPrompt has a bug where it incorrectly matches a.txt to *.ts, this test would fail. More importantly, the test setup uses a.txt to isolate rule assembly, but the assertion `strings.Contains(system, \"Prefer const.\")` is redundant with the byte-identical check `system != wantSystem` if `wantSystem` is computed correctly. The real risk is if `prompt.AppendCursorRules` itself is buggy. However, looking at the logic: `AppendCursorRules` takes `hunk.FilePath` (a.txt). If it correctly filters, `wantSystem` won't have 'Prefer const.'. The test is valid. Wait, is there a subtle issue? The test `TestPrepareHunkPrompt_defaultPath_unchangedWithoutSections` compares `system` (from `PrepareHunkPrompt`) with `wantSystem` (from `prompt.AppendCursorRules`). If `PrepareHunkPrompt` does additional processing (like minification or other injections) that `AppendCursorRules` does not, the byte-identical check will fail. The comment says 'a.txt skips the Go/Rust minify step'. This implies that for Go/Rust files, `PrepareHunkPrompt` might do something different than `AppendCursorRules`. For a.txt, it should be identical. This seems correct. No defect found in the test logic itself, assuming the implementation matches the comment. I will not report this.",
+      "severity": "warning"
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ihdi05oh/cli/internal/run/run.go#L229-233",
+      "file": "cli/internal/run/run.go",
+      "id": "2337bd610206bbbb6dc714b2b7e9d7ea21bac1d683f4d7ac5e3360140823aa21",
+      "line": 230,
+      "message": "Data race on rulesSelectorState: the comment states that parallel preparer goroutines share one instance, but warnFailure reads s.warnOut and s.baseURL outside of the sync.Once.Do callback. Since sync.Once.Do does not provide mutual exclusion for reads of struct fields, concurrent calls from multiple goroutines will race on these fields. The reads must be moved inside the Once.Do closure to ensure they are synchronized with the write-once semantics.",
+      "range": {
+        "end": 233,
+        "start": 229
+      },
+      "severity": "warning",
+      "suggestion": "Move the reads of s.warnOut and s.baseURL inside the s.once.Do(func() { ... }) closure so that all field accesses are protected by the Once synchronization."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ihdi05oh/cli/internal/run/run.go#L287",
+      "file": "cli/internal/run/run.go",
+      "id": "aafc69ac76c1b98f57bb6b1eda64a9123c840c2936793deb2a7c0f3a948332c5",
+      "line": 287,
+      "message": "The shared `selectorWarn` pointer is passed to multiple concurrent worker goroutines, which may cause a data race if `rulesSelectorState` contains mutable fields (e.g., a `warned` boolean) used to enforce the 'at most one warning' logic. Concurrent writes to the state without synchronization can lead to race conditions or multiple warnings being emitted.",
+      "severity": "warning",
+      "suggestion": "Add synchronization (e.g., a `sync.Mutex` or `sync/atomic` flag) to `rulesSelectorState` to protect access to its mutable fields, or ensure the state is immutable after initialization."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ihdi05oh/cli/internal/run/run.go#L308",
+      "file": "cli/internal/run/run.go",
+      "id": "f6dad462be86c37f8edb9811ee304244025715f864eedaa6d6e8989c7021549d",
+      "line": 308,
+      "message": "Concurrent access to shared mutable state `selectorWarn` from multiple goroutines without synchronization. `selectRuleSectionsForHunk` is called inside a `for i := range idxCh` loop within multiple worker goroutines. If `selectRuleSectionsForHunk` mutates the `rulesSelectorState` (e.g., to track if a warning has already been emitted to enforce 'at most one warning per run'), this introduces a data race. The comment states 'One shared fail-open warning state', implying mutation. A `sync.Mutex` or atomic flag is required to protect the state.",
+      "severity": "warning",
+      "suggestion": "Add a `sync.Mutex` to `rulesSelectorState` and lock it inside `selectRuleSectionsForHunk` before checking/updating the warning state, or use `sync/atomic` if the state is a simple boolean/counter."
+    },
+    {
+      "category": "design",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ihdi05oh/cli/internal/run/run.go#L903",
+      "file": "cli/internal/run/run.go",
+      "id": "90ef568d549fd579e0da6d11685bba67d2646b6a9f1b9aeb8001451079563b5b",
+      "line": 903,
+      "message": "The comment states that selector failures fall back to the default rule assembly with 'one warning per run', but the struct only defines the client and configuration fields. The fail-open logic (including the single-warning guarantee and the DryRun bypass) is not visible in this hunk. Ensure the implementation in the run pipeline correctly implements the fail-open behavior and avoids emitting multiple warnings if the selector fails for multiple hunks.",
+      "severity": "info",
+      "suggestion": "Verify that the code consuming RulesSelectorClient implements the fail-open logic as described, specifically ensuring that a selector failure results in a single warning per run and that DryRun mode skips the selector call entirely."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ihdi05oh/cli/internal/run/run.go#L1345-1347",
+      "file": "cli/internal/run/run.go",
+      "id": "07518093fe0a481edbb44ee5ceea43b2ae80703f0368c425e25c9bc8267ad2ec",
+      "line": 1345,
+      "message": "The commit message indicates a 'fail-open warning' is expected for the rules selector, but the diff only wires the configuration fields into the pipeline. If the `RulesSelectorClient` is nil or the selector call fails, the pipeline must explicitly handle this by logging a warning and proceeding without selector-filtered rules, rather than failing the entire run or silently ignoring the configuration.",
+      "range": {
+        "end": 1347,
+        "start": 1345
+      },
+      "severity": "warning",
+      "suggestion": "Ensure that `runReviewPipeline` (or the selector logic it calls) checks if `RulesSelectorClient` is nil or if the selector request fails, and in those cases, logs a warning to stderr and falls back to the unfiltered `RulesByFile` map."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ihdi05oh/cli/internal/run/run.go#L1777",
+      "file": "cli/internal/run/run.go",
+      "id": "6714b7bb3cf4a3d931f56f649f78d920e27c9a799d82ce1618264babfab0d717",
+      "line": 1777,
+      "message": "The RulesSelectorClient is passed to the pipeline but is not validated upfront (unlike the main LLM client which is checked via client.Check). If the RulesSelectorClient is misconfigured (e.g., invalid BaseURL or Model), the pipeline will likely fail during execution. Given the commit message mentions 'fail-open warning', the pipeline should handle this gracefully by logging a warning and skipping the selector, rather than failing the entire run or returning an error.",
+      "severity": "warning",
+      "suggestion": "Ensure that runReviewPipeline (or the selector logic within it) checks if RulesSelectorClient is non-nil and handles initialization/connection errors by logging a warning and falling back to a default behavior (e.g., no filtering or static rules) instead of propagating the error."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ihdi05oh/cli/internal/run/run_test.go#L25",
+      "file": "cli/internal/run/run_test.go",
+      "id": "8e24580790e4066a3172f982fbb1e8a735d3fd78bb0a73c74869d3e2c44f4806",
+      "line": 25,
+      "message": "Unused import: 'stet/cli/internal/rules' is imported but not used in the file, which will cause a compilation error in Go.",
+      "severity": "error",
+      "suggestion": "Remove the import if it is not used, or add code that uses the 'rules' package."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ihdi05oh/cli/internal/run/run_test.go#L2710",
+      "file": "cli/internal/run/run_test.go",
+      "id": "55a691d5e5c7c8cd69763ebbbe629c13965c0bd5c3bf40a07142a6b96cdfa99e",
+      "line": 2710,
+      "message": "The `generate` method signature was changed to include a `systemPrompt` parameter, but the diff does not show updates to the `CriticLLM` interface definition or the production implementation. If the interface was not updated to match this new signature, the code will fail to compile because `*fakeCriticLLM` will no longer satisfy the `CriticLLM` interface.",
+      "severity": "warning",
+      "suggestion": "Ensure the `CriticLLM` interface and the production implementation (e.g., in `cli/internal/ollama/client.go`) are updated to include the `systemPrompt` parameter in the `generate` method signature."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ihdi05oh/cli/internal/run/run_test.go#L2742",
+      "file": "cli/internal/run/run_test.go",
+      "id": "d6259ffb6fa49e42a7042a51fdb1f95d3e71b17d7fe892dff1883494352bd2d8",
+      "line": 2742,
+      "message": "The fakeCriticLLM.GenerateWithMessages method passes an empty string for the systemPrompt argument to f.generate. If the underlying f.generate implementation relies on the systemPrompt to determine behavior (e.g., returning different responses based on the prompt content), this will cause the fake to behave incorrectly for multi-turn message generations, potentially breaking tests that depend on specific system prompt handling.",
+      "severity": "warning",
+      "suggestion": "Pass the system prompt from the messages slice if present, or ensure f.generate handles empty systemPrompt correctly for message-based generations."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ihdi05oh/cli/internal/run/run_test.go#L2945-2951",
+      "file": "cli/internal/run/run_test.go",
+      "id": "78de9d869da12d299a2d37da34fcae2c66e19152ffb1d84efbcc60da4a918867",
+      "line": 2945,
+      "message": "The fakeChoiceDecider.DecideChoice method will panic with a nil pointer dereference if the `responses` slice is empty. The code calculates `i := len(f.responses) - 1` (which results in -1) and then attempts to return `f.responses[i]` without checking if the slice is empty. This will cause a runtime panic in any test that uses a `fakeChoiceDecider` without explicitly providing responses.",
+      "range": {
+        "end": 2951,
+        "start": 2945
+      },
+      "severity": "warning",
+      "suggestion": "Add a guard to return a default response or nil if the responses slice is empty: `if len(f.responses) == 0 { return nil, nil }` before the index calculation."
+    }
+  ]
+}

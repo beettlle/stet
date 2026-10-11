@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-cavg9k1n/src/middleware/requireAdmin.ts#L32",
+      "file": "src/middleware/requireAdmin.ts",
+      "id": "7d9456b5f38afaa16ea9e05b7fe6e09299939990b97a814aaf5a5398a926d43f",
+      "line": 32,
+      "message": "The condition `if (user.isAdmin)` is inverted. The middleware is intended to allow only admin users through, but the current logic returns a 403 error for admins and allows non-admins to proceed. This is a critical security vulnerability that grants admin access to regular users.",
+      "severity": "error",
+      "suggestion": "Change the condition to `if (!user.isAdmin)` to correctly reject non-admin users."
+    }
+  ]
+}

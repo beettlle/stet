@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-j2lix9tp/internal/units/parse.go#L18",
+      "file": "internal/units/parse.go",
+      "id": "b66dc1dbd193ec97bd17de333dde46d853f82c742556323a819cb355f03490ba",
+      "line": 18,
+      "message": "The variable 'unitPart' is declared but not used in the visible code, which will cause a compilation error in Go. The diff shows the old code assigned 'unitPart' and the new code assigns it via 'splitNumberUnit', but the subsequent lines that likely used 'unitPart' (such as unit conversion logic) are not present in the hunk. If the unit conversion logic was removed or is missing, the code will not compile.",
+      "severity": "warning",
+      "suggestion": "Ensure that 'unitPart' is used in the subsequent code (e.g., for unit conversion) or remove it from the declaration if it is not needed."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-j2lix9tp/internal/units/parse.go#L37",
+      "file": "internal/units/parse.go",
+      "id": "7b292f5c8eab15b50d3c55580ef7918d7736e0557466e31d4bd487cd10b93553",
+      "line": 37,
+      "message": "splitNumberUnit returns an empty numeric prefix when the input string starts with a non-numeric character (e.g., \"GB\" or \".5GB\"). This causes strconv.ParseFloat to fail with an 'invalid syntax' error, breaking valid inputs like \".5GB\" and causing unnecessary errors for unit-only inputs.",
+      "severity": "warning",
+      "suggestion": "Add a check to ensure the numeric prefix is not empty before returning. For example, if i == 0, return an error or handle the case where the string starts with a unit or decimal point."
+    }
+  ]
+}

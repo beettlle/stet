@@ -1,0 +1,37 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-d5r37qea/internal/metrics/collector.go#L28",
+      "file": "internal/metrics/collector.go",
+      "id": "9fbf347c4bd44e3e6aea8314a48638ab8fa417ddb030ef3ed931ce3655e601d8",
+      "line": 28,
+      "message": "The variable 'counts' is declared but never used, which will cause a compilation error in Go.",
+      "severity": "warning",
+      "suggestion": "Remove the unused variable declaration: `counts := make(map[string]int, len(c.probes))`"
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-d5r37qea/internal/metrics/collector.go#L44",
+      "file": "internal/metrics/collector.go",
+      "id": "14dd5ff0b84ccec4e8857395dbbb11d78a2682fe6872d45029d3e16febf1f504",
+      "line": 44,
+      "message": "Data race on the 'counts' map. The map is accessed and modified concurrently by multiple goroutines without synchronization, while the 'out' map is protected by a mutex. This will cause a race condition detected by the Go race detector and potential crashes.",
+      "severity": "error",
+      "suggestion": "Move the 'counts[p.Name]++' statement inside the 'mu.Lock()' / 'mu.Unlock()' block to ensure thread-safe access."
+    },
+    {
+      "category": "performance",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-d5r37qea/internal/metrics/collector.go#L67",
+      "file": "internal/metrics/collector.go",
+      "id": "4c5a9e6f4ea08bbfd7703396dfafd8a1c29834465373d0c79879beb4f1e46e18",
+      "line": 67,
+      "message": "The `names` slice is allocated and populated in a loop but is only used to get its length. Since `len(names)` is always equal to `len(c.probes)`, the allocation and loop are unnecessary overhead.",
+      "severity": "warning",
+      "suggestion": "Replace the allocation and loop with `return fmt.Sprintf(\"%d probes registered\", len(c.probes))`."
+    }
+  ]
+}
