@@ -1,0 +1,180 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-y5if622f/cli/internal/review/review.go#L98-133",
+      "file": "cli/internal/review/review.go",
+      "id": "676d64b9aef2353f62e76ef6243fd6d6c0cff3d46f4ce4744e87e87e654e77ab",
+      "line": 98,
+      "message": "In the tracing block, when ruleSections is non-nil, the code prints selected rule sections but does not print the applied rules (from FilterRules) \u2014 this breaks symmetry with the else branch and may omit useful debug info.",
+      "range": {
+        "end": 133,
+        "start": 98
+      },
+      "severity": "warning",
+      "suggestion": "Add a trace line after printing selected sections to also log applied rules (matched rules) even when ruleSections is non-nil, or clarify in comments that applied rules are only logged in the fallback path."
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-y5if622f/cli/internal/review/review.go#L411",
+      "file": "cli/internal/review/review.go",
+      "id": "bf243540159f9790249fb4bdb105e29973f26d1a8cea89e3f1ae29b7623aa02f",
+      "line": 411,
+      "message": "The call to PrepareHunkPrompt is missing the ruleSections parameter (14th argument), which is now passed as nil but was previously omitted entirely. This changes the function signature arity and may cause incorrect behavior if ruleSections was intended to be provided.",
+      "severity": "error",
+      "suggestion": "Verify the intended value for ruleSections (e.g., nil or a computed slice) and ensure the argument count matches the function signature exactly."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-y5if622f/cli/internal/review/review_test.go#L706",
+      "file": "cli/internal/review/review_test.go",
+      "id": "1818b4823fc6b657ee62bcb7fb2166b6b098dac1f1334b788923948cc4ac88e7",
+      "line": 706,
+      "message": "Test calls PrepareHunkPrompt with 17 arguments but the function signature expects 18 parameters; the added nil argument may be incorrect or mismatched with the actual function signature.",
+      "severity": "error",
+      "suggestion": "Verify the function signature of PrepareHunkPrompt and ensure the test passes the correct number and order of arguments."
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-y5if622f/cli/internal/review/review_test.go#L747-747",
+      "file": "cli/internal/review/review_test.go",
+      "id": "4aeb1d615877fbcc6203ebe60a4017325c1046a3485fbe02bcb956c0bc63e395",
+      "line": 747,
+      "message": "TestPrepareHunkPrompt_sectionsPath_usesAppendRuleSections passes ruleList to PrepareHunkPrompt but expects system prompt to contain only section content, not rule content \u2014 this contradicts the function signature and likely indicates incorrect test setup or logic.",
+      "range": {
+        "end": 747,
+        "start": 747
+      },
+      "severity": "error",
+      "suggestion": "Pass nil for ruleList (or ensure PrepareHunkPrompt ignores ruleList when ruleSections is non-nil) to match the test's expectation that only AppendRuleSections is used."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-y5if622f/cli/internal/review/review_test.go#L823",
+      "file": "cli/internal/review/review_test.go",
+      "id": "dd9c89040ec340fa9f780402b03aef2ade1a3390afbc633a9a38af61c92b8571",
+      "line": 823,
+      "message": "Test calls PrepareHunkPrompt with 17 arguments but the function signature expects 18 arguments (last parameter traceOut *trace.Tracer is missing in the old call). The updated call adds the missing nil argument, which is correct.",
+      "severity": "error",
+      "suggestion": "Ensure all function calls match the current function signature. The updated call is correct and should be kept."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-y5if622f/cli/internal/review/review_test.go#L847",
+      "file": "cli/internal/review/review_test.go",
+      "id": "5d06bf7b61d150dab5ed0d16f09d1242fbed41dcd730ad792e65575b324d4612",
+      "line": 847,
+      "message": "The test function `countBullets` counts occurrences of \"\\n- \", but the suppression examples are likely formatted with \"- \" at the start of lines without a preceding newline, or the system prompt may use a different bullet format (e.g., \"\\n* \", \"\\n\u2022 \", or no newline). This could cause the test to incorrectly count bullets and produce false positives/negatives.",
+      "severity": "error",
+      "suggestion": "Verify the actual bullet format used in suppression examples by inspecting the output of `PrepareHunkPrompt`, and update `countBullets` to match the real format (e.g., use `strings.Count(s, \"- \")` or a more precise pattern)."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-y5if622f/cli/internal/review/review_test.go#L881",
+      "file": "cli/internal/review/review_test.go",
+      "id": "674f32f2f1c2f8847d740e8f187b3e7c33dd29e817ea4aaaf22f718dea2c5931",
+      "line": 881,
+      "message": "Test calls PrepareHunkPrompt with 17 arguments but the function signature expects 18 arguments (last parameter is traceOut *trace.Tracer). The diff adds a nil argument to match the signature, but the test should verify that the suppression budget cap is respected across both calls \u2014 ensure the function signature and call site are aligned.",
+      "severity": "error",
+      "suggestion": "Verify that the function signature of PrepareHunkPrompt has 18 parameters and that the test correctly passes all arguments, especially the final traceOut parameter."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-y5if622f/cli/internal/review/review_test.go#L947",
+      "file": "cli/internal/review/review_test.go",
+      "id": "bd0813d474ff2cfcd8decec49534604f9d79347b7d39272404d824d9db38bdb9",
+      "line": 947,
+      "message": "The test calls PrepareHunkPrompt with 17 arguments, but the function signature shows 16 parameters. This mismatch will cause a compile error.",
+      "severity": "error",
+      "suggestion": "Verify the function signature of PrepareHunkPrompt and adjust the test call to match the correct number of arguments."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-y5if622f/cli/internal/run/run.go#L244-244",
+      "file": "cli/internal/run/run.go",
+      "id": "63c50d3caa57a2ae394df54aa46988a2c42d2a564a7e78a1b23f97a5a73ea036",
+      "line": 244,
+      "message": "The function selectRuleSectionsForHunk does not handle the case where rules.SelectSections returns an empty slice with no error, but the caller may expect a non-nil slice to indicate successful selection; returning nil on empty selected sections may cause unintended fallback behavior.",
+      "range": {
+        "end": 244,
+        "start": 244
+      },
+      "severity": "error",
+      "suggestion": "Add a comment clarifying that empty selected sections (with no error) are treated as \"no applicable rules\" and intentionally return nil, or change the behavior to return the original sections if selection returned empty but no error."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-y5if622f/cli/internal/run/run.go#L289",
+      "file": "cli/internal/run/run.go",
+      "id": "b40c6901c1a7e7b08a4ca45eef1b4d7f70ace26573f095731bf5a959baf5d6a3",
+      "line": 289,
+      "message": "Missing indentation in selectorWarn initialization block causes incorrect code structure and potential runtime issues.",
+      "severity": "error",
+      "suggestion": "Indent the lines inside the if block to match Go formatting standards: selectorWarn = &rulesSelectorState{...} should be indented with a tab or spaces."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-y5if622f/cli/internal/run/run.go#L308",
+      "file": "cli/internal/run/run.go",
+      "id": "8aa6581e18ada1183370c6d168ce732901bdaf4822be1203f2f347be525f33c4",
+      "line": 308,
+      "message": "The call to `review.PrepareHunkPrompt` is missing the `ruleSections` parameter in the original signature, but the diff adds it as the second-to-last argument. However, the function signature shows `ruleSections` is the last parameter before `traceOut`. The diff places `ruleSections` before `opts.TraceOut`, which matches the signature, but the original line (before diff) had `opts.TraceOut` as the last argument \u2014 meaning the diff correctly inserts `ruleSections` in the right position. However, the diff shows the original line ended with `opts.TraceOut`, and the new line has `ruleSections, opts.TraceOut`, which is correct. No defect found.",
+      "severity": "error"
+    },
+    {
+      "category": "design",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-y5if622f/cli/internal/run/run.go#L985",
+      "file": "cli/internal/run/run.go",
+      "id": "6cca3640d7b3acd11185a4dc3787b9d9b39e04344f1927eb99b0d62eff1a0eef",
+      "line": 985,
+      "message": "RulesSelectorClient, RulesSelectorBaseURL, and RulesSelectorModel are added to RunOptions but their usage in the run logic (e.g., in the selector invocation and fail-open warning) is not visible in this hunk; ensure they are wired correctly in the caller to avoid nil dereference or misconfiguration.",
+      "severity": "info",
+      "suggestion": "Verify that RulesSelectorClient is checked for nil before use and that RulesSelectorBaseURL and RulesSelectorModel are passed to the selector client when invoked."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-y5if622f/cli/internal/run/run.go#L1345",
+      "file": "cli/internal/run/run.go",
+      "id": "bcc78b8aa05dddb5650b46325ea52f8fc3df6a904b2ea94dcef38ae6d02a499a",
+      "line": 1345,
+      "message": "The fields RulesSelectorClient, RulesSelectorBaseURL, and RulesSelectorModel are added to reviewPipelineOpts but there is no validation or nil-checking for these fields before they are used in runReviewPipeline. If RulesSelectorClient is nil but RulesSelectorBaseURL or RulesSelectorModel are set, the pipeline may fail at runtime with a confusing error.",
+      "severity": "error",
+      "suggestion": "Add validation in Start() to ensure that if any RulesSelector* field is set, RulesSelectorClient must also be non-nil, or ensure runReviewPipeline handles nil client gracefully with a clear error."
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-y5if622f/cli/internal/run/run_test.go#L2733",
+      "file": "cli/internal/run/run_test.go",
+      "id": "531ed42976cb048468fb9492f2989ee937ddc91480aa65bdb43597cc59846d0b",
+      "line": 2733,
+      "message": "The fakeCriticLLM.Generate method now passes systemPrompt to f.generate, but the underlying f.generate function signature is unknown; if f.generate does not accept a systemPrompt argument, this will cause a compile-time error.",
+      "severity": "error",
+      "suggestion": "Verify that f.generate accepts (model, systemPrompt string, opts *ollama.GenerateOptions) parameters; if not, adjust the call accordingly."
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-y5if622f/cli/internal/run/run_test.go#L2942",
+      "file": "cli/internal/run/run_test.go",
+      "id": "8315bde6f9ee5f08f6cbbb9ab213d6420e3de750287c45a97b31fd1ff6b0c010",
+      "line": 2942,
+      "message": "The fakeChoiceDecider.DecideChoice method can panic when len(f.responses) == 0 because it calculates i = len(f.responses) - 1 = -1, leading to f.responses[-1] access. This occurs when no responses are provided and the code falls through to the return statement.",
+      "severity": "error",
+      "suggestion": "Add a check for empty responses slice before calculating the index, e.g., `if len(f.responses) == 0 { return nil, errors.New(\"no responses available\") }` or return a default empty response."
+    }
+  ]
+}

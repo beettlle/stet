@@ -1,0 +1,30 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-d1una4_n/internal/units/parse.go#L18",
+      "file": "internal/units/parse.go",
+      "id": "b0feb3f67b77ded752455bf77d451cbdc1c3825d2b5e593977ddc868a6acd300",
+      "line": 18,
+      "message": "The variable 'unitPart' is declared but not used in the visible code, which will cause a compilation error in Go.",
+      "severity": "warning",
+      "suggestion": "Use 'unitPart' in the subsequent logic (e.g., to calculate the final byte size) or omit it if not needed."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-d1una4_n/internal/units/parse.go#L37-45",
+      "file": "internal/units/parse.go",
+      "id": "3f5ccc768b4f202d760f112e8fefb57d0bc2cb5616df8a6b593d2c82272ac913",
+      "line": 37,
+      "message": "The function splitNumberUnit returns an empty numeric prefix when the input string starts with a non-numeric character (e.g., \"GB\" or \".5GB\"). This causes the caller to fail with a parse error or return 0, whereas standard size parsing should support implicit leading zeros (\"GB\" -> 1GB) and leading decimals (\".5GB\" -> 0.5GB).",
+      "range": {
+        "end": 45,
+        "start": 37
+      },
+      "severity": "warning",
+      "suggestion": "Modify the loop to skip leading non-numeric characters (except '.') or handle the case where i == 0 by returning \"0\" as the numeric prefix."
+    }
+  ]
+}

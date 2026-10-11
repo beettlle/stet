@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-714m9901/internal/userstore/store.go#L46",
+      "file": "internal/userstore/store.go",
+      "id": "8e76105b7135735d106c60fe359584c360b6ba86a6d10ae5110e12e406320458",
+      "line": 46,
+      "message": "Ignoring error from FindByEmail may cause nil pointer dereference if user is not found; Profile is returned with uninitialized User.Name",
+      "severity": "error",
+      "suggestion": "Handle the error from FindByEmail and return an appropriate error or default Profile"
+    }
+  ]
+}

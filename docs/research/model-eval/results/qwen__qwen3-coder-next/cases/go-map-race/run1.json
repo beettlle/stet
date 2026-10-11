@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-xfy09uux/internal/metrics/collector.go#L28",
+      "file": "internal/metrics/collector.go",
+      "id": "bb2213b397676825680495421955b50c06d3b514d734cf1474544bb55a4696a9",
+      "line": 28,
+      "message": "The newly added `counts` map is unused; the function returns `out`, suggesting a logic error where `counts` should be used instead of or alongside `out`.",
+      "severity": "error",
+      "suggestion": "Either remove the unused `counts` map or update the function logic to use `counts` appropriately (e.g., incrementing `counts` instead of `out` inside the probe goroutines)."
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-xfy09uux/internal/metrics/collector.go#L51",
+      "file": "internal/metrics/collector.go",
+      "id": "e4919443c9fffa88deefddc38fa0d72eaa5cc2f1b765754aef68384fa2ac3cdf",
+      "line": 51,
+      "message": "The error check loop for `errs` does not skip nil errors, causing it to return the first nil error (which is always falsey) and potentially hide actual errors.",
+      "severity": "error",
+      "suggestion": "Change the error loop to check `if err != nil` before returning, or ensure the loop only processes non-nil errors."
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-58h44c08/internal/units/parse.go#L18",
+      "file": "internal/units/parse.go",
+      "id": "f66cebdcdafbdda51c4c85449db0cb6596c0d5691a19dc1df8d0e8ad6895c4e5",
+      "line": 18,
+      "message": "The variable 'unitPart' is declared but not used in the visible code, which will cause a compilation error in Go. The diff shows the old code assigned 'unitPart' and likely used it in subsequent lines (not shown), but the new code does not reference it.",
+      "severity": "warning",
+      "suggestion": "Either use 'unitPart' in the parsing logic (e.g., to determine the multiplier) or omit it from the return values of 'splitNumberUnit' if it is not needed."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-58h44c08/internal/units/parse.go#L37",
+      "file": "internal/units/parse.go",
+      "id": "cd75667cb01d654455172054407ce19a52fbeddb263cde54af38e57bb39e0d6d",
+      "line": 37,
+      "message": "splitNumberUnit returns an empty numeric prefix when the input string starts with a non-digit character (e.g., \"GB\" or \".5GB\"). This causes the caller to attempt parsing an empty string as a float, which will fail or produce incorrect results. The function should validate that the numeric prefix is non-empty before returning hasUnit=true.",
+      "severity": "warning",
+      "suggestion": "Add a check to ensure the numeric prefix is not empty: if i == 0 { return s, \"\", false } or handle the case where the string starts with a unit."
+    }
+  ]
+}

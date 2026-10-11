@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "security",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-39nk50v6/internal/catalog/search.go#L32",
+      "file": "internal/catalog/search.go",
+      "id": "f6d3adc770888873691bbdd4564977325fcd6baacd4d3b9ff656d375b91396d1",
+      "line": 32,
+      "message": "SQL injection vulnerability: user input 'term' is concatenated directly into the SQL query string instead of using a parameterized query.",
+      "severity": "error",
+      "suggestion": "Revert to using a parameterized query: query := \"SELECT id, sku, title FROM products WHERE title = $1\" and rows, err := s.db.Query(query, term)"
+    }
+  ]
+}

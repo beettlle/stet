@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "security",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-rowm6vq8/internal/catalog/search.go#L33",
+      "file": "internal/catalog/search.go",
+      "id": "6ce53404ab5774c886ef01a5cb87a7429ee7d8183cd86f082c3a704afae04435",
+      "line": 33,
+      "message": "SQL injection vulnerability: user input 'term' is directly concatenated into the SQL query string instead of using parameterized queries.",
+      "severity": "error",
+      "suggestion": "Use parameterized queries: replace the query construction with `query := \"SELECT id, sku, title FROM products WHERE title = $1\"` and pass `term` as a parameter to `s.db.Query(query, term)`."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-rowm6vq8/internal/catalog/search.go#L53",
+      "file": "internal/catalog/search.go",
+      "id": "eb0a35f88ff40e533b43d61ab1be2db1a80384e48171e15236b85e2c2bc5aead",
+      "line": 53,
+      "message": "Error message changed from 'count products by prefix' to 'count products for prefix'; both are acceptable, but the new wording better matches the function's behavior of counting products whose SKU starts with the given prefix.",
+      "severity": "info",
+      "suggestion": "No change needed; the wording is a minor improvement for clarity."
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-wnjizy4m/src/invoice/pricing.ts#L26",
+      "file": "src/invoice/pricing.ts",
+      "id": "15eb999c78cf808def8be5640cb23d0c2bb028012d036371626a5f359f6383df",
+      "line": 26,
+      "message": "The discount threshold is set to 100,000 cents ($1,000.00), but the discount is applied only when the total is strictly greater than the threshold. This means a customer with a total of exactly $1,000.00 will not receive the 5% bulk discount, which is likely a logic error if the intent is to discount orders of $1,000 or more.",
+      "severity": "warning",
+      "suggestion": "Change the condition to `totalCents >= 100_000` to include the boundary value."
+    }
+  ]
+}

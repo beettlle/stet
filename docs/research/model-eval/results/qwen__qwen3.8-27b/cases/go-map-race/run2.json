@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-sy01o42d/internal/metrics/collector.go#L44",
+      "file": "internal/metrics/collector.go",
+      "id": "bfe3ce48c61b9a6e9438b7c8a6273882a5a376d5ed6b18fa81d08dd7be424b31",
+      "line": 44,
+      "message": "Data race on the 'counts' map. The map is accessed and modified concurrently by multiple goroutines without synchronization, which will cause a race condition and potential panic.",
+      "severity": "error",
+      "suggestion": "Move the 'counts[p.Name]++' statement inside the 'mu.Lock()' and 'mu.Unlock()' block to ensure thread-safe access."
+    },
+    {
+      "category": "performance",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-sy01o42d/internal/metrics/collector.go#L67",
+      "file": "internal/metrics/collector.go",
+      "id": "05adde78aa49e808e7e5de78c1fa5865df90dca6dcb0a52bf121319ff6d153a4",
+      "line": 67,
+      "message": "The code allocates a slice and appends to it to collect probe names, but then only uses the length of that slice in the return statement. Since len(names) is always equal to len(c.probes), the allocation and loop are unnecessary overhead.",
+      "severity": "warning",
+      "suggestion": "Replace the slice allocation and loop with: return fmt.Sprintf(\"%d probes registered\", len(c.probes))"
+    }
+  ]
+}

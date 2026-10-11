@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-16mlm6jg/internal/metrics/collector.go#L44",
+      "file": "internal/metrics/collector.go",
+      "id": "bfe3ce48c61b9a6e9438b7c8a6273882a5a376d5ed6b18fa81d08dd7be424b31",
+      "line": 44,
+      "message": "Data race on the 'counts' map. The map is accessed and modified concurrently by multiple goroutines without synchronization, which will cause a race condition and potential panic.",
+      "severity": "error",
+      "suggestion": "Move the 'counts[p.Name]++' operation inside the 'mu.Lock()' / 'mu.Unlock()' block to ensure thread-safe access."
+    },
+    {
+      "category": "performance",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-16mlm6jg/internal/metrics/collector.go#L67",
+      "file": "internal/metrics/collector.go",
+      "id": "5d845f867ef00b8b1759c02f83e98b6db73cbd48fd572de8d0070a250815cffd",
+      "line": 67,
+      "message": "The function allocates a slice and iterates through all probes to collect names, but the resulting string only uses the count. This is unnecessary overhead.",
+      "severity": "warning",
+      "suggestion": "Replace the loop and slice allocation with: return fmt.Sprintf(\"%d probes registered\", len(c.probes))"
+    }
+  ]
+}

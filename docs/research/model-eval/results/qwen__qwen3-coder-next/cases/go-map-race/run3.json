@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-nk2a60rr/internal/metrics/collector.go#L28",
+      "file": "internal/metrics/collector.go",
+      "id": "6d8756c38df453d874497dece54b0bd9fee1c2bba7b1317faf294f92e8ffe0bc",
+      "line": 28,
+      "message": "The newly added `counts` map is unused; the function returns `out`, suggesting a logic error where `counts` was intended to be used instead of or alongside `out`.",
+      "severity": "error",
+      "suggestion": "Either remove the unused `counts` map or integrate it into the logic if it was meant to track counts separately from `out`. If `out` is intended to be the result, ensure `counts` is used (e.g., to accumulate values before copying to `out`)."
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-nk2a60rr/internal/metrics/collector.go#L51",
+      "file": "internal/metrics/collector.go",
+      "id": "6939b3a4757d70e85a489b3ee22c5c457e9364b34add7fb271eca627d39f1353",
+      "line": 51,
+      "message": "The counts map is accessed without synchronization in the validation loop after wg.Wait(), but the goroutines may not have completed writing to it before the loop starts reading. Although wg.Wait() ensures all goroutines have finished, the counts map is only written inside the goroutines under a mutex, but the validation loop reads it without any synchronization, which is safe only because all writes are done before the loop starts. However, the code is correct in this case, but the lack of explicit synchronization in the validation loop could be misleading. A more robust approach would be to ensure the validation loop runs after all writes are complete, which it does, but the code should be clear that no further writes occur after wg.Wait().",
+      "severity": "error",
+      "suggestion": "No change needed; the code is correct. However, consider adding a comment to clarify that counts is no longer modified after wg.Wait()."
+    }
+  ]
+}

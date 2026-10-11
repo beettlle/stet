@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-zefpemsp/src/middleware/requireAdmin.ts#L32",
+      "file": "src/middleware/requireAdmin.ts",
+      "id": "9935699fd83c49acf1f9552b274ec78e11cd3c80586971072671650aded5c5ae",
+      "line": 32,
+      "message": "The condition `if (user.isAdmin)` is inverted. The middleware is intended to allow only admin users through, but the current logic returns a 403 error for admins and allows non-admins to proceed. This is a critical security vulnerability.",
+      "severity": "error",
+      "suggestion": "Change the condition to `if (!user.isAdmin)` to correctly reject non-admin users."
+    }
+  ]
+}

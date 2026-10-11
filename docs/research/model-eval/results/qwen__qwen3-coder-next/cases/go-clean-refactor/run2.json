@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-tctyr81x/internal/units/parse.go#L44",
+      "file": "internal/units/parse.go",
+      "id": "ed92a2aa6e37a2f01ece1262666ab3128e894d55052fba950b945aaa7d1f68d5",
+      "line": 44,
+      "message": "The splitNumberUnit function may return an empty numeric prefix if the input string starts with a non-digit/non-dot character (e.g., 'GB'), leading to incorrect parsing; the function should validate that at least one digit exists before the unit.",
+      "severity": "warning",
+      "suggestion": "Add a check to ensure the numeric prefix is non-empty before returning; e.g., if i == 0 { return s, \"\", false } or similar."
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-hywjlmcx/app/reporting/stats.py#L17",
+      "file": "app/reporting/stats.py",
+      "id": "ddba86326c813df22c9a3f7aea1d05468c677480e30fdfe99c01196d151abfd1",
+      "line": 17,
+      "message": "Using integer floor division (//) instead of true division (/) causes the function to return 0.0 for any completion rate less than 100% (e.g., 1 completed out of 2 tasks returns 0.0 instead of 50.0).",
+      "severity": "error",
+      "suggestion": "return completed / total * 100"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-4jbhvjic/app/cart.py#L17",
+      "file": "app/cart.py",
+      "id": "70ef1d7e835b97baa5243645769a1118f437a17864dfa3ff7967f07090144ef8",
+      "line": 17,
+      "message": "Default mutable argument `items: list[Item] = []` will share the same list across all calls, causing unexpected behavior when the function is called multiple times without providing the `items` argument.",
+      "severity": "error",
+      "suggestion": "Use `items: list[Item] | None = None` as the default and initialize a new list inside the function when `items` is None."
+    }
+  ]
+}

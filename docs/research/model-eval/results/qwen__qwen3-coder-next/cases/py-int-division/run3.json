@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-gd2waufr/app/reporting/stats.py#L17",
+      "file": "app/reporting/stats.py",
+      "id": "dc29fee1ab8000a7ba155fa35768c60ea7bb3e3f07f079fbab785476da681ff0",
+      "line": 17,
+      "message": "Integer division (//) truncates the result to an integer before multiplying by 100, causing loss of precision in percentage calculation; should use float division (/) to compute accurate percentages.",
+      "severity": "error",
+      "suggestion": "Change `completed // total * 100` back to `completed / total * 100` to preserve decimal precision in the percentage."
+    }
+  ]
+}

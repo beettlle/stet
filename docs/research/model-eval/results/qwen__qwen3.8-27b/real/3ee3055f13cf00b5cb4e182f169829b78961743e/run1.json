@@ -1,0 +1,132 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ph4cpor_/cli/cmd/stet/main.go#L720",
+      "file": "cli/cmd/stet/main.go",
+      "id": "00bd2bc9e706fd210ca2b97cb7944f2d094d696c25f1cccfacdd5d113dec87e7",
+      "line": 720,
+      "message": "The diff introduces a new `wantAnnotate` condition and assigns `o.AnnotateClient` and `o.AnnotateModel`, but the provided diff hunk does not include the corresponding `if wantAnnotate { ... }` block. If the `systemOneRunOpts` struct does not already have these fields, or if the assignment block is missing from the actual file, this will cause a compilation error or the annotator will not be initialized.",
+      "severity": "error",
+      "suggestion": "Ensure that the `systemOneRunOpts` struct has `AnnotateClient` and `AnnotateModel` fields, and that the `if wantAnnotate { ... }` block is present in the code to assign them."
+    },
+    {
+      "category": "documentation",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ph4cpor_/cli/internal/config/config.go#L663",
+      "file": "cli/internal/config/config.go",
+      "id": "1f7226742dff73d22721d10b90a7f18242ac79c0e415e2ae780fb9f4af9cb9fc",
+      "line": 663,
+      "message": "The constant `envRulesAnnotate` is defined but not referenced in the provided diff hunk. Ensure it is properly wired into the configuration parsing logic (e.g., in `Load` or `FromEnv`) to avoid a dead code path or missing environment variable support.",
+      "severity": "info",
+      "suggestion": "Verify that `envRulesAnnotate` is used in the configuration loading logic to map the `STET_RULES_ANNOTATE` environment variable to the corresponding config field."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ph4cpor_/cli/internal/config/config.go#L943",
+      "file": "cli/internal/config/config.go",
+      "id": "02d55d0b3feef05dd14498d1a2fe5859af230a325f46c906fce821eff5aaee16",
+      "line": 943,
+      "message": "The `RulesAnnotate` field is a boolean. The current logic `ok && v != \"\"` means that if a user explicitly sets `STET_RULES_ANNOTATE=` (empty string) to disable the feature, the condition fails and the default value (likely `true`) is retained. This is inconsistent with other boolean fields like `RulesSelector` and `CriticEnabled` which use `ok` (without `v != \"\"`), allowing empty strings to be parsed as `false` to disable features.",
+      "severity": "info",
+      "suggestion": "Change the condition to `if v, ok := vals[envRulesAnnotate]; ok {` to allow disabling the feature via an empty environment variable, consistent with other boolean flags."
+    },
+    {
+      "category": "testing",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ph4cpor_/cli/internal/config/config_test.go#L1631-1668",
+      "file": "cli/internal/config/config_test.go",
+      "id": "ce11a2c5cb6d1fb3762082dacb87dad78ca9f891ef419e0f9d3ee8c1a279e57b",
+      "line": 1631,
+      "message": "TestLoad_rulesAnnotateFromEnv is marked t.Parallel() but mutates the shared filesystem (config.toml) without using t.Setenv. Since the test does not set RepoRoot to a unique directory for each subtest iteration, parallel execution may cause race conditions or flaky failures if other tests in the package rely on the default environment or if the filesystem state is shared.",
+      "range": {
+        "end": 1668,
+        "start": 1631
+      },
+      "severity": "warning",
+      "suggestion": "Remove t.Parallel() from TestLoad_rulesAnnotateFromEnv, or ensure each iteration uses a unique temporary directory and does not rely on global state that could be mutated by other parallel tests."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ph4cpor_/cli/internal/run/run.go#L261-264",
+      "file": "cli/internal/run/run.go",
+      "id": "4b6dc2fac9f099fcf105b1c91db0f710b1241678ef217c4694344263fb8cfeb5",
+      "line": 261,
+      "message": "The `warnFailure` method is called on a pointer receiver (`*rulesAnnotateState`), but `sync.Once` is a value type. When `warn` is a pointer to a struct, `s.once` is a field of the struct. However, if `warn` is passed as a pointer, `s` is a pointer, so `s.once` refers to the struct's field. This is correct. Wait, let me re-verify. `warn` is `*rulesAnnotateState`. `s` is `*rulesAnnotateState`. `s.once` is the `sync.Once` field. `s.once.Do(...)` is valid. The issue is if `warn` were a value type, but it's a pointer. So this is fine. Let's look closer. Is there a nil pointer dereference? `warn` is checked for nil before calling `warnFailure`. So `s` is not nil. The code seems logically sound. Let's look for other issues. The `annotateRuleConflictsForBatch` function takes `hunk diff.Hunk` by value. `hunk.RawContent` is passed to `AnnotateRuleConflicts`. This is fine. The `sections` are built from `candidates`. This is fine. I don't see a bug in the provided hunk. Let me double check the `sync.Once` usage. `sync.Once` is not safe for concurrent use if it's copied. Here it is accessed via a pointer, so it is not copied. It is safe. I will return an empty array.",
+      "range": {
+        "end": 264,
+        "start": 261
+      },
+      "severity": "warning"
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ph4cpor_/cli/internal/run/run.go#L353",
+      "file": "cli/internal/run/run.go",
+      "id": "6ec440f3f3669e01ba7f5679d30b51167b8ee70cdfaf18ec58bf6060a5b1417c",
+      "line": 353,
+      "message": "The `annotateWarn` state is shared across all hunks and is passed to `annotateRuleConflictsForBatch` in the main goroutine. If the `rulesAnnotateState` type uses a boolean flag (like `warned`) to ensure 'at most one warning per run', this flag must be protected by a mutex. Without synchronization, concurrent calls to `annotateRuleConflictsForBatch` (if it runs in a goroutine or if the state is accessed concurrently) will cause a data race. Even if it runs sequentially in the main loop, the pattern is fragile if the function is ever parallelized.",
+      "severity": "warning",
+      "suggestion": "Ensure `rulesAnnotateState` uses a `sync.Mutex` to protect its internal state (e.g., the `warned` flag) if it is accessed from multiple goroutines, or verify that `annotateRuleConflictsForBatch` is strictly sequential and the state is not shared with other goroutines."
+    },
+    {
+      "category": "performance",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ph4cpor_/cli/internal/run/run.go#L507",
+      "file": "cli/internal/run/run.go",
+      "id": "6c7f3694bd6c6021bccd1cb36dbc7ccda9ff9a4be21aef855639d3e968c29544",
+      "line": 507,
+      "message": "The change replaces the local assignment `batch = kept` with a call to `annotateRuleConflictsForBatch`, which performs a blocking network request to the annotation service. This call is made sequentially for every hunk in the main processing loop, adding the annotation latency to the critical path of each hunk's processing. This can significantly increase the total execution time of the review pipeline, especially for large diffs, as the main goroutine is blocked waiting for the annotation service while the LLM worker may be idle or waiting for the next prompt.",
+      "severity": "warning",
+      "suggestion": "Consider running `annotateRuleConflictsForBatch` in a separate goroutine or batching annotation requests to avoid blocking the main pipeline loop, or ensure the annotation service is fast enough to not impact overall performance."
+    },
+    {
+      "category": "performance",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ph4cpor_/cli/internal/run/run.go#L588",
+      "file": "cli/internal/run/run.go",
+      "id": "a3140896a8765dd5c81356054c9bfdf6a86c8cb6d8048bf443013b66ca2992c7",
+      "line": 588,
+      "message": "annotateRuleConflictsForBatch is called synchronously in the main processing loop, which blocks the pipeline from sending the next prompt to the LLM worker. If the annotation service is slow or hangs, the LLM worker will sit idle waiting for the next request, negating the benefits of the interleaved pipeline design.",
+      "severity": "warning",
+      "suggestion": "Consider running annotateRuleConflictsForBatch in a separate goroutine or using a timeout to prevent blocking the main loop, or ensure the annotation client has a short timeout configured."
+    },
+    {
+      "category": "design",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ph4cpor_/cli/internal/run/run.go#L978",
+      "file": "cli/internal/run/run.go",
+      "id": "73f1454cd3fd5d244e6cf1fbd71bca7506f10111e316c08480900d099828a62f",
+      "line": 978,
+      "message": "The field RulesAnnotateClient is of type rules.ChoiceDecider, which is an interface. Storing an interface in a struct that is likely serialized to JSON (e.g., in a Session or config file) will result in a null value or a serialization error, as the underlying concrete type (e.g., *systemone.Client) is not preserved. This means the client will be lost if the StartOptions are persisted and reloaded, breaking the annotation feature on subsequent runs.",
+      "severity": "warning",
+      "suggestion": "Consider storing the configuration needed to construct the client (e.g., BaseURL, Model, APIKey) instead of the client instance itself, or ensure the struct is not serialized. If serialization is required, the client must be reconstructed from the config fields."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ph4cpor_/cli/internal/run/run.go#L1435",
+      "file": "cli/internal/run/run.go",
+      "id": "1fa8e1e05b216a2c92e75a0562105e9df1f9c0806ec1bb0114f7cfa6b62674bf",
+      "line": 1435,
+      "message": "The RulesAnnotateClient is passed to the review pipeline without an upfront reachability check. Unlike the primary LLM client (which is validated via llmClient.Check before worktree creation), the RulesAnnotate client is only created if the pipeline explicitly invokes it. If the RulesAnnotate endpoint is misconfigured or unreachable, the error will surface mid-pipeline after the worktree has been created and potentially after some hunks have already been processed, leading to partial results and unnecessary cleanup.",
+      "severity": "warning",
+      "suggestion": "Add an upfront check for the RulesAnnotate client (similar to the primary LLM client) if it is non-nil and the feature is enabled, to fail fast before creating the worktree."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ph4cpor_/cli/internal/run/run.go#L1870",
+      "file": "cli/internal/run/run.go",
+      "id": "6f3c0ca76a919f45cb7aff77cc8efce2edafe9e091a0299b4f983983bc93cd10",
+      "line": 1870,
+      "message": "The RulesAnnotateClient is passed to the pipeline without an upfront connectivity check (client.Check), unlike the main LLM client. If the RulesAnnotateClient is misconfigured (e.g., wrong BaseURL or model), the pipeline will fail during execution after the main review has already started, potentially causing partial results or inconsistent state.",
+      "severity": "warning",
+      "suggestion": "Add an upfront check for RulesAnnotateClient if it is provided, similar to the main client: if opts.RulesAnnotateClient != nil { if _, err := opts.RulesAnnotateClient.Check(ctx, opts.RulesAnnotateModel); err != nil { return RunStats{}, err } }"
+    }
+  ]
+}

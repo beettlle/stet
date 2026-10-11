@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-v_divznt/internal/thumb/client.go#L32",
+      "file": "internal/thumb/client.go",
+      "id": "5ac8b2b1f98eb4c160edb78cf3ee789ad5e7ef772fdde78275d4df7b245b201e",
+      "line": 32,
+      "message": "Removing `defer resp.Body.Close()` causes a resource leak. If `os.Create` fails, the function returns early without closing `resp.Body`, leaving the underlying network connection open.",
+      "severity": "error",
+      "suggestion": "Restore `defer resp.Body.Close()` immediately after the HTTP request error check."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-v_divznt/internal/thumb/client.go#L43",
+      "file": "internal/thumb/client.go",
+      "id": "af8518bb127825823907787fb47113b0bbc15281a400c2bd8b8f1461b2efd31c",
+      "line": 43,
+      "message": "The response body is not closed on the error path. If io.Copy fails, the function returns early without closing resp.Body, leading to a resource leak.",
+      "severity": "warning",
+      "suggestion": "Use defer resp.Body.Close() immediately after checking the response status, or ensure it is closed in both success and error paths."
+    }
+  ]
+}
