@@ -78,10 +78,10 @@ GIT_IDENTITY = ("-c", "user.name=model-eval", "-c", "user.email=model-eval@local
 # tracked config cannot change these. STET_OPENAI_BASE_URL and STET_MODEL are
 # added per invocation by pinned_env(); keep PINNED_ENV itself sorted by name.
 PINNED_ENV: dict[str, str] = {
-    "STET_CONTEXT_LIMIT": "32768",
+    "STET_CONTEXT_LIMIT": "65536",
     "STET_CRITIC_ENABLED": "false",
-    "STET_MAX_COMPLETION_TOKENS": "8192",
-    "STET_NUM_CTX": "32768",
+    "STET_MAX_COMPLETION_TOKENS": "4096",
+    "STET_NUM_CTX": "65536",
     "STET_PROVIDER": "openai",
     "STET_RULES_ANNOTATE": "false",
     "STET_RULES_SELECTOR": "false",
