@@ -1,5 +1,5 @@
 **Current Step:** 3
-**Status:** In progress
+**Status:** Complete
 **Last Updated:** 2026-10-10
 **Review Level:** 1
 **Review Counter:** 0
@@ -30,11 +30,11 @@
 
 ## Step 3: Testing & Verification
 
-**Status:** In progress
+**Status:** Complete
 
-- [ ] Unit tests for every Step 3 bullet in PROMPT
-- [ ] `--dry-run` integration test
-- [ ] Contract `testCommand` (stet review exits 0)
+- [x] Unit tests for every Step 3 bullet in PROMPT (73 tests, `pytest -q` green)
+- [x] `--dry-run` integration test (real `stet` subprocess: `run` then `score`)
+- [x] Contract `testCommand` (stet review exits 0; 4 stale findings triaged and dismissed)
 
 ---
 
@@ -47,6 +47,7 @@
 
 | Date | Finding | Impact |
 |------|---------|--------|
+| 2026-10-10 | Stet contract raised 4 injection findings (SHA/ref/base_url validation + missing test) against the pre-hardening diff; all were addressed by `f945ac4` (`_validate_real_ref`, `_validate_base_url`, `TestInputValidation`) but persisted after the fix landed (known stale-hunk hazard, see CONTEXT.md SP-035) | Dismissed `already_correct` with code references; re-run of the contract reviewed zero new findings |
 
 ## Execution Log
 
@@ -55,6 +56,7 @@
 | 2026-10-10 | Authored | Phase 7 model benchmark (harness for SP-039) |
 | 2026-10-10 | Step 1 | `scripts/model_eval.py` run subcommand + 36 tests; real `stet --dry-run` smoke test ok (hunks_total 1, meta correct) |
 | 2026-10-10 | Step 2 | `score` + `export-blind`; 68 tests total; CLI chain smoke (run real-ref clone → score recall 1.0 → export-blind TSV) ok |
+| 2026-10-10 | Step 3 | 73/73 pytest pass; contract `bash scripts/spine-stet-contract-run.sh lenient` exit 0 after dismissing 4 stale findings (`be015b6`, `38cdb7b`, `2b18bf5`, `85b00ab`) already fixed in `f945ac4`; `stet finish` ran |
 
 ## Blockers
 
