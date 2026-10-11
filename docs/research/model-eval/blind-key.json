@@ -1,0 +1,422 @@
+{
+  "F001": {
+    "index": 7,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F002": {
+    "index": 7,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F003": {
+    "index": 8,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F004": {
+    "index": 13,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F005": {
+    "index": 11,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F006": {
+    "index": 8,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F007": {
+    "index": 2,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F008": {
+    "index": 7,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F009": {
+    "index": 10,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F010": {
+    "index": 0,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F011": {
+    "index": 6,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F012": {
+    "index": 12,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F013": {
+    "index": 4,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F014": {
+    "index": 6,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F015": {
+    "index": 7,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F016": {
+    "index": 1,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F017": {
+    "index": 0,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F018": {
+    "index": 10,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F019": {
+    "index": 2,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F020": {
+    "index": 6,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F021": {
+    "index": 8,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F022": {
+    "index": 1,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F023": {
+    "index": 5,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F024": {
+    "index": 12,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F025": {
+    "index": 1,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F026": {
+    "index": 3,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F027": {
+    "index": 14,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F028": {
+    "index": 7,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F029": {
+    "index": 0,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F030": {
+    "index": 4,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F031": {
+    "index": 4,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F032": {
+    "index": 1,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F033": {
+    "index": 9,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F034": {
+    "index": 1,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F035": {
+    "index": 5,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F036": {
+    "index": 0,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F037": {
+    "index": 3,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F038": {
+    "index": 9,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F039": {
+    "index": 3,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F040": {
+    "index": 3,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F041": {
+    "index": 10,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F042": {
+    "index": 6,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F043": {
+    "index": 11,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F044": {
+    "index": 7,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F045": {
+    "index": 5,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F046": {
+    "index": 4,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F047": {
+    "index": 1,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F048": {
+    "index": 0,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F049": {
+    "index": 5,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F050": {
+    "index": 12,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F051": {
+    "index": 10,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F052": {
+    "index": 9,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F053": {
+    "index": 13,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F054": {
+    "index": 4,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F055": {
+    "index": 0,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F056": {
+    "index": 11,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F057": {
+    "index": 2,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F058": {
+    "index": 2,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F059": {
+    "index": 2,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F060": {
+    "index": 3,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F061": {
+    "index": 2,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F062": {
+    "index": 8,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F063": {
+    "index": 14,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F064": {
+    "index": 3,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F065": {
+    "index": 5,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F066": {
+    "index": 4,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F067": {
+    "index": 9,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F068": {
+    "index": 5,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F069": {
+    "index": 6,
+    "model_tag": "qwen__qwen3-coder-next",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F070": {
+    "index": 6,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  }
+}
