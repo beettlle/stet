@@ -1,0 +1,6 @@
+Model: qwen/qwen3.8-27b
+Eval rate:        0.0 t/s (generation)
+---
+Tokens: 1119 in, 223 out | Total: 0.0s
+---
+Reference: 8B ~35-50 t/s, 30B ~15-25 t/s, 70B ~5-8 t/s (M1 Ultra)

@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-iz3vkx10/app/billing.py#L35",
+      "file": "app/billing.py",
+      "id": "cd5cb7649001117cd6020c529ba1380327f42d5ecbe36d2e8d91023997a28e28",
+      "line": 35,
+      "message": "Catching all exceptions with bare `except:` and silently ignoring them hides critical errors and breaks error handling. This can mask failures (e.g., network issues, programming errors) and lead to undefined behavior or incorrect order processing.",
+      "severity": "error",
+      "suggestion": "Restore the specific exception handling for `GatewayError` and ensure errors are properly logged and propagated as `PaymentError`. Example: `except GatewayError as exc: raise PaymentError(...) from exc`"
+    },
+    {
+      "category": "best_practice",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-iz3vkx10/app/billing.py#L51",
+      "file": "app/billing.py",
+      "id": "3bafec884011b632fce0c7bb5a45b94f292ebeacc599641168cc20f2955aab7d",
+      "line": 51,
+      "message": "Log message format changed from 'cents' to 'c', which may reduce clarity for external consumers or logs parsers expecting explicit unit names.",
+      "severity": "info",
+      "suggestion": "If 'c' is an accepted abbreviation in your logging standards, ensure consistency across the codebase. Otherwise, prefer 'cents' for clarity."
+    }
+  ]
+}

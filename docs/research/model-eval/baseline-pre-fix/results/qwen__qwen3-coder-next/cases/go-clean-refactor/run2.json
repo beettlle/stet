@@ -1,0 +1,22 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-95edtkq0/internal/units/parse.go#L41-41",
+      "evidence_lines": [
+        41
+      ],
+      "file": "internal/units/parse.go",
+      "id": "06d6858b5f134af5c528ac61bfd3d72ac799add5f2a21d840e7338cdf9202748",
+      "line": 41,
+      "message": "The function `splitNumberUnit` does not handle negative numbers correctly. A leading '-' character would be treated as a unit, causing incorrect parsing.",
+      "range": {
+        "end": 41,
+        "start": 41
+      },
+      "severity": "error",
+      "suggestion": "Prepend a check for a leading '-' sign before the loop to ensure negative numbers are handled correctly."
+    }
+  ]
+}

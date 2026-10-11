@@ -1,0 +1,223 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7zege9tc/cli/internal/review/review.go#L103-112",
+      "evidence_lines": [
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109,
+        110,
+        111,
+        112
+      ],
+      "file": "cli/internal/review/review.go",
+      "id": "7d8a78ca687a38518baa85370ff3bd2c97f45f49e9b3f653af409ec305e39761",
+      "line": 103,
+      "message": "Trace output for rule selection is incomplete: when ruleSections is non-nil, the code prints selected rules but omits the fallback trace for when ruleSections is empty but ruleList is non-empty and rules match the file.",
+      "range": {
+        "end": 112,
+        "start": 103
+      },
+      "severity": "warning",
+      "suggestion": "Add an else branch after the ruleSections block to trace applied rules from ruleList when ruleSections is nil, ensuring consistent tracing regardless of input path."
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7zege9tc/cli/internal/review/review.go#L411",
+      "evidence_lines": [
+        411
+      ],
+      "file": "cli/internal/review/review.go",
+      "id": "dcad61683295cd9c7d73aa910681a9a4fef1fab107a724ee104b9dba0b6b3b18",
+      "line": 411,
+      "message": "The call to PrepareHunkPrompt is missing the ruleSections parameter (14th argument), which is now passed as nil. This changes behavior: previously, ruleSections was passed as traceOut (15th arg), but now it's nil, and traceOut is passed as the 16th arg. The function signature expects ruleSections before traceOut, so the arguments are misaligned.",
+      "severity": "error",
+      "suggestion": "Fix the argument order: ensure ruleSections (14th) is nil (or appropriate value) and traceOut (16th) is passed last. Verify the function signature matches the call: (ctx, systemBase, hunk, ruleList, repoRoot, contextLimit, ragMaxDefs, ragMaxTokens, ragCallGraphEnabled, ragCallersMax, ragCalleesMax, ragCallGraphMaxTokens, useSearchReplaceFormat, suppressionExamples, ruleSections, traceOut)."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7zege9tc/cli/internal/review/review_test.go#L728",
+      "evidence_lines": [
+        728
+      ],
+      "file": "cli/internal/review/review_test.go",
+      "id": "b3c4e8b99091a55d5be1536568019cf70c8fd0912acf9bacd55682d315f96dcc",
+      "line": 728,
+      "message": "TestPrepareHunkPrompt_defaultPath_unchangedWithoutSections incorrectly asserts that the user prompt matches prompt.UserPrompt(hunk) when suppressionExamples is nil but contextLimit is 0 \u2014 the real implementation may truncate or omit content when contextLimit is 0, causing mismatch.",
+      "severity": "error",
+      "suggestion": "Verify that PrepareHunkPrompt's user prompt logic matches prompt.UserPrompt exactly under these parameters, or adjust the test to use a non-zero contextLimit if truncation behavior is expected."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7zege9tc/cli/internal/review/review_test.go#L759",
+      "evidence_lines": [
+        752,
+        753
+      ],
+      "file": "cli/internal/review/review_test.go",
+      "id": "b71b79b8cd15fc2249979db1f3c575669fde19b9d9a3b00bd86a92f772880373",
+      "line": 759,
+      "message": "TestPrepareHunkPrompt_sectionsPath_usesAppendRuleSections passes ruleList to PrepareHunkPrompt while also passing ruleSections \u2014 this may cause unintended behavior if PrepareHunkPrompt expects only one of ruleList or ruleSections to be non-nil.",
+      "severity": "error",
+      "suggestion": "Ensure PrepareHunkPrompt's behavior is defined when both ruleList and ruleSections are non-nil, or adjust test to pass nil for ruleList when testing the sections path."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7zege9tc/cli/internal/review/review_test.go#L787",
+      "evidence_lines": [
+        784
+      ],
+      "file": "cli/internal/review/review_test.go",
+      "id": "05fccb6e006f5e74d263baa224a7490b6d53e73fb47b59feb3897428cf593b3f",
+      "line": 787,
+      "message": "TestPrepareHunkPrompt_sectionsPath_traceListsSelected passes nil for ruleList but non-nil ruleSections \u2014 verify that PrepareHunkPrompt correctly traces selected sections even when ruleList is nil (not just when ruleList is non-nil).",
+      "severity": "error",
+      "suggestion": "Add a comment or assertion confirming trace behavior when ruleList is nil and ruleSections is non-nil."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7zege9tc/cli/internal/review/review_test.go#L812",
+      "evidence_lines": [
+        808
+      ],
+      "file": "cli/internal/review/review_test.go",
+      "id": "ccf8e8735520d87e32ad943053517872c926b68716b12c08ca7ed2cf60de0484",
+      "line": 812,
+      "message": "TestPrepareHunkPrompt_defaultPath_traceListsApplied passes nil for suppressionExamples but does not verify suppression-related trace output \u2014 ensure trace behavior is correct when suppressionExamples is nil.",
+      "severity": "error",
+      "suggestion": "Add explicit assertion that suppression-related trace entries are absent when suppressionExamples is nil."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7zege9tc/cli/internal/run/run.go#L258",
+      "evidence_lines": [
+        258
+      ],
+      "file": "cli/internal/run/run.go",
+      "id": "f2e140c9cef8bb47cd6a9db3e10bd868453ad7ef5af6e9743916ebba2fd387ac",
+      "line": 258,
+      "message": "The 'warn' parameter is checked for nil before calling warnFailure, but the function signature allows warn to be nil. If warn is nil, warn.warnFailure(err) would panic. However, the nil check is present, so this is likely safe, but the comment should clarify that warn is always non-nil when passed to this function.",
+      "severity": "warning",
+      "suggestion": "Add a comment clarifying that warn is always non-nil when passed to selectRuleSectionsForHunk, or remove the nil check if warn is guaranteed to be non-nil."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7zege9tc/cli/internal/run/run.go#L289",
+      "evidence_lines": [
+        289
+      ],
+      "file": "cli/internal/run/run.go",
+      "id": "1015bbbc406ae2418e6473d957544e039aa975d09e2dfa9343a47d809999d274",
+      "line": 289,
+      "message": "Missing newline after 'selectorWarn = &rulesSelectorState{warnOut: opts.RulesSelectorWarnOut, baseURL: opts.RulesSelectorBaseURL}' causes syntax error due to missing semicolon or newline before 'var wg'.",
+      "severity": "error",
+      "suggestion": "Add a newline or semicolon after the closing brace of the if block to separate the declaration of 'var wg'."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7zege9tc/cli/internal/run/run.go#L308",
+      "evidence_lines": [
+        308
+      ],
+      "file": "cli/internal/run/run.go",
+      "id": "a762a8cfc481a43a07d66fe9c5cba72c114d5bd6c89a3b428b519479c9f85569",
+      "line": 308,
+      "message": "The call to `review.PrepareHunkPrompt` is missing the `opts.RAGCallGraphEnabled` parameter in the correct position \u2014 it appears to be duplicated or misplaced in the argument list.",
+      "severity": "error",
+      "suggestion": "Verify the argument order in `review.PrepareHunkPrompt` call matches its signature: the `ruleSections` argument should be passed as the 15th parameter, and `opts.TraceOut` as the last. Ensure no arguments are duplicated or omitted."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7zege9tc/cli/internal/run/run.go#L985",
+      "evidence_lines": [
+        985
+      ],
+      "file": "cli/internal/run/run.go",
+      "id": "0005f57f18945afdc1c7089852afb2a85d6e4dc3fb6a269e3ad403770977704f",
+      "line": 985,
+      "message": "RulesSelectorClient is declared but never validated for nil before use in non-DryRun paths; this may cause a panic if RulesSelectorClient is nil and DryRun is false.",
+      "severity": "warning",
+      "suggestion": "Add a nil check before invoking RulesSelectorClient.DecideChoice in non-DryRun code paths, or ensure RulesSelectorClient is always initialized (e.g., with a no-op implementation) when DryRun is false."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7zege9tc/cli/internal/run/run.go#L1345",
+      "evidence_lines": [
+        1345,
+        1346,
+        1347
+      ],
+      "file": "cli/internal/run/run.go",
+      "id": "409bdb2df1e090547ce6a2c391f92ff938d2f5454e470ae3227be23f2c176fa2",
+      "line": 1345,
+      "message": "The fields RulesSelectorClient, RulesSelectorBaseURL, and RulesSelectorModel are being passed to reviewPipelineOpts, but there is no validation that RulesSelectorClient is non-nil when RulesSelectorBaseURL or RulesSelectorModel are set. This may cause a nil pointer dereference if the client is used without being initialized.",
+      "severity": "error",
+      "suggestion": "Add a check to ensure RulesSelectorClient is non-nil when RulesSelectorBaseURL or RulesSelectorModel are provided, or ensure that RulesSelectorClient is properly initialized elsewhere before use."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7zege9tc/cli/internal/run/run.go#L1777",
+      "evidence_lines": [
+        1777,
+        1778,
+        1779
+      ],
+      "file": "cli/internal/run/run.go",
+      "id": "fab4703e7078641487d3d431dd80c9ed4834db5e915c5db5b47afef2f85c5b43",
+      "line": 1777,
+      "message": "The fields RulesSelectorClient, RulesSelectorBaseURL, and RulesSelectorModel are being passed to reviewPipelineOpts, but there is no validation that RulesSelectorClient is non-nil when RulesSelectorBaseURL or RulesSelectorModel are set. This may cause a nil pointer dereference if the client is used without being initialized.",
+      "severity": "error",
+      "suggestion": "Add validation to ensure RulesSelectorClient is non-nil when RulesSelectorBaseURL or RulesSelectorModel are provided, or ensure that the pipeline properly handles nil selectors."
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7zege9tc/cli/internal/run/run_test.go#L2730-2733",
+      "evidence_lines": [
+        2730,
+        2733
+      ],
+      "file": "cli/internal/run/run_test.go",
+      "id": "99ef2eccb830811015089201054be801f5c7e820a34af9dd089cf3049bc3812c",
+      "line": 2733,
+      "message": "The `Generate` and `GeneratePlain` methods now pass `systemPrompt` to `f.generate`, but the `GenerateWithMessages` method passes an empty string for `systemPrompt`. If `GenerateWithMessages` is intended to use the provided `messages` (including system messages) instead of a separate `systemPrompt`, this is correct. However, if `f.generate` expects a standalone system prompt and the `messages` array includes a system message, this will cause incorrect behavior (e.g., missing system context). Verify that `f.generate` does not rely on `systemPrompt` when `GenerateWithMessages` is used, or ensure the system message is extracted and passed correctly.",
+      "range": {
+        "end": 2733,
+        "start": 2730
+      },
+      "severity": "error",
+      "suggestion": "If `f.generate` expects a system prompt, extract the system message from `messages` (e.g., first message with role 'system') and pass it instead of an empty string. Otherwise, confirm that `f.generate` ignores `systemPrompt` when called from `GenerateWithMessages`."
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7zege9tc/cli/internal/run/run_test.go#L2943",
+      "evidence_lines": [
+        2943
+      ],
+      "file": "cli/internal/run/run_test.go",
+      "id": "53cbb9a1e5d9d47e24c4f39bb7026d60d58311d5301d1b744b0eb26f50bdb415",
+      "line": 2943,
+      "message": "Index out-of-bounds in fakeChoiceDecider.DecideChoice: when len(f.responses) == 0, i = len(f.responses) - 1 evaluates to -1, causing a panic when accessing f.responses[i].",
+      "severity": "error",
+      "suggestion": "Add a guard clause before computing i: if len(f.responses) == 0 { return nil, errors.New(\"no responses available\") } or return a default response."
+    }
+  ]
+}

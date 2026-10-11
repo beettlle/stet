@@ -1,0 +1,26 @@
+{
+  "env": {
+    "STET_CONTEXT_LIMIT": "32768",
+    "STET_CRITIC_ENABLED": "false",
+    "STET_MAX_COMPLETION_TOKENS": "8192",
+    "STET_MODEL": "qwen/qwen3-coder-next",
+    "STET_NUM_CTX": "32768",
+    "STET_OPENAI_BASE_URL": "http://127.0.0.1:1234/v1",
+    "STET_PROVIDER": "openai",
+    "STET_RULES_ANNOTATE": "false",
+    "STET_RULES_SELECTOR": "false",
+    "STET_STRICTNESS": "default",
+    "STET_TEMPERATURE": "0.1",
+    "STET_TIMEOUT": "30m"
+  },
+  "exit_code": 0,
+  "findings_count": 1,
+  "hunks_total": 2,
+  "kind": "case",
+  "model": "qwen/qwen3-coder-next",
+  "run": 2,
+  "status": "ok",
+  "stet_version": "stet version dev",
+  "target": "go-swallowed-error",
+  "wall_seconds": 7.1769
+}

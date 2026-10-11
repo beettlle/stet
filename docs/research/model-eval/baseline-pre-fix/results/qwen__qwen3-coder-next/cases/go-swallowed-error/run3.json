@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-uojbcazb/internal/report/summary.go#L25",
+      "evidence_lines": [
+        25
+      ],
+      "file": "internal/report/summary.go",
+      "id": "474a66303f181d9cb9e0a06ccb802248b3ebfe3d8916990080249945cc5cdbe1",
+      "line": 25,
+      "message": "WriteSummary silently ignores write errors by returning nil instead of propagating the error.",
+      "severity": "error",
+      "suggestion": "Change `return nil` to `return fmt.Errorf(\"write summary: %w\", err)` to properly propagate write errors."
+    }
+  ]
+}

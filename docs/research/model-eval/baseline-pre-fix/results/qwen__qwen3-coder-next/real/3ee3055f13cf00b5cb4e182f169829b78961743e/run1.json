@@ -1,0 +1,314 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1x0brbst/cli/cmd/stet/main.go#L432",
+      "evidence_lines": [
+        432
+      ],
+      "file": "cli/cmd/stet/main.go",
+      "id": "8c3ad8ebcf15fff9b462e6de3d12859ed3563978ee38919c85426cddec607822",
+      "line": 432,
+      "message": "RulesAnnotateBaseURL is incorrectly assigned so.BaseURL instead of cfg.EffectiveLLMBaseURL(), which may cause misconfiguration when LLM base URLs differ for annotation vs other services.",
+      "severity": "error",
+      "suggestion": "Use cfg.EffectiveLLMBaseURL() instead of so.BaseURL for RulesAnnotateBaseURL to ensure consistency with other LLM fields."
+    },
+    {
+      "category": "design",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1x0brbst/cli/cmd/stet/main.go#L692-698",
+      "file": "cli/cmd/stet/main.go",
+      "id": "742cfd32745a7625bcfbfde6d0668a011b7bd4325700204f69dd3bed93be10ae",
+      "line": 692,
+      "message": "The struct `systemOneRunOpts` now includes `AnnotateClient` and `AnnotateModel` fields, but the function `systemOneRunOptions` implementation is not shown in the diff. Ensure that these fields are properly initialized in the function body based on `cfg.RulesAnnotate` and `cfg.RulesAnnotateModel` (or equivalent config keys), and only when `dryRun` is false.",
+      "range": {
+        "end": 698,
+        "start": 692
+      },
+      "severity": "info",
+      "suggestion": "Verify that the function body initializes `AnnotateClient` and `AnnotateModel` using the same client instance as `SelectorClient` (if rules_annotate is enabled and not dry-run), and that it respects the same API key and base URL logic."
+    },
+    {
+      "category": "security",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1x0brbst/cli/cmd/stet/main.go#L720",
+      "evidence_lines": [
+        720
+      ],
+      "file": "cli/cmd/stet/main.go",
+      "id": "6571ab95a0a55dd9c7e1440522d70539c75937b7c49bcadf10f78e7250463d31",
+      "line": 720,
+      "message": "The client is created with cfg.SystemOneAPIKey without validating that it is non-empty. If RulesAnnotate is true but STET_SYSTEMONE_API_KEY is unset or empty, the client may be initialized with an empty API key, leading to authentication failures or unintended behavior.",
+      "severity": "error",
+      "suggestion": "Validate that cfg.SystemOneAPIKey is non-empty before initializing the client, or defer client creation until after validating required credentials."
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1x0brbst/cli/cmd/stet/main.go#L731",
+      "evidence_lines": [
+        727,
+        728,
+        729,
+        730
+      ],
+      "file": "cli/cmd/stet/main.go",
+      "id": "f31f3e64875a0effd5a4b550773a1ab5c2274137bcfccc5ca2d7168e21aefb12",
+      "line": 731,
+      "message": "The `AnnotateClient` and `AnnotateModel` fields are set only when `wantAnnotate` is true, but the `client` variable is only initialized inside the `if wantCritic || wantSelector || wantAnnotate` block. If `wantAnnotate` is true but both `wantCritic` and `wantSelector` are false, the `client` variable is uninitialized, causing a nil pointer dereference.",
+      "severity": "error",
+      "suggestion": "Move the client initialization outside the conditional block or ensure it is initialized before use in the `wantAnnotate` branch."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1x0brbst/cli/cmd/stet/main.go#L872",
+      "evidence_lines": [
+        872
+      ],
+      "file": "cli/cmd/stet/main.go",
+      "id": "bf42e9173c19f8308941c6f0c10216ebab9f38b3793411c190839872ee903cce",
+      "line": 872,
+      "message": "RulesAnnotateBaseURL is set to so.BaseURL, but RulesAnnotateClient may use a different base URL than RulesSelectorClient. This could cause misconfiguration if the annotate client requires a different base URL than the selector client.",
+      "severity": "error",
+      "suggestion": "Use a dedicated base URL for RulesAnnotateBaseURL (e.g., cfg.EffectiveRulesAnnotateBaseURL()) or explicitly document that it must match RulesSelectorBaseURL."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1x0brbst/cli/cmd/stet/main.go#L1071",
+      "evidence_lines": [
+        1071
+      ],
+      "file": "cli/cmd/stet/main.go",
+      "id": "fb2be59292a8cd4c705bed55bc4036e699281bf4efc91fd0a45a66fe3f29544d",
+      "line": 1071,
+      "message": "RulesAnnotateBaseURL is set to so.BaseURL, but RulesSelectorBaseURL and SystemOneBaseURL already use so.BaseURL \u2014 this may cause unintended reuse of the same base URL for annotation rules, potentially bypassing intended separation of concerns or misrouting requests.",
+      "severity": "error",
+      "suggestion": "Verify that so.BaseURL is appropriate for RulesAnnotateBaseURL. If annotation rules require a distinct base URL, use a dedicated field (e.g., so.AnnotateBaseURL) instead of reusing so.BaseURL."
+    },
+    {
+      "category": "testing",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1x0brbst/cli/cmd/stet/main_test.go#L3072",
+      "evidence_lines": [
+        3072
+      ],
+      "file": "cli/cmd/stet/main_test.go",
+      "id": "bfe0fc69d9585f0b89ec9f0b4c660507d2ae97a15e8e7b26a6f9bf32ae8ed685",
+      "line": 3072,
+      "message": "The test case 'nil client when critic disabled' now checks that AnnotateClient is nil when rules_annotate is off, which improves test coverage for the annotate client behavior.",
+      "severity": "info",
+      "suggestion": "No action needed; this is a valid and helpful test assertion."
+    },
+    {
+      "category": "best_practice",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1x0brbst/cli/cmd/stet/main_test.go#L3132",
+      "evidence_lines": [
+        3132,
+        3170
+      ],
+      "file": "cli/cmd/stet/main_test.go",
+      "id": "ba32e11408dfb204cb8e707d84a9b1263e18baa39de20ae54d3b8e40a50c552d",
+      "line": 3132,
+      "message": "The test case 'annotate client built when rules_annotate on and not dry-run' does not check o.AnnotateClient against o.Client or o.SelectorClient when all three are enabled, missing verification of shared client behavior.",
+      "severity": "info",
+      "suggestion": "Add a check to verify that when critic, selector, and annotator are all enabled, they share the same client instance (like the 'one shared client across critic, selector, and annotator' test does)."
+    },
+    {
+      "category": "best_practice",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1x0brbst/cli/internal/config/config.go#L115",
+      "evidence_lines": [
+        110,
+        112
+      ],
+      "file": "cli/internal/config/config.go",
+      "id": "0b9cd6b3e519ff05b4ae64fab0203e97afc94e82f4c26c4ada5381ecd9122b82",
+      "line": 115,
+      "message": "The comment for RulesAnnotate mentions 'env-only SystemOneAPIKey' but does not clarify whether the API key is required for annotation to function or if the feature gracefully degrades without it.",
+      "severity": "info",
+      "suggestion": "Clarify whether annotation requires a valid API key or if it silently skips annotation when the key is missing, to avoid user confusion."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1x0brbst/cli/internal/config/config.go#L943",
+      "evidence_lines": [
+        941,
+        942,
+        943,
+        944,
+        945,
+        946,
+        947
+      ],
+      "file": "cli/internal/config/config.go",
+      "id": "a673e668c02dc1901988fdfc2af2c34c9253afc4ce7f8a1ee228a76e973ce99e",
+      "line": 943,
+      "message": "Missing check for empty value before parsing boolean: envRulesAnnotate should only be processed when v != \"\", but the condition `v != \"\"` is missing in the added code block.",
+      "severity": "error",
+      "suggestion": "Add `&& v != \"\"` to the condition to match the pattern used elsewhere in the function (e.g., envRulesSelector)."
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1x0brbst/cli/internal/config/config_test.go#L1612",
+      "evidence_lines": [
+        1612
+      ],
+      "file": "cli/internal/config/config_test.go",
+      "id": "8b2ebc81b020956f86c5d98334c4b0cc1bc36606cd7b63c281089f3e0a12ddfc",
+      "line": 1612,
+      "message": "TestLoad_rulesAnnotateFromTOML writes config.toml with 'rules_annotate = true', but then checks if cfg.RulesAnnotate is false when it should be true.",
+      "severity": "error",
+      "suggestion": "Change the error message to reflect the correct expectation: `t.Errorf(\"RulesAnnotate = false, want true from TOML\")` should be `t.Errorf(\"RulesAnnotate = false, want true from TOML\")` \u2014 but the logic is correct; the issue is likely a copy-paste typo in the error message. However, the actual check `if !cfg.RulesAnnotate` is correct for expecting true. No bug here \u2014 the test logic is sound."
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1x0brbst/cli/internal/config/config_test.go#L1622",
+      "evidence_lines": [
+        1618,
+        1620,
+        1621,
+        1622
+      ],
+      "file": "cli/internal/config/config_test.go",
+      "id": "28a1303c063735cebda872e0f85e8597bcfd574a995550dce0046cf053ea72e6",
+      "line": 1622,
+      "message": "TestLoad_rulesAnnotateFromTOML: The second Load call uses the same config.toml content as the first (still 'rules_annotate = true') because strings.ReplaceAll only creates a local variable `explicitOff` but does not write it to disk before the second Load.",
+      "severity": "error",
+      "suggestion": "Move the `os.WriteFile` call inside the block before the second Load, or ensure the file is updated with `explicitOff` before calling Load again."
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1x0brbst/cli/internal/config/config_test.go#L1647",
+      "evidence_lines": [
+        1643,
+        1644,
+        1645,
+        1646,
+        1647
+      ],
+      "file": "cli/internal/config/config_test.go",
+      "id": "588caf97ff9c75e81acb82af49e3fdbb598747b9f210749e9d88cfeda7dba489",
+      "line": 1647,
+      "message": "TestLoad_rulesAnnotateFromEnv: The test writes config.toml with 'rules_annotate = false', but the comment says 'File sets false; env true must win (env > repo config)' \u2014 yet no test case uses env='true' in this block. The test only checks env values like '1', 'true', etc., but the file is set to false, so env=true should override. However, the test does not include a case where env='true' or '1' to verify override behavior \u2014 only checks that env values parse correctly, not override precedence.",
+      "severity": "error",
+      "suggestion": "Add a test case where env='true' and verify it overrides the file's 'false' value, or clarify the test's intent."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1x0brbst/cli/internal/config/config_test.go#L1670",
+      "evidence_lines": [
+        1670,
+        1671,
+        1672,
+        1673,
+        1674,
+        1675
+      ],
+      "file": "cli/internal/config/config_test.go",
+      "id": "4e8bbf737f258cac65d8cf407f69fd5fea76de45026e4387457a52af9a78d9f7",
+      "line": 1670,
+      "message": "TestLoad_rulesAnnotateInvalidEnv: The test does not verify that the error message contains 'invalid' or 'parse' \u2014 only that it contains 'STET_RULES_ANNOTATE'. This may pass even if the error is generic (e.g., 'failed to load config'), reducing diagnostic value.",
+      "severity": "error",
+      "suggestion": "Add a more specific assertion, e.g., `if !strings.Contains(err.Error(), \"invalid\") && !strings.Contains(err.Error(), \"parse\")`, or document expected error format."
+    },
+    {
+      "category": "security",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1x0brbst/cli/internal/run/run.go#L287",
+      "evidence_lines": [
+        287
+      ],
+      "file": "cli/internal/run/run.go",
+      "id": "bd8f274500becf170ad6b34fa96c22f1630dfffe4ff80f999b442e51228088a0",
+      "line": 287,
+      "message": "The hunk content (hunk.RawContent) is passed directly to review.AnnotateRuleConflicts without size validation or sanitization. Since hunk content is attacker-influenced input, passing large or malicious content could lead to resource exhaustion or prompt injection.",
+      "severity": "warning",
+      "suggestion": "Add a size check (e.g., len(hunk.RawContent) > maxHunkSize) before calling review.AnnotateRuleConflicts to prevent oversized or malicious hunk content from being processed."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1x0brbst/cli/internal/run/run.go#L507",
+      "file": "cli/internal/run/run.go",
+      "id": "49463dbc772178bbcac86a6f5efa76f1974a1932c45405f392b6f5c63828cc0a",
+      "line": 507,
+      "message": "The code calls annotateRuleConflictsForBatch with 'kept' as the batch parameter, but the function may return a different slice length than 'kept'. Subsequent code uses 'batch' (the annotated result) for SetCursorURIs and iteration, which is correct, but the original 'kept' slice is no longer used after this line. Ensure that annotateRuleConflictsForBatch correctly handles the 'kept' slice and returns a valid slice of findings.",
+      "severity": "error",
+      "suggestion": "Verify that annotateRuleConflictsForBatch returns a slice of findings that is safe to use for SetCursorURIs and iteration. The function should handle edge cases like empty input, nil input, or modifications to the slice length correctly."
+    },
+    {
+      "category": "design",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1x0brbst/cli/internal/run/run.go#L971-982",
+      "evidence_lines": [
+        971,
+        983
+      ],
+      "file": "cli/internal/run/run.go",
+      "id": "68602a42db2e232d36d6e23ca175a284bf378e6cd6bf859c5d47cbf4b14a1039",
+      "line": 971,
+      "message": "The added fields `RulesAnnotateClient`, `RulesAnnotateBaseURL`, and `RulesAnnotateModel` in `StartOptions` are not marked as persisted (unlike `PersistStrictness` and `PersistRAGSymbolMaxDefinitions`). If these options are intended to be configurable via `stet start` and reused in `stet run` (like the others), they should be added to the session persistence mechanism to avoid requiring re-specification on every run.",
+      "range": {
+        "end": 982,
+        "start": 971
+      },
+      "severity": "info",
+      "suggestion": "Add these fields to the session struct and persistence logic if they are meant to be long-lived configuration, or clarify in comments that they are one-shot only."
+    },
+    {
+      "category": "security",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1x0brbst/cli/internal/run/run.go#L1073",
+      "evidence_lines": [
+        1073
+      ],
+      "file": "cli/internal/run/run.go",
+      "id": "a7afb627251cf7befd35021cb6d2b5d6889fbaca7d7d9e4817624c46d25366ec",
+      "line": 1073,
+      "message": "RulesAnnotateBaseURL is used only in fail-open warning but not validated for URL safety (e.g., no validation of scheme or host), risking potential misuse or injection in logs/warnings.",
+      "severity": "warning",
+      "suggestion": "Validate RulesAnnotateBaseURL for valid URL format (e.g., using net/url.Parse) before use, especially if it may originate from user input or config files."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1x0brbst/cli/internal/run/run.go#L1435",
+      "evidence_lines": [
+        1435,
+        1436,
+        1437
+      ],
+      "file": "cli/internal/run/run.go",
+      "id": "1b1df47d0d14174a82dd64cd40587e986a41dc19882083791f9fcb237513b07d",
+      "line": 1435,
+      "message": "The fields RulesAnnotateClient, RulesAnnotateBaseURL, and RulesAnnotateModel are being passed to reviewPipelineOpts, but there is no validation that RulesAnnotateClient is non-nil when RulesAnnotateBaseURL or RulesAnnotateModel are set. This may cause a nil pointer dereference if the client is used without being initialized.",
+      "severity": "error",
+      "suggestion": "Add a check to ensure RulesAnnotateClient is initialized when RulesAnnotateBaseURL or RulesAnnotateModel are provided, or ensure the downstream code handles nil clients gracefully."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1x0brbst/cli/internal/run/run.go#L1870",
+      "evidence_lines": [
+        1870,
+        1871,
+        1872
+      ],
+      "file": "cli/internal/run/run.go",
+      "id": "f59c82e26b703c2ee86d39cdc66836396e391f1641baa6021dcc01ce32a8fb09",
+      "line": 1870,
+      "message": "Missing validation for RulesAnnotateClient: if RulesAnnotateClient is non-nil but RulesAnnotateBaseURL or RulesAnnotateModel are empty, the client may be misconfigured or cause unexpected behavior.",
+      "severity": "error",
+      "suggestion": "Add validation to ensure that if RulesAnnotateClient is provided, both RulesAnnotateBaseURL and RulesAnnotateModel are non-empty, or ensure the downstream code handles this case safely."
+    }
+  ]
+}

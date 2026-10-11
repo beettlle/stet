@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-pig7_qjm/app/reporting/stats.py#L17",
+      "evidence_lines": [
+        17
+      ],
+      "file": "app/reporting/stats.py",
+      "id": "07c17f1277e809e1cd648c39118e03d8aeb6c88c91c002e4a8c7bfccb0662ee7",
+      "line": 17,
+      "message": "Integer division (//) truncates the result to an integer, causing loss of precision in percentage calculation. For example, 1 completed out of 3 total tasks would return 0% instead of ~33.33%. Use float division (/) instead.",
+      "severity": "error",
+      "suggestion": "Change `completed // total * 100` back to `completed / total * 100` to preserve decimal precision in percentage calculations."
+    }
+  ]
+}

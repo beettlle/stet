@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-pd_eyi0s/internal/userstore/store.go#L46",
+      "evidence_lines": [
+        46
+      ],
+      "file": "internal/userstore/store.go",
+      "id": "76c28e6c40cd9637451352ab3f1d330dd325d97690fef54a2add03d799ffd731",
+      "line": 46,
+      "message": "Dereferencing potentially nil pointer 'u' without checking error from FindByEmail; this will cause a panic if the user is not found.",
+      "severity": "error",
+      "suggestion": "Restore error handling to check if u is nil before accessing u.Name, or return an error when the user is not found."
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "category": "security",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-tqnm3p2l/internal/catalog/search.go#L33",
+      "evidence_lines": [
+        33
+      ],
+      "file": "internal/catalog/search.go",
+      "id": "d3bd66f2183c918e8fa23eecac0cfcbcf352becf1272c4b78596a49518bab393",
+      "line": 33,
+      "message": "SQL injection vulnerability: user input `term` is directly concatenated into the SQL query string instead of using parameterized queries.",
+      "severity": "error",
+      "suggestion": "Use parameterized queries with placeholders (e.g., `WHERE title = $1`) and pass `term` as an argument to `db.Query` to prevent SQL injection."
+    }
+  ]
+}

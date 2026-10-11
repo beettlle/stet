@@ -1,0 +1,19 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-rewquvs7/src/invoice/pricing.ts#L24",
+      "evidence_lines": [
+        25,
+        26
+      ],
+      "file": "src/invoice/pricing.ts",
+      "id": "571df571ad7eff87596b1f808ec993649b964b05971384c6a546e190907b5c53",
+      "line": 24,
+      "message": "The discount logic uses cents for comparison but divides by 100 only at display time, which is correct. However, the threshold comparisons (e.g., > 100_000) are now applied to totalCents (in cents), which is correct \u2014 but the original code likely used dollars (t), and the thresholds were likely meant for dollars. If the original calcTotal returned dollars, then the thresholds should be adjusted: 100_000 cents = $1,000, not $100,000. This mismatch could cause incorrect discount application.",
+      "severity": "error",
+      "suggestion": "Verify whether the thresholds (100_000, 500_000, etc.) are intended to be in cents or dollars. If they are meant to be dollar amounts, convert them to cents (e.g., 1000 \u2192 100_000 cents) or change thresholds to match cents (e.g., 100_000 cents = $1,000)."
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ncfnse9r/internal/thumb/client.go#L43",
+      "evidence_lines": [
+        43
+      ],
+      "file": "internal/thumb/client.go",
+      "id": "7140f5c811c6e83416eaac81680cef40e347373df06d3e65541d25313a7cdc2b",
+      "line": 43,
+      "message": "Missing error check before closing resp.Body; resp.Body.Close() may panic if resp is nil or resp.Body is nil.",
+      "severity": "error",
+      "suggestion": "Add a nil check for resp and resp.Body before calling resp.Body.Close(), e.g., `if resp != nil && resp.Body != nil { resp.Body.Close() }`."
+    }
+  ]
+}

@@ -74,6 +74,7 @@
 | Date | Finding | Impact |
 |------|---------|--------|
 | 2026-10-10 | During the W0 batch, `qwen/qwen3-coder-next` failed every chat request: load-time MTP speculative decoding (LM Studio default, not shown in the Inference tab) errors with "not supported for batched MLX models" at parallel 3 and "requires a trimmable prompt cache (got ArraysCache)" after a reload. Saved presets also differed: 27b had Top P 0.8, Min P 0.5 on, no Top K | PROMPT amended pre-run: `--no-speculative-draft-mtp` on every load, exact preset values in the operator checklist, Step 0 preset parity check and smoke request per model |
+| 2026-10-11 | Batch `20261011T174423-6acb` (aborted): coder-next `go-map-race` run 2 lost its finding to an `evidence_lines` counting loop (806 s, 0 findings); 27b with thinking on spent whole 8191-token responses on reasoning (1713 s for one case) | stet fixes `ea2124f` and `14fce09`, harness pins 65536/4096 (`b0d43f8`), 27b thinking off; pre-fix data in `docs/research/model-eval/baseline-pre-fix/` (see PROMPT Amendments) |
 
 ## Execution Log
 
@@ -81,6 +82,7 @@
 |------|-------|--------|
 | 2026-10-10 | Authored | Phase 7 model benchmark; real ref `e9b2e61` replaces the test-only `3248a08` from the draft plan |
 | 2026-10-10 | Amended pre-run | MTP off on all loads, preset parity check, per-model smoke request, reasoning-model note (see PROMPT Amendments) |
+| 2026-10-11 | Aborted and amended | Batch `20261011T174423-6acb` aborted during the 27b pass; stet fixes for #2/#3, 64k context and 4096 cap, 27b thinking off; re-run from scratch (see PROMPT Amendments) |
 
 ## Blockers
 

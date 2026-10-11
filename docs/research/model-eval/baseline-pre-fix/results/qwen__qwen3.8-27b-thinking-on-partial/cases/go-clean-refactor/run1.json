@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-v88w78on/internal/units/parse.go#L37",
+      "file": "internal/units/parse.go",
+      "id": "57d6b6e4e0153b3b9b017bd0eb244a1b4401258e21b27b8996d6b86205143bd3",
+      "line": 37,
+      "message": "The function `splitNumberUnit` returns `hasUnit` as `true` whenever it encounters a non-numeric character, even if the resulting unit suffix is empty (e.g., for input \"123.\"). This can cause `ParseByteSize` to incorrectly treat a trailing dot as a valid unit, leading to a \"unknown unit\" error instead of parsing the number correctly.",
+      "severity": "warning",
+      "suggestion": "Check if the trimmed unit is empty before returning `true`. If it is empty, return `s, \"\", false`."
+    }
+  ]
+}

@@ -1,0 +1,137 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-yudpascb/cli/cmd/stet/main.go#L392",
+      "evidence_lines": [
+        392
+      ],
+      "file": "cli/cmd/stet/main.go",
+      "id": "eeabe749d47dd769787fcd0b5fe9d78434ff849cb8f401601b5429d2863c9646",
+      "line": 392,
+      "message": "The call to systemOneRunOptions now takes dryRun as an argument, but the code does not check if the returned client is nil before using it in opts.SystemOneClient and opts.RulesSelectorClient. If dryRun is true and the function returns a nil client, this could cause a panic or unexpected behavior.",
+      "severity": "error",
+      "suggestion": "Add a nil check for so.Client and so.SelectorClient after calling systemOneRunOptions and handle the dry-run case appropriately, e.g., by setting the client fields to nil or skipping initialization."
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-yudpascb/cli/cmd/stet/main.go#L424-430",
+      "evidence_lines": [
+        424,
+        428
+      ],
+      "file": "cli/cmd/stet/main.go",
+      "id": "ff5187e12dfd9385bd3519a6761802ef1d123f72be90816acaa86358710a14fb",
+      "line": 428,
+      "message": "RulesSelectorBaseURL is incorrectly assigned the same value as SystemOneBaseURL (so.BaseURL), but should likely use the rules selector's own base URL if different.",
+      "range": {
+        "end": 430,
+        "start": 424
+      },
+      "severity": "error",
+      "suggestion": "Verify if RulesSelectorBaseURL should use a separate base URL (e.g., from a different config field or flag). If not, remove the field or clarify intent. Otherwise, replace so.BaseURL with the correct selector-specific base URL."
+    },
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-yudpascb/cli/cmd/stet/main.go#L705",
+      "evidence_lines": [
+        705
+      ],
+      "file": "cli/cmd/stet/main.go",
+      "id": "ad29ddf59c73d118b2b328ecf90d5749e0cc0e95545385654a014d90b8ae04b3",
+      "line": 705,
+      "message": "SelectorClient is assigned a SystemOneDecider interface value, but SelectorClient expects a ChoiceDecider interface. The code assumes *systemone.Client implements ChoiceDecider, but the interfaces are different (Decide vs DecideChoice methods) and this compatibility is not verified.",
+      "severity": "error",
+      "suggestion": "Verify that *systemone.Client implements the ChoiceDecider interface, or add an explicit type assertion to catch incompatibility at compile time: `o.SelectorClient = client.(rules.ChoiceDecider)`"
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-yudpascb/cli/cmd/stet/main.go#L818",
+      "evidence_lines": [
+        818,
+        819,
+        820
+      ],
+      "file": "cli/cmd/stet/main.go",
+      "id": "7a74363bd8a987ed60f93c87be6afc42e6aae8a2be6a8012d0b2c08fd1792e51",
+      "line": 818,
+      "message": "The code assigns `so.SelectorClient` to `RulesSelectorClient` but does not assign `so.SelectorBaseURL` or `so.SelectorModel` to `RulesSelectorBaseURL` and `RulesSelectorModel`. Instead, it incorrectly reuses `so.BaseURL` and `so.Model` for the rules selector, which may lead to incorrect API calls if the rules selector requires distinct endpoint/model configuration.",
+      "severity": "error",
+      "suggestion": "Use `so.SelectorBaseURL` and `so.SelectorModel` for `RulesSelectorBaseURL` and `RulesSelectorModel` respectively, to match the pattern used for other System One fields."
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-yudpascb/cli/cmd/stet/main.go#L851",
+      "evidence_lines": [
+        851
+      ],
+      "file": "cli/cmd/stet/main.go",
+      "id": "9f69d4df3d041b31c3898c9300d48a65932c0d580766598d5ecfa31898a61693",
+      "line": 851,
+      "message": "RulesSelectorBaseURL is incorrectly assigned so.BaseURL instead of a dedicated selector base URL.",
+      "severity": "error",
+      "suggestion": "Use a dedicated field or variable for the selector base URL (e.g., so.SelectorBaseURL) if available, or clarify why it's safe to reuse so.BaseURL."
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-yudpascb/cli/cmd/stet/main.go#L1014",
+      "evidence_lines": [
+        1014
+      ],
+      "file": "cli/cmd/stet/main.go",
+      "id": "613538742bea6ab0a8d658a5ad65a07d04dd582e299df88f60a06578f823cc2d",
+      "line": 1014,
+      "message": "The code uses `so.SelectorClient` and `so.SelectorModel` but the function signature of `systemOneRunOptions` only returns `Client`, `BaseURL`, `Model`, `MinKeep`, and `Samples`. This mismatch will cause a compile-time error.",
+      "severity": "error",
+      "suggestion": "Update the return type of `systemOneRunOptions` to include `SelectorClient` and `SelectorModel`, or correct the field assignments in `RunOptions` to match the actual return values."
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-yudpascb/cli/cmd/stet/main.go#L1043",
+      "evidence_lines": [
+        1043
+      ],
+      "file": "cli/cmd/stet/main.go",
+      "id": "7b2c24de69c1dc4bcf5af8e00e483f2d2f92eaf22772131dda10b0576d8ad40f",
+      "line": 1043,
+      "message": "RulesSelectorBaseURL is assigned the same value as SystemOneBaseURL (so.BaseURL), but it should likely use a separate base URL for the rules selector service if it differs.",
+      "severity": "error",
+      "suggestion": "Verify whether RulesSelectorBaseURL should use a distinct base URL (e.g., cfg.RulesSelectorBaseURL or a dedicated flag). If it must be the same, add a comment clarifying the intent."
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-yudpascb/cli/cmd/stet/main_test.go#L3094",
+      "evidence_lines": [
+        3094
+      ],
+      "file": "cli/cmd/stet/main_test.go",
+      "id": "85f98344906ad9c0ef58ba6abbe64bebc971d96574b2e580bd432b5d04d31b80",
+      "line": 3094,
+      "message": "Test case 'selector client built when rules_selector on and not dry-run' does not set CriticEnabled, but checks o.Client != nil expecting it to be nil. This contradicts the test's intent and may indicate incorrect test setup or logic.",
+      "severity": "error",
+      "suggestion": "Set CriticEnabled: false explicitly in the config for this test case to ensure correct behavior."
+    },
+    {
+      "category": "documentation",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-yudpascb/docs/cli-extension-contract.md#L146",
+      "evidence_lines": [
+        146
+      ],
+      "file": "docs/cli-extension-contract.md",
+      "id": "a65bafe18d1fb0090133714d230f2b7210ce255b107b533a0d8380d3fcce7549",
+      "line": 146,
+      "message": "The line 'The same key authenticates the **rule-section selector** when `rules_selector = true`...' repeats information already present in the previous line's entry for `rules_selector`. This duplication reduces maintainability and risks inconsistency if one copy is updated without updating the other.",
+      "severity": "info",
+      "suggestion": "Remove the duplicated description of the API key usage for the selector from the second paragraph, or restructure to avoid redundancy (e.g., reference the earlier bullet point)."
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-9vuw3f92/src/invoice/pricing.ts#L24",
+      "evidence_lines": [
+        25
+      ],
+      "file": "src/invoice/pricing.ts",
+      "id": "8c743757734db18e4512de29fef285235463f055c1794b3d5703ccc7709aeb56",
+      "line": 24,
+      "message": "The discount logic uses cents for comparison but divides by 100 only after rounding, which may cause incorrect discount application for values like 100,001 cents ($1000.01). The threshold should be in cents (100,000 cents = $1,000), but the comparison uses 100,000 directly as if it were dollars.",
+      "severity": "error",
+      "suggestion": "Ensure thresholds are in cents: 100,000 cents = $1,000, 50,000 cents = $500, etc. If the thresholds are intended to be in dollars, convert them to cents (e.g., 1000 * 100 = 100,000). Otherwise, clarify the unit semantics in comments or rename thresholds."
+    }
+  ]
+}

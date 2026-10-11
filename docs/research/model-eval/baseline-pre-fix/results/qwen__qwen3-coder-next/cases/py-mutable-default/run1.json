@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-amoq1hof/app/cart.py#L17",
+      "file": "app/cart.py",
+      "id": "2cc223831c8a72faef4c2dd6a84678fa4466277248a1e4ede5b49eaca93954b0",
+      "line": 17,
+      "message": "Default mutable argument 'items' is a list literal [], which causes shared state across function calls. This is a classic Python pitfall where the same list is reused across calls, leading to unexpected behavior.",
+      "severity": "error",
+      "suggestion": "Use None as the default value and initialize a new list inside the function body, e.g., `items: list[Item] | None = None` and `if items is None: items = []`."
+    }
+  ]
+}

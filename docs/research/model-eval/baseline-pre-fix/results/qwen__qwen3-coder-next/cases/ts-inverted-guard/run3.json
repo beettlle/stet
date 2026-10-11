@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-knvcxr2t/src/middleware/requireAdmin.ts#L32",
+      "evidence_lines": [
+        32
+      ],
+      "file": "src/middleware/requireAdmin.ts",
+      "id": "156ae8544e9df6959aafa42a6dec0822b7dd12ace290e32a9a8d8afb5afb3c51",
+      "line": 32,
+      "message": "The condition `if (user.isAdmin)` should be `if (!user.isAdmin)` to deny non-admin users; currently it denies admin users instead of allowing them.",
+      "severity": "error",
+      "suggestion": "Change `if (user.isAdmin)` back to `if (!user.isAdmin)` to restore correct admin access control."
+    }
+  ]
+}

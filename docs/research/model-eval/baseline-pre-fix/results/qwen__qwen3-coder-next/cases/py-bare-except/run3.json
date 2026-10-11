@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-itdtjm4i/app/billing.py#L35",
+      "file": "app/billing.py",
+      "id": "15a77ba535ec9ca66fba24df68acff0b8217fea453151d5fefe51e4c62a3347e",
+      "line": 35,
+      "message": "Catching all exceptions with bare `except:` and silently ignoring them hides critical errors (e.g., `KeyboardInterrupt`, `SystemExit`, programming errors), making debugging impossible and risking silent failures.",
+      "severity": "error",
+      "suggestion": "Re-raise the exception or log it before raising a more specific error; at minimum, avoid bare `except:` clauses."
+    },
+    {
+      "category": "best_practice",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-itdtjm4i/app/billing.py#L51",
+      "file": "app/billing.py",
+      "id": "0f03fb3eb8e0a7eb482797060cf46509c2593f88b524d19f6d80cf5c0d516bf9",
+      "line": 51,
+      "message": "Log message format changed from 'cents' to 'c' abbreviation; ensure this is intentional and consistent with other log formats to avoid ambiguity.",
+      "severity": "info",
+      "suggestion": "If 'c' is not a standard abbreviation in logs, consider using 'cents' or a clearer unit like 'USD cents' to avoid misinterpretation."
+    }
+  ]
+}

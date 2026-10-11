@@ -1,0 +1,58 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-4pmmfo2q/internal/units/parse.go#L41-41",
+      "evidence_lines": [
+        41
+      ],
+      "file": "internal/units/parse.go",
+      "id": "06d6858b5f134af5c528ac61bfd3d72ac799add5f2a21d840e7338cdf9202748",
+      "line": 41,
+      "message": "The function `splitNumberUnit` does not handle negative numbers correctly. A leading '-' character would be treated as a unit, causing incorrect parsing.",
+      "range": {
+        "end": 41,
+        "start": 41
+      },
+      "severity": "error",
+      "suggestion": "Prepend a check for a leading '-' sign before the loop to allow negative numbers, e.g., `if len(s) > 0 && s[0] == '-' { i := 1; ... }` or adjust the condition to allow '-' at position 0."
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-4pmmfo2q/internal/units/parse.go#L42-42",
+      "evidence_lines": [
+        42
+      ],
+      "file": "internal/units/parse.go",
+      "id": "281516e9ca18d70b0ac4e7acb9aefec8971f02e01610434cbcbf39a121c91c5c",
+      "line": 42,
+      "message": "The function `splitNumberUnit` does not handle scientific notation (e.g., '1e9') or other valid numeric formats like '1.2e3'. This may cause incorrect splitting for such inputs.",
+      "range": {
+        "end": 42,
+        "start": 42
+      },
+      "severity": "error",
+      "suggestion": "Extend the condition to allow 'e', 'E', '+', and handle decimal points more carefully (e.g., only one '.' allowed)."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-4pmmfo2q/internal/units/parse.go#L42-42",
+      "evidence_lines": [
+        42
+      ],
+      "file": "internal/units/parse.go",
+      "id": "4c6600abff98d946e89f923a429a68de4fe2b54f7cd57fae9e0813324cd95743",
+      "line": 42,
+      "message": "The function `splitNumberUnit` may return a unit string with leading whitespace if the input contains spaces between number and unit (e.g., '10 GB'), but `strings.TrimSpace` is only applied to the unit part, not the number part \u2014 ensure caller handles this consistently.",
+      "range": {
+        "end": 42,
+        "start": 42
+      },
+      "severity": "warning",
+      "suggestion": "Consider trimming the number part as well, or document that the input must be pre-trimmed and space-free."
+    }
+  ]
+}

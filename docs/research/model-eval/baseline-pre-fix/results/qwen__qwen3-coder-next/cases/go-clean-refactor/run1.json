@@ -1,0 +1,32 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-3umv24cq/internal/units/parse.go#L32-42",
+      "evidence_lines": [
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42
+      ],
+      "file": "internal/units/parse.go",
+      "id": "25d2c38bd54e3ed8aab1e1be94385e3dd40f3ac61f63a8d5170edeb8c2b9f1f0",
+      "line": 40,
+      "message": "The splitNumberUnit function incorrectly handles inputs with multiple decimal points (e.g., '1.2.3GB') by returning the entire string as the numeric part, which will cause downstream parsing errors.",
+      "range": {
+        "end": 42,
+        "start": 32
+      },
+      "severity": "error",
+      "suggestion": "Validate that the numeric part contains at most one decimal point before returning it."
+    }
+  ]
+}

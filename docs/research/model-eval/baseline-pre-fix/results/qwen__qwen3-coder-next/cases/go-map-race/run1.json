@@ -1,0 +1,18 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-a7791__z/internal/metrics/collector.go#L51",
+      "evidence_lines": [
+        44
+      ],
+      "file": "internal/metrics/collector.go",
+      "id": "284e9f5a305317590ad7aca68438a62e289f108198c2331619ae675857c8196f",
+      "line": 51,
+      "message": "Race condition: 'counts[p.Name]++' is not protected by the mutex, causing potential data races when multiple goroutines update the same probe name.",
+      "severity": "error",
+      "suggestion": "Move 'counts[p.Name]++' inside the critical section, i.e., after mu.Lock() and before mu.Unlock()."
+    }
+  ]
+}

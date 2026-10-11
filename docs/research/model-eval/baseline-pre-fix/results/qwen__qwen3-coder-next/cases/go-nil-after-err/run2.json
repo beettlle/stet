@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-aslgy5ha/internal/userstore/store.go#L46",
+      "file": "internal/userstore/store.go",
+      "id": "db6c6f65d4b2d340b7b1174bbb4b426407e4965f8634b42fe9d077d9abd206a5",
+      "line": 46,
+      "message": "Dereferencing potentially nil pointer 'u' after ignoring error from FindByEmail; if FindByEmail returns an error, 'u' will be nil and accessing u.Name will cause a panic.",
+      "severity": "error",
+      "suggestion": "Handle the error from FindByEmail before using the returned User pointer, or return an appropriate error to the caller."
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+Model: qwen/qwen3-coder-next
+Eval rate:        0.0 t/s (generation)
+---
+Tokens: 1050 in, 141 out | Total: 0.0s
+---
+Reference: 8B ~35-50 t/s, 30B ~15-25 t/s, 70B ~5-8 t/s (M1 Ultra)

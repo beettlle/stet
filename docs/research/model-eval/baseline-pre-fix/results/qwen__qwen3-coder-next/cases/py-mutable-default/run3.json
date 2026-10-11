@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-2_uqj36y/app/cart.py#L17",
+      "file": "app/cart.py",
+      "id": "763e007dfb64f91eda5569feb4ec9148402e4ada9d56681472e03e15f56219c7",
+      "line": 17,
+      "message": "Mutable default argument (empty list) will be shared across all calls, causing unexpected behavior where items accumulate across unrelated calls.",
+      "severity": "error",
+      "suggestion": "Use `items: list[Item] | None = None` as the default and initialize with `items = []` inside the function body, or use an immutable default like `None` and handle it explicitly."
+    }
+  ]
+}

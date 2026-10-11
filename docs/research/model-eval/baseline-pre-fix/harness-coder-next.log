@@ -1,0 +1,52 @@
+[1/45] qwen__qwen3-coder-next case go-clean-refactor run1 -> ok 1 findings 13.9s
+[2/45] qwen__qwen3-coder-next case go-map-race run1 -> ok 1 findings 10.4s
+[3/45] qwen__qwen3-coder-next case go-nil-after-err run1 -> ok 1 findings 8.0s
+[4/45] qwen__qwen3-coder-next case go-off-by-one run1 -> ok 2 findings 11.3s
+[5/45] qwen__qwen3-coder-next case go-resource-leak run1 -> ok 1 findings 14.5s
+[6/45] qwen__qwen3-coder-next case go-sql-concat run1 -> ok 1 findings 8.8s
+[7/45] qwen__qwen3-coder-next case go-swallowed-error run1 -> ok 1 findings 7.8s
+[8/45] qwen__qwen3-coder-next case py-bare-except run1 -> ok 2 findings 9.8s
+[9/45] qwen__qwen3-coder-next case py-int-division run1 -> ok 1 findings 7.7s
+[10/45] qwen__qwen3-coder-next case py-mutable-default run1 -> ok 1 findings 7.9s
+[11/45] qwen__qwen3-coder-next case ts-clean-rename run1 -> ok 1 findings 13.4s
+[12/45] qwen__qwen3-coder-next case ts-inverted-guard run1 -> ok 1 findings 8.0s
+[13/45] qwen__qwen3-coder-next case ts-missing-await run1 -> ok 1 findings 7.1s
+[14/45] qwen__qwen3-coder-next case ts-path-traversal run1 -> ok 2 findings 10.2s
+[15/45] qwen__qwen3-coder-next case go-clean-refactor run2 -> ok 1 findings 12.8s
+[16/45] qwen__qwen3-coder-next case go-map-race run2 -> ok 0 findings 806.4s
+[17/45] qwen__qwen3-coder-next case go-nil-after-err run2 -> ok 1 findings 24.2s
+[18/45] qwen__qwen3-coder-next case go-off-by-one run2 -> ok 2 findings 10.8s
+[19/45] qwen__qwen3-coder-next case go-resource-leak run2 -> ok 1 findings 15.1s
+[20/45] qwen__qwen3-coder-next case go-sql-concat run2 -> ok 1 findings 8.2s
+[21/45] qwen__qwen3-coder-next case go-swallowed-error run2 -> ok 1 findings 7.2s
+[22/45] qwen__qwen3-coder-next case py-bare-except run2 -> ok 2 findings 8.9s
+[23/45] qwen__qwen3-coder-next case py-int-division run2 -> ok 1 findings 7.0s
+[24/45] qwen__qwen3-coder-next case py-mutable-default run2 -> ok 1 findings 7.3s
+[25/45] qwen__qwen3-coder-next case ts-clean-rename run2 -> ok 1 findings 11.3s
+[26/45] qwen__qwen3-coder-next case ts-inverted-guard run2 -> ok 1 findings 7.2s
+[27/45] qwen__qwen3-coder-next case ts-missing-await run2 -> ok 1 findings 6.4s
+[28/45] qwen__qwen3-coder-next case ts-path-traversal run2 -> ok 2 findings 10.1s
+[29/45] qwen__qwen3-coder-next case go-clean-refactor run3 -> ok 3 findings 20.9s
+[30/45] qwen__qwen3-coder-next case go-map-race run3 -> ok 1 findings 9.6s
+[31/45] qwen__qwen3-coder-next case go-nil-after-err run3 -> ok 1 findings 7.7s
+[32/45] qwen__qwen3-coder-next case go-off-by-one run3 -> ok 2 findings 10.6s
+[33/45] qwen__qwen3-coder-next case go-resource-leak run3 -> ok 1 findings 13.3s
+[34/45] qwen__qwen3-coder-next case go-sql-concat run3 -> ok 1 findings 8.1s
+[35/45] qwen__qwen3-coder-next case go-swallowed-error run3 -> ok 1 findings 7.0s
+[36/45] qwen__qwen3-coder-next case py-bare-except run3 -> ok 2 findings 8.9s
+[37/45] qwen__qwen3-coder-next case py-int-division run3 -> ok 1 findings 7.2s
+[38/45] qwen__qwen3-coder-next case py-mutable-default run3 -> ok 1 findings 6.9s
+[39/45] qwen__qwen3-coder-next case ts-clean-rename run3 -> ok 1 findings 11.8s
+[40/45] qwen__qwen3-coder-next case ts-inverted-guard run3 -> ok 1 findings 7.1s
+[41/45] qwen__qwen3-coder-next case ts-missing-await run3 -> ok 1 findings 6.5s
+[42/45] qwen__qwen3-coder-next case ts-path-traversal run3 -> ok 2 findings 9.2s
+[43/45] qwen__qwen3-coder-next real 3ee3055f13cf00b5cb4e182f169829b78961743e run1 -> ok 20 findings 1194.9s
+[44/45] qwen__qwen3-coder-next real 2326c0487a36e9b306edbed7da91dda1b536d00b run1 -> ok 9 findings 308.6s
+model_eval: budget reached; remaining=1
+EXIT:3
+[45/45] qwen__qwen3-coder-next real e9b2e61f637cf165c630061c6d8f89c5e9f39404 run1 -> timeout 13 findings 1800.0s
+model_eval: done; remaining=0
+EXIT:0
+[45/45] qwen__qwen3-coder-next real e9b2e61f637cf165c630061c6d8f89c5e9f39404 run1 -> ok 14 findings 315.5s
+model_eval: done; remaining=0
+EXIT:0
