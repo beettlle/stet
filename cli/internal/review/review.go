@@ -36,6 +36,13 @@ type HunkUsage struct {
 	EvalDurationNs  int64 // Evaluation duration in nanoseconds (Ollama eval_duration).
 }
 
+// add accumulates one more request's usage into u.
+func (u *HunkUsage) add(r *ollama.GenerateResult) {
+	u.PromptEvalCount += r.PromptEvalCount
+	u.EvalCount += r.EvalCount
+	u.EvalDurationNs += r.EvalDuration
+}
+
 // effectiveRAGTokenCap returns the token cap for the RAG block this hunk.
 // When contextLimit <= 0, returns ragMaxTokens unchanged (no adaptive cap).
 // Otherwise: ragBudget = contextLimit - basePromptTokens - responseReserve;
@@ -296,41 +303,16 @@ func ProcessReviewResponse(ctx context.Context, result *ollama.GenerateResult, h
 	}
 	list, err := ParseFindingsResponse(result.Response, parseOpts...)
 	if err != nil {
+		budget := newHunkOutputBudget(generateOpts, result.EvalCount)
 		if result.DoneReason == "length" {
-			parts := []string{result.Response}
-			sumPrompt, sumEval, sumDur := result.PromptEvalCount, result.EvalCount, result.EvalDuration
-			for round := 0; round < maxContinuationRounds; round++ {
-				messages := []ollama.Message{
-					{Role: "system", Content: system},
-					{Role: "user", Content: user},
-					{Role: "assistant", Content: parts[len(parts)-1]},
-					{Role: "user", Content: "Continue."},
-				}
-				next, contErr := client.GenerateWithMessages(ctx, model, messages, generateOpts)
-				if contErr != nil {
-					break
-				}
-				parts = append(parts, next.Response)
-				sumPrompt += next.PromptEvalCount
-				sumEval += next.EvalCount
-				sumDur += next.EvalDuration
-				if traceOut != nil && traceOut.Enabled() {
-					traceOut.Section("LLM continuation")
-					traceOut.Printf("round=%d done_reason=%s prompt_eval_count=%d eval_count=%d\n", round+1, next.DoneReason, next.PromptEvalCount, next.EvalCount)
-					traceOut.Printf("%s\n", next.Response)
-				}
-				if next.DoneReason != "length" {
-					break
-				}
-			}
-			list, err = MergeFindingsFromParts(parts, parseOpts...)
-			if err == nil {
-				usage = &HunkUsage{PromptEvalCount: sumPrompt, EvalCount: sumEval, EvalDurationNs: sumDur}
-			}
+			list, err = recoverTruncatedResponse(ctx, client, model, system, user, result.Response, generateOpts, budget, usage, parseOpts, traceOut)
 		}
 		if err != nil {
+			if !budget.canFollowUp() {
+				return nil, nil, fmt.Errorf("review: parse failed and per-hunk output budget exhausted (%d of %d tokens): %w", budget.usedTokens, budget.totalTokens, err)
+			}
 			retryUser := user + jsonOnlyRetryInstruction
-			result2, retryErr := client.Generate(ctx, model, system, retryUser, generateOpts)
+			result2, retryErr := client.Generate(ctx, model, system, retryUser, budget.followUpOptions(generateOpts))
 			if retryErr != nil {
 				return nil, nil, fmt.Errorf("review: parse failed then retry generate failed: %w", retryErr)
 			}
@@ -343,7 +325,7 @@ func ProcessReviewResponse(ctx context.Context, result *ollama.GenerateResult, h
 				traceOut.Printf("model=%s prompt_eval_count=%d eval_count=%d eval_duration=%d\n", result2.Model, result2.PromptEvalCount, result2.EvalCount, result2.EvalDuration)
 				traceOut.Printf("%s\n", result2.Response)
 			}
-			usage = &HunkUsage{PromptEvalCount: result2.PromptEvalCount, EvalCount: result2.EvalCount, EvalDurationNs: result2.EvalDuration}
+			usage.add(result2)
 			list, err = ParseFindingsResponse(result2.Response, parseOpts...)
 			if err != nil {
 				return nil, nil, fmt.Errorf("review: parse failed (after retry): %w", err)
