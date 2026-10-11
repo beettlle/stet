@@ -1,0 +1,172 @@
+=== SP-039 Preflight 2026-10-11T20:30:41Z ===
+
+--- lms ls ---
+
+You have 4 models, taking up 61.32 GB of disk space.
+
+LLM                                  PARAMS    ARCH          SIZE         DEVICE    
+qwen/qwen3-coder-next (1 variant)    80B       qwen3_next    44.86 GB     Local     
+qwen/qwen3.8-27b (1 variant)         27B       qwen3_5       16.08 GB     Local     
+qwen2.5-0.5b-instruct-mlx            0.5B      Qwen2         293.99 MB    Local     
+
+EMBEDDING                               PARAMS    ARCH          SIZE        DEVICE    
+text-embedding-nomic-embed-text-v1.5              Nomic BERT    84.11 MB    Local     
+
+
+--- lms ps ---
+No models are currently loaded.
+
+To load a model, run:
+
+    lms load <model path>
+
+--- stet --version ---
+stet version dev
+
+--- python3 scripts/model_eval.py --help ---
+usage: model_eval.py [-h] {run,score,export-blind} ...
+
+Model comparison harness for stet
+
+positional arguments:
+  {run,score,export-blind}
+    run                 Run stet over fixture cases and real refs
+    score               Score recorded runs against fixture ground truth
+    export-blind        Export real findings to an anonymized TSV for blind
+                        triage
+
+options:
+  -h, --help            show this help message and exit
+
+--- git rev-parse HEAD ---
+9d1698725fb9ea3fda06abd50cf11785038d4e5d
+
+--- stet binary ---
+/Users/cdelgado/.local/bin/stet
+-rwxr-xr-x@ 1 cdelgado  staff  12629090 Oct 11 13:30 /Users/cdelgado/.local/bin/stet
+
+--- lms load estimate qwen/qwen3-coder-next -c 65536 ---
+
+Model: qwen/qwen3-coder-next
+Context Length: 65,536
+Estimated GPU Memory:   58.49 GiB
+Estimated Total Memory: 58.49 GiB
+Confidence: LOW
+
+Estimate: This model may be loaded based on your resource guardrails settings.
+estimate-exit=0
+
+--- lms load estimate qwen/qwen3.8-27b -c 65536 ---
+
+Model: qwen/qwen3.8-27b
+Context Length: 65,536
+Estimated GPU Memory:   20.97 GiB
+Estimated Total Memory: 20.97 GiB
+Confidence: LOW
+
+Estimate: This model may be loaded based on your resource guardrails settings.
+estimate-exit=0
+OK 3ee3055f13cf00b5cb4e182f169829b78961743e feat(SP-034): complete Step 1 — rules_annotate config key/env, shared annotation client in start/run/rerun
+OK 2326c0487a36e9b306edbed7da91dda1b536d00b feat(SP-033): complete Step 3 — single shared System One client, selector wiring in start/run/rerun, contract docs
+OK e9b2e61f637cf165c630061c6d8f89c5e9f39404 feat(SP-033): complete Step 2 — selector wiring in prompt prep and run pipeline with fail-open warning
+
+--- preset parity check ---
+preset parity OK
+parity-exit=0
+
+--- smoke request qwen/qwen3-coder-next (max_tokens 64) ---
+{
+  "id": "chatcmpl-6xuu15exxw7yca19ujvqa",
+  "object": "chat.completion",
+  "created": 1791750820,
+  "model": "qwen/qwen3-coder-next",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "OK",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 12,
+    "completion_tokens": 2,
+    "total_tokens": 14,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    }
+  },
+  "stats": {},
+  "system_fingerprint": "qwen/qwen3-coder-next"
+}
+HTTP 200
+
+--- smoke request qwen/qwen3.8-27b (max_tokens 512) ---
+{
+  "id": "chatcmpl-0unxjwh9k0xatxbuv489ls",
+  "object": "chat.completion",
+  "created": 1791750893,
+  "model": "qwen/qwen3.8-27b",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "OK",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 16,
+    "completion_tokens": 2,
+    "total_tokens": 18,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    }
+  },
+  "stats": {},
+  "system_fingerprint": "qwen/qwen3.8-27b"
+}
+HTTP 200
+
+--- reasoning probe qwen/qwen3.8-27b ---
+{
+  "id": "chatcmpl-4abdmuvqkjqc50st85p5hp",
+  "object": "chat.completion",
+  "created": 1791750903,
+  "model": "qwen/qwen3.8-27b",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "[]",
+        "reasoning_content": "",
+        "tool_calls": []
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 20,
+    "completion_tokens": 2,
+    "total_tokens": 22,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    }
+  },
+  "stats": {},
+  "system_fingerprint": "qwen/qwen3.8-27b"
+}
+probe verdict: PASS (reasoning_content empty, reasoning_tokens 0, no <think> in content, content '[]')
+smoke verdicts: both HTTP 200, finish_reason stop, no 'Channel Error'/'Speculative decoding' in bodies

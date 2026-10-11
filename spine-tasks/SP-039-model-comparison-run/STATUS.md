@@ -1,6 +1,6 @@
-**Current Step:** Not started
-**Status:** Ready
-**Last Updated:** 2026-10-10
+**Current Step:** Step 1 (Run qwen/qwen3-coder-next)
+**Status:** In progress
+**Last Updated:** 2026-10-11
 **Review Level:** 1
 **Review Counter:** 0
 **Iteration:** 0
@@ -10,12 +10,12 @@
 
 ## Step 0: Preflight
 
-**Status:** Not started
+**Status:** Complete (2026-10-11)
 
-- [ ] Tool versions, `lms` estimates, real-ref SHAs
-- [ ] Preset parity check (saved LM Studio presets for both models)
-- [ ] Smoke request per model (loaded with `--no-speculative-draft-mtp`)
-- [ ] Reasoning probe for `qwen/qwen3.8-27b`
+- [x] Tool versions, `lms` estimates, real-ref SHAs — both estimates fit (coder-next 58.49 GiB, 27b 20.97 GiB); 3 SHAs verified; stet rebuilt from HEAD 9d16987 (≥ b0d43f8) and installed to ~/.local/bin before preflight
+- [x] Preset parity check (saved LM Studio presets for both models) — "preset parity OK", exit 0
+- [x] Smoke request per model (loaded with `--no-speculative-draft-mtp`) — both HTTP 200, finish_reason stop
+- [x] Reasoning probe for `qwen/qwen3.8-27b` — PASS: reasoning_content empty, reasoning_tokens 0, no `<think>`, content `[]`
 
 ## Step 1: Run qwen/qwen3-coder-next
 
@@ -83,6 +83,7 @@
 | 2026-10-10 | Authored | Phase 7 model benchmark; real ref `e9b2e61` replaces the test-only `3248a08` from the draft plan |
 | 2026-10-10 | Amended pre-run | MTP off on all loads, preset parity check, per-model smoke request, reasoning-model note (see PROMPT Amendments) |
 | 2026-10-11 | Aborted and amended | Batch `20261011T174423-6acb` aborted during the 27b pass; stet fixes for #2/#3, 64k context and 4096 cap, 27b thinking off; re-run from scratch (see PROMPT Amendments) |
+| 2026-10-11 | Step 0 complete | Preflight all green (preset parity OK, both smoke requests 200/stop, reasoning probe PASS); stet binary rebuilt from HEAD and reinstalled; preflight in `docs/research/model-eval/preflight.txt` |
 
 ## Blockers
 
