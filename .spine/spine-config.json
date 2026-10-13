@@ -16,7 +16,7 @@
   "agents": {
     "worker": {
       "model": "zai/glm-5.3-flash",
-      "thinking": "high"
+      "thinking": "medium"
     },
     "reviewer": {
       "model": "google/gemini-3.1-pro-preview",
@@ -43,7 +43,7 @@
       "default": {
         "worker": {
           "model": "zai/glm-5.3-flash",
-          "thinking": "high"
+          "thinking": "medium"
         },
         "reviewer": {
           "model": "google/gemini-3.1-pro-preview",
@@ -95,7 +95,7 @@
       "allegretto": {
         "worker": {
           "model": "kimi-coding/k3",
-          "thinking": "high"
+          "thinking": "medium"
         },
         "reviewer": {
           "model": "google/gemini-3.1-pro-preview",
@@ -122,10 +122,11 @@
     "escalatePolicy": {
       "enabled": true,
       "toProfile": "hard"
-    }
+    },
+    "quotaFallbackProfile": "allegretto"
   },
   "lanes": {
-    "maxParallel": 3,
+    "maxParallel": 2,
     "queueExcess": true,
     "workerBackend": "subprocess",
     "workerOutputMaxBytes": 262144,
