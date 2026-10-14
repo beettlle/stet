@@ -1,7 +1,7 @@
 # VERSION is set at release time (e.g. VERSION=v1.0.0 make release).
-# Artifacts go to dist/ for upload to GitHub Releases; checksums.txt is optional for verification.
+# Artifacts go to dist/ for upload to GitHub Releases; install.sh and install.ps1 require checksums.txt.
 VERSION ?= dev
-LDFLAGS = -ldflags "-X stet/cli/internal/version.Version=$(VERSION)"
+LDFLAGS = -ldflags "-s -w -X stet/cli/internal/version.Version=$(VERSION)"
 
 # Tier-1 platforms for release: linux, darwin, windows × amd64, arm64.
 RELEASE_PLATFORMS = linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
@@ -22,17 +22,21 @@ build:
 # Build all release binaries into dist/ and generate checksums.txt.
 # The for-loop is a single shell recipe, so builds run sequentially even
 # under make -j.  This avoids races in the shared Go module/build cache.
+# CGO_ENABLED=0 keeps Linux binaries static when built on a Linux CI runner
+# (cgo is otherwise on for native builds and would link against glibc).
 # Run: VERSION=v1.0.0 make release
-# Then upload dist/* to a GitHub Release for that tag.
+# The release workflow (.github/workflows/release.yml) uploads dist/* on tag push.
 release:
-	mkdir -p dist
+	@case "$(VERSION)" in \
+		v[0-9]*.[0-9]*.[0-9]*) ;; \
+		*) echo "VERSION must be vX.Y.Z (got '$(VERSION)')" >&2; exit 1 ;; \
+	esac
+	rm -rf dist && mkdir -p dist
 	@for p in $(RELEASE_PLATFORMS); do \
-		GOOS=$${p%/*}; GOARCH=$${p#*/}; \
-		if [ "$$GOOS" = "windows" ]; then \
-			GOOS=$$GOOS GOARCH=$$GOARCH go build -buildvcs=false $(LDFLAGS) -o dist/stet-$$GOOS-$$GOARCH.exe ./cli/cmd/stet; \
-		else \
-			GOOS=$$GOOS GOARCH=$$GOARCH go build -buildvcs=false $(LDFLAGS) -o dist/stet-$$GOOS-$$GOARCH ./cli/cmd/stet; \
-		fi; \
+		GOOS=$${p%/*}; GOARCH=$${p#*/}; ext=""; \
+		if [ "$$GOOS" = "windows" ]; then ext=".exe"; fi; \
+		CGO_ENABLED=0 GOOS=$$GOOS GOARCH=$$GOARCH go build -trimpath -buildvcs=false $(LDFLAGS) \
+			-o dist/stet-$$GOOS-$$GOARCH$$ext ./cli/cmd/stet || exit 1; \
 	done
 	@(cd dist && (sha256sum stet-* 2>/dev/null || shasum -a 256 stet-*) > checksums.txt)
 

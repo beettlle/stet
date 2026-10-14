@@ -1,20 +1,33 @@
-# Install stet on Windows: download from GitHub Releases by architecture, or show fallback instructions.
+# Install stet on Windows: downloads the binary for this architecture from GitHub Releases and
+# verifies it against the release's checksums.txt.
 #
 # Usage (PowerShell; may require -ExecutionPolicy Bypass):
-#   irm https://raw.githubusercontent.com/OWNER/REPO/main/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/beettlle/stet/main/install.ps1 | iex
+#   Pinned version: $env:STET_RELEASE_TAG = "v1.0.0"; irm https://raw.githubusercontent.com/beettlle/stet/main/install.ps1 | iex
 #
-# Env: STET_REPO (e.g. owner/repo), STET_RELEASE_TAG (e.g. v1.0.0 or "latest"), STET_INSTALL_DIR
+# Env:
+#   STET_REPO               GitHub owner/repo (default beettlle/stet).
+#   STET_RELEASE_TAG        Release tag such as v1.0.0, or "latest" (default).
+#   STET_INSTALL_DIR        Install directory (default %USERPROFILE%\.local\bin).
+#   STET_DOWNLOAD_BASE_URL  Base URL of release assets; overrides STET_REPO/STET_RELEASE_TAG (mirrors, testing).
+#
+# Errors are raised with throw rather than exit: under "irm | iex", exit would close the user's shell.
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-$STET_REPO = if ($env:STET_REPO) { $env:STET_REPO } else { "stet/stet" }
+$STET_REPO = if ($env:STET_REPO) { $env:STET_REPO } else { "beettlle/stet" }
 $STET_RELEASE_TAG = if ($env:STET_RELEASE_TAG) { $env:STET_RELEASE_TAG } else { "latest" }
 $INSTALL_DIR = if ($env:STET_INSTALL_DIR) { $env:STET_INSTALL_DIR } else { Join-Path $env:USERPROFILE ".local\bin" }
 
-function Write-Err {
-    param([string]$Message)
-    Write-Host $Message -ForegroundColor Red
+# releases/latest/download redirects to the newest non-prerelease asset, so no GitHub API
+# call (and no unauthenticated rate limit) is needed to resolve "latest".
+$BASE_URL = if ($env:STET_DOWNLOAD_BASE_URL) {
+    $env:STET_DOWNLOAD_BASE_URL.TrimEnd('/')
+} elseif ($STET_RELEASE_TAG -eq 'latest') {
+    "https://github.com/$STET_REPO/releases/latest/download"
+} else {
+    "https://github.com/$STET_REPO/releases/download/$STET_RELEASE_TAG"
 }
 
 function Write-Success {
@@ -38,79 +51,66 @@ function Get-StetArch {
     }
 }
 
-# Resolve latest tag from GitHub API
-if ($STET_RELEASE_TAG -eq 'latest') {
-    try {
-        $api = "https://api.github.com/repos/$STET_REPO/releases/latest"
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        $r = Invoke-RestMethod -Uri $api -UseBasicParsing -ErrorAction Stop
-        if ($r.tag_name) { $STET_RELEASE_TAG = $r.tag_name }
-    } catch {
-        $STET_RELEASE_TAG = $null
-    }
-}
-
 $arch = Get-StetArch
 if (-not $arch) {
-    Write-Err "Unsupported architecture. Supported: amd64 (x64), arm64."
-    exit 1
+    throw "Unsupported architecture. Supported: amd64 (x64), arm64."
 }
 
 $BINARY_NAME = "stet-windows-$arch.exe"
-$DOWNLOAD_URL = "https://github.com/$STET_REPO/releases/download/$STET_RELEASE_TAG/$BINARY_NAME"
-
-if (-not $STET_RELEASE_TAG) {
-    Write-Err "Could not resolve latest release (no releases or API error)."
-    Write-Host "Install from source: install Go, then: go install github.com/$STET_REPO/cli/cmd/stet@latest"
-    Write-Host "Or clone the repo, run 'make release', and copy dist/$BINARY_NAME to a directory in your PATH."
-    exit 1
-}
+$SOURCE_HINT = "To build from source: clone https://github.com/$STET_REPO, run 'make release VERSION=vX.Y.Z', and copy dist\$BINARY_NAME to a directory in your PATH as stet.exe."
 
 New-Item -ItemType Directory -Force -Path $INSTALL_DIR | Out-Null
 $dest = Join-Path $INSTALL_DIR "stet.exe"
+# Staged in INSTALL_DIR so Move-Item is a same-volume rename.
 $tmpFile = Join-Path $INSTALL_DIR "stet.tmp.$PID.exe"
+$tmpSums = Join-Path $INSTALL_DIR "stet.checksums.$PID.txt"
+
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 try {
-    Write-Host "Downloading stet (release: $STET_RELEASE_TAG)..."
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    Invoke-WebRequest -Uri $DOWNLOAD_URL -OutFile $tmpFile -UseBasicParsing -ErrorAction Stop
-} catch {
-    Remove-Item -Force -ErrorAction SilentlyContinue $tmpFile
-    Write-Err "Download failed: $($_.Exception.Message)"
-    Write-Host "Install from source: install Go, then: go install github.com/$STET_REPO/cli/cmd/stet@latest"
-    Write-Host "Or clone the repo, run 'make release', and copy dist/$BINARY_NAME to a directory in your PATH."
-    exit 1
-}
-
-try {
+    Write-Host "Downloading $BINARY_NAME ($STET_RELEASE_TAG) from $BASE_URL"
+    try {
+        Invoke-WebRequest -Uri "$BASE_URL/$BINARY_NAME" -OutFile $tmpFile -UseBasicParsing
+    } catch {
+        throw "Download of $BASE_URL/$BINARY_NAME failed: $($_.Exception.Message)`n$SOURCE_HINT"
+    }
     if ((Get-Item $tmpFile).Length -le 0) {
-        Write-Err "Downloaded file is empty."
-        exit 1
+        throw "Downloaded $BINARY_NAME is empty."
     }
 
-    # Optional: verify checksum
-    $CHECKSUM_URL = "https://github.com/$STET_REPO/releases/download/$STET_RELEASE_TAG/checksums.txt"
+    # Saved to a file rather than read from .Content: Windows PowerShell 5.1 returns
+    # octet-stream release assets as byte[], not text.
     try {
-        $resp = Invoke-WebRequest -Uri $CHECKSUM_URL -UseBasicParsing -ErrorAction Stop
-        $lines = $resp.Content -split "`n"
-        $line = $lines | Where-Object { $_ -match "^\s*([0-9a-fA-F]+)\s+$([regex]::Escape($BINARY_NAME))" } | Select-Object -First 1
-        if ($line -match "^\s*([0-9a-fA-F]+)\s+") {
-            $expected = $Matches[1].ToLower()
-            $actual = (Get-FileHash -Path $tmpFile -Algorithm SHA256).Hash.ToLower()
-            if ($expected -ne $actual) {
-                Write-Host "Warning: Checksum verification failed; continuing anyway." -ForegroundColor Yellow
-            }
-        }
+        Invoke-WebRequest -Uri "$BASE_URL/checksums.txt" -OutFile $tmpSums -UseBasicParsing
     } catch {
-        # No checksums or network error; skip verification.
+        throw "Could not download $BASE_URL/checksums.txt; refusing to install an unverified binary. $($_.Exception.Message)"
+    }
+    $pattern = "^\s*([0-9a-fA-F]{64})\s+\*?$([regex]::Escape($BINARY_NAME))\s*$"
+    $line = Get-Content -Path $tmpSums | Where-Object { $_ -match $pattern } | Select-Object -First 1
+    if (-not $line) {
+        throw "checksums.txt has no entry for $BINARY_NAME."
+    }
+    $null = $line -match $pattern
+    $expected = $Matches[1].ToLower()
+    $actual = (Get-FileHash -Path $tmpFile -Algorithm SHA256).Hash.ToLower()
+    if ($expected -ne $actual) {
+        throw "Checksum mismatch for $BINARY_NAME (expected $expected, got $actual)."
     }
 
     Move-Item -Force -Path $tmpFile -Destination $dest
-    try { Unblock-File -Path $dest -ErrorAction SilentlyContinue } catch { }
+    Unblock-File -Path $dest -ErrorAction SilentlyContinue
 } finally {
-    Remove-Item -Force -ErrorAction SilentlyContinue $tmpFile
+    Remove-Item -Force -ErrorAction SilentlyContinue $tmpFile, $tmpSums
 }
 
-Write-Success "Installed stet to $INSTALL_DIR"
-Write-Success "You can run 'stet' from the terminal if $INSTALL_DIR is in your PATH."
-Write-Host "To add to PATH for this user: [Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path', 'User') + ';$INSTALL_DIR', 'User')"
+$versionOut = & $dest --version 2>&1
+if ($LASTEXITCODE -ne 0) {
+    throw "Installed $dest but it failed to run: $versionOut"
+}
+Write-Success "Installed $versionOut to $dest"
+
+$onPath = $env:Path -split ';' | Where-Object { $_ -and ($_.TrimEnd('\') -ieq $INSTALL_DIR.TrimEnd('\')) }
+if (-not $onPath) {
+    Write-Host "$INSTALL_DIR is not in your PATH. To add it for this user, run:"
+    Write-Host "  [Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path', 'User') + ';$INSTALL_DIR', 'User')"
+}

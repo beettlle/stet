@@ -3588,8 +3588,13 @@ func TestRunCLI_doctorSystemOneDisabledMakesNoRequest(t *testing.T) {
 	setTestEnv(t, "STET_MODEL", "m")
 	setTestEnv(t, "STET_SYSTEMONE_BASE_URL", sysSrv.URL)
 	setTestEnv(t, "STET_SYSTEMONE_MODEL", "openjev-test")
+	// Explicit "0" overrides any .review/config.toml found from the working
+	// directory (this repo's own config enables the systemone critic).
+	setTestEnv(t, "STET_CRITIC_ENABLED", "0")
+	setTestEnv(t, "STET_RULES_SELECTOR", "0")
+	setTestEnv(t, "STET_RULES_ANNOTATE", "0")
 
-	// Critic disabled (default): doctor must not contact the System One server.
+	// Critic disabled: doctor must not contact the System One server.
 	code, stdout, _ := runCLIWithOutput([]string{"doctor"})
 	if code != 0 {
 		t.Errorf("runCLI(doctor) with critic disabled = %d, want 0", code)
@@ -3614,6 +3619,14 @@ func TestRunCLI_doctorSystemOneDisabledMakesNoRequest(t *testing.T) {
 	if strings.Contains(stdout, "System One") {
 		t.Errorf("stdout must not mention System One when the critic backend is llm; got:\n%s", stdout)
 	}
+}
+
+// boolEnvOrOff returns v, or "0" when v is empty.
+func boolEnvOrOff(v string) string {
+	if v == "" {
+		return "0"
+	}
+	return v
 }
 
 // TestRunCLI_doctorSystemOneTriggerCombinations verifies checkSystemOne fires
@@ -3655,12 +3668,14 @@ func TestRunCLI_doctorSystemOneTriggerCombinations(t *testing.T) {
 			setTestEnv(t, "STET_SYSTEMONE_BASE_URL", sysSrv.URL)
 			setTestEnv(t, "STET_SYSTEMONE_MODEL", "openjev-test")
 			setTestEnv(t, "STET_SYSTEMONE_API_KEY", "doctor-test-key")
-			// Empty values are ignored by config parsing, so setting ""
-			// resets knobs left over from a previous case.
-			setTestEnv(t, "STET_CRITIC_ENABLED", tc.criticEnabled)
+			// Config parsing ignores empty values, so an unset knob would fall
+			// back to any .review/config.toml found from the working directory
+			// (this repo's own config enables the systemone critic). Pin "off"
+			// knobs to "0" so each case is independent of that file.
+			setTestEnv(t, "STET_CRITIC_ENABLED", boolEnvOrOff(tc.criticEnabled))
 			setTestEnv(t, "STET_CRITIC_BACKEND", tc.criticBackend)
-			setTestEnv(t, "STET_RULES_SELECTOR", tc.rulesSelector)
-			setTestEnv(t, "STET_RULES_ANNOTATE", tc.rulesAnnotate)
+			setTestEnv(t, "STET_RULES_SELECTOR", boolEnvOrOff(tc.rulesSelector))
+			setTestEnv(t, "STET_RULES_ANNOTATE", boolEnvOrOff(tc.rulesAnnotate))
 
 			code, stdout, stderr := runCLIWithOutput([]string{"doctor"})
 			if code != 0 {

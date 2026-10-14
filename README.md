@@ -54,24 +54,33 @@ ollama pull qwen3-coder:30b   # or qwen2.5-coder:32b for a lighter option
 ### Install stet
 
 **Option 1 — Install script (Mac/Linux, recommended)**  
-The script downloads the binary from [GitHub Releases](https://github.com/stet/stet/releases) for your OS and architecture, or builds from source if you run it from the repo or set `STET_REPO_URL`.
+The script downloads the binary for your OS and architecture from [GitHub Releases](https://github.com/beettlle/stet/releases), verifies it against the release's `checksums.txt`, and installs it. If no release binary can be downloaded, it builds from source when run from the repo or when `STET_REPO_URL` is set.
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/stet/stet/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/beettlle/stet/main/install.sh | bash
+```
+
+To install a specific version instead of the latest:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/beettlle/stet/main/install.sh | STET_RELEASE_TAG=v1.0.0 bash
 ```
 
 **Option 2 — Windows (PowerShell)**  
-You may need `-ExecutionPolicy Bypass` for the one-liner:
+You may need `-ExecutionPolicy Bypass` for the one-liner. Set `$env:STET_RELEASE_TAG = "v1.0.0"` first to pin a version.
 
 ```powershell
-irm https://raw.githubusercontent.com/stet/stet/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/beettlle/stet/main/install.ps1 | iex
 ```
 
-**Option 3 — From source**  
+**Option 3 — Manual download**  
+Download `stet-<os>-<arch>` and `checksums.txt` from the [Releases page](https://github.com/beettlle/stet/releases), check the hash (`shasum -a 256 -c checksums.txt --ignore-missing`), rename the file to `stet`, `chmod +x` it, and move it into a directory in your PATH. On macOS, a binary downloaded through a browser is quarantined by Gatekeeper; clear it with `xattr -d com.apple.quarantine stet`. (The install script uses `curl`, which does not set the quarantine flag.)
+
+**Option 4 — From source**  
 Clone the repo and run the install script (which will build and install), or build manually:
 
 ```bash
-git clone https://github.com/stet/stet.git
+git clone https://github.com/beettlle/stet.git
 cd stet
 ./install.sh
 ```
@@ -82,14 +91,6 @@ Or build manually and copy the binary to a directory in your PATH:
 make build
 cp bin/stet ~/.local/bin/
 ```
-
-**Option 4 — Go install**
-
-```bash
-go install github.com/stet/stet/cli/cmd/stet@latest
-```
-
-(Use the repo’s module path once the project is published.)
 
 **PATH**  
 The default install directory is `~/.local/bin` (Mac/Linux) or `%USERPROFILE%\.local\bin` (Windows). Ensure it is in your PATH. For example, add to `~/.bashrc` or `~/.zshrc`: `export PATH="$HOME/.local/bin:$PATH"`.

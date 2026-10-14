@@ -17,6 +17,7 @@ profile.cov
 # Build output
 bin/
 dist/
+cli/stet
 
 # Extension (TypeScript)
 extension/out/

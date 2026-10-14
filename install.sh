@@ -1,34 +1,37 @@
 #!/usr/bin/env bash
 #
-# Install stet: prefers download from GitHub Releases (by OS/arch), falls back to build from source.
+# Install stet: downloads the binary for this OS/arch from GitHub Releases and verifies it
+# against the release's checksums.txt. Falls back to building from source when no release
+# binary can be downloaded.
 #
 # Usage:
-#   One-line (Mac/Linux): curl -sSL https://raw.githubusercontent.com/OWNER/REPO/main/install.sh | bash
-#   From repo:           ./install.sh
-#   Via clone:           STET_REPO_URL=https://github.com/OWNER/REPO.git bash -c "$(curl -sSL .../install.sh)"
+#   One-line (Mac/Linux): curl -fsSL https://raw.githubusercontent.com/beettlle/stet/main/install.sh | bash
+#   Pinned version:       curl -fsSL https://raw.githubusercontent.com/beettlle/stet/main/install.sh | STET_RELEASE_TAG=v1.0.0 bash
+#   From repo:            ./install.sh
+#   Via clone:            STET_REPO_URL=https://github.com/beettlle/stet.git bash -c "$(curl -fsSL https://raw.githubusercontent.com/beettlle/stet/main/install.sh)"
 #
-# Env: STET_REPO (e.g. owner/repo), STET_RELEASE_TAG (e.g. v1.0.0 or "latest"), STET_INSTALL_DIR, STET_REPO_URL (for source fallback).
+# Env:
+#   STET_REPO               GitHub owner/repo (default beettlle/stet).
+#   STET_RELEASE_TAG        Release tag such as v1.0.0, or "latest" (default).
+#   STET_INSTALL_DIR        Install directory (default ~/.local/bin).
+#   STET_DOWNLOAD_BASE_URL  Base URL of release assets; overrides STET_REPO/STET_RELEASE_TAG (mirrors, testing).
+#   STET_REPO_URL           Git clone URL for the build-from-source fallback.
 #
 set -euo pipefail
 
-# GitHub repo (owner/repo). Set STET_REPO to override.
-STET_REPO="${STET_REPO:-}"
-if [ -z "$STET_REPO" ]; then
-	# Default when not set: use placeholder; replace with real org/repo when publishing.
-	STET_REPO="stet/stet"
-fi
-
+STET_REPO="${STET_REPO:-beettlle/stet}"
+RELEASE_TAG="${STET_RELEASE_TAG:-latest}"
 INSTALL_DIR="${STET_INSTALL_DIR:-$HOME/.local/bin}"
 REPO_URL="${STET_REPO_URL:-}"
 
-# Resolve release tag: STET_RELEASE_TAG or "latest".
-RELEASE_TAG="${STET_RELEASE_TAG:-latest}"
-if [ "$RELEASE_TAG" = "latest" ]; then
-	# Resolve latest tag from GitHub API (no auth required for public repos).
-	RELEASE_TAG=$(curl -sSf "https://api.github.com/repos/${STET_REPO}/releases/latest" | grep -o '"tag_name": *"[^"]*"' | head -1 | sed 's/"tag_name": *"\(.*\)"/\1/') || true
-	if [ -z "$RELEASE_TAG" ]; then
-		RELEASE_TAG=""
-	fi
+# releases/latest/download redirects to the newest non-prerelease asset, so no GitHub API
+# call (and no unauthenticated rate limit) is needed to resolve "latest".
+if [ -n "${STET_DOWNLOAD_BASE_URL:-}" ]; then
+	BASE_URL="${STET_DOWNLOAD_BASE_URL%/}"
+elif [ "$RELEASE_TAG" = "latest" ]; then
+	BASE_URL="https://github.com/${STET_REPO}/releases/latest/download"
+else
+	BASE_URL="https://github.com/${STET_REPO}/releases/download/${RELEASE_TAG}"
 fi
 
 # Detect OS and arch (GOOS/GOARCH style for binary name).
@@ -52,89 +55,127 @@ case "$OS" in
 esac
 
 BINARY_NAME="stet-${OS}-${ARCH}"
-TMP_FILE=""
+
+TMP_BIN=""
+TMP_SUMS=""
+TMP_DIR=""
 cleanup() {
-	[ -n "$TMP_FILE" ] && [ -f "$TMP_FILE" ] && rm -f "$TMP_FILE"
+	[ -z "$TMP_BIN" ] || rm -f "$TMP_BIN"
+	[ -z "$TMP_SUMS" ] || rm -f "$TMP_SUMS"
+	[ -z "$TMP_DIR" ] || rm -rf "$TMP_DIR"
 }
 trap cleanup EXIT
 
-# Try download from GitHub Releases.
-install_via_download() {
-	[ -n "$RELEASE_TAG" ] || return 1
-	DOWNLOAD_URL="https://github.com/${STET_REPO}/releases/download/${RELEASE_TAG}/${BINARY_NAME}"
-	TMP_FILE=$(mktemp)
-	if ! curl -fSL -o "$TMP_FILE" "$DOWNLOAD_URL" 2>/dev/null; then
-		rm -f "$TMP_FILE"
-		TMP_FILE=""
+sha256_of() {
+	if command -v sha256sum >/dev/null 2>&1; then
+		sha256sum "$1" | awk '{ print $1 }'
+	elif command -v shasum >/dev/null 2>&1; then
+		shasum -a 256 "$1" | awk '{ print $1 }'
+	else
 		return 1
 	fi
-	if [ ! -s "$TMP_FILE" ]; then
-		rm -f "$TMP_FILE"
-		TMP_FILE=""
-		return 1
-	fi
-	# Optional: verify checksum if checksums.txt exists for this release.
-	# Single fetch to avoid TOCTOU race between existence check and content read.
-	CHECKSUM_URL="https://github.com/${STET_REPO}/releases/download/${RELEASE_TAG}/checksums.txt"
-	CHECKSUM_CONTENT=$(curl -sSfL "$CHECKSUM_URL" 2>/dev/null) || CHECKSUM_CONTENT=""
-	if [ -n "$CHECKSUM_CONTENT" ]; then
-		EXPECTED=$(echo "$CHECKSUM_CONTENT" | awk -v f="$BINARY_NAME" '$2 == f { print $1 }')
-		if [ -n "$EXPECTED" ]; then
-			if command -v sha256sum >/dev/null 2>&1; then
-				ACTUAL=$(sha256sum "$TMP_FILE" | awk '{ print $1 }')
-			elif command -v shasum >/dev/null 2>&1; then
-				ACTUAL=$(shasum -a 256 "$TMP_FILE" | awk '{ print $1 }')
-			else
-				ACTUAL=""
-			fi
-			if [ -n "$ACTUAL" ] && [ "$EXPECTED" != "$ACTUAL" ]; then
-				echo "Warning: Checksum verification failed for $BINARY_NAME; continuing anyway." >&2
-			fi
-		fi
-	fi
+}
+
+# Stages the binary inside INSTALL_DIR so the final mv is an atomic rename on the same
+# filesystem; this also avoids "text file busy" when replacing a running stet.
+stage_binary() {
+	[ -z "$TMP_BIN" ] || rm -f "$TMP_BIN"
 	mkdir -p "$INSTALL_DIR"
-	cp -f "$TMP_FILE" "$INSTALL_DIR/stet"
-	chmod +x "$INSTALL_DIR/stet"
-	return 0
+	TMP_BIN=$(mktemp "$INSTALL_DIR/.stet.XXXXXX")
+}
+
+place_binary() {
+	chmod 755 "$TMP_BIN"
+	mv -f "$TMP_BIN" "$INSTALL_DIR/stet"
+	TMP_BIN=""
+}
+
+# Returns 1 when the binary cannot be downloaded (so the caller can fall back to source).
+# Exits on checksum problems: a binary that fails verification must never be installed.
+install_via_download() {
+	stage_binary
+	echo "Downloading $BINARY_NAME ($RELEASE_TAG) from $BASE_URL"
+	if ! curl -fsSL --retry 3 -o "$TMP_BIN" "$BASE_URL/$BINARY_NAME"; then
+		echo "Warning: Could not download $BASE_URL/$BINARY_NAME" >&2
+		return 1
+	fi
+	if [ ! -s "$TMP_BIN" ]; then
+		echo "Warning: Downloaded $BINARY_NAME is empty" >&2
+		return 1
+	fi
+
+	TMP_SUMS=$(mktemp)
+	if ! curl -fsSL --retry 3 -o "$TMP_SUMS" "$BASE_URL/checksums.txt"; then
+		echo "Error: Could not download $BASE_URL/checksums.txt; refusing to install an unverified binary." >&2
+		exit 1
+	fi
+	EXPECTED=$(awk -v f="$BINARY_NAME" '$2 == f { print $1 }' "$TMP_SUMS")
+	if [ -z "$EXPECTED" ]; then
+		echo "Error: checksums.txt has no entry for $BINARY_NAME." >&2
+		exit 1
+	fi
+	if ! ACTUAL=$(sha256_of "$TMP_BIN"); then
+		echo "Error: Neither sha256sum nor shasum is available to verify the download." >&2
+		exit 1
+	fi
+	if [ "$EXPECTED" != "$ACTUAL" ]; then
+		echo "Error: Checksum mismatch for $BINARY_NAME (expected $EXPECTED, got $ACTUAL)." >&2
+		exit 1
+	fi
+
+	place_binary
+}
+
+build_and_place() {
+	make build
+	stage_binary
+	cp -f bin/stet "$TMP_BIN"
+	place_binary
 }
 
 # Fallback: build from source (in repo or clone via STET_REPO_URL).
 install_via_source() {
 	if [ -f "go.mod" ] && [ -d "cli" ] && grep -q 'module stet' go.mod 2>/dev/null; then
-		make build
-		mkdir -p "$INSTALL_DIR"
-		cp -f bin/stet "$INSTALL_DIR/stet"
-		chmod +x "$INSTALL_DIR/stet"
+		build_and_place
 		return 0
 	fi
 	if [ -n "$REPO_URL" ]; then
 		TMP_DIR=$(mktemp -d)
-		trap 'rm -rf "$TMP_DIR"' EXIT
 		git clone --depth 1 "$REPO_URL" "$TMP_DIR"
 		cd "$TMP_DIR"
-		make build
-		mkdir -p "$INSTALL_DIR"
-		cp -f bin/stet "$INSTALL_DIR/stet"
-		chmod +x "$INSTALL_DIR/stet"
+		build_and_place
 		return 0
 	fi
 	return 1
 }
 
+report_installed() {
+	if ! VERSION_OUT=$("$INSTALL_DIR/stet" --version 2>&1); then
+		echo "Error: Installed $INSTALL_DIR/stet but it failed to run: $VERSION_OUT" >&2
+		exit 1
+	fi
+	echo "Installed $VERSION_OUT to $INSTALL_DIR/stet${1:-}"
+	case ":$PATH:" in
+		*":$INSTALL_DIR:"*) ;;
+		*)
+			echo "$INSTALL_DIR is not in your PATH. Add it to ~/.zshrc or ~/.bashrc:"
+			echo "  export PATH=\"$INSTALL_DIR:\$PATH\""
+			;;
+	esac
+}
+
 if install_via_download; then
-	echo "Installed stet to $INSTALL_DIR"
-	echo "Ensure $INSTALL_DIR is in your PATH."
+	report_installed
 	exit 0
 fi
 
 if install_via_source; then
-	echo "Installed stet to $INSTALL_DIR (built from source)"
-	echo "Ensure $INSTALL_DIR is in your PATH."
+	report_installed " (built from source)"
 	exit 0
 fi
 
 echo "Error: Could not install stet." >&2
-echo "  - Download from GitHub Releases failed (no release or unsupported platform)." >&2
+echo "  - Download from GitHub Releases failed (no release for $RELEASE_TAG or unsupported platform)." >&2
 echo "  - Not in a stet repo and STET_REPO_URL is not set." >&2
 echo "  Run this script from the stet repo root, set STET_REPO_URL to the git clone URL, or install from a GitHub Release." >&2
 exit 1
