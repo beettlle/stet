@@ -327,7 +327,6 @@ func TestStart_allowDirty_skipsCleanCheck(t *testing.T) {
 }
 
 func TestStart_allowDirty_warnsToStderr(t *testing.T) {
-	t.Parallel()
 	ctx := context.Background()
 	repo := initRepo(t)
 	stateDir := filepath.Join(repo, ".review")
