@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"stet/cli/internal/diff"
@@ -2933,7 +2934,10 @@ func noulResponse(probs map[string]float64) *systemone.Response {
 // fakeChoiceDecider implements rules.ChoiceDecider for rules-selector tests.
 // It records every request; responses/errors repeat the last entry once the
 // slice is exhausted.
+// fakeChoiceDecider is called concurrently by runReviewPipeline's prepare
+// workers, so mu guards every field the call mutates or reads.
 type fakeChoiceDecider struct {
+	mu        sync.Mutex
 	responses []*systemone.ChoiceResponse // response per DecideChoice call (last repeats)
 	errs      []error                     // error per call (last repeats); nil entries succeed
 	calls     int
@@ -2941,6 +2945,8 @@ type fakeChoiceDecider struct {
 }
 
 func (f *fakeChoiceDecider) DecideChoice(ctx context.Context, req systemone.ChoiceRequest) (*systemone.ChoiceResponse, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.calls++
 	f.requests = append(f.requests, req)
 	if len(f.errs) > 0 {
