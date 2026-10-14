@@ -163,6 +163,10 @@ This project utilizes **Go** and **JavaScript/TypeScript**. Refer to the followi
   - Go: `go test ./... -cover`
   - Extension: `npm test` (Vitest)
 - **Coverage artifact guard:** After extension `npm test` (and before spine batches), run `bash scripts/check-untracked-coverage.sh` from the repo root. The script fails if any path under `extension/coverage/` is tracked in git; untracked coverage output is expected and only warned.
+- **Release gate:** `scripts/release-check.sh` runs all of the above plus gofmt, `go vet`, and a cross-compile of every release target. CI (`.github/workflows/ci.yml`) and the release workflow run the same script.
+
+### Releases
+- Run releases with the `stet-release-operator` skill (`.agents/skills/stet-release-operator/`): pi `/skill:stet-release-operator release vX.Y.Z`, Cursor `/stet-release-operator release vX.Y.Z`. It covers intake, scope approval, spine waves, gates, tagging, and post-release smoke. Never push a release tag by hand outside that flow.
 
 ### PR and Commit Guidelines
 - **Source of Truth:** All implementation MUST follow `docs/PRD.md` and `docs/implementation-plan.md`.

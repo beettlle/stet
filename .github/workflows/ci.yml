@@ -1,0 +1,38 @@
+name: ci
+
+# Runs the release gate (scripts/release-check.sh) on every push to main and every PR.
+# The stet-release-operator skill requires a green run of this workflow on HEAD before tagging.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Pinned explicitly rather than go-version-file: go.mod declares the minimum
+      # language version (1.22); keep in sync with release.yml.
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.27.x"
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: extension/package-lock.json
+
+      - name: Release check
+        run: scripts/release-check.sh
