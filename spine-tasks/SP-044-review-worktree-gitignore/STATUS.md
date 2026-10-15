@@ -1,8 +1,8 @@
 # SP-044: Keep the review worktree out of `git add` — Status
 
-**Current Step:** Not Started
-**Status:** 🔵 Ready for Execution
-**Last Updated:** 2026-10-14
+**Current Step:** Step 2 — Docs
+**Status:** 🟡 In Execution (Step 1 complete)
+**Last Updated:** 2026-10-15
 **Review Level:** 1
 **Review Counter:** 0
 **Iteration:** 0
@@ -11,10 +11,10 @@
 ---
 
 ### Step 1: Ignore helper and wiring
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] `ignore.go` helper (inside-repo check, exclusive create, `*`)
-- [ ] `Create` calls it; failure warns only
+- [x] `ignore.go` helper (inside-repo check, exclusive create, `*`)
+- [x] `Create` calls it; failure warns only
 
 ---
 
@@ -53,6 +53,7 @@
 | Timestamp | Action | Outcome |
 |-----------|--------|---------|
 | 2026-10-14 | Task staged | PROMPT.md and STATUS.md created (release v1.1.0) |
+| 2026-10-15 | Step 1 | `ignore.go` (`ensureWorktreeRootIgnored` + `pathInsideRepo` with symlink-resolved containment) wired into `Create` after `MkdirAll`; failure → `warning: could not write <path>: <err>` on stderr. gofmt/vet clean; `go test ./cli/internal/git/...` pass. Plan review skipped (engine-owned, SP-195) |
 
 ---
 
