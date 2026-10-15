@@ -107,6 +107,13 @@ func Create(repoRoot, worktreeRoot, ref string) (path string, err error) {
 		return "", erruser.New("Could not create worktree directory.", err)
 	}
 
+	// Keep the review worktree out of "git add -A": when the worktree root lives
+	// inside the repo, write an ignore file there so the nested checkout is never
+	// staged as a gitlink. A failure is only a warning; creation must still work.
+	if err := ensureWorktreeRootIgnored(repoRoot, parent); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: %v\n", err)
+	}
+
 	cmd := exec.Command("git", "worktree", "add", path, ref)
 	cmd.Dir = repoRoot
 	cmd.Env = minimalEnv()
