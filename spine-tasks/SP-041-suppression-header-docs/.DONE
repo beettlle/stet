@@ -1,0 +1,6 @@
+SP-041 complete.
+
+- docs/review-process-internals.md:217 now names the "Previously dismissed false positives (do not report or discuss)" section with dismissed-false-positive framing
+- docs/roadmap.md:151,155,159 use the current header; Option A/B structure and acceptance criteria preserved
+- Verified: `rg 'Do not report issues similar to'` returns no matches; `rg 'Previously dismissed false positives'` shows the new text in both docs; no Go tests reference either doc (as expected)
+- Commit: b558085 docs(SP-041)
