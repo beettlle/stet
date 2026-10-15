@@ -82,10 +82,11 @@ func collectRestorableDismissals(stateDir string) ([]restorableDismissal, error)
 				continue // finding object not in this record's ReviewOutput
 			}
 			d := restorableDismissal{
-				id:      id,
-				diffRef: rec.DiffRef,
-				file:    f.File,
-				line:    f.Line,
+				id:       id,
+				diffRef:  rec.DiffRef,
+				file:     f.File,
+				category: f.Category,
+				line:     f.Line,
 			}
 			if f.Range != nil {
 				d.rangeStart, d.rangeEnd = f.Range.Start, f.Range.End

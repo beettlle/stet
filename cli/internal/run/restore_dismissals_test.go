@@ -205,6 +205,30 @@ func TestCollectRestorableDismissals_latestLocationAndDiffRefWin(t *testing.T) {
 	}
 }
 
+func TestCollectRestorableDismissals_locationMatchesRewordedFinding(t *testing.T) {
+	t.Parallel()
+	stateDir := t.TempDir()
+	dismissed := testFinding("old-id", "a.go", 12, findings.CategorySecurity)
+	writeHistoryRecords(t, stateDir, []history.Record{
+		dismissalRecord("sha1", "old-id", dismissed, history.ReasonFalsePositive),
+	})
+
+	got, err := collectRestorableDismissals(stateDir)
+	if err != nil {
+		t.Fatalf("collectRestorableDismissals: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("want 1 restorable dismissal, got %v", got)
+	}
+	if got[0].category != findings.CategorySecurity {
+		t.Errorf("category = %q, want %q", got[0].category, findings.CategorySecurity)
+	}
+	reworded := testFinding("new-id", "a.go", 12, findings.CategorySecurity)
+	if !matchesRestorableDismissal(got[0], reworded) {
+		t.Error("finding re-reported with a new ID at the same file, line, and category: want match")
+	}
+}
+
 func TestFilterUnchangedFiles_dropsChangedAndUnresolvable(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
