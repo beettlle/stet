@@ -1,0 +1,4 @@
+SP-042 complete.
+- ci.yml + release.yml: check-latest: true on setup-go; "Go version" step after setup-go.
+- Contract testCommand exit 0; both files valid YAML; git diff scope = the two workflow files only.
+- Commit: 283f3a5 fix(SP-042): complete Step 1 & 2 — resolve latest Go 1.27.x patch in CI and release
