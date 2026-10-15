@@ -583,6 +583,20 @@ func TestExtractJSTSImports_stopRules(t *testing.T) {
 			endLine: 1,
 		},
 		{
+			name:    "from in a comment is not a module specifier and stops scan",
+			src:     "import a from \"a\";\nexport { a }; // from local\nimport b from \"b\";\n",
+			found:   true,
+			block:   `import a from "a";`,
+			endLine: 1,
+		},
+		{
+			name:    "re-export with multi-line from specifier is kept",
+			src:     "export {\n  a\n} from\n\"./a\";\nimport b from \"b\";\n",
+			found:   true,
+			block:   "export {\n  a\n} from\n\"./a\";\nimport b from \"b\";",
+			endLine: 5,
+		},
+		{
 			name:    "destructured require is not an import start and stops scan",
 			src:     "import a from \"a\";\nconst { b } = require(\"./b\");\nimport c from \"c\";\n",
 			found:   true,

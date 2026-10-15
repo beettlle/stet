@@ -49,6 +49,13 @@ var (
 	// jstsRequireStartRegex matches CommonJS top-level bindings:
 	// `const fs = require("fs")` (also let/var).
 	jstsRequireStartRegex = regexp.MustCompile(`^(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*require\s*\(`)
+	// jstsFromModuleRegex matches a module specifier after `from`; import and
+	// re-export statements always name a string literal, so `from` inside a
+	// comment or identifier does not count.
+	jstsFromModuleRegex = regexp.MustCompile(`from\s*["'` + "`" + `]`)
+	// jstsTrailingFromRegex matches a line that ends in `from`, whose module
+	// specifier continues on the next line.
+	jstsTrailingFromRegex = regexp.MustCompile(`\bfrom\s*$`)
 )
 
 // jstsImports is the top-of-file import block collected from a JS/TS source.
@@ -83,7 +90,7 @@ func extractJSTSImports(src []byte) jstsImports {
 			break // unterminated statement: stop instead of consuming the rest of the file
 		}
 		joined := strings.Join(lines[i:end+1], "\n")
-		if jstsReExportStartRegex.MatchString(trimmed) && !strings.Contains(joined, "from") {
+		if jstsReExportStartRegex.MatchString(trimmed) && !jstsFromModuleRegex.MatchString(joined) {
 			break // re-export of local bindings, not an import: stop scanning
 		}
 		stmts = append(stmts, joined)
@@ -130,6 +137,10 @@ func jstsStatementEnd(lines []string, start int) (end int, ok bool) {
 	for i := start; i < len(lines); i++ {
 		depth += jstsBraceDelta(lines[i])
 		if depth <= 0 {
+			// `from` may sit on its own line before the module specifier.
+			if jstsTrailingFromRegex.MatchString(lines[i]) && i+1 < len(lines) {
+				return i + 1, true
+			}
 			return i, true
 		}
 	}
