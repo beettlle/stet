@@ -179,9 +179,11 @@ func dismissalSpan(d restorableDismissal) (start, end int) {
 }
 
 // findingSpan returns the 1-based inclusive line span of a finding:
-// Range.Start..Range.End when Range is set, else the single Line.
+// Range.Start..Range.End when a meaningful Range is set, else the single Line.
+// The condition mirrors dismissalSpan so a degenerate Range{0,0} falls back to
+// Line on both sides of the match.
 func findingSpan(f findings.Finding) (start, end int) {
-	if f.Range != nil {
+	if f.Range != nil && (f.Range.Start > 0 || f.Range.End > 0) {
 		return f.Range.Start, f.Range.End
 	}
 	return f.Line, f.Line

@@ -1490,7 +1490,9 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 		if opts.Verbose {
 			fmt.Fprintf(os.Stderr, "restored %d dismissals from history\n", restored)
 		}
-		tr.Printf("restored %d dismissals from history\n", restored)
+		if tr.Enabled() {
+			tr.Printf("restored %d dismissals from history\n", restored)
+		}
 	}
 	if captureUsage() {
 		s.LastRunPromptTokens = int64(sumPrompt)
