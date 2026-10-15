@@ -171,8 +171,10 @@ func changedFilesSince(ctx context.Context, repoRoot, ref, headRef string) (map[
 
 // dismissalSpan returns the 1-based inclusive line span of a restorable
 // dismissal: Range.Start..Range.End when recorded, else the single Line.
+// An inverted range (invalid per findings.Validate; defensive against
+// hand-edited or legacy history) falls back to the single Line.
 func dismissalSpan(d restorableDismissal) (start, end int) {
-	if d.rangeStart > 0 || d.rangeEnd > 0 {
+	if (d.rangeStart > 0 || d.rangeEnd > 0) && d.rangeStart <= d.rangeEnd {
 		return d.rangeStart, d.rangeEnd
 	}
 	return d.line, d.line

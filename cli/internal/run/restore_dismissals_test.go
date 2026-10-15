@@ -291,6 +291,12 @@ func TestMatchesRestorableDismissal(t *testing.T) {
 			f:     findings.Finding{ID: "new", File: "a.txt", Line: 7, Category: bug},
 			match: true,
 		},
+		{
+			name:  "inverted dismissal range falls back to Line",
+			d:     restorableDismissal{id: "old", file: "a.txt", category: bug, line: 7, rangeStart: 10, rangeEnd: 5},
+			f:     findings.Finding{ID: "new", File: "a.txt", Line: 7, Category: bug},
+			match: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
