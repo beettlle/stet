@@ -194,6 +194,9 @@ func TestCreate_WorktreeRootNotStaged(t *testing.T) {
 
 	run(t, repo, "git", "add", "-A")
 	listed := runOut(t, repo, "git", "ls-files", "-s")
+	if strings.Contains(listed, filepath.Base(path)) {
+		t.Errorf("worktree checkout %s present in index:\n%s", filepath.Base(path), listed)
+	}
 	for _, line := range strings.Split(listed, "\n") {
 		if strings.Contains(line, "160000") {
 			t.Errorf("gitlink staged despite worktree ignore file: %q", line)
