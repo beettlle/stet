@@ -106,6 +106,7 @@ Wave 2 · 1 task
 |------|----------|--------------|------------------------------------|-------------------|------|--------|---------------|
 | 0 | `20261015T053242-6e48` | SP-042, SP-045, SP-046, SP-047 (merge `76987c0`); post-integrate fix `5cd4430` (SP-045 restored dismissals never set `category`, so location match never fired) | 9: 1 real fixed (c64b3e5 → `5cd4430`), 1 real low-priority noted (d5b453c: empty `funcSrc` drops JS/TS imports), 7 false positives. Recovery: SP-047 lane false positive 5f28cf7 dismissed, `spine batch retry SP-047` | `/tmp/stet-release-check-wave-0.log` | 0 | `5cd4430`, `ci.yml` run 38698351507 green | #8, #10 (SP-046 + SP-047) |
 | 1 | `20261015T072451-ec43` | SP-041, SP-043 (merge `ada554c`) | 2, both false positives (97ef93f: `activeFindingsInSession` read as a duplicate `activeFindings`; eec4a55: `status` writes to `os.Stdout`, not `getFindingsOut`). Recovery: SP-043 final code review `fetch failed` (`code_review_spawn_failed`) after contract green, `spine batch retry SP-043` | `/tmp/stet-release-check-wave-1.log` | 0 | `ada554c`, `ci.yml` run 38718202288 green | #6, #7 |
+| 2 | `20261015T101054-9b9a` | SP-044 (merge `9cdb6fc`) | 2: af96d3e false positive (`*` in the parent `.gitignore` ignores the worktree; `TestCreate_WorktreeRootNotStaged` proves it); ef2ab56 handle-leak claim false, but a failed write leaves an empty `.gitignore` that later `O_EXCL` calls skip — real, low priority, deferred | `/tmp/stet-release-check-wave-2.log` | 0 | `9cdb6fc`, `ci.yml` run 38721407947 green (go1.27.2) | #9 |
 
 ---
 
@@ -117,6 +118,8 @@ Wave 2 · 1 task
 | #4 | bug | Bug budget full; benchmark/run-summary display only, no review correctness impact |
 | #5 | bug | Needs a multi-clone/worktree repro first; may share root cause with #8 session state — investigate after SP-045 lands |
 | #2 (remainder) | enhancement | Proposals 1–2 shipped in v1.0.0 (`14fce09`). Remaining: suggestion-length cap, prompt audit (proposal 3), before/after token measurement on a live model server |
+| Wave review d5b453c | bug | `extractJSTSImports` gets no imports when `funcSrc` is empty; destructured `const {a} = require()` also stops the scan. Low priority |
+| Wave review ef2ab56 | bug | `ensureWorktreeRootIgnored` leaves an empty `.gitignore` if `WriteString` fails (disk full); later calls skip it via `O_EXCL`. Remove the file on write failure. Low priority |
 | Indirect Go module drift | hygiene | No threshold fires |
 | Extension npm drift | hygiene | Extension not shipped |
 
@@ -156,13 +159,13 @@ curl -fsSL https://raw.githubusercontent.com/beettlle/stet/main/install.sh | STE
 
 ## Publish checklist (Phases 5–6)
 
-- [ ] All release-scoped tasks `.DONE` on `main`
-- [ ] Post-integrate `scripts/release-check.sh` exit 0 after every wave (logs above)
-- [ ] `scripts/release-check.sh` exit 0 on final `HEAD` ({sha}) — log: {path}
-- [ ] `ci.yml` green on final `HEAD` — run: {url}
-- [ ] `git status` clean; `main` equals `origin/main`
-- [ ] Release-scoped `Closes #NNN` issues all CLOSED
-- [ ] Release notes written and reviewed
+- [x] All release-scoped tasks `.DONE` on `main` (SP-041..SP-047)
+- [x] Post-integrate `scripts/release-check.sh` exit 0 after every wave (logs above)
+- [x] `scripts/release-check.sh` exit 0 on last code `HEAD` (`9cdb6fc`) — log: `/tmp/stet-release-check-wave-2.log`; re-run on the final `HEAD` in the Phase 5 report
+- [x] `ci.yml` green on last code `HEAD` — run: https://github.com/beettlle/stet/actions/runs/38721407947; final `HEAD` run in the Phase 5 report
+- [x] `git status` clean; `main` equals `origin/main` (after pushing this commit)
+- [x] Release-scoped `Closes #NNN` issues all CLOSED (#6, #7, #8, #9, #10)
+- [x] Release notes written: `spine-tasks/_authoring/release-v1.1.0/release-notes.md`
 - [ ] Operator approved publish ({date})
 - [ ] `git tag -a v1.1.0 --cleanup=verbatim -F release-notes.md` + `git push origin v1.1.0`
 - [ ] `release.yml` run green (publish + verify-install ×3) — run: {url}
