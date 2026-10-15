@@ -1,0 +1,8 @@
+SP-045 complete.
+
+- restore_dismissals.go: collect restorable dismissals from the newest 50 history records (latest mention must carry the finding object; latest recorded reason wins; already_correct excluded), changed-file filter with one git diff --name-only per distinct DiffRef, ID or file+category+line-overlap matching, duplicate-free re-apply.
+- run.go Start: history errors warn only; restorable count in the Partition trace section; matched findings dismissed after the review before the final session save; verbose + trace "restored N dismissals from history".
+- Docs: review-process-internals.md (new §8.1, start/finish/dismiss sections, §10 session-deletion note corrected) and cli-extension-contract.md (dismiss/finish persistence bullets).
+- Verification: full contract testCommand PASS (gofmt, vet, go test run+history, stet strict contract 0 findings); extension npm test PASS; check-untracked-coverage.sh PASS; go test ./... 36/36 ok; restore_dismissals.go coverage 94.4-100% per func; changed files exactly the 5 in fileScopeMustChange.
+
+Commits: c8b19f8 71f514c 6b0cf07 cb3756f d148306 fad9299 (baseline 35fb09c)

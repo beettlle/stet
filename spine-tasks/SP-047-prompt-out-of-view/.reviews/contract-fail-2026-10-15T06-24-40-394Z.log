@@ -1,0 +1,21 @@
+Contract testCommand failure log
+Command: bash scripts/check-gofmt.sh && go vet ./cli/... && go test ./cli/internal/prompt/... ./cli/internal/review/... -count=1 && bash scripts/spine-stet-contract-run.sh lenient
+Exit code: 1
+Attempt: 2 of 2
+Timestamp: 2026-10-15T06:24:40.394Z
+Buffer overflow: no
+---
+ok  	stet/cli/internal/prompt	0.251s
+ok  	stet/cli/internal/review	7.709s
+5f28cf7  cli/internal/prompt/prompt_test.go:64  ERROR  The test asserts that DefaultSystemPrompt contains specific strings (e.g., 'Code outside the hunk is not evidence of absence'), but the provided definition of DefaultSystemPrompt in prompt.go does not contain these strings. This will cause the test to fail.
+1 finding.
+
+stet: contract review found 1 active finding(s). Triage, then re-run the contract:
+
+  stet list
+  stet dismiss <id> <reason>
+
+Dismiss reasons: false_positive, already_correct, wrong_suggestion, out_of_scope.
+Fix real defects in this task's diff. If a finding exposes a stet reviewer bug (bad prompt,
+parser, critic), dismiss it with a reason and record it under Discoveries in STATUS.md.
+Never dismiss a real defect without fixing it.

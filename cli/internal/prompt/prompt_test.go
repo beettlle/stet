@@ -60,6 +60,19 @@ func TestDefaultSystemPrompt_instructsCoTAndAssumeValid(t *testing.T) {
 	}
 }
 
+func TestDefaultSystemPrompt_outOfViewNotEvidence(t *testing.T) {
+	got := DefaultSystemPrompt
+	if !strings.Contains(got, "Code outside the hunk is not evidence of absence") {
+		t.Errorf("default prompt should say code outside the hunk is not evidence of absence")
+	}
+	if !strings.Contains(got, "missing import, require, or include") {
+		t.Errorf("default prompt should say not to report missing imports/requires/includes for out-of-view code")
+	}
+	if !strings.Contains(got, "missing \"await\" or other call-convention issue") {
+		t.Errorf("default prompt should say not to report missing await or call-convention issues for out-of-view definitions")
+	}
+}
+
 func TestDefaultSystemPrompt_containsNegativeExamplesSection(t *testing.T) {
 	got := DefaultSystemPrompt
 	if !strings.Contains(got, "## Negative examples (do not report)") {

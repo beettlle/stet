@@ -84,9 +84,9 @@ flowchart TB
 - **Early exit:** If `sha == headSHA` (baseline is HEAD), no worktree is created and no LLM call is made. Session is saved with `LastReviewedAt = headSHA` and the function returns.
 - **LLM check:** Unless dry-run, `llm.NewClient(provider, baseURL)` builds an [cli/internal/llm.Client](cli/internal/llm/client.go) (Ollama or OpenAI-compat), then `Check(ctx, model)` runs so a wrong URL or missing model fails before creating the worktree. Implementations: [cli/internal/ollama](cli/internal/ollama), [cli/internal/openaicompat](cli/internal/openaicompat).
 - **Worktree:** `git.Create(repoRoot, worktreeRoot, ref)`; on any subsequent error in `Start`, a `defer` removes this worktree.
-- **Session:** `session.Save(stateDir, &s)` with `BaselineRef = sha`, `LastReviewedAt = ""`, `DismissedIDs = nil`.
+- **Session:** `session.Save(stateDir, &s)` with `BaselineRef = sha`, `LastReviewedAt = ""`, `DismissedIDs = nil` (re-populated from history after the review — see [§8.1 Dismissal restoration at start](#81-dismissal-restoration-at-stet-start)).
 - **Partition:** `scope.Partition(ctx, repoRoot, sha, headSHA, "", nil)` — first run: empty `lastReviewedAt`, so all current hunks go to ToReview.
-- **Loop:** For each hunk in `part.ToReview`, run the per-hunk pipeline (see §7); then auto-dismiss, update session (`Findings`, `FindingPromptContext`, `LastReviewedAt`), and stream `done` if applicable.
+- **Loop:** For each hunk in `part.ToReview`, run the per-hunk pipeline (see §7); then auto-dismiss, update session (`Findings`, `FindingPromptContext`, `LastReviewedAt`), re-apply dismissals restored from history, and stream `done` if applicable.
 
 ### 3.2 Extension: Start Review
 
@@ -275,6 +275,16 @@ flowchart LR
 
 So "fix and re-run" causes the old finding to disappear from the active list without the user explicitly dismissing it.
 
+### 8.1 Dismissal restoration at `stet start`
+
+Dismissals live only in the active session, and `stet finish` deletes that session — so without restoration, the next `stet start` re-reports every dismissed finding (see [§10 Finish](#10-finish): finish records `DismissedIDs` in history). `Start` restores them (implementation: [cli/internal/run/restore_dismissals.go](cli/internal/run/restore_dismissals.go)):
+
+- **Collect:** Read history with `history.ReadRecords` and scan only the newest **50** records (`maxRestoreHistoryRecords`). A dismissal is restorable when its finding ID appears in the most recent record that mentions it (in `UserAction.DismissedIDs`) and the finding object is in that record's `ReviewOutput`. The record's `DiffRef` is kept with each dismissal. IDs whose most recent recorded reason (`UserAction.Dismissals`) is `already_correct` are excluded: that reason marks auto-dismissals (the code was fixed), and they must not hide future findings.
+- **Changed-file filter:** For each distinct `DiffRef`, one `git diff --name-only <DiffRef> <HEAD>` runs (at most 50 calls); dismissals whose `DiffRef` no longer resolves are skipped, and a dismissal is kept only when its file is **unchanged** since its record, so its line numbers still apply.
+- **Re-apply after the review:** After the review loop sets `s.Findings`, each new finding is marked dismissed when it matches a restorable dismissal: same finding ID, **or** same `File` and `Category` with overlapping line spans (`Line`, or `Range.Start`..`Range.End`). Location matching matters because IDs are `StableFindingID(file, line, range, message)` and the message is model text — a fresh review of the same code can produce a different ID for the same false positive. Matched IDs are appended to `s.DismissedIDs` (no duplicates); findings stay in `s.Findings`, so `stet status` shows them as dismissed and `stet list` hides them.
+- **All hunks are still reviewed:** A fresh `stet start` sends every hunk to the model; only the matching findings are dismissed afterwards. History-based hunk skipping in `Run`/`Rerun` is unchanged (see §7.4 and suppression examples).
+- **Errors never fail start:** A history read error prints `warning: could not restore dismissals: <err>` to stderr and `Start` continues. With `--verbose`, `restored N dismissals from history` prints when N > 0; with `--trace`, the Partition section reports the restorable count and the restore point reports the restored count.
+
 ---
 
 ## 9. Run (incremental)
@@ -302,11 +312,11 @@ So "fix and re-run" causes the old finding to disappear from the active list wit
   1. Load session; if no `BaselineRef`, return `ErrNoSession`.
   2. Acquire session lock.
   3. Resolve worktree path with `git.PathForRef(repoRoot, opts.WorktreeRoot, s.BaselineRef)`; if the directory exists, `git.Remove(repoRoot, path)`.
-  4. Resolve HEAD and baseline SHAs. If there are findings, append a `history.Record` with `UserAction.DismissedIDs = s.DismissedIDs` and `FinishedAt` to `stateDir/history.jsonl`.
+  4. Resolve HEAD and baseline SHAs. If there are findings, append a `history.Record` with `UserAction.DismissedIDs = s.DismissedIDs` and `FinishedAt` to `stateDir/history.jsonl`. This record is what lets the next `stet start` restore dismissals (see [§8.1](#81-dismissal-restoration-at-stet-start)).
   5. Write a git note on HEAD (ref `refs/notes/stet`) with a JSON payload: session_id, baseline_sha, head_sha, findings_count, dismissals_count, tool_version, finished_at, plus optional scope and usage fields (hunks_reviewed, lines_added, lines_removed, chars_*, model, prompt_tokens, completion_tokens, eval_duration_ns). See [cli-extension-contract.md](cli-extension-contract.md) for the full schema.
   6. Release lock.
 
-**Note:** The session file is **not** deleted; only the worktree is removed. Baseline, last_reviewed_at, findings, and dismissed state remain on disk for future runs or inspection.
+**Note:** The session file **is** deleted, so there is no active session after finish; only the worktree removal and the history/git-note records persist. Dismissed state survives via the history record: the next `stet start` restores matching dismissals from recent history (§8.1).
 
 **Extension:** The "Finish review" command runs `stet finish` from the workspace root; on success it clears the findings panel (`provider.clear()`). See §12.
 
@@ -331,6 +341,7 @@ So "fix and re-run" causes the old finding to disappear from the active list wit
   2. Resolve ID: `findings.ResolveFindingIDByPrefix(s.Findings, id)` — match by unique prefix (min 4 chars). Get full ID.
   3. If not already in `DismissedIDs`, append it. If `FindingPromptContext[fullID]` exists, append a `PromptShadow` (finding_id, prompt_context) to `s.PromptShadows`. Save session.
   4. Append a `history.Record` with `UserAction.DismissedIDs: [fullID]` and optional `Dismissals: [{ FindingID, Reason }]`. Valid reasons: `false_positive`, `already_correct`, `wrong_suggestion`, `out_of_scope` (see [cli/internal/history/schema.go](cli/internal/history/schema.go)).
+  5. Dismissals persist across sessions: after `stet finish`, the next `stet start` restores matching dismissals from recent history (see [§8.1](#81-dismissal-restoration-at-stet-start)).
 
 Dismissed findings are excluded from active output (status --ids, list, JSON) and from the extension panel when it reads from session; they remain in `session.Findings` and `session.DismissedIDs` for history and prompt shadows.
 
