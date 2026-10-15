@@ -19,9 +19,17 @@ const (
 // maxJSTSImportLines caps the collected import block shown to the model.
 const maxJSTSImportLines = 60
 
-// jstsImportTokenShare is the fraction of maxTokens reserved for the import
-// block when it is shown: imports get maxTokens/jstsImportTokenShare.
+// jstsImportTokenShare splits the token budget when the import block is
+// shown: the imports get at most 1/jstsImportTokenShare of maxTokens, and
+// the enclosing function context gets the remainder (maxTokens minus that
+// quarter).
 const jstsImportTokenShare = 4
+
+// minJSTSTruncateTokens is the smallest token budget for which
+// truncateToTokens yields a non-degenerate truncation: under the chars/4
+// heuristic a smaller budget leaves no room for truncateMarker next to the
+// cut. Import blocks are only shown when their quarter share reaches it.
+const minJSTSTruncateTokens = len(truncateMarker)/4 + 2
 
 var jstsFuncDeclPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`\bfunction\s+[A-Za-z_$][\w$]*\s*\(`),
@@ -70,7 +78,10 @@ func extractJSTSImports(src []byte) jstsImports {
 		if !jstsIsImportStart(trimmed) {
 			break // first top-level code line: imports end here
 		}
-		end := jstsStatementEnd(lines, i)
+		end, terminated := jstsStatementEnd(lines, i)
+		if !terminated {
+			break // unterminated statement: stop instead of consuming the rest of the file
+		}
 		joined := strings.Join(lines[i:end+1], "\n")
 		if jstsReExportStartRegex.MatchString(trimmed) && !strings.Contains(joined, "from") {
 			break // re-export of local bindings, not an import: stop scanning
@@ -111,16 +122,18 @@ func jstsIsImportStart(trimmed string) bool {
 
 // jstsStatementEnd returns the index of the last line of the (possibly
 // multi-line) import statement starting at line index start. The statement
-// continues while significant braces remain open.
-func jstsStatementEnd(lines []string, start int) int {
+// continues while significant braces remain open. ok is false when the braces
+// never close (unterminated statement); the caller then stops scanning rather
+// than consuming the rest of the file as one statement.
+func jstsStatementEnd(lines []string, start int) (end int, ok bool) {
 	depth := 0
 	for i := start; i < len(lines); i++ {
 		depth += jstsBraceDelta(lines[i])
 		if depth <= 0 {
-			return i
+			return i, true
 		}
 	}
-	return len(lines) - 1
+	return len(lines) - 1, false
 }
 
 // jstsBraceDelta counts the net significant braces on a line, skipping
@@ -190,9 +203,11 @@ func expandJSTSHunk(repoRoot string, hunk diff.Hunk, maxTokens int) (diff.Hunk, 
 	importBudget := 0
 	if showImports && maxTokens > 0 {
 		importBudget = maxTokens / jstsImportTokenShare
-		if importBudget <= 0 {
-			// Budget too small to show any imports; fail open without them.
+		if importBudget < minJSTSTruncateTokens {
+			// Budget too small for a meaningful import block; fail open
+			// without it and keep the full budget for the function context.
 			showImports = false
+			importBudget = 0
 		} else {
 			imports.block = truncateToTokens(imports.block, importBudget)
 		}

@@ -671,3 +671,57 @@ func TestJSTSBraceDelta_skipsStringsAndComments(t *testing.T) {
 		t.Errorf("comment line delta = %d, want 0", got)
 	}
 }
+
+func TestExtractJSTSImports_unterminatedStatement_stopsScan(t *testing.T) {
+	// A multi-line import whose braces never close must not consume the rest
+	// of the file as one statement; imports collected before it are kept.
+	src := "import ok from \"ok\";\nimport {\n  a,\n  b\nconst x = 1;\nfunction f() {}\n"
+	got := extractJSTSImports([]byte(src))
+	if !got.found {
+		t.Fatal("expected the first import to be found")
+	}
+	if got.block != `import ok from "ok";` {
+		t.Errorf("block = %q, want only the terminated import", got.block)
+	}
+	if got.endLine != 1 {
+		t.Errorf("endLine = %d, want 1", got.endLine)
+	}
+	if strings.Contains(got.block, "function f") || strings.Contains(got.block, "const x") {
+		t.Errorf("unterminated statement consumed code: %q", got.block)
+	}
+}
+
+func TestExpandHunk_JSTS_fileImports_tinyBudget_noImportSection(t *testing.T) {
+	// With maxTokens=23 the import quarter share is 5 tokens, below
+	// minJSTSTruncateTokens: the import section is dropped and the function
+	// context keeps the full budget (pre-change behavior).
+	dir := t.TempDir()
+	var b strings.Builder
+	b.WriteString("import fs from \"fs\";\n\nfunction longFunc() {\n")
+	for i := 0; i < 100; i++ {
+		b.WriteString("  const value = computeSomething(value + 1);\n")
+	}
+	b.WriteString("}\n")
+	path := filepath.Join(dir, "tiny.js")
+	if err := os.WriteFile(path, []byte(b.String()), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hunk := diff.Hunk{
+		FilePath:   "tiny.js",
+		RawContent: "@@ -3,2 +3,2 @@\n function longFunc() {\n-  const value = computeSomething(value + 1);\n+  const value = computeSomething(value + 2);",
+	}
+
+	expanded, err := ExpandHunk(dir, hunk, 23)
+	if err != nil {
+		t.Fatalf("ExpandHunk: %v", err)
+	}
+	if strings.Contains(expanded.Context, "## File imports") {
+		t.Error("tiny budget should not show an import section")
+	}
+	if !strings.Contains(expanded.Context, "## Enclosing function context") {
+		t.Error("expected function context to be kept")
+	}
+	if !strings.Contains(expanded.Context, truncateMarker) {
+		t.Error("expected function context to be truncated with the full budget")
+	}
+}
