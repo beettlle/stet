@@ -1,8 +1,8 @@
 # stet — Context
 
-**Last Updated:** 2026-10-10
+**Last Updated:** 2026-10-14
 **Status:** Active
-**Next Task ID:** SP-041
+**Next Task ID:** SP-048
 
 ---
 
@@ -125,6 +125,22 @@ SP-037 landed in batch `20261010T215242-59b9`. SP-039 landed in batch `20261011T
 | SP-040 | Recover findings JSON from prose responses; JSON-only retry; suppression/shadow sections framed as dismissed false positives | S | Done | — |
 
 Waves: **R0** SP-040 → reinstall `stet` from `main` (`cd cli && go build -o ~/.local/bin/stet ./cmd/stet`) → SP-037 → SP-039.
+
+### Phase 9 — Release v1.1.0 (2026-10-14)
+
+Manifest: `spine-tasks/_authoring/release-v1.1.0/manifest.md`.
+
+| Task | Summary | Size | Status | Deps |
+|------|---------|------|--------|------|
+| SP-041 | Docs: current suppression header (#6) | S | Pending | SP-045 |
+| SP-042 | CI/release setup-go `check-latest: true` (Go 1.27.2 stdlib vulns) | S | Pending | — |
+| SP-043 | `stet status` `findings:` = active count (#7) | S | Pending | SP-045 |
+| SP-044 | `.gitignore` in in-repo worktree root (#9) | S | Pending | SP-043 |
+| SP-045 | Restore dismissals from history on `stet start` (#8) | M | Pending | — |
+| SP-046 | JS/TS hunk context includes file imports (#10, partial) | S | Pending | — |
+| SP-047 | Prompt: out-of-view imports/definitions are not evidence (#10, partial) | S | Pending | — |
+
+Edges are shared-file serialization (`docs/review-process-internals.md`, `docs/cli-extension-contract.md`), not data deps.
 
 ### Completed (wave 0 + follow-on)
 
