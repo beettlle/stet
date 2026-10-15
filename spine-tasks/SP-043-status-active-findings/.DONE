@@ -1,0 +1,7 @@
+SP-043 complete 2026-10-15.
+
+- findings: reports active count (shared activeFindingsInSession helper; --ids list uses same filter)
+- docs/cli-extension-contract.md status bullet: "active finding count (findings not dismissed)"
+- Tests: TestRunCLI_dismissPersistence extended (findings: 0 / dismissed: 1); TestRunCLI_statusActiveCountAfterPartialDismiss added (findings: 1 / dismissed: 1)
+- Verification: gofmt, go vet, go test ./... exit 0; spine-stet-contract-run.sh lenient exit 0 ("0 finding(s)")
+- Commits: fd83f1e (step 1), 823a097 (step 2), deb961c (status log)
