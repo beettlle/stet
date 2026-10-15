@@ -104,6 +104,7 @@ Wave 2 · 1 task
 
 | Wave | Batch ID | Tasks landed | stet wave review (active findings) | release-check log | Exit | Pushed | Issues closed |
 |------|----------|--------------|------------------------------------|-------------------|------|--------|---------------|
+| 0 | `20261015T053242-6e48` | SP-042, SP-045, SP-046, SP-047 (merge `76987c0`); post-integrate fix `5cd4430` (SP-045 restored dismissals never set `category`, so location match never fired) | 9: 1 real fixed (c64b3e5 → `5cd4430`), 1 real low-priority noted (d5b453c: empty `funcSrc` drops JS/TS imports), 7 false positives. Recovery: SP-047 lane false positive 5f28cf7 dismissed, `spine batch retry SP-047` | `/tmp/stet-release-check-wave-0.log` | 0 | `5cd4430`, `ci.yml` run 38698351507 green | #8, #10 (SP-046 + SP-047) |
 
 ---
 
