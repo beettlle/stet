@@ -1,0 +1,9 @@
+SP-046 complete.
+
+- Step 1: Top-level import scanner (ESM imports/re-exports, require bindings, TS import-equals, multi-line statements, directive/comment skip set, stop rule, 60-line cap) — cli/internal/expand/expand_jsts.go
+- Step 2: Wired into expandJSTSHunk — `## File imports` section before function context, quarter token-budget split (imports truncated to maxTokens/4, function context gets the remainder, too-small budgets fail open), no-scope hunks after imports now expand, overlapping hunks unchanged, no-imports output byte-identical
+- Step 3: Tests for the #10 fixture, all import forms, stop rules, cap, budget split, overlap, byte-identical no-import case; contract testCommand passed (gofmt, go vet, expand+review tests, stet review 0 findings exit 0)
+
+Commits: 379d130, 9c546c1, 5519845, 08c832e, 6bc1c4f (baseline 541e1f1)
+File scope held: cli/internal/expand/expand_jsts.go, cli/internal/expand/expand_jsts_test.go (+ task STATUS.md)
+Stet triage: 2 real defects fixed (unterminated multi-line import consumed rest of file; `from` in comment/identifier counted as module specifier), 7 hallucinated/stale findings dismissed with evidence, reviewer bugs recorded in STATUS.md Discoveries.
