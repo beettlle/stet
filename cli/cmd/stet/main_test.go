@@ -1517,6 +1517,62 @@ func TestRunCLI_dismissPersistence(t *testing.T) {
 	_ = wo.Close()
 	var stdout bytes.Buffer
 	_, _ = io.Copy(&stdout, ro)
+	if !strings.Contains(stdout.String(), "findings: 0") {
+		t.Errorf("status after dismissing the only finding should show findings: 0; got %s", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "dismissed: 1") {
+		t.Errorf("status after dismiss should show dismissed: 1; got %s", stdout.String())
+	}
+}
+
+func TestRunCLI_statusActiveCountAfterPartialDismiss(t *testing.T) {
+	// Do not run in parallel: test changes cwd and overrides getFindingsOut to capture output.
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	origOut := getFindingsOut
+	getFindingsOut = func() io.Writer { return &buf }
+	t.Cleanup(func() { getFindingsOut = origOut })
+	// HEAD~2..HEAD spans two commits (f1.txt, f2.txt), so dry-run seeds one canned finding per hunk: two findings.
+	if got := runCLI([]string{"start", "HEAD~2", "--dry-run", "--json"}); got != 0 {
+		t.Fatalf("runCLI(start HEAD~2 --dry-run) = %d, want 0", got)
+	}
+	var out struct {
+		Findings []map[string]interface{} `json:"findings"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil || len(out.Findings) < 2 {
+		t.Fatalf("need at least two findings; err=%v", err)
+	}
+	id, _ := out.Findings[0]["id"].(string)
+	if id == "" {
+		t.Fatal("finding missing id")
+	}
+	if got := runCLI([]string{"dismiss", id}); got != 0 {
+		t.Fatalf("runCLI(dismiss %q) = %d, want 0", id, got)
+	}
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStdout := os.Stdout
+	os.Stdout = w
+	t.Cleanup(func() { os.Stdout = oldStdout })
+	if got := runCLI([]string{"status"}); got != 0 {
+		t.Fatalf("runCLI(status) = %d", got)
+	}
+	_ = w.Close()
+	var stdout bytes.Buffer
+	_, _ = io.Copy(&stdout, r)
+	if !strings.Contains(stdout.String(), "findings: 1") {
+		t.Errorf("status after dismissing one of two findings should show findings: 1; got %s", stdout.String())
+	}
 	if !strings.Contains(stdout.String(), "dismissed: 1") {
 		t.Errorf("status after dismiss should show dismissed: 1; got %s", stdout.String())
 	}

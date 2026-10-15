@@ -120,12 +120,9 @@ func tryAutoFinishZero(ctx context.Context, cfg *config.Config, repoRoot, stateD
 	return err
 }
 
-// activeFindings loads session from stateDir and returns findings not in DismissedIDs.
-func activeFindings(stateDir string) ([]findings.Finding, error) {
-	s, err := session.Load(stateDir)
-	if err != nil {
-		return nil, erruser.New("Could not load session.", err)
-	}
+// activeFindingsInSession returns findings not in s.DismissedIDs. Shared by the
+// status count and the --ids list (via activeFindings) so both use identical filtering.
+func activeFindingsInSession(s *session.Session) []findings.Finding {
 	dismissed := make(map[string]struct{}, len(s.DismissedIDs))
 	for _, id := range s.DismissedIDs {
 		dismissed[id] = struct{}{}
@@ -136,7 +133,16 @@ func activeFindings(stateDir string) ([]findings.Finding, error) {
 			active = append(active, f)
 		}
 	}
-	return active, nil
+	return active
+}
+
+// activeFindings loads session from stateDir and returns findings not in DismissedIDs.
+func activeFindings(stateDir string) ([]findings.Finding, error) {
+	s, err := session.Load(stateDir)
+	if err != nil {
+		return nil, erruser.New("Could not load session.", err)
+	}
+	return activeFindingsInSession(&s), nil
 }
 
 // writeFindingsJSON writes {"findings": [...]} to w. Uses activeFindings so dismissed are excluded.
@@ -1320,16 +1326,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(os.Stdout, "baseline: %s\n", s.BaselineRef)
 	fmt.Fprintf(os.Stdout, "last_reviewed_at: %s\n", s.LastReviewedAt)
 	fmt.Fprintf(os.Stdout, "worktree: %s\n", worktreePath)
-	dismissed := make(map[string]struct{}, len(s.DismissedIDs))
-	for _, id := range s.DismissedIDs {
-		dismissed[id] = struct{}{}
-	}
-	activeCount := 0
-	for _, f := range s.Findings {
-		if _, ok := dismissed[f.ID]; !ok {
-			activeCount++
-		}
-	}
+	activeCount := len(activeFindingsInSession(&s))
 	fmt.Fprintf(os.Stdout, "findings: %d\n", activeCount)
 	fmt.Fprintf(os.Stdout, "dismissed: %d\n", len(s.DismissedIDs))
 	if s.Strictness != "" {
