@@ -210,7 +210,13 @@ State lives under `.review/` (or the path given by `state_dir`). Artifacts:
 - **`prompt.md`** — Optional per-repo review instructions; merged with the default prompt when present (same precedence section). Path is always `repo/.review/prompt.md` regardless of custom `state_dir`.
 - **`worktrees/`** — Directory for stet worktrees (default `repo/.review/worktrees` or `worktree_root`). Each entry is `stet-<short-sha>`.
 
-The `.review/` directory is in `.gitignore` by default so state does not pollute version control; it can be removed from `.gitignore` if the team wants to commit state.
+stet writes `.review/worktrees/.gitignore` (containing `*`) when it creates the worktree directory inside the repo, so review worktrees are never staged by commands like `git add -A`. Other state files (`session.json`, `lock`, `history.jsonl*`) are not ignored automatically; the recommended repo `.gitignore` rules are:
+
+```gitignore
+.review/*
+!.review/config.toml
+!.review/prompt.md
+```
 
 ## State storage and history (history.jsonl)
 
