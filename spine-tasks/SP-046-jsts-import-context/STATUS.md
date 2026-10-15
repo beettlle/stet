@@ -25,9 +25,9 @@
 ---
 
 ### Step 3: Testing & Verification
-**Status:** ⬜ Not Started
+**Status:** 🟡 In Progress
 
-- [ ] #10 fixture test; import-form tests; no-imports unchanged; caps
+- [x] #10 fixture test; import-form tests; no-imports unchanged; caps
 - [ ] Contract `testCommand` passing (stet review exits 0)
 
 ---
@@ -74,6 +74,7 @@
 | 2026-10-14 | Task staged | PROMPT.md and STATUS.md created (release v1.1.0) |
 | 2026-10-15 | Lane setup | Ran `stet start HEAD --allow-dirty` + wrote `.review/spine-stet-baseline.ref` (worktreeSetupHook had not run; services LM Studio + OpenJev verified up) |
 | 2026-10-15 | Step 1 + 2 | Scanner + wiring implemented; gofmt, `go vet ./cli/...`, existing expand tests green |
+| 2026-10-15 | Step 3 | Added import tests (fixture, forms, stop rules, cap, budget split, overlap, byte-identical no-import case); expand + review packages green |
 
 ---
 
