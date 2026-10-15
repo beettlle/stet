@@ -1258,6 +1258,23 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 	}
 	pending := mergePendingExcluded(nil, skipped)
 	part = scope.PromotePendingExcluded(part, pending)
+
+	// Restore dismissals from recent history so they survive stet finish (FR-3).
+	// Collection and the changed-file check run before the review; matching
+	// against the new findings happens after the review loop. History problems
+	// never fail Start.
+	var restorable []restorableDismissal
+	if len(part.ToReview) > 0 {
+		var restoreErr error
+		restorable, restoreErr = collectRestorableDismissals(opts.StateDir)
+		if restoreErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not restore dismissals: %v\n", restoreErr)
+			restorable = nil
+		} else {
+			restorable = filterUnchangedFiles(ctx, opts.RepoRoot, restorable, headSHA)
+		}
+	}
+
 	tr := trace.New(opts.TraceOut)
 	if tr.Enabled() {
 		tr.Section("Partition")
@@ -1267,6 +1284,7 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 			approvedN = len(part.Approved)
 		}
 		tr.Printf("ToReview=%d Approved=%d\n", len(part.ToReview), approvedN)
+		tr.Printf("Restorable dismissals from history: %d\n", len(restorable))
 		if len(skipped) > 0 {
 			for _, p := range skipped {
 				tr.Printf("Excluded: %s\n", p)
@@ -1464,6 +1482,16 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 	s.FindingPromptContext = findingPromptContext
 	s.LastReviewedAt = headSHA
 	s.PendingExcludedPaths = removeReviewedFromPending(pending, part.ToReview)
+	// Re-apply dismissals restored from history: mark matching new findings
+	// dismissed so they do not resurface after stet finish (FR-3). Findings
+	// stay in s.Findings; only their IDs are added to DismissedIDs.
+	restored := applyRestoredDismissals(&s, collected, restorable)
+	if restored > 0 {
+		if opts.Verbose {
+			fmt.Fprintf(os.Stderr, "restored %d dismissals from history\n", restored)
+		}
+		tr.Printf("restored %d dismissals from history\n", restored)
+	}
 	if captureUsage() {
 		s.LastRunPromptTokens = int64(sumPrompt)
 		s.LastRunCompletionTokens = int64(sumCompletion)
