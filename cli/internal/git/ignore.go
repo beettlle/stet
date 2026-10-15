@@ -41,9 +41,11 @@ func ensureWorktreeRootIgnored(repoRoot, root string) error {
 	return f.Close()
 }
 
-// pathInsideRepo reports whether path is inside repoRoot. Both sides become
-// cleaned absolute paths with symlinks resolved the same way, so repos in
-// symlinked locations (e.g. macOS /var -> /private/var temp dirs) compare equal.
+// pathInsideRepo reports whether path is strictly inside repoRoot (a proper
+// subdirectory; the repo root itself does not count, so a `*` ignore file is
+// never dropped on the whole repo). Both sides become cleaned absolute paths
+// with symlinks resolved the same way, so repos in symlinked locations (e.g.
+// macOS /var -> /private/var temp dirs) compare equal.
 func pathInsideRepo(repoRoot, path string) bool {
 	absRepo, err := filepath.Abs(repoRoot)
 	if err != nil {
@@ -56,6 +58,9 @@ func pathInsideRepo(repoRoot, path string) bool {
 	rel, err := filepath.Rel(resolveIfExists(absRepo), resolveIfExists(absPath))
 	if err != nil {
 		return false
+	}
+	if rel == "." {
+		return false // path is the repo root itself; nothing to isolate
 	}
 	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
