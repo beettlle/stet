@@ -4,7 +4,6 @@ package rules
 
 import (
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -71,9 +70,17 @@ func DiscoverRulesDirs(repoRoot string) ([]RulesDir, error) {
 }
 
 // Loader caches discovered rules dirs and per-dir rule lists for fast per-file lookup.
+// A cached dir is reloaded when its fingerprint (rule file names, sizes, and
+// modification times) changes, so edits are picked up by long-lived loaders.
 type Loader struct {
-	dirs  []RulesDir
-	cache map[string][]CursorRule
+	dirs    []RulesDir
+	cache   map[string]loadedDir
+	digests *DigestCache
+}
+
+type loadedDir struct {
+	rules       []CursorRule
+	fingerprint string
 }
 
 // NewLoader discovers .cursor/rules dirs under repoRoot and returns a loader.
@@ -88,7 +95,20 @@ func NewLoader(repoRoot string) *Loader {
 			dirs = nil
 		}
 	}
-	return &Loader{dirs: dirs, cache: make(map[string][]CursorRule)}
+	return &Loader{dirs: dirs, cache: make(map[string]loadedDir)}
+}
+
+// WithDigestCache makes the loader take review digests from c and drops cache
+// entries for rules directories that no longer exist. Returns l for chaining.
+func (l *Loader) WithDigestCache(c *DigestCache) *Loader {
+	l.digests = c
+	c.retainDirs(l.dirs)
+	return l
+}
+
+// SaveDigests persists the digest cache when one is attached and it changed.
+func (l *Loader) SaveDigests() error {
+	return l.digests.Save()
 }
 
 // RulesForFile returns rules from root and from any nested .cursor/rules whose path
@@ -111,17 +131,20 @@ func (l *Loader) RulesForFile(filePath string) []CursorRule {
 	}
 	var merged []CursorRule
 	for _, d := range applicable {
-		rules, ok := l.cache[d.AbsDir]
-		if !ok {
-			loaded, err := LoadRules(d.AbsDir)
-			if err != nil {
-				log.Printf("rules: load %s: %v", d.AbsDir, err)
-				loaded = nil
-			}
-			l.cache[d.AbsDir] = loaded
-			rules = loaded
-		}
-		merged = append(merged, rules...)
+		merged = append(merged, l.dirRules(d.AbsDir)...)
 	}
 	return merged
+}
+
+// dirRules returns the cached rules for dir, reloading them when the dir's
+// fingerprint changed since they were loaded.
+func (l *Loader) dirRules(dir string) []CursorRule {
+	cached, ok := l.cache[dir]
+	if ok && cached.fingerprint == dirFingerprint(dir) {
+		return cached.rules
+	}
+	loaded, fingerprint := loadRulesDir(dir, l.digests)
+	l.digests.pruneDir(dir, loaded)
+	l.cache[dir] = loadedDir{rules: loaded, fingerprint: fingerprint}
+	return loaded
 }

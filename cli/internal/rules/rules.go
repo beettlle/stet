@@ -27,20 +27,24 @@ var descriptionGlobMap = map[string][]string{
 }
 
 const (
-	// MaxRuleTokens is the approximate token budget for combined rule content
-	// injected into the system prompt. Content is truncated from the end when exceeded.
+	// MaxRuleTokens is the approximate token budget for rule sections chosen by
+	// the rule selector, and the floor of ReviewRuleBudget for the default path.
 	MaxRuleTokens = 1000
 )
 
 // CursorRule represents a single .mdc rule: frontmatter (globs, alwaysApply,
 // description) and body content to inject when the rule applies to the file under review.
 // Source is the rule file name (e.g. general-llm-anti-patterns.mdc) for trace and debugging.
+// Path is the rule file's path as loaded. Digest is the review digest (see BuildDigest)
+// filled by the loader; when empty it is built on demand.
 type CursorRule struct {
 	Globs       []string
 	AlwaysApply bool
 	Description string
 	Content     string
 	Source      string
+	Path        string
+	Digest      string
 }
 
 // frontmatter is the YAML structure we parse from .mdc files.
@@ -55,21 +59,30 @@ type frontmatter struct {
 // without any Cursor rules. On per-file read/parse errors, that file is
 // skipped; the function returns collected rules and nil error.
 func LoadRules(rulesDir string) ([]CursorRule, error) {
+	loaded, _ := loadRulesDir(rulesDir, nil)
+	return loaded, nil
+}
+
+// loadRulesDir reads and parses every .mdc file in rulesDir, fills each rule's
+// Path and Digest (through digests when non-nil), and returns the rules with
+// the directory fingerprint observed while loading (see dirFingerprint).
+// Unreadable directories yield no rules; unreadable or invalid files are skipped.
+func loadRulesDir(rulesDir string, digests *DigestCache) ([]CursorRule, string) {
 	entries, err := os.ReadDir(rulesDir)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, nil
+		return nil, ""
 	}
 	var out []CursorRule
+	var fp strings.Builder
 	for _, e := range entries {
-		if e.IsDir() {
+		if !isRuleFile(e) {
 			continue
 		}
-		if !strings.HasSuffix(strings.ToLower(e.Name()), ".mdc") {
+		info, err := e.Info()
+		if err != nil {
 			continue
 		}
+		writeStamp(&fp, e.Name(), info)
 		path := filepath.Join(rulesDir, e.Name())
 		data, err := os.ReadFile(path)
 		if err != nil {
@@ -80,9 +93,11 @@ func LoadRules(rulesDir string) ([]CursorRule, error) {
 			continue
 		}
 		rule.Source = e.Name()
+		rule.Path = path
+		rule.Digest = digests.digestFor(rule, info.Size(), info.ModTime().UnixNano(), data)
 		out = append(out, rule)
 	}
-	return out, nil
+	return out, fp.String()
 }
 
 // parseMDC splits content on --- delimiters, parses YAML frontmatter, and

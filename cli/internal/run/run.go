@@ -182,10 +182,12 @@ type reviewPipelineOpts struct {
 	RAGCalleesMax           int
 	RAGCallGraphMaxTokens   int
 	RulesByFile             map[string][]rules.CursorRule
-	MinKeep, MinMaint       float64
-	ApplyFP                 bool
-	CriticEnabled           bool   // When true, run critic on each finding after post-filters; drops verdict "no".
-	CriticModel             string // Model name for critic; default qwen3-coder:30b (same as main); used only when CriticBackend is "" or "llm".
+	// RulesMaxTokens is the rule digest budget (rules_max_tokens); 0 scales with EffectiveContextLimit.
+	RulesMaxTokens    int
+	MinKeep, MinMaint float64
+	ApplyFP           bool
+	CriticEnabled     bool   // When true, run critic on each finding after post-filters; drops verdict "no".
+	CriticModel       string // Model name for critic; default qwen3-coder:30b (same as main); used only when CriticBackend is "" or "llm".
 	// CriticBackend selects the critic implementation: "" or "llm" runs the per-finding LLM critic (CriticModel); "systemone" runs the batch System One verifier.
 	CriticBackend string
 	// SystemOneClient verifies findings against a System One decision server; required (non-nil) when CriticBackend == "systemone".
@@ -371,7 +373,7 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 				hunk := opts.Hunks[i]
 				cursorRules := opts.RulesByFile[hunk.FilePath]
 				ruleSections := selectRuleSectionsForHunk(ctx, opts, hunk, cursorRules, selectorWarn)
-				system, user, prepErr := review.PrepareHunkPrompt(ctx, opts.SystemBase, hunk, cursorRules, opts.RepoRoot, opts.EffectiveContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, opts.RAGCallGraphEnabled, opts.RAGCallersMax, opts.RAGCalleesMax, opts.RAGCallGraphMaxTokens, opts.UseSearchReplaceFormat, opts.SuppressionExamples, ruleSections, opts.TraceOut)
+				system, user, prepErr := review.PrepareHunkPrompt(ctx, opts.SystemBase, hunk, cursorRules, opts.RepoRoot, opts.EffectiveContextLimit, opts.RAGSymbolMaxDefinitions, opts.RAGSymbolMaxTokens, opts.RAGCallGraphEnabled, opts.RAGCallersMax, opts.RAGCalleesMax, opts.RAGCallGraphMaxTokens, opts.UseSearchReplaceFormat, opts.SuppressionExamples, ruleSections, opts.RulesMaxTokens, opts.TraceOut)
 				if prepErr != nil {
 					readyCh <- preparedPrompt{Index: i, Hunk: hunk, Err: prepErr}
 					continue
@@ -939,6 +941,8 @@ type StartOptions struct {
 	RAGCallersMax           int
 	RAGCalleesMax           int
 	RAGCallGraphMaxTokens   int
+	// RulesMaxTokens is the rule digest budget in the review prompt (rules_max_tokens); 0 = scale with context limit.
+	RulesMaxTokens int
 	// MinConfidenceKeep and MinConfidenceMaintainability are abstention thresholds (0,0 = use 0.8, 0.9).
 	// ApplyFPKillList nil = apply FP kill list (true); set to false for strict+ presets.
 	MinConfidenceKeep            float64
@@ -1035,6 +1039,7 @@ type RunOptions struct {
 	RAGCallersMax                int
 	RAGCalleesMax                int
 	RAGCallGraphMaxTokens        int
+	RulesMaxTokens               int // Rule digest budget (rules_max_tokens); 0 = scale with context limit.
 	MinConfidenceKeep            float64
 	MinConfidenceMaintainability float64
 	ApplyFPKillList              *bool
@@ -1414,13 +1419,7 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 			}
 		}
 		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: effectiveNumCtx, MaxCompletionTokens: opts.MaxCompletionTokens, KeepAlive: keepAliveDuringRun}
-		rulesLoader := rules.NewLoader(opts.RepoRoot)
-		rulesByFile := make(map[string][]rules.CursorRule)
-		for _, h := range part.ToReview {
-			if _, ok := rulesByFile[h.FilePath]; !ok {
-				rulesByFile[h.FilePath] = rulesLoader.RulesForFile(h.FilePath)
-			}
-		}
+		rulesByFile := loadRulesForHunks(opts.RepoRoot, opts.StateDir, part.ToReview, rules.ReviewRuleBudget(effectiveContextLimit, opts.RulesMaxTokens), opts.RulesSelectorClient == nil, nil)
 		collected, findingPromptContext, sumPrompt, sumCompletion, sumDuration, err = runReviewPipeline(ctx, reviewPipelineOpts{
 			Client:                  llmClient,
 			Model:                   opts.Model,
@@ -1436,6 +1435,7 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 			RAGCalleesMax:           opts.RAGCalleesMax,
 			RAGCallGraphMaxTokens:   opts.RAGCallGraphMaxTokens,
 			RulesByFile:             rulesByFile,
+			RulesMaxTokens:          opts.RulesMaxTokens,
 			MinKeep:                 minKeep,
 			MinMaint:                minMaint,
 			ApplyFP:                 applyFP,
@@ -1860,13 +1860,7 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 			}
 		}
 		genOpts := &ollama.GenerateOptions{Temperature: opts.Temperature, NumCtx: effectiveNumCtx, MaxCompletionTokens: opts.MaxCompletionTokens, KeepAlive: keepAliveDuringRun}
-		rulesLoader := rules.NewLoader(opts.RepoRoot)
-		rulesByFile := make(map[string][]rules.CursorRule)
-		for _, h := range toReview {
-			if _, ok := rulesByFile[h.FilePath]; !ok {
-				rulesByFile[h.FilePath] = rulesLoader.RulesForFile(h.FilePath)
-			}
-		}
+		rulesByFile := loadRulesForHunks(opts.RepoRoot, opts.StateDir, toReview, rules.ReviewRuleBudget(effectiveContextLimit, opts.RulesMaxTokens), opts.RulesSelectorClient == nil, nil)
 		var pipelineContext map[string]string
 		newFindings, pipelineContext, sumPrompt, sumCompletion, sumDuration, err = runReviewPipeline(ctx, reviewPipelineOpts{
 			Client:                  client,
@@ -1883,6 +1877,7 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 			RAGCalleesMax:           opts.RAGCalleesMax,
 			RAGCallGraphMaxTokens:   opts.RAGCallGraphMaxTokens,
 			RulesByFile:             rulesByFile,
+			RulesMaxTokens:          opts.RulesMaxTokens,
 			MinKeep:                 minKeep,
 			MinMaint:                minMaint,
 			ApplyFP:                 applyFP,

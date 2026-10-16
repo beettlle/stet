@@ -94,7 +94,7 @@
       },
       "allegretto": {
         "worker": {
-          "model": "kimi-coding/k3",
+          "model": "google/gemini-4-argon",
           "thinking": "medium"
         },
         "reviewer": {

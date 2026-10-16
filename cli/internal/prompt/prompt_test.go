@@ -470,7 +470,7 @@ func TestInjectUserIntent_missingSection_unchanged(t *testing.T) {
 
 func TestAppendCursorRules_nilRules_unchanged(t *testing.T) {
 	base := "System prompt."
-	got := AppendCursorRules(base, nil, "app.ts", 1000)
+	got, _ := AppendCursorRules(base, nil, "app.ts", 1000)
 	if got != base {
 		t.Errorf("AppendCursorRules(nil): want unchanged; got %q", got)
 	}
@@ -478,7 +478,7 @@ func TestAppendCursorRules_nilRules_unchanged(t *testing.T) {
 
 func TestAppendCursorRules_emptyRules_unchanged(t *testing.T) {
 	base := "System prompt."
-	got := AppendCursorRules(base, []rules.CursorRule{}, "app.ts", 1000)
+	got, _ := AppendCursorRules(base, []rules.CursorRule{}, "app.ts", 1000)
 	if got != base {
 		t.Errorf("AppendCursorRules(empty): want unchanged; got %q", got)
 	}
@@ -489,7 +489,7 @@ func TestAppendCursorRules_noMatch_unchanged(t *testing.T) {
 	ruleList := []rules.CursorRule{
 		{Globs: []string{"*.go"}, Content: "Go rule"},
 	}
-	got := AppendCursorRules(base, ruleList, "app.ts", 1000)
+	got, _ := AppendCursorRules(base, ruleList, "app.ts", 1000)
 	if got != base {
 		t.Errorf("AppendCursorRules(no match): want unchanged; got %q", got)
 	}
@@ -500,7 +500,7 @@ func TestAppendCursorRules_oneMatch_appendsSection(t *testing.T) {
 	ruleList := []rules.CursorRule{
 		{Globs: []string{"*.ts"}, Content: "Do not use console.log."},
 	}
-	got := AppendCursorRules(base, ruleList, "app.ts", 1000)
+	got, _ := AppendCursorRules(base, ruleList, "app.ts", 1000)
 	if !strings.Contains(got, "## Project review criteria") {
 		t.Errorf("AppendCursorRules: want section header; got:\n%s", got)
 	}
@@ -518,7 +518,7 @@ func TestAppendCursorRules_overTokenBudget_truncated(t *testing.T) {
 	ruleList := []rules.CursorRule{
 		{Globs: []string{"*"}, Content: longBody},
 	}
-	got := AppendCursorRules(base, ruleList, "any.go", 100)
+	got, _ := AppendCursorRules(base, ruleList, "any.go", 100)
 	if !strings.Contains(got, "## Project review criteria") {
 		t.Errorf("AppendCursorRules: want section header")
 	}
@@ -527,6 +527,24 @@ func TestAppendCursorRules_overTokenBudget_truncated(t *testing.T) {
 	}
 	if len(got) >= len(base)+len(longBody) {
 		t.Errorf("AppendCursorRules: combined output should be shorter than full body")
+	}
+}
+
+func TestAppendCursorRules_digestFileSpecificFirst(t *testing.T) {
+	ruleList := []rules.CursorRule{
+		{Source: "general.mdc", AlwaysApply: true, Content: "## Persona\nBe terse.\n\n### Loops\n**Detect:** I/O in loop"},
+		{Source: "python.mdc", Globs: []string{"**/*.py"}, Content: "### Bare except\n❌ Bad: `except: pass`\n**Detect:** bare except"},
+	}
+	got, criteria := AppendCursorRules("System prompt.", ruleList, "pkg/app.py", 1000)
+	if strings.Contains(got, "Be terse.") {
+		t.Errorf("persona text without markers should not reach the prompt:\n%s", got)
+	}
+	py, general := strings.Index(got, "**Detect:** bare except"), strings.Index(got, "**Detect:** I/O in loop")
+	if py < 0 || general < 0 || py > general {
+		t.Errorf("want python digest before general digest:\n%s", got)
+	}
+	if len(criteria.Included) != 2 || len(criteria.Dropped) != 0 {
+		t.Errorf("criteria = %+v, want 2 included sections", criteria)
 	}
 }
 

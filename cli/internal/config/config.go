@@ -26,6 +26,7 @@
 //   - STET_SYSTEMONE_API_KEY (System One API key; env-only — never loaded from config files and never printed).
 //   - STET_RULES_SELECTOR (rule-section selector: 1/true/yes/on = true, 0/false/no/off = false; reuses systemone_base_url/systemone_model and STET_SYSTEMONE_API_KEY).
 //   - STET_RULES_ANNOTATE (rule-conflict annotation: 1/true/yes/on = true, 0/false/no/off = false; reuses systemone_base_url/systemone_model and STET_SYSTEMONE_API_KEY).
+//   - STET_RULES_MAX_TOKENS (token budget for Cursor rule digests in the review prompt; 0 = 15% of context_limit, clamped to [1000, 8192]).
 //   - STET_EXCLUDE_PATTERNS (comma-separated filepath.Match patterns to skip from review; merges with built-in defaults unless replace is set).
 //   - STET_EXCLUDE_PATTERNS_REPLACE (1/true/yes/on = use only STET_EXCLUDE_PATTERNS, not built-in defaults).
 //   - STET_AUTO_FINISH_ZERO (auto-finish session when review completes with zero active findings: 1/true/yes/on = true, 0/false/no/off = false).
@@ -121,6 +122,9 @@ type Config struct {
 	// SystemOneModel, and the env-only SystemOneAPIKey. On annotation failure the findings stay
 	// unannotated and one warning per run is printed to stderr (server URL only, never the API key).
 	RulesAnnotate bool `toml:"rules_annotate"`
+	// RulesMaxTokens is the token budget for Cursor rule review digests in the review prompt
+	// (default path, not the rules selector). 0 = 15% of context_limit clamped to [1000, 8192]. Default 0.
+	RulesMaxTokens int `toml:"rules_max_tokens"`
 	// ExcludePatterns are filepath.Match patterns for hunks to skip from LLM review (e.g. "*.md").
 	ExcludePatterns []string `toml:"exclude_patterns"`
 	// ExcludePatternsReplace, when true, uses only ExcludePatterns (no merge with built-in defaults).
@@ -159,6 +163,7 @@ type Overrides struct {
 	CriticBackend           *string
 	RulesSelector           *bool
 	RulesAnnotate           *bool
+	RulesMaxTokens          *int
 	ExcludePatterns         *[]string
 	ExcludePatternsReplace  *bool
 	NoExclude               *bool
@@ -442,6 +447,7 @@ func mergeFile(cfg *Config, path string) error {
 		SystemOneTimeout        *string   `toml:"systemone_timeout"`
 		RulesSelector           *bool     `toml:"rules_selector"`
 		RulesAnnotate           *bool     `toml:"rules_annotate"`
+		RulesMaxTokens          *int64    `toml:"rules_max_tokens"`
 		ExcludePatterns         *[]string `toml:"exclude_patterns"`
 		ExcludePatternsReplace  *bool     `toml:"exclude_patterns_replace"`
 	}
@@ -621,6 +627,13 @@ func mergeFile(cfg *Config, path string) error {
 	if file.RulesAnnotate != nil {
 		cfg.RulesAnnotate = *file.RulesAnnotate
 	}
+	if file.RulesMaxTokens != nil && *file.RulesMaxTokens >= 0 {
+		v, err := int64ToInt(*file.RulesMaxTokens)
+		if err != nil {
+			return erruser.New("Configuration rules_max_tokens value out of range.", err)
+		}
+		cfg.RulesMaxTokens = v
+	}
 	if file.ExcludePatterns != nil {
 		cfg.ExcludePatterns = append([]string(nil), (*file.ExcludePatterns)...)
 	}
@@ -689,6 +702,7 @@ const (
 	envSystemOneAPIKey         = "STET_SYSTEMONE_API_KEY"
 	envRulesSelector           = "STET_RULES_SELECTOR"
 	envRulesAnnotate           = "STET_RULES_ANNOTATE"
+	envRulesMaxTokens          = "STET_RULES_MAX_TOKENS"
 	envExcludePatterns         = "STET_EXCLUDE_PATTERNS"
 	envExcludePatternsReplace  = "STET_EXCLUDE_PATTERNS_REPLACE"
 	envAutoFinishZero          = "STET_AUTO_FINISH_ZERO"
@@ -985,6 +999,18 @@ func applyEnv(cfg *Config, env []string) error {
 		}
 		cfg.RulesAnnotate = b
 	}
+	if v, ok := vals[envRulesMaxTokens]; ok && v != "" {
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return erruser.New("STET_RULES_MAX_TOKENS must be a valid number.", err)
+		}
+		if n >= 0 {
+			cfg.RulesMaxTokens, err = int64ToInt(n)
+			if err != nil {
+				return erruser.New("STET_RULES_MAX_TOKENS value out of range.", err)
+			}
+		}
+	}
 	if v, ok := vals[envExcludePatterns]; ok {
 		cfg.ExcludePatterns = parsePatternList(v)
 	}
@@ -1134,6 +1160,9 @@ func applyOverrides(cfg *Config, o *Overrides) error {
 	}
 	if o.RulesAnnotate != nil {
 		cfg.RulesAnnotate = *o.RulesAnnotate
+	}
+	if o.RulesMaxTokens != nil {
+		cfg.RulesMaxTokens = max(*o.RulesMaxTokens, 0)
 	}
 	if o.NoExclude != nil && *o.NoExclude {
 		cfg.ExcludePatterns = nil

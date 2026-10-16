@@ -2025,3 +2025,61 @@ func TestLoad_systemOneAPIKeyNeverInErrors(t *testing.T) {
 		t.Errorf("override validation error must not contain the API key value: %v", err)
 	}
 }
+
+func TestLoad_rulesMaxTokensPrecedence(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		repoTOML  string
+		env       []string
+		overrides *Overrides
+		want      int
+		wantErr   bool
+	}{
+		{name: "default_zero", want: 0},
+		{name: "repo_file", repoTOML: "rules_max_tokens = 3000", want: 3000},
+		{name: "negative_file_ignored", repoTOML: "rules_max_tokens = -5", want: 0},
+		{name: "env_overrides_file", repoTOML: "rules_max_tokens = 3000", env: []string{"STET_RULES_MAX_TOKENS=4000"}, want: 4000},
+		{name: "negative_env_ignored", repoTOML: "rules_max_tokens = 3000", env: []string{"STET_RULES_MAX_TOKENS=-1"}, want: 3000},
+		{name: "override_wins", repoTOML: "rules_max_tokens = 3000", env: []string{"STET_RULES_MAX_TOKENS=4000"}, overrides: &Overrides{RulesMaxTokens: ptrInt(5000)}, want: 5000},
+		{name: "negative_override_clamped", overrides: &Overrides{RulesMaxTokens: ptrInt(-3)}, want: 0},
+		{name: "invalid_env_errors", env: []string{"STET_RULES_MAX_TOKENS=lots"}, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			repoRoot := t.TempDir()
+			if tt.repoTOML != "" {
+				repoDir := filepath.Join(repoRoot, ".review")
+				if err := os.MkdirAll(repoDir, 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(repoDir, "config.toml"), []byte(tt.repoTOML), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			env := tt.env
+			if env == nil {
+				env = []string{}
+			}
+			cfg, err := Load(context.Background(), LoadOptions{
+				RepoRoot:         repoRoot,
+				GlobalConfigPath: filepath.Join(repoRoot, "missing-global.toml"),
+				Env:              env,
+				Overrides:        tt.overrides,
+			})
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("Load: want error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+			if cfg.RulesMaxTokens != tt.want {
+				t.Errorf("RulesMaxTokens = %d, want %d", cfg.RulesMaxTokens, tt.want)
+			}
+		})
+	}
+}

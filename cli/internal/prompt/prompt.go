@@ -166,37 +166,17 @@ func InjectUserIntent(systemPrompt, branch, commitMsg string) string {
 const projectReviewCriteriaHeader = "## Project review criteria\n"
 
 // AppendCursorRules appends a "## Project review criteria" section to
-// systemPrompt when rules apply to filePath. Matched rules are ordered with
-// alwaysApply first; combined content is truncated to maxRuleTokens. Returns
-// systemPrompt unchanged if rules is nil/empty or no rules match filePath.
-func AppendCursorRules(systemPrompt string, ruleList []rules.CursorRule, filePath string, maxRuleTokens int) string {
-	if len(ruleList) == 0 {
-		return systemPrompt
+// systemPrompt with the review digests of the rules that apply to filePath,
+// file-specific rules first, fitted to maxRuleTokens at section boundaries
+// (see rules.BuildReviewCriteria). It also returns the criteria so callers can
+// trace or warn about dropped sections. systemPrompt is unchanged when no rule
+// text applies.
+func AppendCursorRules(systemPrompt string, ruleList []rules.CursorRule, filePath string, maxRuleTokens int) (string, rules.Criteria) {
+	criteria := rules.BuildReviewCriteria(ruleList, filePath, maxRuleTokens)
+	if criteria.Text == "" {
+		return systemPrompt, criteria
 	}
-	matched := rules.FilterRules(ruleList, filePath)
-	if len(matched) == 0 {
-		return systemPrompt
-	}
-	// Order: alwaysApply first, then others.
-	var always, rest []rules.CursorRule
-	for _, r := range matched {
-		if r.AlwaysApply {
-			always = append(always, r)
-		} else {
-			rest = append(rest, r)
-		}
-	}
-	var combined strings.Builder
-	appendContents(&combined, always)
-	appendContents(&combined, rest)
-	text := combined.String()
-	if maxRuleTokens > 0 {
-		text = truncateToTokenBudget(text, maxRuleTokens)
-	}
-	if text == "" {
-		return systemPrompt
-	}
-	return systemPrompt + "\n\n" + projectReviewCriteriaHeader + text
+	return systemPrompt + "\n\n" + projectReviewCriteriaHeader + criteria.Text, criteria
 }
 
 const nitpickyModeHeader = "## Nitpicky mode\n\n"
@@ -209,17 +189,6 @@ const nitpickyModeBody = `- Persona: Act as a very thorough staff engineer. Poin
 // Used when --nitpicky is enabled so the model reports style, typos, and convention violations.
 func AppendNitpickyInstructions(systemPrompt string) string {
 	return systemPrompt + "\n\n" + nitpickyModeHeader + nitpickyModeBody
-}
-
-func appendContents(b *strings.Builder, ruleList []rules.CursorRule) {
-	for _, r := range ruleList {
-		if r.Content != "" {
-			if b.Len() > 0 {
-				b.WriteString("\n\n")
-			}
-			b.WriteString(r.Content)
-		}
-	}
 }
 
 // AppendRuleSections appends a "## Project review criteria" section to

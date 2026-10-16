@@ -2419,7 +2419,7 @@ func TestSuppressionWiring_systemPromptContainsSection(t *testing.T) {
 	}
 	hunk := diff.Hunk{FilePath: "pkg/foo.go", RawContent: "@@ -1,1 +1,1 @@\n code\n", Context: "code"}
 	ctx := context.Background()
-	system, _, err := review.PrepareHunkPrompt(ctx, systemBase, hunk, nil, "", 32768, 0, 0, false, 0, 0, 0, false, examples, nil, nil)
+	system, _, err := review.PrepareHunkPrompt(ctx, systemBase, hunk, nil, "", 32768, 0, 0, false, 0, 0, 0, false, examples, nil, 0, nil)
 	if err != nil {
 		t.Fatalf("PrepareHunkPrompt: %v", err)
 	}
