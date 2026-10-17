@@ -274,6 +274,93 @@ func TestExpandHunk_JSTS_expressionBodyArrow(t *testing.T) {
 	}
 }
 
+func TestFindEnclosingJSTSScope_functionWithArrowCallback(t *testing.T) {
+	tests := []struct {
+		name      string
+		src       string
+		hunkStart int
+		hunkEnd   int
+		wantStart int
+		wantEnd   int
+	}{
+		{
+			name: "issue_example_mjs",
+			src: `import { compareTaskIds } from "./ids.mjs";
+
+export function filterPendingTaskIds(ids, done) {
+  const pending = ids.filter((id) => !done.has(id));
+  return pending.sort(compareTaskIds);
+}
+`,
+			hunkStart: 4, hunkEnd: 5, wantStart: 3, wantEnd: 6,
+		},
+		{
+			name: "typescript_map_callback",
+			src: `export function doubleAll(arr: number[]): number[] {
+  const doubled = arr.map((x) => x * 2);
+  return doubled;
+}
+`,
+			hunkStart: 2, hunkEnd: 3, wantStart: 1, wantEnd: 4,
+		},
+		{
+			name: "arrow_with_object_return_type_keeps_arrow_scope",
+			src: `export const wrap = (x: number): { a: number } => ({
+  a: x,
+});
+`,
+			hunkStart: 2, hunkEnd: 2, wantStart: 1, wantEnd: 3,
+		},
+		{
+			name: "arrow_block_body",
+			src: `export const Button = ({ onClick }) => {
+  const label = "click";
+  return label;
+};
+`,
+			hunkStart: 2, hunkEnd: 2, wantStart: 1, wantEnd: 4,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scope, ok := findEnclosingJSTSScope([]byte(tt.src), tt.hunkStart, tt.hunkEnd)
+			if !ok {
+				t.Fatal("expected enclosing scope")
+			}
+			if scope.startLine != tt.wantStart || scope.endLine != tt.wantEnd {
+				t.Errorf("scope = %d-%d, want %d-%d", scope.startLine, scope.endLine, tt.wantStart, tt.wantEnd)
+			}
+		})
+	}
+}
+
+func TestExpandHunk_JSTS_functionWithArrowCallback_mjs(t *testing.T) {
+	dir := t.TempDir()
+	content := `import { compareTaskIds } from "./ids.mjs";
+
+export function filterPendingTaskIds(ids, done) {
+  const pending = ids.filter((id) => !done.has(id));
+  return pending.sort(compareTaskIds);
+}
+`
+	if err := os.WriteFile(filepath.Join(dir, "pending.mjs"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hunk := diff.Hunk{
+		FilePath:   "pending.mjs",
+		RawContent: "@@ -4,2 +4,2 @@\n-  const pending = ids.filter((id) => !done.has(id));\n+  const pending = ids.filter((id) => done.has(id) === false);\n   return pending.sort(compareTaskIds);",
+	}
+	expanded, err := ExpandHunk(dir, hunk, 0)
+	if err != nil {
+		t.Fatalf("ExpandHunk: %v", err)
+	}
+	// Lines 3-6 of content: the whole function, including its closing brace.
+	wantFunc := "```javascript\n" + strings.Join(strings.Split(content, "\n")[2:6], "\n") + "\n```"
+	if !strings.Contains(expanded.Context, "## Enclosing function context\n\n"+wantFunc) {
+		t.Errorf("expected enclosing scope lines 3-6, got context:\n%s", expanded.Context)
+	}
+}
+
 func TestExpandHunk_JSTS_failOpen_badHunkHeader(t *testing.T) {
 	dir := t.TempDir()
 	_ = os.WriteFile(filepath.Join(dir, "a.ts"), []byte("function f() {}\n"), 0644)
