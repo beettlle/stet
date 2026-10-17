@@ -23,6 +23,7 @@ import (
 	"stet/cli/internal/findings"
 	"stet/cli/internal/git"
 	"stet/cli/internal/history"
+	"stet/cli/internal/llm"
 	"stet/cli/internal/run"
 	"stet/cli/internal/session"
 	"stet/cli/internal/systemone"
@@ -233,11 +234,56 @@ func TestRunCLI_benchmarkWithMockReturnsZero(t *testing.T) {
 	if !strings.Contains(output, "Model: qwen3-coder:30b") {
 		t.Errorf("output should contain 'Model: qwen3-coder:30b'; got:\n%s", output)
 	}
-	if !strings.Contains(output, "t/s") {
-		t.Errorf("output should contain 't/s'; got:\n%s", output)
+	if !strings.Contains(output, "t/s (generation)") {
+		t.Errorf("output should contain 't/s (generation)'; got:\n%s", output)
 	}
 	if !strings.Contains(output, "Reference:") {
 		t.Errorf("output should contain 'Reference:'; got:\n%s", output)
+	}
+}
+
+func TestRunCLI_benchmarkOpenAILabelsEndToEnd(t *testing.T) {
+	// Do not run in parallel: test sets STET_PROVIDER, STET_OPENAI_BASE_URL, STET_MODEL.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/models":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":[{"id":"local-model"}]}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/chat/completions":
+			time.Sleep(25 * time.Millisecond)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"[]"},"finish_reason":"stop"}],"usage":{"prompt_tokens":500,"completion_tokens":200}}`))
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+	t.Setenv("STET_PROVIDER", "openai")
+	t.Setenv("STET_OPENAI_BASE_URL", srv.URL+"/v1")
+	t.Setenv("STET_MODEL", "local-model")
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStdout := os.Stdout
+	os.Stdout = w
+	t.Cleanup(func() { os.Stdout = oldStdout })
+	got := runCLI([]string{"benchmark"})
+	_ = w.Close()
+	var stdout bytes.Buffer
+	_, _ = io.Copy(&stdout, r)
+
+	if got != 0 {
+		t.Errorf("runCLI(benchmark) with OpenAI mock = %d, want 0", got)
+	}
+	output := stdout.String()
+	if !strings.Contains(output, "t/s (end-to-end)") {
+		t.Errorf("output should contain 't/s (end-to-end)'; got:\n%s", output)
+	}
+	if strings.Contains(output, "Eval rate:        0.0 t/s") {
+		t.Errorf("eval rate should be non-zero; got:\n%s", output)
 	}
 }
 
@@ -2615,6 +2661,47 @@ func TestWriteFindingsHuman_withStats(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "tokens/sec") {
 		t.Errorf("output = %q", buf.String())
+	}
+}
+
+func TestWriteFindingsHuman_openAIStatsShowTokensPerSec(t *testing.T) {
+	t.Parallel()
+	// OpenAI-compatible results carry client wall clock as EvalDuration (no prefill split).
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(20 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"[]"},"finish_reason":"stop"}],"usage":{"prompt_tokens":100,"completion_tokens":50}}`))
+	}))
+	defer srv.Close()
+	client, err := llm.NewClient("openai", srv.URL+"/v1", srv.Client())
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	res, err := client.Generate(context.Background(), "m", "sys", "user", nil)
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	dir := t.TempDir()
+	s := session.Session{
+		BaselineRef: "abc",
+		Findings: []findings.Finding{
+			{ID: "f1", File: "a.go", Line: 1, Severity: findings.SeverityInfo, Category: findings.CategoryStyle, Confidence: 1.0, Message: "m1"},
+		},
+	}
+	if err := session.Save(dir, &s); err != nil {
+		t.Fatal(err)
+	}
+	stats := &run.RunStats{
+		PromptTokens:     int64(res.PromptEvalCount),
+		CompletionTokens: int64(res.EvalCount),
+		EvalDurationNs:   res.EvalDuration,
+	}
+	var buf bytes.Buffer
+	if err := writeFindingsHuman(&buf, dir, stats); err != nil {
+		t.Fatalf("writeFindingsHuman: %v", err)
+	}
+	if !strings.Contains(buf.String(), "tokens/sec") {
+		t.Errorf("output = %q, want tokens/sec", buf.String())
 	}
 }
 

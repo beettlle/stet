@@ -7,8 +7,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"stet/cli/internal/llm"
+	"stet/cli/internal/ollama"
 )
 
 func TestRun_returnsMetricsFromMockServer(t *testing.T) {
@@ -71,6 +73,9 @@ func TestRun_returnsMetricsFromMockServer(t *testing.T) {
 	}
 	if got.TotalDurationNs != wantTotalDur {
 		t.Errorf("TotalDurationNs = %d, want %d", got.TotalDurationNs, wantTotalDur)
+	}
+	if got.EndToEndRate {
+		t.Error("EndToEndRate = true for Ollama result with prefill timing, want false")
 	}
 	// Estimated: 3000/1898 + 200/39 ≈ 1.58 + 5.13 ≈ 6.7s
 	if got.EstimatedSecPerTypicalHunk < 5 || got.EstimatedSecPerTypicalHunk > 10 {
@@ -173,5 +178,64 @@ func TestRun_handlesZeroLoadDuration(t *testing.T) {
 	}
 	if got.EvalRateTPS < 80 || got.EvalRateTPS > 86 {
 		t.Errorf("EvalRateTPS = %.2f, want ~84", got.EvalRateTPS)
+	}
+}
+
+func TestRun_openAICompatEndToEndRate(t *testing.T) {
+	// Do not run in parallel: avoids potential race with httptest.Server.
+	// Chat Completions carry no timings; the client wall clock yields an end-to-end rate.
+	const delay = 25 * time.Millisecond
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(delay)
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"choices": []map[string]interface{}{
+				{"message": map[string]interface{}{"content": "[]"}, "finish_reason": "stop"},
+			},
+			"usage": map[string]interface{}{"prompt_tokens": 500, "completion_tokens": 200},
+		})
+	}))
+	defer srv.Close()
+	client, err := llm.NewClient("openai", srv.URL+"/v1", srv.Client())
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	got, err := Run(context.Background(), client, "local-model", nil)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if !got.EndToEndRate {
+		t.Error("EndToEndRate = false, want true for OpenAI-compatible result")
+	}
+	if got.EvalRateTPS <= 0 {
+		t.Errorf("EvalRateTPS = %.2f, want > 0", got.EvalRateTPS)
+	}
+	if got.TotalDurationNs < delay.Nanoseconds() || got.EvalDurationNs < delay.Nanoseconds() {
+		t.Errorf("durations total=%d eval=%d, want >= %d", got.TotalDurationNs, got.EvalDurationNs, delay.Nanoseconds())
+	}
+	if got.PromptEvalRateTPS != 0 {
+		t.Errorf("PromptEvalRateTPS = %.2f, want 0 (no prefill timing)", got.PromptEvalRateTPS)
+	}
+}
+
+func TestResultToBenchmark_endToEndFlag(t *testing.T) {
+	t.Parallel()
+	e2e := resultToBenchmark(&ollama.GenerateResult{EvalCount: 100, EvalDuration: 2_000_000_000, TotalDuration: 2_000_000_000})
+	if !e2e.EndToEndRate || e2e.EvalRateTPS < 49 || e2e.EvalRateTPS > 51 {
+		t.Errorf("end-to-end: flag=%v rate=%.2f, want true ~50", e2e.EndToEndRate, e2e.EvalRateTPS)
+	}
+	ol := resultToBenchmark(&ollama.GenerateResult{
+		PromptEvalCount: 1000, PromptEvalDuration: 500_000_000,
+		EvalCount: 100, EvalDuration: 2_000_000_000,
+	})
+	if ol.EndToEndRate {
+		t.Error("Ollama-shaped: EndToEndRate = true, want false")
+	}
+	if ol.EvalRateTPS < 49 || ol.EvalRateTPS > 51 || ol.PromptEvalRateTPS < 1999 || ol.PromptEvalRateTPS > 2001 {
+		t.Errorf("Ollama-shaped rates eval=%.2f prompt=%.2f, want ~50 and ~2000", ol.EvalRateTPS, ol.PromptEvalRateTPS)
+	}
+	none := resultToBenchmark(&ollama.GenerateResult{})
+	if none.EndToEndRate || none.EvalRateTPS != 0 {
+		t.Errorf("zero durations: flag=%v rate=%.2f, want false 0", none.EndToEndRate, none.EvalRateTPS)
 	}
 }

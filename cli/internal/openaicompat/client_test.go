@@ -222,6 +222,46 @@ func TestClient_GenerateWithMessages_success(t *testing.T) {
 	}
 }
 
+// TestClient_generateSetsWallClockDurations checks both result paths report
+// client-measured wall clock as EvalDuration/TotalDuration (Chat Completions
+// responses carry no server timings). Lower bound only, to stay non-flaky.
+func TestClient_generateSetsWallClockDurations(t *testing.T) {
+	t.Parallel()
+	const delay = 25 * time.Millisecond
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(delay)
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"choices": []map[string]interface{}{
+				{"message": map[string]interface{}{"content": "[]"}, "finish_reason": "stop"},
+			},
+			"usage": map[string]interface{}{"prompt_tokens": 40, "completion_tokens": 20},
+		})
+	}))
+	defer srv.Close()
+	client := NewClient(srv.URL+"/v1", srv.Client())
+	ctx := context.Background()
+	gen, err := client.Generate(ctx, "m", "sys", "user", nil)
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	msgs, err := client.GenerateWithMessages(ctx, "m", []ollama.Message{{Role: "user", Content: "hi"}}, nil)
+	if err != nil {
+		t.Fatalf("GenerateWithMessages: %v", err)
+	}
+	for name, got := range map[string]*ollama.GenerateResult{"Generate": gen, "GenerateWithMessages": msgs} {
+		if got.EvalDuration < delay.Nanoseconds() {
+			t.Errorf("%s: EvalDuration = %d, want >= %d", name, got.EvalDuration, delay.Nanoseconds())
+		}
+		if got.TotalDuration < delay.Nanoseconds() {
+			t.Errorf("%s: TotalDuration = %d, want >= %d", name, got.TotalDuration, delay.Nanoseconds())
+		}
+		if got.PromptEvalDuration != 0 {
+			t.Errorf("%s: PromptEvalDuration = %d, want 0", name, got.PromptEvalDuration)
+		}
+	}
+}
+
 func TestClient_GenerateWithMessages_emptyMessages(t *testing.T) {
 	t.Parallel()
 	client := NewClient("http://localhost/v1", nil)
