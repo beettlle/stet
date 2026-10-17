@@ -1873,7 +1873,11 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 		return errExit(1)
 	}
 	fmt.Fprintf(os.Stdout, "Model: %s\n", br.Model)
-	fmt.Fprintf(os.Stdout, "Eval rate:     %6.1f t/s (generation)\n", br.EvalRateTPS)
+	rateLabel := "generation"
+	if br.EndToEndRate {
+		rateLabel = "end-to-end"
+	}
+	fmt.Fprintf(os.Stdout, "Eval rate:     %6.1f t/s (%s)\n", br.EvalRateTPS, rateLabel)
 	if br.PromptEvalRateTPS > 0 {
 		fmt.Fprintf(os.Stdout, "Prompt eval:   %6.0f t/s (prefill)\n", br.PromptEvalRateTPS)
 	}
