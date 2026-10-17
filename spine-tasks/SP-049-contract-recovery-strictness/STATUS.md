@@ -1,27 +1,27 @@
 # SP-049: Contract script recovery `stet start` uses the requested strictness — Status
 
-**Current Step:** Not Started
-**Status:** ⬜ Not Started
+**Current Step:** Complete
+**Status:** ✅ Complete
 **Last Updated:** 2026-10-17
 **Review Level:** 0
 **Review Counter:** 0
-**Iteration:** 0
+**Iteration:** 1
 **Size:** S
 
 ---
 
 ### Step 1: Pass strictness to the recovery start
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] Recovery `stet start` passes `--strictness`
+- [x] Recovery `stet start` passes `--strictness`
 
 ---
 
 ### Step 2: Testing & Verification
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] `bash -n` clean
-- [ ] Contract `testCommand` passing
+- [x] `bash -n` clean
+- [x] Contract `testCommand` passing (exit 0)
 
 ---
 
@@ -36,3 +36,4 @@
 
 | Discovery | Disposition | Location |
 |-----------|-------------|----------|
+| `spine-tasks/CONTEXT.md` "Stet in spine" section does not describe the recovery `stet start` flags | No doc update needed | `spine-tasks/CONTEXT.md` |
