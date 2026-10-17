@@ -254,6 +254,9 @@ func (c *Client) GenerateWithMessages(ctx context.Context, model string, message
 			return nil, fmt.Errorf("openai chat request: %w", err)
 		}
 		req.Header.Set("Content-Type", "application/json")
+		// Chat Completions responses carry no server timings; measure wall clock
+		// from request start to body read so throughput can be reported.
+		start := time.Now()
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("openai chat: %w", errors.Join(ollama.ErrUnreachable, err))
@@ -286,6 +289,7 @@ func (c *Client) GenerateWithMessages(ctx context.Context, model string, message
 		var chat chatResponse
 		err = json.NewDecoder(limited).Decode(&chat)
 		resp.Body.Close()
+		elapsed := time.Since(start).Nanoseconds()
 		if err != nil {
 			return nil, fmt.Errorf("openai chat: parse response: %w", err)
 		}
@@ -309,9 +313,9 @@ func (c *Client) GenerateWithMessages(ctx context.Context, model string, message
 			PromptEvalCount:    promptTokens,
 			EvalCount:          completionTokens,
 			PromptEvalDuration: 0,
-			EvalDuration:       0,
+			EvalDuration:       elapsed,
 			LoadDuration:       0,
-			TotalDuration:      0,
+			TotalDuration:      elapsed,
 		}, nil
 	}
 	return nil, lastErr
@@ -358,6 +362,9 @@ func (c *Client) generate(ctx context.Context, model, systemPrompt, userPrompt s
 			return nil, fmt.Errorf("openai chat request: %w", err)
 		}
 		req.Header.Set("Content-Type", "application/json")
+		// Chat Completions responses carry no server timings; measure wall clock
+		// from request start to body read so throughput can be reported.
+		start := time.Now()
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("openai chat: %w", errors.Join(ollama.ErrUnreachable, err))
@@ -390,6 +397,7 @@ func (c *Client) generate(ctx context.Context, model, systemPrompt, userPrompt s
 		var chat chatResponse
 		err = json.NewDecoder(limited).Decode(&chat)
 		resp.Body.Close()
+		elapsed := time.Since(start).Nanoseconds()
 		if err != nil {
 			return nil, fmt.Errorf("openai chat: parse response: %w", err)
 		}
@@ -413,9 +421,9 @@ func (c *Client) generate(ctx context.Context, model, systemPrompt, userPrompt s
 			PromptEvalCount:    promptTokens,
 			EvalCount:          completionTokens,
 			PromptEvalDuration: 0,
-			EvalDuration:       0,
+			EvalDuration:       elapsed,
 			LoadDuration:       0,
-			TotalDuration:      0,
+			TotalDuration:      elapsed,
 		}, nil
 	}
 	return nil, lastErr
