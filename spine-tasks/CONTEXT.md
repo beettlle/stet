@@ -1,8 +1,8 @@
 # stet — Context
 
-**Last Updated:** 2026-10-14
+**Last Updated:** 2026-10-17
 **Status:** Active
-**Next Task ID:** SP-048
+**Next Task ID:** SP-058
 
 ---
 
@@ -143,6 +143,25 @@ Manifest: `spine-tasks/_authoring/release-v1.1.0/manifest.md`.
 Edges are shared-file serialization (`docs/review-process-internals.md`, `docs/cli-extension-contract.md`), not data deps.
 
 **Released:** v1.1.0 on 2026-10-17, tagged at `a03742d` (closes #6, #7, #8, #9, #10). Release: https://github.com/beettlle/stet/releases/tag/v1.1.0
+
+### Phase 10 — Release v1.2.0 (2026-10-17)
+
+Manifest: `spine-tasks/_authoring/release-v1.2.0/manifest.md`.
+
+| Task | Summary | Size | Status | Deps |
+|------|---------|------|--------|------|
+| SP-048 | Docs: rule digest and `rules_max_tokens` (#11, partial) | S | Pending | — |
+| SP-049 | Contract script recovery `stet start` uses strictness (#22) | S | Pending | — |
+| SP-050 | JS/TS expand: arrow callback no longer truncates function scope (#24) | S | Pending | — |
+| SP-051 | One JS/TS extension list for expand and RAG; `.jsx` RAG (#16) | S | Pending | SP-050 |
+| SP-052 | OpenAI-compatible benchmark / run summary throughput (#4) | S | Pending | — |
+| SP-053 | Drop praise-only `info`/`nitpick` findings (#25, partial) | S | Pending | — |
+| SP-054 | Evidence filter: findings near added lines only (#21) | S | Pending | SP-053 |
+| SP-055 | JS RAG: function references, import-bound names, skip built-ins (#19, partial) | S | Pending | SP-051 |
+| SP-056 | Docs: `review-process-internals.md` for v1.2.0 behavior | S | Pending | SP-051, SP-053, SP-054 |
+| SP-057 | `stet run` warns when review flags have no effect (#23) | S | Pending | SP-048, SP-052, SP-054 |
+
+Edges are shared-file serialization (`expand_jsts.go`, `rag/js/resolver.go`, `run.go`, `main.go`, `docs/cli-extension-contract.md`) except SP-056, which documents its dependencies' behavior.
 
 ### Completed (wave 0 + follow-on)
 

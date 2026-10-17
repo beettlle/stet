@@ -4,7 +4,7 @@
 **Last tag:** v1.1.0
 **Target version:** v1.2.0
 **Bump type / profile:** minor
-**Operator approved scope:** no
+**Operator approved scope:** yes (2026-10-17; overrides: 6 bugs, 3 enhancements incl. #23). Phase 3 amendment: #3 dropped (already fixed by `ea2124f`, shipped in v1.0.0); scope is 10 tasks SP-048..SP-057.
 **Worker model pin:** zai/glm-5.3-flash — do not change mid-release
 **Agent pin override:** none
 
@@ -22,11 +22,11 @@ Already on `main` since v1.1.0 (landed outside spine, gated by `release-check.sh
 | Bucket | Selected | Profile limit | Status |
 |--------|----------|---------------|--------|
 | Documentation | 2 | 2–4 | PASS |
-| Bug fixes | 6 | 3–5 | WARN: 6 > 5 — operator override ("add more if possible", 2026-10-17) |
+| Bug fixes | 5 (#22, #24, #16, #4, #19) | 3–5 | PASS (was 6 with an override; #3 dropped as already fixed) |
 | Enhancements | 3 (#25, #21, #23) | 1–2 | FAIL without override — operator override ("Add #23 to the release", 2026-10-17) |
-| **Total tasks** | 11 | 10–15 | PASS |
+| **Total tasks** | 10 | 10–15 | PASS |
 
-**Profile audit:** PASS with operator override (6 bug fixes and 3 enhancements; operator asked to add more scope and explicitly added #23)
+**Profile audit:** PASS with operator override (3 enhancements; operator explicitly added #23)
 
 ---
 
@@ -51,39 +51,60 @@ Already on `main` since v1.1.0 (landed outside spine, gated by `release-check.sh
 | SP-050 | #24 | bug | S | `jstsDeclLineRange`: arrow branch only before the declaration's own body brace | Closes #24 |
 | SP-051 | #16 | bug | S | One shared JS/TS extension list for `expand` and `rag/js`; `.jsx` gets RAG definitions | Closes #16 |
 | SP-052 | #4 | bug | S | `openaicompat` client-side wall-clock timing; benchmark and run summary show end-to-end throughput | Closes #4 |
-| SP-053 | #3 | bug | S | Salvage complete findings from a truncated array; skip continuation on a degenerate tail | Partial #3 |
-| SP-054 | #25 | enh | S | Prompt rule against praise-only findings + deterministic praise filter for `info`/`nitpick` without suggestion | Partial #25 |
-| SP-055 | #21 | enh | S | Evidence filter keeps only findings on or within N lines of an added line | Closes #21 |
-| SP-056 | #19 | bug | S | JS RAG: extract function references passed as arguments and import/require-bound names; skip built-in method names | Partial #19 |
-| SP-057 | — | doc | S | Bring `docs/review-process-internals.md` up to date: rule digest ordering, JS/TS extension list, praise filter, added-line evidence filter, truncation salvage | — |
-| SP-058 | #23 | enh | S | `stet run` warns on stderr (even with `--quiet`) when review-affecting flags are set and zero hunks are reviewed | Closes #23 |
+| SP-053 | #25 | enh | S | Prompt rule against praise-only findings + deterministic praise filter for `info`/`nitpick` without suggestion | Partial #25 |
+| SP-054 | #21 | enh | S | Evidence filter keeps only findings on or within 3 lines of an added line | Closes #21 |
+| SP-055 | #19 | bug | S | JS RAG: extract function references passed as arguments and import/require-bound names; skip built-in method names | Partial #19 |
+| SP-056 | — | doc | S | Bring `docs/review-process-internals.md` up to date: rule digest ordering, JS/TS extension list, praise filter, added-line evidence filter, truncation handling | — |
+| SP-057 | #23 | enh | S | `stet run` warns on stderr (even with `--quiet`) when review-affecting flags are set and zero hunks are reviewed | Closes #23 |
 
-**Release scope ID:** `SP-048,SP-049,SP-050,SP-051,SP-052,SP-053,SP-054,SP-055,SP-056,SP-057,SP-058`
+**Release scope ID:** `SP-048,SP-049,SP-050,SP-051,SP-052,SP-053,SP-054,SP-055,SP-056,SP-057`
 
 Notes:
 
+- #3 is hygiene debt: every acceptance item was fixed by `ea2124f` (2026-10-11, in v1.0.0 and v1.1.0; `cli/internal/review/truncation.go`). Close it with a comment citing the commit (pending operator OK to comment).
 - SP-051 depends on SP-050 (both edit `cli/internal/expand/expand_jsts.go`).
-- SP-056 depends on SP-051 (both edit `cli/internal/rag/js/resolver.go`). It leaves #19's "resolve in the `from` module" part open.
-- SP-055 depends on SP-054 (both wire filters in `cli/internal/run/run.go`). Both are Review Level 2 (hot module).
-- SP-052 edits `cli/cmd/stet/main.go` (`printRunSummary`): Review Level 2.
-- SP-053 leaves #3 fix 3 (whole-hunk output budget) open.
-- SP-054 implements #25 options 1 and 2; option 3 (`stet list --min-severity`, contract policy) is a maintainer decision and stays open.
-- SP-057 depends on SP-051, SP-053, SP-054, SP-055 (documents their behavior). SP-048 and SP-057 edit different files.
-- SP-058 depends on SP-052 (`cli/cmd/stet/main.go`) and SP-055 (`cli/internal/run/run.go`, zero-hunk path near line 1739). Review Level 2 (hot modules).
+- SP-055 depends on SP-051 (both edit `cli/internal/rag/js/resolver.go`). It leaves #19's "resolve in the `from` module" part open.
+- SP-054 depends on SP-053 (both wire filters in `cli/internal/run/run.go`). Both are Review Level 2 (hot module).
+- SP-052 edits `cli/cmd/stet/main.go` (benchmark label only; run summary is fixed by the client timing): Review Level 2.
+- SP-053 implements #25 options 1 and 2; option 3 (`stet list --min-severity`, contract policy) is a maintainer decision and stays open.
+- SP-056 depends on SP-051, SP-053, SP-054 (documents their behavior).
+- SP-057 depends on SP-048 (`docs/cli-extension-contract.md`), SP-052 (`cli/cmd/stet/main.go`), SP-054 (`cli/internal/run/run.go`). Review Level 2 (hot modules).
 - #11 stays open after SP-048 until the A/B eval is posted.
 
 ---
 
 ## Gaps requiring new packets
 
-All eleven tasks above are gaps (no existing SP-*). Author with `create-spine-tasks`, starting at `Next Task ID: SP-048`.
+All ten tasks above were gaps; packets authored 2026-10-17. `spine tasks validate`: 10 passed. `spine tasks analyze`: 0 blocking, 0 warning.
 
 ---
 
 ## Wave plan snapshot
 
 ```text
-(pending Phase 3: spine plan SP-048,SP-049,SP-050,SP-051,SP-052,SP-053,SP-054,SP-055,SP-056,SP-057,SP-058)
+Spine plan — ids
+10 task(s) · 3 wave(s) · maxParallel 2
+
+Wave 0 · 5 tasks · 3 rounds (queued by maxParallel)
+  Round 1 (2 parallel):
+    Lane 1: SP-048 — Document the rule digest and `rules_max_tokens`
+    Lane 2: SP-049 — Contract script recovery `stet start` uses the requested strictness
+  Round 2 (2 parallel):
+    Lane 1: SP-050 — JS/TS expand: plain functions with arrow callbacks keep their full scope
+    Lane 2: SP-052 — Benchmark and run summary show throughput for OpenAI-compatible providers
+  Round 3:
+    Lane 1: SP-053 — Drop praise-only findings
+
+Wave 1 · 2 tasks · 2 lanes in parallel
+  Lane 1: SP-051 — One JS/TS extension list for expand and RAG
+  Lane 2: SP-054 — Evidence filter keeps only findings near added lines
+
+Wave 2 · 3 tasks · 2 rounds (queued by maxParallel)
+  Round 1 (2 parallel):
+    Lane 1: SP-055 — JS RAG: function references, import-bound names, no built-ins
+    Lane 2: SP-056 — Bring review-process-internals up to date for v1.2.0
+  Round 2:
+    Lane 1: SP-057 — `stet run` warns when review flags have no effect
 ```
 
 ---
@@ -107,6 +128,7 @@ All eleven tasks above are gaps (no existing SP-*). Author with `create-spine-ta
 | #15 | enhancement | Enhancement budget full; touches `lookupDefinitions` with #19 |
 | #14, #13, #12 | enhancement | Refactors; enhancement budget full |
 | #2 | enhancement | Epic-sized token reduction; next minor |
+| #3 | bug | Already fixed by `ea2124f` (shipped v1.0.0); close as hygiene debt, no task |
 | Go indirect drift | deps | Indirect-only; no threshold fired |
 | Extension npm drift | deps | Extension not shipped |
 
