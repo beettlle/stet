@@ -166,8 +166,8 @@ curl -fsSL https://raw.githubusercontent.com/beettlle/stet/main/install.sh | STE
 - [x] `git status` clean; `main` equals `origin/main` (after pushing this commit)
 - [x] Release-scoped `Closes #NNN` issues all CLOSED (#6, #7, #8, #9, #10)
 - [x] Release notes written: `spine-tasks/_authoring/release-v1.1.0/release-notes.md`
-- [ ] Operator approved publish ({date})
-- [ ] `git tag -a v1.1.0 --cleanup=verbatim -F release-notes.md` + `git push origin v1.1.0`
-- [ ] `release.yml` run green (publish + verify-install ×3) — run: {url}
-- [ ] `scripts/post-release-smoke.sh v1.1.0` exit 0
-- [ ] `spine-tasks/CONTEXT.md` release note added
+- [x] Operator approved publish (2026-10-17) — Phase 5 re-run on `a03742d`: `release-check.sh` exit 0 (`/tmp/stet-release-check-v1.1.0.log`), `ci.yml` run https://github.com/beettlle/stet/actions/runs/38721762145
+- [x] `git tag -a v1.1.0 --cleanup=verbatim -F release-notes.md` + `git push origin v1.1.0` (tag at `a03742d`)
+- [x] `release.yml` run green (publish + verify-install ×3) — run: https://github.com/beettlle/stet/actions/runs/39073998149
+- [x] `scripts/post-release-smoke.sh v1.1.0` exit 0
+- [x] `spine-tasks/CONTEXT.md` release note added

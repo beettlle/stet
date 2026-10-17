@@ -132,15 +132,17 @@ Manifest: `spine-tasks/_authoring/release-v1.1.0/manifest.md`.
 
 | Task | Summary | Size | Status | Deps |
 |------|---------|------|--------|------|
-| SP-041 | Docs: current suppression header (#6) | S | Pending | SP-045 |
-| SP-042 | CI/release setup-go `check-latest: true` (Go 1.27.2 stdlib vulns) | S | Pending | — |
-| SP-043 | `stet status` `findings:` = active count (#7) | S | Pending | SP-045 |
-| SP-044 | `.gitignore` in in-repo worktree root (#9) | S | Pending | SP-043 |
-| SP-045 | Restore dismissals from history on `stet start` (#8) | M | Pending | — |
-| SP-046 | JS/TS hunk context includes file imports (#10, partial) | S | Pending | — |
-| SP-047 | Prompt: out-of-view imports/definitions are not evidence (#10, partial) | S | Pending | — |
+| SP-041 | Docs: current suppression header (#6) | S | Done | SP-045 |
+| SP-042 | CI/release setup-go `check-latest: true` (Go 1.27.2 stdlib vulns) | S | Done | — |
+| SP-043 | `stet status` `findings:` = active count (#7) | S | Done | SP-045 |
+| SP-044 | `.gitignore` in in-repo worktree root (#9) | S | Done | SP-043 |
+| SP-045 | Restore dismissals from history on `stet start` (#8) | M | Done | — |
+| SP-046 | JS/TS hunk context includes file imports (#10, partial) | S | Done | — |
+| SP-047 | Prompt: out-of-view imports/definitions are not evidence (#10, partial) | S | Done | — |
 
 Edges are shared-file serialization (`docs/review-process-internals.md`, `docs/cli-extension-contract.md`), not data deps.
+
+**Released:** v1.1.0 on 2026-10-17, tagged at `a03742d` (closes #6, #7, #8, #9, #10). Release: https://github.com/beettlle/stet/releases/tag/v1.1.0
 
 ### Completed (wave 0 + follow-on)
 
