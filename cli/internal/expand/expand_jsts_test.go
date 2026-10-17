@@ -77,6 +77,35 @@ func TestExpandHunk_JSTS_enclosingFunction(t *testing.T) {
 				RawContent: "@@ -1,4 +1,4 @@\n export const Button = ({ onClick }) => {\n-  const label = \"click\";\n+  const label = \"tap\";\n   return <button onClick={onClick}>{label}</button>;",
 			},
 		},
+		{
+			name:     "es_module_function_mjs",
+			fileName: "pending.mjs",
+			content: `export function filterPending(ids) {
+  const pending = ids.filter(Boolean);
+  return pending.sort();
+}
+`,
+			hunk: diff.Hunk{
+				FilePath:   "pending.mjs",
+				RawContent: "@@ -1,3 +1,3 @@\n export function filterPending(ids) {\n-  const pending = ids.filter(Boolean);\n+  const pending = ids.filter((id) => id !== \"\");\n   return pending.sort();",
+			},
+		},
+		{
+			name:     "commonjs_function_cjs",
+			fileName: "legacy.cjs",
+			content: `function countItems(items) {
+  let total = 0;
+  for (const item of items) {
+    total += item.qty;
+  }
+  return total;
+}
+`,
+			hunk: diff.Hunk{
+				FilePath:   "legacy.cjs",
+				RawContent: "@@ -2,4 +2,4 @@\n function countItems(items) {\n-  let total = 0;\n+  let total = 1;\n   for (const item of items) {\n     total += item.qty;",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -205,7 +234,7 @@ func TestFindEnclosingJSTSScope_smallestWins(t *testing.T) {
 }
 
 func TestIsJSTSExt(t *testing.T) {
-	for _, ext := range []string{".js", ".jsx", ".ts", ".tsx"} {
+	for _, ext := range []string{".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"} {
 		if !isJSTSExt(ext) {
 			t.Errorf("isJSTSExt(%q) = false, want true", ext)
 		}
@@ -349,6 +378,39 @@ function saveReport() {
 	}
 	if !strings.Contains(expanded.Context, "function saveReport") {
 		t.Error("expected enclosing function context to be kept")
+	}
+}
+
+func TestExpandHunk_JSTS_fileImports_mjs(t *testing.T) {
+	// SP-831: the reviewer reported compareTaskIds as "not defined or not
+	// exported" in an .mjs file because .mjs hunks were never expanded, so
+	// the import block was outside its view.
+	dir := t.TempDir()
+	content := `import { compareTaskIds } from "./discover.mjs";
+
+export function filterPendingTaskIds(ids, done) {
+  const pending = ids.filter(Boolean);
+  return pending.sort(compareTaskIds);
+}
+`
+	path := filepath.Join(dir, "pending.mjs")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hunk := diff.Hunk{
+		FilePath:   "pending.mjs",
+		RawContent: "@@ -4,2 +4,2 @@\n-  const pending = ids.filter(Boolean);\n+  const pending = ids.filter(String);\n   return pending.sort(compareTaskIds);",
+	}
+
+	expanded, err := ExpandHunk(dir, hunk, 0)
+	if err != nil {
+		t.Fatalf("ExpandHunk: %v", err)
+	}
+	if !strings.Contains(expanded.Context, "## File imports\n\n```javascript\nimport { compareTaskIds } from \"./discover.mjs\";\n```") {
+		t.Errorf("expected the compareTaskIds import inside the imports fence, got:\n%s", expanded.Context)
+	}
+	if !strings.Contains(expanded.Context, "function filterPendingTaskIds") {
+		t.Errorf("expected enclosing function context, got:\n%s", expanded.Context)
 	}
 }
 

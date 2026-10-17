@@ -12,6 +12,8 @@ import (
 const (
 	jsExt  = ".js"
 	jsxExt = ".jsx"
+	mjsExt = ".mjs"
+	cjsExt = ".cjs"
 	tsExt  = ".ts"
 	tsxExt = ".tsx"
 )
@@ -176,7 +178,7 @@ func jstsBraceDelta(line string) int {
 
 func isJSTSExt(ext string) bool {
 	switch ext {
-	case jsExt, jsxExt, tsExt, tsxExt:
+	case jsExt, jsxExt, mjsExt, cjsExt, tsExt, tsxExt:
 		return true
 	default:
 		return false
