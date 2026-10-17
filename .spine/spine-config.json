@@ -38,7 +38,7 @@
       "model": "google/gemini-3.5-flash-lite",
       "thinking": "off"
     },
-    "activeProfile": "default",
+    "activeProfile": "anthropic",
     "profiles": {
       "default": {
         "worker": {
@@ -117,11 +117,63 @@
           "model": "google/gemini-3.5-flash-lite",
           "thinking": "off"
         }
+      },
+      "anthropic": {
+        "worker": {
+          "model": "anthropic/claude-opus-5-5",
+          "thinking": "high"
+        },
+        "reviewer": {
+          "model": "google/gemini-3.1-pro-preview",
+          "thinking": "high",
+          "plan": {
+            "model": "google/gemini-3.1-pro-preview",
+            "thinking": "high"
+          },
+          "code": {
+            "model": "google/gemini-3.1-pro-preview",
+            "thinking": "high"
+          },
+          "final": {
+            "model": "google/gemini-3.1-pro-preview",
+            "thinking": "high"
+          }
+        },
+        "supervisor": {
+          "model": "google/gemini-3.5-flash-lite",
+          "thinking": "off"
+        }
+      },
+      "anthropic-fable": {
+        "worker": {
+          "model": "anthropic/claude-fable-5-1",
+          "thinking": "high"
+        },
+        "reviewer": {
+          "model": "google/gemini-3.1-pro-preview",
+          "thinking": "high",
+          "plan": {
+            "model": "google/gemini-3.1-pro-preview",
+            "thinking": "high"
+          },
+          "code": {
+            "model": "google/gemini-3.1-pro-preview",
+            "thinking": "high"
+          },
+          "final": {
+            "model": "google/gemini-3.1-pro-preview",
+            "thinking": "high"
+          }
+        },
+        "supervisor": {
+          "model": "google/gemini-3.5-flash-lite",
+          "thinking": "off"
+        }
       }
     },
     "escalatePolicy": {
       "enabled": true,
-      "toProfile": "hard"
+      "toProfile": "anthropic-fable"
     },
     "quotaFallbackProfile": "allegretto"
   },
