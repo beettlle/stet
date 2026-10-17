@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -282,8 +283,12 @@ func TestRunCLI_benchmarkOpenAILabelsEndToEnd(t *testing.T) {
 	if !strings.Contains(output, "t/s (end-to-end)") {
 		t.Errorf("output should contain 't/s (end-to-end)'; got:\n%s", output)
 	}
-	if strings.Contains(output, "Eval rate:        0.0 t/s") {
-		t.Errorf("eval rate should be non-zero; got:\n%s", output)
+	m := regexp.MustCompile(`Eval rate:\s+([0-9.]+) t/s`).FindStringSubmatch(output)
+	if m == nil {
+		t.Fatalf("output should contain an eval rate; got:\n%s", output)
+	}
+	if rate, err := strconv.ParseFloat(m[1], 64); err != nil || rate <= 0 {
+		t.Errorf("eval rate = %q, want > 0; got:\n%s", m[1], output)
 	}
 }
 
