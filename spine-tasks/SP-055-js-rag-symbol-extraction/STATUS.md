@@ -1,7 +1,7 @@
 # SP-055: JS RAG: function references, import-bound names, no built-ins — Status
 
-**Current Step:** Not Started
-**Status:** ⬜ Not Started
+**Current Step:** Step 2
+**Status:** 🟨 In Progress
 **Last Updated:** 2026-10-17
 **Review Level:** 1
 **Review Counter:** 0
@@ -11,9 +11,9 @@
 ---
 
 ### Step 1: Extraction changes
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] Import/require names, argument identifiers, built-in skip, order
+- [x] Import/require names, argument identifiers, built-in skip, order
 
 ---
 
