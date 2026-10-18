@@ -1,7 +1,7 @@
 # SP-054: Evidence filter keeps only findings near added lines — Status
 
-**Current Step:** Not Started
-**Status:** ⬜ Not Started
+**Current Step:** Step 2
+**Status:** 🟡 In Progress
 **Last Updated:** 2026-10-17
 **Review Level:** 2
 **Review Counter:** 0
@@ -11,15 +11,15 @@
 ---
 
 ### Step 1: Added-line extraction and filter
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] Added-line helper
-- [ ] Filter with window 3 and deletion fallback
+- [x] Added-line helper (`findings.AddedLines`)
+- [x] Filter with window 3 and deletion fallback (`findings.FilterByAddedLines`)
 
 ---
 
 ### Step 2: Wire into run
-**Status:** ⬜ Not Started
+**Status:** 🟡 In Progress
 
 - [ ] Live call sites; dry-run decision noted; trace label
 
@@ -38,6 +38,7 @@
 
 | # | Type | Step | Verdict | File |
 |---|------|------|---------|------|
+| 1 | plan | 1 | skipped (engine-owned) | .reviews/1-20261018T182508.md |
 
 ---
 
