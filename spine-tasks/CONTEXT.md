@@ -163,6 +163,8 @@ Manifest: `spine-tasks/_authoring/release-v1.2.0/manifest.md`.
 
 Edges are shared-file serialization (`expand_jsts.go`, `rag/js/resolver.go`, `run.go`, `main.go`, `docs/cli-extension-contract.md`) except SP-056, which documents its dependencies' behavior.
 
+**Released:** v1.2.0 on 2026-10-18, tagged at `f93dce2` (closes #4, #16, #21, #22, #23, #24; partial #11, #19, #25). Also ships `1a1782e` (rule digests, `rules_max_tokens`) and `bfa3b86` (`.mjs`/`.cjs` expansion). Release: https://github.com/beettlle/stet/releases/tag/v1.2.0
+
 Wave 0 (batch `20261017T222827-fb0f`) landed SP-048, SP-049, SP-050, SP-052, SP-053. Tech debt found:
 
 - A lane reused for a second task has no `.review/spine-stet-baseline.ref`, so `scripts/spine-stet-contract-run.sh` exits 1 until the worker recreates it (SP-052 hit this after SP-049 in lane 2). `scripts/spine-worktree-setup.sh` should write the baseline per task, not only per lane.

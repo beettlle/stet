@@ -139,15 +139,15 @@ Wave 2 · 3 tasks · 2 rounds (queued by maxParallel)
 
 ## Publish checklist (Phases 5–6)
 
-- [ ] All release-scoped tasks `.DONE` on `main`
-- [ ] Post-integrate `scripts/release-check.sh` exit 0 after every wave
-- [ ] `scripts/release-check.sh` exit 0 on final `HEAD`
-- [ ] `ci.yml` green on final `HEAD`
-- [ ] `git status` clean; `main` equals `origin/main`
-- [ ] Release-scoped `Closes #NNN` issues all CLOSED (#4, #16, #21, #22, #23, #24)
-- [ ] Release notes written: `spine-tasks/_authoring/release-v1.2.0/release-notes.md`
-- [ ] Operator approved publish
-- [ ] `git tag -a v1.2.0 --cleanup=verbatim -F release-notes.md` + `git push origin v1.2.0`
-- [ ] `release.yml` run green (publish + verify-install ×3)
-- [ ] `scripts/post-release-smoke.sh v1.2.0` exit 0
-- [ ] `spine-tasks/CONTEXT.md` release note added
+- [x] All release-scoped tasks `.DONE` on `main` (SP-048..SP-057)
+- [x] Post-integrate `scripts/release-check.sh` exit 0 after every wave (logs in wave log)
+- [x] `scripts/release-check.sh` exit 0 on final code `HEAD` (`7020f31`) — log: `/tmp/stet-release-check-wave-2.log`
+- [x] `ci.yml` green on final `HEAD` (`f93dce2`) — run: https://github.com/beettlle/stet/actions/runs/39172332532
+- [x] `git status` clean; `main` equals `origin/main`
+- [x] Release-scoped `Closes #NNN` issues all CLOSED (#4, #16, #21, #22, #23, #24)
+- [x] Release notes written: `spine-tasks/_authoring/release-v1.2.0/release-notes.md`
+- [x] Operator approved publish (2026-10-18)
+- [x] `git tag -a v1.2.0 --cleanup=verbatim -F release-notes.md` + `git push origin v1.2.0` (tag at `f93dce2`)
+- [x] `release.yml` run green (publish + verify-install ×3) — run: https://github.com/beettlle/stet/actions/runs/39173316789
+- [x] `scripts/post-release-smoke.sh v1.2.0` exit 0
+- [x] `spine-tasks/CONTEXT.md` release note added
