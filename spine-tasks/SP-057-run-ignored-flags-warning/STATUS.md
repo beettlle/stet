@@ -1,6 +1,6 @@
 # SP-057: `stet run` warns when review flags have no effect — Status
 
-**Current Step:** Step 1
+**Current Step:** Step 2
 **Status:** 🟨 In Progress
 **Last Updated:** 2026-10-17
 **Review Level:** 2
@@ -18,10 +18,10 @@
 ---
 
 ### Step 2: Warning in runRun
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] Changed-flags helper; one stderr warning even with `--quiet`
-- [ ] Contract doc sentence
+- [x] Changed-flags helper; one stderr warning even with `--quiet`
+- [x] Contract doc sentence
 
 ---
 
