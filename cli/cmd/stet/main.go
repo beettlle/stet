@@ -536,6 +536,36 @@ func addExcludeFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool("no-exclude", false, "Ignore config/env exclude_patterns for this run (built-in exclusions still apply)")
 }
 
+// reviewAffectingFlags lists, in stable warning order, the run flags that only change how hunks are reviewed.
+var reviewAffectingFlags = []string{"strictness", "nitpicky", "verify", "critic-backend", "rules-max-tokens", "context", "num-ctx"}
+
+// changedReviewFlags returns the review-affecting flags explicitly set on the command line, in reviewAffectingFlags order.
+func changedReviewFlags(cmd *cobra.Command) []string {
+	var changed []string
+	for _, name := range reviewAffectingFlags {
+		if f := cmd.Flags().Lookup(name); f != nil && f.Changed {
+			changed = append(changed, name)
+		}
+	}
+	return changed
+}
+
+// warnIgnoredReviewFlags writes one warning line to w when no hunks were reviewed but review-affecting flags were set.
+func warnIgnoredReviewFlags(w io.Writer, cmd *cobra.Command, hunksReviewed int) {
+	if hunksReviewed != 0 {
+		return
+	}
+	changed := changedReviewFlags(cmd)
+	if len(changed) == 0 {
+		return
+	}
+	names := make([]string, len(changed))
+	for i, name := range changed {
+		names[i] = "--" + name
+	}
+	fmt.Fprintf(w, "warning: no new hunks to review; %s had no effect (pass them to \"stet start\" or use \"stet rerun\")\n", strings.Join(names, ", "))
+}
+
 func newRunCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run",
@@ -929,6 +959,8 @@ func runRun(cmd *cobra.Command, args []string) error {
 		}
 		return err
 	}
+	// Printed regardless of --quiet: explicitly set flags must not be ignored silently.
+	warnIgnoredReviewFlags(os.Stderr, cmd, stats.HunksReviewed)
 	if stream {
 		if err := tryAutoFinishZero(cmd.Context(), cfg, repoRoot, stateDir, dryRun); err != nil {
 			return err

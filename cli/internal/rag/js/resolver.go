@@ -39,6 +39,61 @@ var funcIdent = regexp.MustCompile(`\bfunction\s+(\w+)\s*\(`)
 var typeIdent = regexp.MustCompile(`\b([A-Z][A-Za-z0-9_]*)\b`)
 var callIdent = regexp.MustCompile(`\b([a-zA-Z_$][A-Za-z0-9_$]*)\s*\(`)
 
+// jsBuiltinNames lists common built-in globals and prototype/static method
+// names (Array, String, Map/Set, Promise, Object, console, ...). They rarely
+// have repo definitions, so they are skipped to save candidate slots.
+var jsBuiltinNames = map[string]bool{
+	// Array / iterable prototype
+	"filter": true, "map": true, "sort": true, "push": true, "pop": true,
+	"shift": true, "unshift": true, "splice": true, "slice": true, "concat": true,
+	"join": true, "reverse": true, "includes": true, "indexOf": true,
+	"lastIndexOf": true, "forEach": true, "reduce": true, "reduceRight": true,
+	"find": true, "findIndex": true, "findLast": true, "findLastIndex": true,
+	"some": true, "every": true, "flat": true, "flatMap": true, "fill": true,
+	"at": true, "keys": true, "values": true, "entries": true,
+	// Map / Set prototype
+	"has": true, "get": true, "set": true, "add": true, "clear": true,
+	// Promise
+	"then": true, "allSettled": true, "race": true,
+	// String prototype
+	"split": true, "trim": true, "trimStart": true, "trimEnd": true,
+	"replace": true, "replaceAll": true, "match": true, "matchAll": true,
+	"startsWith": true, "endsWith": true, "toLowerCase": true, "toUpperCase": true,
+	"padStart": true, "padEnd": true, "charAt": true, "charCodeAt": true,
+	"substring": true, "substr": true,
+	// Object / Function prototype and statics
+	"toString": true, "valueOf": true, "hasOwnProperty": true, "call": true,
+	"apply": true, "bind": true, "assign": true, "freeze": true, "isArray": true,
+	"stringify": true,
+	// console
+	"log": true, "warn": true, "error": true, "info": true, "debug": true,
+	// Globals
+	"require": true, "console": true, "undefined": true, "NaN": true,
+	"Infinity": true, "parseInt": true, "parseFloat": true, "setTimeout": true,
+	"clearTimeout": true, "setInterval": true, "clearInterval": true,
+	"Object": true, "Array": true, "String": true, "Number": true, "Boolean": true,
+	"Promise": true, "Map": true, "Set": true, "WeakMap": true, "WeakSet": true,
+	"JSON": true, "Math": true, "Date": true, "Error": true, "TypeError": true,
+	"RangeError": true, "RegExp": true, "Symbol": true,
+}
+
+const jsIdentPattern = `[A-Za-z_$][A-Za-z0-9_$]*`
+
+var (
+	// import { a, b as c } from "..."; import d, { e } from "..."
+	importNamedRe = regexp.MustCompile(`\bimport\s+(?:type\s+)?(?:` + jsIdentPattern + `\s*,\s*)?\{([^}]*)\}\s*from\b`)
+	// import d from "..."; import d, { e } from "..."; import d, * as ns from "..."
+	importDefaultRe = regexp.MustCompile(`\bimport\s+(?:type\s+)?(` + jsIdentPattern + `)\s*(?:,|from\b)`)
+	// import * as ns from "..."; import d, * as ns from "..."
+	importNamespaceRe = regexp.MustCompile(`\bimport\s+(?:` + jsIdentPattern + `\s*,\s*)?\*\s*as\s+(` + jsIdentPattern + `)`)
+	// const { a, b: c } = require("...")
+	requireDestructRe = regexp.MustCompile(`\b(?:const|let|var)\s+\{([^}]*)\}\s*=\s*require\s*\(`)
+	// const x = require("...")
+	requireDefaultRe = regexp.MustCompile(`\b(?:const|let|var)\s+(` + jsIdentPattern + `)\s*=\s*require\s*\(`)
+	// Bare identifier (whole string).
+	bareIdentRe = regexp.MustCompile(`^` + jsIdentPattern + `$`)
+)
+
 // Resolver implements rag.Resolver for JavaScript and TypeScript.
 type Resolver struct{}
 
@@ -75,26 +130,212 @@ func (r *Resolver) ResolveSymbols(ctx context.Context, repoRoot, filePath, hunkC
 	return defs, nil
 }
 
+// extractSymbols returns candidate symbol names from hunkContent in priority
+// order: import/require-bound local names, then function declarations, type
+// identifiers and callees, then bare identifiers passed as call arguments.
+// Keywords and jsBuiltinNames are skipped; the list is deduplicated and capped
+// at maxSymbolCandidates.
 func extractSymbols(hunkContent string) []string {
 	seen := make(map[string]bool)
 	var list []string
+	add := func(name string) bool {
+		if name == "" || jsKeywords[name] || jsBuiltinNames[name] || seen[name] {
+			return len(list) >= maxSymbolCandidates
+		}
+		seen[name] = true
+		list = append(list, name)
+		return len(list) >= maxSymbolCandidates
+	}
+	for _, name := range importBoundNames(hunkContent) {
+		if add(name) {
+			return list
+		}
+	}
 	for _, re := range []*regexp.Regexp{funcIdent, typeIdent, callIdent} {
 		for _, m := range re.FindAllStringSubmatch(hunkContent, -1) {
 			if len(m) < 2 {
 				continue
 			}
-			name := m[1]
-			if jsKeywords[name] || seen[name] {
-				continue
-			}
-			seen[name] = true
-			list = append(list, name)
-			if len(list) >= maxSymbolCandidates {
+			if add(m[1]) {
 				return list
 			}
 		}
 	}
+	for _, name := range callArgumentIdents(hunkContent) {
+		if add(name) {
+			return list
+		}
+	}
 	return list
+}
+
+// importBoundNames returns local binding names introduced by import and
+// require statements in src, in source order per statement form.
+func importBoundNames(src string) []string {
+	var names []string
+	for _, m := range importNamedRe.FindAllStringSubmatch(src, -1) {
+		names = append(names, bindingListNames(m[1], " as ")...)
+	}
+	for _, re := range []*regexp.Regexp{importDefaultRe, importNamespaceRe} {
+		for _, m := range re.FindAllStringSubmatch(src, -1) {
+			names = append(names, m[1])
+		}
+	}
+	for _, m := range requireDestructRe.FindAllStringSubmatch(src, -1) {
+		names = append(names, bindingListNames(m[1], ":")...)
+	}
+	for _, m := range requireDefaultRe.FindAllStringSubmatch(src, -1) {
+		names = append(names, m[1])
+	}
+	return names
+}
+
+// bindingListNames parses the inside of an import/destructuring brace list
+// ("a, b as c" or "a, b: c = 1") and returns the local names. aliasSep is the
+// token that separates the source name from the local alias.
+func bindingListNames(list, aliasSep string) []string {
+	var names []string
+	for _, item := range strings.Split(list, ",") {
+		// Normalize whitespace (including newlines and diff markers) so
+		// "b\n+  as c" matches the alias separator.
+		item = strings.Join(strings.Fields(stripDiffMarkers(item)), " ")
+		if i := strings.Index(item, "="); i >= 0 {
+			item = item[:i]
+		}
+		if i := strings.Index(item, aliasSep); i >= 0 {
+			item = item[i+len(aliasSep):]
+		}
+		item = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(item), "type "))
+		if bareIdentRe.MatchString(item) {
+			names = append(names, item)
+		}
+	}
+	return names
+}
+
+// callArgumentIdents returns bare identifiers passed as top-level arguments
+// to calls in src (e.g. compareTaskIds in arr.sort(compareTaskIds)). Literals,
+// member expressions, and complex expressions are skipped, as are parameter
+// lists of function/method declarations and arrow functions.
+func callArgumentIdents(src string) []string {
+	var names []string
+	for _, loc := range callIdent.FindAllStringSubmatchIndex(src, -1) {
+		if jsKeywords[src[loc[2]:loc[3]]] || followsFunctionKeyword(src[:loc[2]]) {
+			continue
+		}
+		args, closeIdx := splitCallArgs(src, loc[1])
+		if closeIdx < 0 || isDeclarationBody(src[closeIdx+1:]) {
+			continue
+		}
+		for _, a := range args {
+			a = stripDiffMarkers(a)
+			if bareIdentRe.MatchString(a) {
+				names = append(names, a)
+			}
+		}
+	}
+	return names
+}
+
+// splitCallArgs scans src from start (just after an opening parenthesis) and
+// returns the top-level comma-separated arguments plus the index of the
+// matching closing parenthesis. String and template literals are skipped.
+// closeIdx is -1 when the call is not closed within src.
+func splitCallArgs(src string, start int) (args []string, closeIdx int) {
+	depth := 0
+	argStart := start
+	for i := start; i < len(src); i++ {
+		switch c := src[i]; c {
+		case '"', '\'', '`':
+			i = skipStringLiteral(src, i)
+		case '(', '[', '{':
+			depth++
+		case ')', ']', '}':
+			if depth == 0 {
+				if c != ')' {
+					return nil, -1
+				}
+				return append(args, src[argStart:i]), i
+			}
+			depth--
+		case ',':
+			if depth == 0 {
+				args = append(args, src[argStart:i])
+				argStart = i + 1
+			}
+		}
+	}
+	return nil, -1
+}
+
+// skipStringLiteral returns the index of the closing quote for the literal
+// opening at src[i], or len(src)-1 if it is unterminated.
+func skipStringLiteral(src string, i int) int {
+	quote := src[i]
+	for j := i + 1; j < len(src); j++ {
+		switch src[j] {
+		case '\\':
+			j++
+		case quote:
+			return j
+		}
+	}
+	return len(src) - 1
+}
+
+// followsFunctionKeyword reports whether before (text preceding a callee
+// name) ends with "function" or "function*", i.e. the match is a declaration.
+func followsFunctionKeyword(before string) bool {
+	before = strings.TrimRight(before, " \t\r\n")
+	before = strings.TrimRight(strings.TrimSuffix(before, "*"), " \t\r\n")
+	if !strings.HasSuffix(before, "function") {
+		return false
+	}
+	rest := before[:len(before)-len("function")]
+	return rest == "" || !isIdentByte(rest[len(rest)-1])
+}
+
+func isIdentByte(c byte) bool {
+	return c == '_' || c == '$' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+}
+
+// isDeclarationBody reports whether rest (text after a closing parenthesis)
+// starts a function body or arrow, meaning the parenthesized list was a
+// parameter list rather than call arguments.
+// Only the leading whitespace (and diff markers after newlines) is scanned.
+func isDeclarationBody(rest string) bool {
+	i := 0
+	for i < len(rest) {
+		switch rest[i] {
+		case ' ', '\t', '\r':
+			i++
+		case '\n':
+			i++
+			if i < len(rest) && (rest[i] == '+' || rest[i] == '-') {
+				i++
+			}
+		default:
+			rest = rest[i:]
+			return strings.HasPrefix(rest, "{") || strings.HasPrefix(rest, "=>")
+		}
+	}
+	return false
+}
+
+// stripDiffMarkers removes a leading unified-diff marker (+, -, or space)
+// from every line after the first in s, then trims surrounding whitespace.
+// This lets multi-line argument lists from raw hunks be recognized.
+func stripDiffMarkers(s string) string {
+	if !strings.Contains(s, "\n") {
+		return strings.TrimSpace(s)
+	}
+	lines := strings.Split(s, "\n")
+	for i := 1; i < len(lines); i++ {
+		if l := lines[i]; l != "" && (l[0] == '+' || l[0] == '-' || l[0] == ' ') {
+			lines[i] = l[1:]
+		}
+	}
+	return strings.TrimSpace(strings.Join(lines, "\n"))
 }
 
 func lookupDefinitions(ctx context.Context, repoRoot, fromFile string, symbols []string, maxDefs int) ([]rag.Definition, error) {
