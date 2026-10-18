@@ -1,7 +1,7 @@
 # SP-051: One JS/TS extension list for expand and RAG — Status
 
-**Current Step:** Step 3
-**Status:** 🟨 In Progress
+**Current Step:** Complete
+**Status:** ✅ Complete
 **Last Updated:** 2026-10-18
 **Review Level:** 1
 **Review Counter:** 0
@@ -26,12 +26,12 @@
 ---
 
 ### Step 3: Testing & Verification
-**Status:** 🟨 In Progress
+**Status:** ✅ Complete
 
 - [x] `.jsx` RAG test (`TestRegistry_everyJSTSExtension_resolvesDefinition`; fails on `.jsx` against old init)
 - [x] `.jsx` expand test (existing `arrow_function_jsx` case in `TestExpandHunk_JSTS_enclosingFunction`)
 - [x] `.mjs`/`.cjs` still resolve (same registry test)
-- [ ] Contract `testCommand` passing (stet review exits 0)
+- [x] Contract `testCommand` passing (gofmt/vet/tests OK; stet review exit 0 after triage of 6 findings)
 
 ---
 
