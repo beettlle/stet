@@ -559,6 +559,126 @@ func TestRunCLI_runWithDryRun(t *testing.T) {
 	}
 }
 
+func TestChangedReviewFlags_stableOrderOnlySetFlags(t *testing.T) {
+	t.Parallel()
+	cmd := newRunCmd()
+	if err := cmd.ParseFlags([]string{"--num-ctx=4096", "--quiet", "--verify", "--dry-run", "--strictness=lenient", "--rag-call-graph"}); err != nil {
+		t.Fatalf("ParseFlags: %v", err)
+	}
+	got := changedReviewFlags(cmd)
+	want := []string{"strictness", "verify", "num-ctx"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("changedReviewFlags = %v, want %v", got, want)
+	}
+	if none := changedReviewFlags(newRunCmd()); len(none) != 0 {
+		t.Errorf("changedReviewFlags with no flags = %v, want empty", none)
+	}
+	all := newRunCmd()
+	if err := all.ParseFlags([]string{"--context=8k", "--rules-max-tokens=100", "--critic-backend=llm", "--nitpicky", "--verify", "--strictness=strict", "--num-ctx=1"}); err != nil {
+		t.Fatalf("ParseFlags: %v", err)
+	}
+	if got := strings.Join(changedReviewFlags(all), ","); got != strings.Join(reviewAffectingFlags, ",") {
+		t.Errorf("changedReviewFlags all = %q, want %q", got, strings.Join(reviewAffectingFlags, ","))
+	}
+}
+
+func TestWarnIgnoredReviewFlags(t *testing.T) {
+	t.Parallel()
+	cmd := newRunCmd()
+	if err := cmd.ParseFlags([]string{"--verify", "--strictness=lenient"}); err != nil {
+		t.Fatalf("ParseFlags: %v", err)
+	}
+	var buf bytes.Buffer
+	warnIgnoredReviewFlags(&buf, cmd, 0)
+	want := "warning: no new hunks to review; --strictness, --verify had no effect (pass them to \"stet start\" or use \"stet rerun\")\n"
+	if buf.String() != want {
+		t.Errorf("warning = %q, want %q", buf.String(), want)
+	}
+	buf.Reset()
+	warnIgnoredReviewFlags(&buf, cmd, 3)
+	if buf.Len() != 0 {
+		t.Errorf("warning with hunks reviewed = %q, want empty", buf.String())
+	}
+	buf.Reset()
+	warnIgnoredReviewFlags(&buf, newRunCmd(), 0)
+	if buf.Len() != 0 {
+		t.Errorf("warning with no review flags = %q, want empty", buf.String())
+	}
+}
+
+// runCLICapture runs the CLI with stderr redirected and findings output captured.
+func runCLICapture(t *testing.T, args []string) (code int, stdout, stderr string) {
+	t.Helper()
+	var out bytes.Buffer
+	origOut := getFindingsOut
+	getFindingsOut = func() io.Writer { return &out }
+	defer func() { getFindingsOut = origOut }()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStderr := os.Stderr
+	os.Stderr = w
+	code = runCLI(args)
+	os.Stderr = oldStderr
+	_ = w.Close()
+	var errBuf bytes.Buffer
+	_, _ = io.Copy(&errBuf, r)
+	_ = r.Close()
+	return code, out.String(), errBuf.String()
+}
+
+func TestRunCLI_runNoNewHunksWarnsIgnoredFlags(t *testing.T) {
+	// Do not run in parallel: test changes cwd, stderr, and getFindingsOut.
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	if code, _, stderr := runCLICapture(t, []string{"start", "HEAD~1", "--dry-run", "--quiet", "--json"}); code != 0 {
+		t.Fatalf("start = %d, want 0; stderr:\n%s", code, stderr)
+	}
+	const warnPrefix = "warning: no new hunks to review;"
+
+	// No review flags: no warning.
+	code, baseOut, stderr := runCLICapture(t, []string{"run", "--dry-run", "--quiet", "--json"})
+	if code != 0 {
+		t.Fatalf("run = %d, want 0; stderr:\n%s", code, stderr)
+	}
+	if strings.Contains(stderr, warnPrefix) {
+		t.Errorf("run without review flags should not warn; stderr:\n%s", stderr)
+	}
+
+	// Zero hunks + --strictness with --quiet: exactly one warning, same stdout and exit code.
+	code, out, stderr := runCLICapture(t, []string{"run", "--dry-run", "--quiet", "--json", "--strictness", "lenient"})
+	if code != 0 {
+		t.Fatalf("run --strictness = %d, want 0; stderr:\n%s", code, stderr)
+	}
+	wantLine := "warning: no new hunks to review; --strictness had no effect (pass them to \"stet start\" or use \"stet rerun\")"
+	if n := strings.Count(stderr, warnPrefix); n != 1 || !strings.Contains(stderr, wantLine) {
+		t.Errorf("stderr should contain the warning exactly once (got %d); stderr:\n%s", n, stderr)
+	}
+	if out != baseOut {
+		t.Errorf("stdout changed by warning:\nwith flag: %q\nwithout:   %q", out, baseOut)
+	}
+
+	// New hunk reviewed: no warning even with a review flag.
+	writeFile(t, repo, "f3.txt", "c\n")
+	runGit(t, repo, "git", "add", "f3.txt")
+	runGit(t, repo, "git", "commit", "-m", "c3")
+	code, _, stderr = runCLICapture(t, []string{"run", "--dry-run", "--quiet", "--json", "--strictness", "lenient"})
+	if code != 0 {
+		t.Fatalf("run after commit = %d, want 0; stderr:\n%s", code, stderr)
+	}
+	if strings.Contains(stderr, warnPrefix) {
+		t.Errorf("run that reviewed hunks should not warn; stderr:\n%s", stderr)
+	}
+}
+
 func TestRunCLI_finishWithoutStartReturnsNonZero(t *testing.T) {
 	// Do not run in parallel: test changes process cwd.
 	repo := initRepo(t)

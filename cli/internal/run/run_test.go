@@ -846,6 +846,47 @@ func TestRun_dryRun_incremental(t *testing.T) {
 	}
 }
 
+func TestRun_hunksReviewedStats(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	startStats, err := Start(ctx, StartOptions{RepoRoot: repo, StateDir: stateDir, Ref: "HEAD~1", DryRun: true, Provider: "ollama"})
+	if err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	if startStats.HunksReviewed <= 0 {
+		t.Errorf("Start HunksReviewed = %d, want > 0", startStats.HunksReviewed)
+	}
+	// No new commits since start: zero-hunk early return.
+	runStats, err := Run(ctx, RunOptions{RepoRoot: repo, StateDir: stateDir, DryRun: true})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if runStats.HunksReviewed != 0 {
+		t.Errorf("Run with no new hunks: HunksReviewed = %d, want 0", runStats.HunksReviewed)
+	}
+	// New commit: dry-run reviews the new hunk.
+	writeFile(t, repo, "f3.txt", "c\n")
+	runOut(t, repo, "git", "add", "f3.txt")
+	runOut(t, repo, "git", "commit", "-m", "c3")
+	runStats, err = Run(ctx, RunOptions{RepoRoot: repo, StateDir: stateDir, DryRun: true})
+	if err != nil {
+		t.Fatalf("Run after commit: %v", err)
+	}
+	if runStats.HunksReviewed <= 0 {
+		t.Errorf("Run with new hunk: HunksReviewed = %d, want > 0", runStats.HunksReviewed)
+	}
+	// Force full review (rerun path) reviews every hunk again.
+	fullStats, err := Run(ctx, RunOptions{RepoRoot: repo, StateDir: stateDir, DryRun: true, ForceFullReview: true})
+	if err != nil {
+		t.Fatalf("Run ForceFullReview: %v", err)
+	}
+	if fullStats.HunksReviewed < 2 {
+		t.Errorf("Run ForceFullReview: HunksReviewed = %d, want >= 2", fullStats.HunksReviewed)
+	}
+}
+
 func TestRun_noSession(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
