@@ -150,16 +150,16 @@ Manifest: `spine-tasks/_authoring/release-v1.2.0/manifest.md`.
 
 | Task | Summary | Size | Status | Deps |
 |------|---------|------|--------|------|
-| SP-048 | Docs: rule digest and `rules_max_tokens` (#11, partial) | S | Pending | — |
-| SP-049 | Contract script recovery `stet start` uses strictness (#22) | S | Pending | — |
-| SP-050 | JS/TS expand: arrow callback no longer truncates function scope (#24) | S | Pending | — |
-| SP-051 | One JS/TS extension list for expand and RAG; `.jsx` RAG (#16) | S | Pending | SP-050 |
-| SP-052 | OpenAI-compatible benchmark / run summary throughput (#4) | S | Pending | — |
-| SP-053 | Drop praise-only `info`/`nitpick` findings (#25, partial) | S | Pending | — |
-| SP-054 | Evidence filter: findings near added lines only (#21) | S | Pending | SP-053 |
-| SP-055 | JS RAG: function references, import-bound names, skip built-ins (#19, partial) | S | Pending | SP-051 |
-| SP-056 | Docs: `review-process-internals.md` for v1.2.0 behavior | S | Pending | SP-051, SP-053, SP-054 |
-| SP-057 | `stet run` warns when review flags have no effect (#23) | S | Pending | SP-048, SP-052, SP-054 |
+| SP-048 | Docs: rule digest and `rules_max_tokens` (#11, partial) | S | Done | — |
+| SP-049 | Contract script recovery `stet start` uses strictness (#22) | S | Done | — |
+| SP-050 | JS/TS expand: arrow callback no longer truncates function scope (#24) | S | Done | — |
+| SP-051 | One JS/TS extension list for expand and RAG; `.jsx` RAG (#16) | S | Done | SP-050 |
+| SP-052 | OpenAI-compatible benchmark / run summary throughput (#4) | S | Done | — |
+| SP-053 | Drop praise-only `info`/`nitpick` findings (#25, partial) | S | Done | — |
+| SP-054 | Evidence filter: findings near added lines only (#21) | S | Done | SP-053 |
+| SP-055 | JS RAG: function references, import-bound names, skip built-ins (#19, partial) | S | Done | SP-051 |
+| SP-056 | Docs: `review-process-internals.md` for v1.2.0 behavior | S | Done | SP-051, SP-053, SP-054 |
+| SP-057 | `stet run` warns when review flags have no effect (#23) | S | Done | SP-048, SP-052, SP-054 |
 
 Edges are shared-file serialization (`expand_jsts.go`, `rag/js/resolver.go`, `run.go`, `main.go`, `docs/cli-extension-contract.md`) except SP-056, which documents its dependencies' behavior.
 
@@ -171,6 +171,11 @@ Wave 0 (batch `20261017T222827-fb0f`) landed SP-048, SP-049, SP-050, SP-052, SP-
 Wave 1 (batch `20261018T182409-7c0e`) landed SP-051, SP-054. Tech debt found:
 
 - `jsts.Extensions` (`cli/internal/jsts/ext.go`) is an exported mutable slice; a caller could corrupt it. Unexport it behind an accessor that returns a copy.
+
+Wave 2 (batch `20261018T211721-5f62`) landed SP-055, SP-056, SP-057. Tech debt found:
+
+- `jsBuiltinNames` (`cli/internal/rag/js/resolver.go`) skips generic names (`get`, `set`, `add`, `log`, `find`, ...), so repo functions with those names never get RAG definitions. Consider skipping them only as member calls (`x.get(`), not bare calls.
+- Workers committed `test_output.txt` twice this release (repo root in SP-052, `cli/` in wave 2). Add `test_output.txt` to `.gitignore` or have the contract reject it.
 
 ### Completed (wave 0 + follow-on)
 
