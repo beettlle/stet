@@ -47,7 +47,8 @@ type BenchmarkResult struct {
 	EvalDurationNs             int64   // Time to generate output
 	LoadDurationNs             int64   // Model load time (cold start)
 	TotalDurationNs            int64   // Wall-clock time
-	EvalRateTPS                float64 // Eval rate (tokens/s) for generation
+	EvalRateTPS                float64 // Eval rate (tokens/s) for generation; end-to-end when EndToEndRate is set
+	EndToEndRate               bool    // EvalRateTPS covers prefill plus generation (no prefill timing, e.g. OpenAI-compatible)
 	PromptEvalRateTPS          float64 // Prompt eval rate (tokens/s) for prefill
 	EstimatedSecPerTypicalHunk float64 // Estimated seconds for typical hunk (3k prompt, 200 out)
 }
@@ -85,6 +86,9 @@ func resultToBenchmark(r *ollama.GenerateResult) *BenchmarkResult {
 			out.EvalRateTPS = rate
 		}
 	}
+	// OpenAI-compatible clients report only client wall clock (no prefill split),
+	// so the eval rate spans prefill plus generation.
+	out.EndToEndRate = r.PromptEvalDuration == 0 && r.EvalDuration > 0
 	// Prompt eval rate: tokens per second for prefill.
 	// Guard: skip when duration is zero to avoid division by zero.
 	if r.PromptEvalDuration > 0 && r.PromptEvalCount > 0 {

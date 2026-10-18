@@ -20,7 +20,7 @@ if [[ ! -f .review/session.json ]]; then
 		exit 1
 	fi
 	baseline="$(tr -d '[:space:]' < .review/spine-stet-baseline.ref)"
-	stet start "$baseline" --allow-dirty --quiet
+	stet start "$baseline" --allow-dirty --strictness "$strictness" --quiet
 fi
 
 # No --auto-finish-zero: a non-zero finding count must leave the session open for triage.
