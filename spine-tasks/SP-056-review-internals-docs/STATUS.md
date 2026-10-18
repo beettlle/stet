@@ -1,8 +1,8 @@
 # SP-056: Bring review-process-internals up to date for v1.2.0 — Status
 
-**Current Step:** Not Started
-**Status:** ⬜ Not Started
-**Last Updated:** 2026-10-17
+**Current Step:** Complete
+**Status:** ✅ Complete
+**Last Updated:** 2026-10-18
 **Review Level:** 0
 **Review Counter:** 0
 **Iteration:** 0
@@ -11,26 +11,26 @@
 ---
 
 ### Step 1: Rules and expand sections
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] §7.3 Append bullet
-- [ ] JS/TS expand bullet
+- [x] §7.3 Append bullet
+- [x] JS/TS expand bullet
 
 ---
 
 ### Step 2: Post-filters and truncation
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] Praise and added-line evidence filters
-- [ ] Truncated-response handling
+- [x] Praise and added-line evidence filters
+- [x] Truncated-response handling
 
 ---
 
 ### Step 3: Testing & Verification
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] `rg` completion check
-- [ ] Doc-referencing tests checked
+- [x] `rg` completion check
+- [x] Doc-referencing tests checked
 
 ---
 
@@ -45,3 +45,6 @@
 
 | Discovery | Disposition | Location |
 |-----------|-------------|----------|
+| `rg -l 'review-process-internals.md' cli/ scripts/` returns no matches — no test references this doc | Noted | — |
+| Dry-run path still uses whole-hunk `FilterByHunkLines` (canned findings sit on context lines); documented in §7.10 | Documented | `cli/internal/run/run.go` |
+| Rule-section selector path uses `AppendRuleSections` with fixed 1000-token cap and falls back to digest assembly; documented in §7.3 | Documented | `cli/internal/run/run.go` |
