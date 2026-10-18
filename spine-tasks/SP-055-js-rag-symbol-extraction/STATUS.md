@@ -30,7 +30,10 @@
 
 | # | Type | Step | Verdict | File |
 |---|------|------|---------|------|
-| 1 | plan | 1 | skipped (engine-owned) | .reviews/1-20261018T211926.md |
+| 1 | plan | 1 | REVISE (process: implementation landed before plan approval; no code defects cited) | .reviews/1-20261018T212515.md |
+| 2 | plan | 1 | re-requested via spine_review_step → skipped in-worker (nested reviewer spawn blocked; engine runs review after .DONE) | — |
+
+REVISE response: review log corrected to record the REVISE verdict; Step 1 plan re-requested (engine-owned). Implementation re-verified against PROMPT: gofmt, go vet, `go test ./cli/internal/rag/...` (js coverage 83.0%), and `spine-stet-contract-run.sh default` (exit 0, 0 findings).
 
 ---
 
