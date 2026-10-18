@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"stet/cli/internal/jsts"
 	"stet/cli/internal/rag"
 	"stet/cli/internal/testutil"
 )
@@ -56,6 +57,70 @@ export function greet(name: string): string {
 	}
 	if want := "src/index.ts"; defs[0].File != want {
 		t.Errorf("File = %q, want %q", defs[0].File, want)
+	}
+}
+
+// TestRegistry_everyJSTSExtension_resolvesDefinition verifies init() registers
+// the resolver for every shared JS/TS extension (notably .jsx, .mjs, .cjs) so
+// rag.ResolveSymbols dispatches and returns a definition from such files.
+func TestRegistry_everyJSTSExtension_resolvesDefinition(t *testing.T) {
+	cases := []struct {
+		ext     string
+		content string
+		symbol  string
+		hunk    string
+	}{
+		{".jsx", "export function Button({ label }) {\n  return <button>{label}</button>;\n}\n", "Button", "<div>{Button({ label: \"x\" })}</div>"},
+		{".mjs", "export function filterPending(ids) {\n  return ids.filter(Boolean);\n}\n", "filterPending", "const p = filterPending(ids);"},
+		{".cjs", "function countItems(items) {\n  return items.length;\n}\nmodule.exports = { countItems };\n", "countItems", "const n = countItems(list);"},
+	}
+	seen := make(map[string]bool)
+	for _, tc := range cases {
+		seen[tc.ext] = true
+	}
+	for _, ext := range []string{".jsx", ".mjs", ".cjs"} {
+		if !jsts.IsExt(ext) {
+			t.Fatalf("jsts.IsExt(%q) = false; shared list must include it", ext)
+		}
+	}
+	for _, ext := range jsts.Extensions {
+		if !seen[ext] {
+			cases = append(cases, struct {
+				ext     string
+				content string
+				symbol  string
+				hunk    string
+			}{ext, "function sharedHelper(x) {\n  return x;\n}\n", "sharedHelper", "sharedHelper(1)"})
+		}
+	}
+	for _, tc := range cases {
+		t.Run(tc.ext, func(t *testing.T) {
+			ctx := context.Background()
+			dir := testutil.TempGitDir(t)
+			initGitRepo(t, dir)
+			rel := "src/file" + tc.ext
+			if err := os.MkdirAll(filepath.Join(dir, "src"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, rel), []byte(tc.content), 0644); err != nil {
+				t.Fatal(err)
+			}
+			gitAdd(t, dir, rel)
+
+			defs, err := rag.ResolveSymbols(ctx, dir, rel, tc.hunk, rag.ResolveOptions{MaxDefinitions: 5})
+			if err != nil {
+				t.Fatalf("rag.ResolveSymbols(%s): %v", rel, err)
+			}
+			var found bool
+			for _, d := range defs {
+				if d.Symbol == tc.symbol && d.File == rel {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("expected definition of %q in %s; got %+v", tc.symbol, rel, defs)
+			}
+		})
 	}
 }
 
