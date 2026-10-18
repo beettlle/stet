@@ -131,7 +131,7 @@ Wave 2 · 3 tasks · 2 rounds (queued by maxParallel)
 | #15 | enhancement | Enhancement budget full; touches `lookupDefinitions` with #19 |
 | #14, #13, #12 | enhancement | Refactors; enhancement budget full |
 | #2 | enhancement | Epic-sized token reduction; next minor |
-| #3 | bug | Already fixed by `ea2124f` (shipped v1.0.0); close as hygiene debt, no task |
+| #3 | bug | Already fixed by `ea2124f` (shipped v1.0.0); closed 2026-10-18 with comment https://github.com/beettlle/stet/issues/3#issuecomment-6256174088, no task |
 | Go indirect drift | deps | Indirect-only; no threshold fired |
 | Extension npm drift | deps | Extension not shipped |
 
