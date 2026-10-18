@@ -163,6 +163,11 @@ Manifest: `spine-tasks/_authoring/release-v1.2.0/manifest.md`.
 
 Edges are shared-file serialization (`expand_jsts.go`, `rag/js/resolver.go`, `run.go`, `main.go`, `docs/cli-extension-contract.md`) except SP-056, which documents its dependencies' behavior.
 
+Wave 0 (batch `20261017T222827-fb0f`) landed SP-048, SP-049, SP-050, SP-052, SP-053. Tech debt found:
+
+- A lane reused for a second task has no `.review/spine-stet-baseline.ref`, so `scripts/spine-stet-contract-run.sh` exits 1 until the worker recreates it (SP-052 hit this after SP-049 in lane 2). `scripts/spine-worktree-setup.sh` should write the baseline per task, not only per lane.
+- `cli/cmd/stet/main_test.go` benchmark throughput test never closes the `os.Pipe` read end (fd leak in tests only).
+
 ### Completed (wave 0 + follow-on)
 
 SP-001, SP-002, SP-003, SP-004, SP-005, SP-008 — `.DONE` on `main`.
