@@ -494,6 +494,11 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 					if opts.TraceOut != nil && opts.TraceOut.Enabled() {
 						opts.TraceOut.Printf("FP kill list: %d -> %d\n", beforeFP, len(batch))
 					}
+					beforePraise := len(batch)
+					batch = findings.FilterPraiseOnly(batch)
+					if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+						opts.TraceOut.Printf("Praise filter: %d -> %d\n", beforePraise, len(batch))
+					}
 				}
 				if hunkStart, hunkEnd, ok := expand.HunkLineRange(p.Hunk); ok {
 					beforeEvidence := len(batch)
@@ -574,6 +579,11 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 				batch = findings.FilterFPKillList(batch)
 				if opts.TraceOut != nil && opts.TraceOut.Enabled() {
 					opts.TraceOut.Printf("FP kill list: %d -> %d\n", beforeFP, len(batch))
+				}
+				beforePraise := len(batch)
+				batch = findings.FilterPraiseOnly(batch)
+				if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+					opts.TraceOut.Printf("Praise filter: %d -> %d\n", beforePraise, len(batch))
 				}
 			}
 			if hunkStart, hunkEnd, ok := expand.HunkLineRange(p.Hunk); ok {
@@ -1359,6 +1369,7 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 			batch = findings.FilterAbstention(batch, minKeep, minMaint)
 			if applyFP {
 				batch = findings.FilterFPKillList(batch)
+				batch = findings.FilterPraiseOnly(batch)
 			}
 			if hunkStart, hunkEnd, ok := expand.HunkLineRange(hunk); ok {
 				batch = findings.FilterByHunkLines(batch, hunk.FilePath, hunkStart, hunkEnd)
@@ -1783,6 +1794,7 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 			batch = findings.FilterAbstention(batch, minKeep, minMaint)
 			if applyFP {
 				batch = findings.FilterFPKillList(batch)
+				batch = findings.FilterPraiseOnly(batch)
 			}
 			if hunkStart, hunkEnd, ok := expand.HunkLineRange(hunk); ok {
 				batch = findings.FilterByHunkLines(batch, hunk.FilePath, hunkStart, hunkEnd)

@@ -342,7 +342,7 @@ func jstsDeclLineRange(src string, lines []string, declLineIdx int) (startLine, 
 	chunk := strings.Join(lines[declLineIdx:searchEnd], "\n")
 
 	relArrow := findSignificantToken(chunk, "=>")
-	if relArrow >= 0 {
+	if relArrow >= 0 && !arrowInsideFunctionBody(src, chunk, declStart, relArrow) {
 		afterArrow := chunk[relArrow+2:]
 		relBrace := findSignificantByte(afterArrow, 0, '{')
 		if relBrace >= 0 {
@@ -373,6 +373,22 @@ func jstsDeclLineRange(src string, lines []string, declLineIdx int) (startLine, 
 		return 0, 0, false
 	}
 	return declLineIdx + 1, offsetToLine(src, closeAbs), true
+}
+
+// arrowInsideFunctionBody reports whether the first "=>" in chunk (at relative
+// offset relArrow) belongs to a callback inside the declaration's own body
+// rather than to the declaration itself, e.g. `function f(ids) {
+// ids.filter((id) => ok(id)); }`. That holds when the body brace opens before
+// the arrow and closes after it. A brace pair that closes before the arrow
+// (such as a TypeScript return type `(x): { a: number } => ...`) does not
+// count, so arrow declarations keep their arrow-based scope.
+func arrowInsideFunctionBody(src, chunk string, declStart, relArrow int) bool {
+	openAbs := findFunctionBodyOpenBrace(chunk, declStart)
+	arrowAbs := declStart + relArrow
+	if openAbs < 0 || openAbs >= arrowAbs {
+		return false
+	}
+	return findMatchingBrace(src, openAbs) > arrowAbs
 }
 
 // findFunctionBodyOpenBrace locates the opening "{" of a function/method body,
