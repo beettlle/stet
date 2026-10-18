@@ -24,6 +24,15 @@ func TestDefaultSystemPrompt_containsActionabilityAndHighConfidenceGuidance(t *t
 	}
 }
 
+// TestDefaultSystemPrompt_forbidsPraiseOnlyFindings asserts the Output step tells the
+// model not to emit findings that only praise or confirm the change (issue #25).
+func TestDefaultSystemPrompt_forbidsPraiseOnlyFindings(t *testing.T) {
+	want := "Do not report findings that only praise the change, confirm it is correct, or describe it without a required action."
+	if !strings.Contains(DefaultSystemPrompt, want) {
+		t.Errorf("default prompt missing praise-only rule %q", want)
+	}
+}
+
 // TestDefaultSystemPrompt_instructsCoTAndAssumeValid asserts Phase 6.1 CoT prompt
 // content: step-by-step verification, assume out-of-hunk identifiers valid, nitpick discard, User Intent.
 // TestDefaultSystemPrompt_instructsDiffInterpretation asserts the prompt tells the model

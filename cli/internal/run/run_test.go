@@ -2104,6 +2104,130 @@ func TestStart_nitpicky_keepsBannedPhrase(t *testing.T) {
 	}
 }
 
+// praiseOnlyResp is a canned LLM response with a single praise-only info finding (issue #25).
+const praiseOnlyResp = `[{"file":"a.go","line":1,"severity":"info","category":"correctness","message":"This correctly handles the empty input.","confidence":0.95}]`
+
+// startWithPraiseOnlyResponse runs Start against a fake Ollama server returning
+// praiseOnlyResp and returns the stored session findings.
+func startWithPraiseOnlyResponse(t *testing.T, nitpicky bool) []findings.Finding {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/tags" {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"models": []map[string]interface{}{{"name": "m"}}})
+			return
+		}
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": praiseOnlyResp, "done": true})
+	}))
+	defer srv.Close()
+
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+	opts := StartOptions{
+		RepoRoot:                     repo,
+		StateDir:                     stateDir,
+		Ref:                          "HEAD~1",
+		Model:                        "m",
+		Provider:                     "ollama",
+		LLMBaseURL:                   srv.URL,
+		MinConfidenceKeep:            0.8,
+		MinConfidenceMaintainability: 0.9,
+		Nitpicky:                     nitpicky,
+	}
+	if _, err := Start(context.Background(), opts); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	s, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatalf("Load session: %v", err)
+	}
+	return s.Findings
+}
+
+// TestStart_praiseFilter_dropsPraiseOnlyInfo asserts that with FP filtering on
+// (default), a praise-only info finding without a suggestion is not stored.
+func TestStart_praiseFilter_dropsPraiseOnlyInfo(t *testing.T) {
+	t.Parallel()
+	if got := startWithPraiseOnlyResponse(t, false); len(got) != 0 {
+		t.Errorf("Findings: praise filter should drop praise-only info finding; got %+v", got)
+	}
+}
+
+// TestStart_nitpicky_keepsPraiseOnlyInfo asserts that nitpicky mode (FP filtering
+// off) skips the praise filter, so the praise-only info finding is stored.
+func TestStart_nitpicky_keepsPraiseOnlyInfo(t *testing.T) {
+	t.Parallel()
+	got := startWithPraiseOnlyResponse(t, true)
+	if len(got) != 1 {
+		t.Fatalf("Findings: nitpicky should keep praise-only finding; got %d findings", len(got))
+	}
+	if got[0].Message != "This correctly handles the empty input." {
+		t.Errorf("finding message = %q; want praise message", got[0].Message)
+	}
+}
+
+// TestRunReviewPipeline_praiseFilter asserts the pipeline drops praise-only findings
+// and traces "Praise filter: N -> M" only when ApplyFP is set.
+func TestRunReviewPipeline_praiseFilter(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": praiseOnlyResp, "done": true})
+	}))
+	defer srv.Close()
+
+	client, err := llm.NewClient("ollama", srv.URL, srv.Client())
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	systemBase, err := prompt.SystemPrompt(t.TempDir(), "")
+	if err != nil {
+		t.Fatalf("SystemPrompt: %v", err)
+	}
+	hunk := diff.Hunk{FilePath: "a.go", RawContent: "@@ -1 +1 @@\npackage main\n", Context: "package main\n"}
+	for _, tc := range []struct {
+		name      string
+		applyFP   bool
+		wantCount int
+		wantTrace bool
+	}{
+		{name: "fp_on_drops", applyFP: true, wantCount: 0, wantTrace: true},
+		{name: "fp_off_keeps", applyFP: false, wantCount: 1, wantTrace: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var traceBuf bytes.Buffer
+			collected, _, _, _, _, err := runReviewPipeline(context.Background(), reviewPipelineOpts{
+				Client:     client,
+				Model:      "m",
+				Hunks:      []diff.Hunk{hunk},
+				GenOpts:    &ollama.GenerateOptions{},
+				SystemBase: systemBase,
+				ApplyFP:    tc.applyFP,
+				TraceOut:   trace.New(&traceBuf),
+			})
+			if err != nil {
+				t.Fatalf("runReviewPipeline: %v", err)
+			}
+			if len(collected) != tc.wantCount {
+				t.Errorf("collected = %+v, want %d findings", collected, tc.wantCount)
+			}
+			gotTrace := strings.Contains(traceBuf.String(), "Praise filter: 1 -> 0")
+			if gotTrace != tc.wantTrace {
+				t.Errorf("trace contains Praise filter: 1 -> 0 = %v, want %v; trace = %q", gotTrace, tc.wantTrace, traceBuf.String())
+			}
+		})
+	}
+}
+
 // TestStart_removesWorktreeOnFailure asserts that when Start fails after creating the
 // worktree (e.g. Ollama generate fails), the worktree is removed and does not pollute the repo.
 func TestStart_removesWorktreeOnFailure(t *testing.T) {
