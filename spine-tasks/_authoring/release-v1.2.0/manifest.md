@@ -114,6 +114,7 @@ Wave 2 · 3 tasks · 2 rounds (queued by maxParallel)
 | Wave | Batch ID | Tasks landed | stet wave review (active findings) | release-check log | Exit | Pushed | Issues closed |
 |------|----------|--------------|------------------------------------|-------------------|------|--------|---------------|
 | 0 | `20261017T222827-fb0f` | SP-048, SP-049, SP-050, SP-052, SP-053 (merge `b34bba7`) | 22 (`/tmp/stet-wave-v1.2.0-w0.json`): 21 false positives (out-of-view "unused import"/"undefined" claims disproven by the green gate; offsets in `arrowInsideFunctionBody` are consistent; praise filter is on all four FP sites); 1 real, low (unclosed pipe read end in a `main_test.go` benchmark test), deferred. Stray `test_output.txt` from SP-052 removed in `38e66cf` | `/tmp/stet-release-check-wave-0.log` | 0 | yes | #4, #22, #24 |
+| 1 | `20261018T182409-7c0e` | SP-051, SP-054 (merge `0726ad6`) | 8 (`/tmp/stet-wave-v1.2.0-w1.json`): 7 false positives (compile claims disproven by the green gate; `AddedLines("")` cannot panic; `run_test.go` hunk comment is accurate; `AddedLines` runs once per hunk); 1 real, low (`jsts.Extensions` is an exported mutable slice), deferred | `/tmp/stet-release-check-wave-1.log` | 0 | yes | #16, #21 |
 
 ---
 
