@@ -1,6 +1,6 @@
 # SP-054: Evidence filter keeps only findings near added lines — Status
 
-**Current Step:** Step 2
+**Current Step:** Step 3
 **Status:** 🟡 In Progress
 **Last Updated:** 2026-10-17
 **Review Level:** 2
@@ -19,14 +19,16 @@
 ---
 
 ### Step 2: Wire into run
-**Status:** 🟡 In Progress
+**Status:** ✅ Complete
 
-- [ ] Live call sites; dry-run decision noted; trace label
+- [x] Live call sites; dry-run decision noted; trace label
+  - Both live `runReviewPipeline` sites call `FilterByAddedLines(..., AddedLines(p.Hunk.RawContent), hunkStart, hunkEnd)`; trace label is `Evidence (added lines ±3)`.
+  - Dry-run (`Start` and `Rerun` DryRun loops) keeps `FilterByHunkLines`: `cannedFindingsForHunks` places each finding on the hunk's first new-file line (the header start), which is normally a context line and can be more than 3 lines from the first `+` line (e.g. larger unified context or a leading deletion block). The added-line rule would make dry-run drop canned findings nondeterministically, breaking the one-finding-per-hunk CI contract. Code comment added at both sites.
 
 ---
 
 ### Step 3: Testing & Verification
-**Status:** ⬜ Not Started
+**Status:** 🟡 In Progress
 
 - [ ] Helper tests
 - [ ] Filter tests
@@ -39,6 +41,7 @@
 | # | Type | Step | Verdict | File |
 |---|------|------|---------|------|
 | 1 | plan | 1 | skipped (engine-owned) | .reviews/1-20261018T182508.md |
+| 2 | plan | 2 | skipped (engine-owned) | .reviews/ |
 
 ---
 
