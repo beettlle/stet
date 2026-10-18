@@ -7,15 +7,7 @@ import (
 	"unicode"
 
 	"stet/cli/internal/diff"
-)
-
-const (
-	jsExt  = ".js"
-	jsxExt = ".jsx"
-	mjsExt = ".mjs"
-	cjsExt = ".cjs"
-	tsExt  = ".ts"
-	tsxExt = ".tsx"
+	"stet/cli/internal/jsts"
 )
 
 // maxJSTSImportLines caps the collected import block shown to the model.
@@ -177,17 +169,12 @@ func jstsBraceDelta(line string) int {
 }
 
 func isJSTSExt(ext string) bool {
-	switch ext {
-	case jsExt, jsxExt, mjsExt, cjsExt, tsExt, tsxExt:
-		return true
-	default:
-		return false
-	}
+	return jsts.IsExt(ext)
 }
 
 func jstsFenceLang(filePath string) string {
 	switch filepath.Ext(filePath) {
-	case tsExt, tsxExt:
+	case ".ts", ".tsx":
 		return "typescript"
 	default:
 		return "javascript"
