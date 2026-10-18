@@ -1110,6 +1110,8 @@ type RunStats struct {
 	PromptTokens     int64
 	CompletionTokens int64
 	EvalDurationNs   int64
+	// HunksReviewed is the number of hunks sent for review (0 when there was nothing to review).
+	HunksReviewed int
 }
 
 // Start creates a worktree at the given ref, writes the session, then runs the
@@ -1515,7 +1517,7 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 	if err := session.Save(opts.StateDir, &s); err != nil {
 		return RunStats{}, err
 	}
-	return RunStats{PromptTokens: int64(sumPrompt), CompletionTokens: int64(sumCompletion), EvalDurationNs: sumDuration}, nil
+	return RunStats{PromptTokens: int64(sumPrompt), CompletionTokens: int64(sumCompletion), EvalDurationNs: sumDuration, HunksReviewed: len(part.ToReview)}, nil
 }
 
 // Finish removes the session's worktree and releases the lock. The session
@@ -1980,7 +1982,7 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 	if err := session.Save(opts.StateDir, &s); err != nil {
 		return RunStats{}, err
 	}
-	return RunStats{PromptTokens: int64(sumPrompt), CompletionTokens: int64(sumCompletion), EvalDurationNs: sumDuration}, nil
+	return RunStats{PromptTokens: int64(sumPrompt), CompletionTokens: int64(sumCompletion), EvalDurationNs: sumDuration, HunksReviewed: len(toReview)}, nil
 }
 
 // MaybeAutoFinishOptions configures auto-finish after a successful start/run.

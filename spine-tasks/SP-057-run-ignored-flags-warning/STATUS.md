@@ -1,7 +1,7 @@
 # SP-057: `stet run` warns when review flags have no effect — Status
 
-**Current Step:** Not Started
-**Status:** ⬜ Not Started
+**Current Step:** Step 1
+**Status:** 🟨 In Progress
 **Last Updated:** 2026-10-17
 **Review Level:** 2
 **Review Counter:** 0
@@ -11,9 +11,9 @@
 ---
 
 ### Step 1: HunksReviewed in RunStats
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] Field set on every reviewing return path
+- [x] Field set on every reviewing return path
 
 ---
 
