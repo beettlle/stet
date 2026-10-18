@@ -2228,6 +2228,54 @@ func TestRunReviewPipeline_praiseFilter(t *testing.T) {
 	}
 }
 
+// TestRunReviewPipeline_evidenceAddedLines asserts the pipeline keeps a finding
+// within 3 lines of an added line, drops one on a context line farther away,
+// and traces "Evidence (added lines ±3): N -> M".
+func TestRunReviewPipeline_evidenceAddedLines(t *testing.T) {
+	t.Parallel()
+	const resp = `[{"file":"a.go","line":5,"severity":"warning","category":"bug","message":"Nil pointer dereference when cfg is nil.","suggestion":"Check cfg for nil.","confidence":0.95},` +
+		`{"file":"a.go","line":1,"severity":"warning","category":"bug","message":"Unchecked error from os.Open.","suggestion":"Handle the error.","confidence":0.95}]`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/generate" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": resp, "done": true})
+	}))
+	defer srv.Close()
+
+	client, err := llm.NewClient("ollama", srv.URL, srv.Client())
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	systemBase, err := prompt.SystemPrompt(t.TempDir(), "")
+	if err != nil {
+		t.Fatalf("SystemPrompt: %v", err)
+	}
+	// New-file lines 1-4 and 6-8 are context; line 5 is the only added line.
+	raw := "@@ -1,7 +1,8 @@\n a\n b\n c\n d\n+e\n f\n g\n h\n"
+	hunk := diff.Hunk{FilePath: "a.go", RawContent: raw, Context: raw}
+	var traceBuf bytes.Buffer
+	collected, _, _, _, _, err := runReviewPipeline(context.Background(), reviewPipelineOpts{
+		Client:     client,
+		Model:      "m",
+		Hunks:      []diff.Hunk{hunk},
+		GenOpts:    &ollama.GenerateOptions{},
+		SystemBase: systemBase,
+		TraceOut:   trace.New(&traceBuf),
+	})
+	if err != nil {
+		t.Fatalf("runReviewPipeline: %v", err)
+	}
+	if len(collected) != 1 || collected[0].Line != 5 {
+		t.Fatalf("collected = %+v, want only the finding on added line 5", collected)
+	}
+	if !strings.Contains(traceBuf.String(), "Evidence (added lines ±3): 2 -> 1") {
+		t.Errorf("trace missing evidence label; trace = %q", traceBuf.String())
+	}
+}
+
 // TestStart_removesWorktreeOnFailure asserts that when Start fails after creating the
 // worktree (e.g. Ollama generate fails), the worktree is removed and does not pollute the repo.
 func TestStart_removesWorktreeOnFailure(t *testing.T) {

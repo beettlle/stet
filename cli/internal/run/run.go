@@ -502,9 +502,9 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 				}
 				if hunkStart, hunkEnd, ok := expand.HunkLineRange(p.Hunk); ok {
 					beforeEvidence := len(batch)
-					batch = findings.FilterByHunkLines(batch, p.Hunk.FilePath, hunkStart, hunkEnd)
+					batch = findings.FilterByAddedLines(batch, p.Hunk.FilePath, findings.AddedLines(p.Hunk.RawContent), hunkStart, hunkEnd)
 					if opts.TraceOut != nil && opts.TraceOut.Enabled() {
-						opts.TraceOut.Printf("Evidence (hunk lines): %d -> %d\n", beforeEvidence, len(batch))
+						opts.TraceOut.Printf("Evidence (added lines ±3): %d -> %d\n", beforeEvidence, len(batch))
 					}
 				}
 				kept, cerr := applyCritic(ctx, opts, p, batch)
@@ -588,9 +588,9 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 			}
 			if hunkStart, hunkEnd, ok := expand.HunkLineRange(p.Hunk); ok {
 				beforeEvidence := len(batch)
-				batch = findings.FilterByHunkLines(batch, p.Hunk.FilePath, hunkStart, hunkEnd)
+				batch = findings.FilterByAddedLines(batch, p.Hunk.FilePath, findings.AddedLines(p.Hunk.RawContent), hunkStart, hunkEnd)
 				if opts.TraceOut != nil && opts.TraceOut.Enabled() {
-					opts.TraceOut.Printf("Evidence (hunk lines): %d -> %d\n", beforeEvidence, len(batch))
+					opts.TraceOut.Printf("Evidence (added lines ±3): %d -> %d\n", beforeEvidence, len(batch))
 				}
 			}
 			kept, cerr := applyCritic(ctx, opts, p, batch)
@@ -1371,6 +1371,8 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 				batch = findings.FilterFPKillList(batch)
 				batch = findings.FilterPraiseOnly(batch)
 			}
+			// Canned findings sit on the hunk's first new-file line (usually context),
+			// so dry-run keeps the whole-hunk rule to emit one finding per hunk.
 			if hunkStart, hunkEnd, ok := expand.HunkLineRange(hunk); ok {
 				batch = findings.FilterByHunkLines(batch, hunk.FilePath, hunkStart, hunkEnd)
 			}
@@ -1796,6 +1798,8 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 				batch = findings.FilterFPKillList(batch)
 				batch = findings.FilterPraiseOnly(batch)
 			}
+			// Canned findings sit on the hunk's first new-file line (usually context),
+			// so dry-run keeps the whole-hunk rule to emit one finding per hunk.
 			if hunkStart, hunkEnd, ok := expand.HunkLineRange(hunk); ok {
 				batch = findings.FilterByHunkLines(batch, hunk.FilePath, hunkStart, hunkEnd)
 			}
