@@ -9,6 +9,19 @@ Local code review, powered by your machine. **By default** Stet talks to [Ollama
 - **Review-only:** Focused on review, not auto-fix; you decide what to change.
 - **Sustainable:** Default setup uses your local hardware instead of datacenter APIs.
 
+## Performance
+
+Measured October 2026 on a Mac Studio (Apple M1 Ultra, 64 GB) with `qwen/qwen3.8-27b` served by LM Studio:
+
+| | |
+|---|---|
+| Throughput | ~21 tokens/s end to end (`stet benchmark --warmup`) |
+| API cost per review | $0 on a local model (the same tokens cost ~$0.10–$0.20 per review at Claude Sonnet 5.5 / Opus 5.5 list prices) |
+| Seeded-bug test | 10 of 12 planted bugs caught in all 3 runs, including SQL injection and path traversal |
+| Test coverage | 83.9%, enforced in CI (77% project, 72% per file) |
+
+Speed depends on your hardware and model; run `stet benchmark` to measure yours.
+
 ## About the Name
 
 **Stet** is a Latin word from proofreading meaning "let it stand"—an instruction to keep existing text unchanged. Stet is review-only: it helps you approve or flag code, not rewrite it.
