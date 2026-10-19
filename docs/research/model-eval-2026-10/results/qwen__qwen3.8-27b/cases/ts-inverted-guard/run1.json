@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-h_x4r2n7/src/middleware/requireAdmin.ts#L49",
+      "file": "src/middleware/requireAdmin.ts",
+      "id": "24f678ef8b0451db429cfef6e8750d69895fb9d8a2b4ceb255ffdee2222b84a5",
+      "line": 49,
+      "message": "The function `isAdminUser` accepts `user` of type `AuthenticatedUser | undefined`, but the `RoleRequest` interface defines `user` as optional (`user?: AuthenticatedUser`), which implies the type is `AuthenticatedUser | undefined`. However, if `user` is `null` (which is common in Express middleware if not strictly typed or if the auth middleware sets it to null), the check `user !== undefined` will pass, and accessing `user.isAdmin` will throw a TypeError. It is safer to check for both `undefined` and `null` or use a truthy check if `null` is a valid state for 'no user'.",
+      "severity": "warning",
+      "suggestion": "Change the condition to `return user != null && user.isAdmin;` or ensure the type is strictly `AuthenticatedUser | undefined` and that `null` is never passed."
+    }
+  ]
+}

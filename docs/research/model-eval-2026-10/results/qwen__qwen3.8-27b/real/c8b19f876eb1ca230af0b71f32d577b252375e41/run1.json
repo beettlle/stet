@@ -1,0 +1,19 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7aco5mvk/cli/internal/run/restore_dismissals.go#L187-188",
+      "file": "cli/internal/run/restore_dismissals.go",
+      "id": "dc938be67528f3ef57ae4ede3f68f19e7f63b336d1cb6868267dba5fa0217877",
+      "line": 187,
+      "message": "Inconsistent span logic: `dismissalSpan` uses `rangeStart > 0 || rangeEnd > 0` while `findingSpan` uses `f.Range != nil`. If a `Finding` has `Range` set to `{0, 0}` (which is possible since it's a pointer), `findingSpan` returns `{0, 0}` but `dismissalSpan` returns `{line, line}`. This causes `matchesRestorableDismissal` to fail for valid findings with zero-valued ranges, preventing dismissal restoration.",
+      "range": {
+        "end": 188,
+        "start": 187
+      },
+      "severity": "warning",
+      "suggestion": "Change `dismissalSpan` to check `if d.rangeStart > 0 && d.rangeEnd > 0` to match the logic in `findingSpan` and `StableFindingID`."
+    }
+  ]
+}

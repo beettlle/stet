@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-9w329pan/internal/report/summary.go#L25",
+      "file": "internal/report/summary.go",
+      "id": "0f3bca90a1bf90cbf03cf2e3498da2981823e26238d818f72f0a19591a0d0112",
+      "line": 25,
+      "message": "Swallowing the error from f.Write causes the function to return nil (success) even when the write fails. This leads to silent data loss and incorrect state reporting.",
+      "severity": "error",
+      "suggestion": "Restore the error return: return fmt.Errorf(\"write summary: %w\", err)"
+    }
+  ]
+}

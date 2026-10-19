@@ -1,0 +1,37 @@
+{
+  "findings": [
+    {
+      "category": "style",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-j8tx_xpi/cli/internal/run/run.go#L1113",
+      "file": "cli/internal/run/run.go",
+      "id": "de4fddc31208b14e10f66db75ab747f5aebcb0338ad7d3a7b08f54b8ae4a36ba",
+      "line": 1113,
+      "message": "Inconsistent integer type: HunksReviewed uses int while other counters in RunStats use int64.",
+      "severity": "nitpick",
+      "suggestion": "Change HunksReviewed to int64 for consistency with PromptTokens, CompletionTokens, and EvalDurationNs."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-j8tx_xpi/cli/internal/run/run.go#L1520",
+      "file": "cli/internal/run/run.go",
+      "id": "46c83d49a4175f2d36caec649e52d6cf79bbfb7d29d1408267252e35320dd120",
+      "line": 1520,
+      "message": "The variable 'part' is likely out of scope at this point. The diff shows the return statement is inside a block that follows 'session.Save', but 'part' was likely defined in a previous scope (e.g., inside a loop or a previous if-block). If 'part' is not in scope, this will cause a compilation error. If it is in scope but refers to a partition from a previous iteration or a different context, it may not represent the total hunks reviewed in the current run.",
+      "severity": "warning",
+      "suggestion": "Verify that 'part' is in scope and correctly represents the total number of hunks reviewed. If 'part' is a local variable from a loop, you should accumulate the count in a separate variable (e.g., 'totalHunksReviewed') and use that instead."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-j8tx_xpi/cli/internal/run/run.go#L1985",
+      "file": "cli/internal/run/run.go",
+      "id": "82a2e5d5dbaad0072e9ae29da26205158231da5c2c948ec988c42077f6c4b52a",
+      "line": 1985,
+      "message": "The variable `toReview` is likely defined earlier in the function scope (before the loop that processes hunks). If the loop modifies `toReview` (e.g., via `toReview = toReview[1:]` or `append`), `len(toReview)` at the end of the function will reflect the remaining unprocessed items rather than the total number of hunks that were actually reviewed. This would result in an incorrect `HunksReviewed` count in `RunStats`.",
+      "severity": "warning",
+      "suggestion": "Capture the initial length of `toReview` before the processing loop begins (e.g., `hunksReviewed := len(toReview)`) and use that variable in the return statement, or ensure `toReview` is not mutated in a way that reduces its length during the loop."
+    }
+  ]
+}

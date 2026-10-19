@@ -1,0 +1,125 @@
+{
+  "findings": [
+    {
+      "category": "design",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-96ter_oj/cli/cmd/stet/main.go#L695",
+      "file": "cli/cmd/stet/main.go",
+      "id": "74deda17176e04273971161f88dc43d99c648180c7a3c5de80eca100a80aad43",
+      "line": 695,
+      "message": "AnnotateClient is typed as rules.ChoiceDecider, which only defines DecideChoice. If the annotation feature requires a different method (e.g., Annotate) or a different request/response shape than the selector, this type is incorrect and will cause a compile error or runtime failure when the client is used for annotation.",
+      "severity": "warning",
+      "suggestion": "Verify that the annotation logic uses the same DecideChoice method and request/response types as the selector. If not, define a separate interface (e.g., rules.Annotator) or use the concrete *systemone.Client type for AnnotateClient."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-96ter_oj/cli/cmd/stet/main.go#L1071",
+      "file": "cli/cmd/stet/main.go",
+      "id": "c376dacff047b21dfd55867e6252cc784d2f76622b8f31a6f287b428ace5f261",
+      "line": 1071,
+      "message": "The RulesAnnotateBaseURL is hardcoded to so.BaseURL, which is the SystemOne base URL. If the rules_annotate configuration specifies a different base URL (e.g., a dedicated annotation service), this value will be ignored, causing the annotation client to connect to the wrong endpoint.",
+      "severity": "warning",
+      "suggestion": "Use the configured base URL for the annotation client, e.g., RulesAnnotateBaseURL: cfg.RulesAnnotateBaseURL, assuming such a field exists in the config."
+    },
+    {
+      "category": "testing",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-96ter_oj/cli/cmd/stet/main_test.go#L3160",
+      "file": "cli/cmd/stet/main_test.go",
+      "id": "aec858ab7301b35095e7cc5208a3f4310b07bf99cf73688e7b494814836113eb",
+      "line": 3160,
+      "message": "The test 'one shared client across critic, selector, and annotator' uses fmt.Sprintf(\"%p\", ...) to compare pointer addresses. If the underlying client type is an interface, %p prints the address of the interface's data pointer, not the concrete object. If the implementation returns different concrete instances (e.g., *systemone.Client) that happen to be allocated at the same address due to garbage collection or memory reuse, the test could pass incorrectly. More importantly, if the implementation returns a struct by value or a different pointer type, the comparison is fragile. It is safer to compare the concrete types directly if they are comparable, or use reflect.DeepEqual if they are structs, or ensure the implementation returns the exact same pointer instance and test that via a shared interface method or direct pointer comparison if the type is known.",
+      "severity": "warning",
+      "suggestion": "If o.Client, o.SelectorClient, and o.AnnotateClient are of a concrete pointer type (e.g., *systemone.Client), compare them directly: if o.Client != o.SelectorClient || o.SelectorClient != o.AnnotateClient. If they are interfaces, ensure the implementation returns the same concrete instance and consider using reflect.ValueOf(o.Client).Pointer() == reflect.ValueOf(o.SelectorClient).Pointer() for robustness."
+    },
+    {
+      "category": "documentation",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-96ter_oj/cli/internal/config/config.go#L117",
+      "file": "cli/internal/config/config.go",
+      "id": "17c385da2be5700d3f5fed414b2c6b3956df9a1473906756eca32fd56d73e854",
+      "line": 117,
+      "message": "The comment states that on annotation failure, a warning is printed to stderr containing the 'server URL only'. This is a security-sensitive detail that should be verified in the implementation to ensure the API key or other sensitive credentials are not accidentally included in the error message.",
+      "severity": "info",
+      "suggestion": "Verify that the error handling in the annotation client explicitly sanitizes the error message to exclude the API key before printing to stderr."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-96ter_oj/cli/internal/config/config.go#L594",
+      "file": "cli/internal/config/config.go",
+      "id": "508a570183d8fdd0254cf7b1cb6618511dd30e6ec84f718594c8e8cb732baff2",
+      "line": 594,
+      "message": "The mergeFile function documentation states that it only overwrites fields that are present and non-zero in the file. However, the added code for RulesAnnotate (a boolean) overwrites the config if the field is present, even if it is explicitly set to false (zero value). This contradicts the documented behavior and may cause unexpected configuration changes if a user explicitly sets rules_annotate = false in the config file.",
+      "severity": "warning",
+      "suggestion": "Add a check to ensure the value is true before overwriting, or update the documentation to clarify that boolean fields are overwritten if present. For consistency with the 'non-zero' rule: if file.RulesAnnotate != nil && *file.RulesAnnotate { cfg.RulesAnnotate = true }"
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-96ter_oj/cli/internal/config/config.go#L943",
+      "file": "cli/internal/config/config.go",
+      "id": "c42b1d7584d7580e3f3fb317a79ae19200d97cff1ed445ad0552b5e6810890e1",
+      "line": 943,
+      "message": "The added environment variable handling for STET_RULES_ANNOTATE is consistent with the existing pattern for boolean flags (e.g., STET_RULES_SELECTOR). It correctly validates the input and updates the config only if the variable is present and non-empty.",
+      "severity": "info",
+      "suggestion": "No change required."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-96ter_oj/cli/internal/run/run.go#L353",
+      "file": "cli/internal/run/run.go",
+      "id": "772e0beea49719f6687835d48021815b63af00694b0b53cc31cff52ce21974b9",
+      "line": 353,
+      "message": "The `annotateWarn` state is shared across all hunks and is passed to `annotateRuleConflictsForBatch` in the main goroutine. If the `rulesAnnotateState` type uses a boolean flag to ensure 'at most one warning per run' (similar to `rulesSelectorState`), the first hunk that triggers an annotation failure will set the flag, causing all subsequent hunks to silently skip the annotation warning. This means if the annotation service is down, the user will only see a warning for the first hunk, and the rest will be processed without annotation context without any indication of the failure.",
+      "severity": "warning",
+      "suggestion": "Ensure `rulesAnnotateState` is either not shared (create a new instance per hunk if the warning should be per-hunk) or verify that the 'at most one warning' behavior is the intended design for the annotation service. If the intent is to warn only once, the current code is correct but the comment should clarify that subsequent failures are silent."
+    },
+    {
+      "category": "performance",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-96ter_oj/cli/internal/run/run.go#L507",
+      "file": "cli/internal/run/run.go",
+      "id": "a16f02334510d63b8a63a2b921a4415bbfddc370955791cf8ecad29fab7b08fa",
+      "line": 507,
+      "message": "The change introduces a blocking network call (annotateRuleConflictsForBatch) inside the main pipeline loop. This serializes the annotation of each hunk with the processing of the next LLM result, preventing the pipeline from overlapping annotation work with the next Generate request. This can significantly increase total wall-clock time for large diffs.",
+      "severity": "warning",
+      "suggestion": "Move the annotation step to a separate asynchronous worker or pipeline stage that runs in parallel with the LLM generation, or ensure it is non-blocking if the client supports it."
+    },
+    {
+      "category": "performance",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-96ter_oj/cli/internal/run/run.go#L588",
+      "file": "cli/internal/run/run.go",
+      "id": "9186a76a9d5c584fb7efedbddf7289776add4c2920969294f1bcda90e821c82b",
+      "line": 588,
+      "message": "The change replaces a simple assignment with a call to annotateRuleConflictsForBatch, which performs a network request to the annotation service. This call is made sequentially in the main processing loop, meaning the pipeline is blocked waiting for the annotation service to respond before it can process the next LLM result or send the next prompt. This serializes the annotation latency, negating the benefits of the pipelined LLM generation and increasing total run time.",
+      "severity": "warning",
+      "suggestion": "Consider performing the annotation asynchronously (e.g., in a separate goroutine or a dedicated annotation worker pool) to avoid blocking the main pipeline loop, or ensure the annotation client has a very short timeout to prevent significant delays."
+    },
+    {
+      "category": "security",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-96ter_oj/cli/internal/run/run.go#L1069",
+      "file": "cli/internal/run/run.go",
+      "id": "8832903fa57841276b29848be58eea5dbde6c00929d500f887fe239c3e026292",
+      "line": 1069,
+      "message": "The comment states that on error the warning names the server URL but 'never the API key'. However, the struct field RulesAnnotateBaseURL is a plain string. If the configuration source (e.g., environment variable or config file) allows embedding credentials in the URL (e.g., https://user:pass@host), logging RulesAnnotateBaseURL directly would leak the API key. The code should sanitize the URL or explicitly document that credentials must not be included in the base URL.",
+      "severity": "warning",
+      "suggestion": "Ensure that RulesAnnotateBaseURL is sanitized (e.g., using url.Parse to strip user info) before being included in any warning or log message, or add a comment explicitly forbidding credentials in the URL and validating it at startup."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-96ter_oj/cli/internal/run/run.go#L1435",
+      "file": "cli/internal/run/run.go",
+      "id": "232945114304e7e5321fcb7f3d8f0c5f6341e6dc35301ad3babdb2c88ba32bb3",
+      "line": 1435,
+      "message": "The RulesAnnotateClient is passed to the review pipeline without an upfront reachability check. Unlike the primary LLM client, which is validated via llmClient.Check() before the worktree is created, the RulesAnnotate client is only used later in the pipeline. If the RulesAnnotate endpoint is misconfigured or unreachable, the failure will occur after the worktree has been created, potentially causing the run to fail late and leaving the worktree to be cleaned up via the deferred error handler.",
+      "severity": "warning",
+      "suggestion": "Add an upfront check for the RulesAnnotate client (e.g., llmClient.Check or a similar validation) when opts.RulesAnnotateClient is non-nil and !opts.DryRun, similar to the primary LLM client check."
+    }
+  ]
+}

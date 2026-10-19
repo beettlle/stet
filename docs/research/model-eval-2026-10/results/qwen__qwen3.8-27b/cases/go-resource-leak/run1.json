@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-0cp2nz3s/internal/thumb/client.go#L32",
+      "file": "internal/thumb/client.go",
+      "id": "d45e4ea18bf13376fc82ff9b9d0c303a69b0e821a78f9d538091d37a9993ac30",
+      "line": 32,
+      "message": "Removing the deferred close of resp.Body causes a resource leak if os.Create fails. In that error path, the function returns early without closing the response body, leaving the underlying network connection open.",
+      "severity": "error",
+      "suggestion": "Restore the deferred close of resp.Body immediately after the HTTP request succeeds, and remove the explicit close at the end of the function to avoid double-closing."
+    }
+  ]
+}

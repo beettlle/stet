@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-9owour4w/internal/units/parse.go#L18",
+      "file": "internal/units/parse.go",
+      "id": "b33ced9d753cb3af09fea054836a68cff08eb523747dabde43965e55ce582145",
+      "line": 18,
+      "message": "The variable 'unitPart' is declared but not used in the visible code, which will cause a compilation error in Go. The diff shows the assignment 'numPart, unitPart, hasUnit := splitNumberUnit(normalized)', but the subsequent lines only use 'numPart' and 'hasUnit'.",
+      "severity": "warning",
+      "suggestion": "Either use 'unitPart' in the logic (e.g., to validate or convert the unit) or discard it using '_': 'numPart, _, hasUnit := splitNumberUnit(normalized)'."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-9owour4w/internal/units/parse.go#L37",
+      "file": "internal/units/parse.go",
+      "id": "4c95ccd18d3e29f4c41cce7f7e835c91e0c367918bb5fd7b8a8dee55b6ba8dde",
+      "line": 37,
+      "message": "splitNumberUnit returns an empty numeric prefix when the input string starts with a non-numeric character (e.g., \"GB\" or \".5GB\"). This causes strconv.ParseFloat to fail with an 'invalid syntax' error instead of handling the input gracefully or returning a specific error for missing numbers.",
+      "severity": "warning",
+      "suggestion": "Check if i == 0 before returning. If the first character is non-numeric, return an error or handle the case where the number is missing."
+    }
+  ]
+}

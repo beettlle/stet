@@ -1,0 +1,48 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ju5dbdte/cli/internal/openaicompat/client.go#L257",
+      "file": "cli/internal/openaicompat/client.go",
+      "id": "29d6fe6c44496f046243db75cbe14a53f8cdd4359a00e8df1686efbc381c1184",
+      "line": 257,
+      "message": "The variable 'start' is declared but not used. The diff adds the declaration, but the code that uses it to calculate 'elapsed' (time.Since(start)) is not present in the diff hunk. If the usage is not added in the same commit, this will cause a compilation error.",
+      "severity": "warning",
+      "suggestion": "Ensure that the code using 'start' (e.g., 'elapsed := time.Since(start)') is added in the same commit, or remove the declaration if it is not intended to be used yet."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ju5dbdte/cli/internal/openaicompat/client.go#L316",
+      "file": "cli/internal/openaicompat/client.go",
+      "id": "d9c7366a6197ea4c34c391426ff3afd4c8d66e1f249d1a549e68b926f62baab7",
+      "line": 316,
+      "message": "The `elapsed` duration is measured from the start of the HTTP request to the completion of the JSON decode. This includes network latency, server processing time, and client-side decoding time. Assigning this entire wall-clock duration to `EvalDuration` (which typically represents the time spent generating tokens) is semantically incorrect and will lead to misleading throughput metrics (e.g., tokens/sec) if the network latency is significant. `TotalDuration` is correctly set to `elapsed`, but `EvalDuration` should ideally be 0 or derived from server-provided timing if available, rather than the full request duration.",
+      "severity": "warning",
+      "suggestion": "Set `EvalDuration: 0` to avoid misrepresenting network latency as generation time, or ensure that `EvalDuration` is only populated if the server provides specific generation timing data."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ju5dbdte/cli/internal/openaicompat/client.go#L400",
+      "file": "cli/internal/openaicompat/client.go",
+      "id": "76eb4c114e7fa49580b32ddcf37768519bb84956256bbdaa1e8f7b4cd6a06f9b",
+      "line": 400,
+      "message": "The variable `elapsed` is declared and assigned, but it is never used in the resulting code. This will cause a compilation error in Go ('declared and not used').",
+      "severity": "warning",
+      "suggestion": "Either remove the `elapsed` declaration if it is not needed, or ensure it is used (e.g., in the `ollama.GenerateResult` struct)."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ju5dbdte/cli/internal/openaicompat/client.go#L424",
+      "file": "cli/internal/openaicompat/client.go",
+      "id": "f86120100615992e28868148b065f1ffb606f645a0472ba5a7583142b57fa5d9",
+      "line": 424,
+      "message": "EvalDuration is set to the total wall-clock time (including network latency and connection setup), which is semantically incorrect. In the Ollama API, EvalDuration represents the time spent generating tokens, excluding network overhead. This will cause throughput calculations (tokens/sec) to be artificially low and inconsistent with Ollama's reporting.",
+      "severity": "warning",
+      "suggestion": "If the OpenAI API does not provide granular timing, consider leaving EvalDuration as 0 or documenting that it represents total request time. Alternatively, if the API provides timing headers or usage data that allows estimating generation time, use that instead."
+    }
+  ]
+}

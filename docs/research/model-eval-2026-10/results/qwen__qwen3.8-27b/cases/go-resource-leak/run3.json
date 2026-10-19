@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-8ig_goxd/internal/thumb/client.go#L32",
+      "file": "internal/thumb/client.go",
+      "id": "5cd83521dec37b2fd16a6388574a1bad0c56229f1fe76d7deb0cb040211dea6b",
+      "line": 32,
+      "message": "Removing `defer resp.Body.Close()` causes a resource leak if `os.Create` fails. In that error path, the function returns early without closing the response body, leaving the underlying network connection open.",
+      "severity": "error",
+      "suggestion": "Restore `defer resp.Body.Close()` immediately after the `c.HTTP.Get` error check to ensure the body is closed on all exit paths."
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-rmpmmw5t/internal/pagination/page.go#L71",
+      "file": "internal/pagination/page.go",
+      "id": "bd0d78d78e83dc31a3cd680206682c2e6b865813811d69988edac181c73e086f",
+      "line": 71,
+      "message": "Off-by-one error in loop condition causes an out-of-bounds index access. The loop iterates up to and including `start+len(pageRows)`, which is one past the last valid index of the page slice, leading to a panic when accessing `rows[i]`.",
+      "severity": "error",
+      "suggestion": "Change the loop condition to `i < start+len(pageRows)` to correctly iterate over the valid indices of the page."
+    }
+  ]
+}

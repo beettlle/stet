@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-nmuo5h44/src/invoice/pricing.ts#L25",
+      "file": "src/invoice/pricing.ts",
+      "id": "dfc5e7e75b8af2c8922d0380c850c5f36aac9c5574527dfe5196c9cb91dc8e61",
+      "line": 25,
+      "message": "The discount threshold is set to 100,000 cents ($1,000.00), but the free shipping threshold is 50,000 cents ($500.00). This implies that the bulk discount is only applied to orders that are at least double the free shipping threshold. If the intent was to apply the discount to orders over $500 (matching the free shipping logic), the threshold should be 50,000. If the intent was $1,000, the logic is correct but inconsistent with the naming or typical business rules where 'bulk' might align with the free shipping tier.",
+      "severity": "warning",
+      "suggestion": "Verify the business requirement for the bulk discount threshold. If it should align with the free shipping threshold, change `totalCents > 100_000` to `totalCents > 50_000`."
+    }
+  ]
+}

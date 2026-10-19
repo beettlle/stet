@@ -91,6 +91,16 @@ PINNED_ENV: dict[str, str] = {
     "STET_TIMEOUT": "30m",
 }
 
+# Overrides applied on top of PINNED_ENV by `run --critic`; STET_SYSTEMONE_BASE_URL
+# comes from --systemone-base-url. Values match .review/config.toml.
+CRITIC_ENV: dict[str, str] = {
+    "STET_CRITIC_BACKEND": "systemone",
+    "STET_CRITIC_ENABLED": "true",
+    "STET_SYSTEMONE_MODEL": "openjev-latest",
+    "STET_SYSTEMONE_TIMEOUT": "90s",
+}
+DEFAULT_SYSTEMONE_BASE_URL = "http://127.0.0.1:8080"
+
 _HUNKS_RE = re.compile(r"(\d+) hunks to review")
 
 # ---------------------------------------------------------------------------
@@ -282,11 +292,18 @@ def _load_bug(case_id: str, index: int, raw: object) -> Bug:
 # ---------------------------------------------------------------------------
 
 
-def pinned_env(model: str, base_url: str) -> dict[str, str]:
-    """Pinned STET_* environment for one stet subprocess (sorted keys)."""
+def pinned_env(model: str, base_url: str, critic_base_url: str | None = None) -> dict[str, str]:
+    """Pinned STET_* environment for one stet subprocess (sorted keys).
+
+    When critic_base_url is set, the System One critic is enabled against that
+    server so runs measure the critic-on configuration used in .review/config.toml.
+    """
     env = dict(PINNED_ENV)
     env["STET_OPENAI_BASE_URL"] = base_url
     env["STET_MODEL"] = model
+    if critic_base_url is not None:
+        env.update(CRITIC_ENV)
+        env["STET_SYSTEMONE_BASE_URL"] = critic_base_url
     return env
 
 
@@ -416,6 +433,7 @@ class RunOptions:
     cases_dir: Path
     out_dir: Path
     stet_version: str
+    critic_base_url: str | None = None  # None means critic off
 
 
 @dataclass(frozen=True)
@@ -477,7 +495,7 @@ def perform_review(item: WorkItem, opts: RunOptions, clock=time.monotonic) -> Re
         if opts.dry_run:
             argv.append("--dry-run")
         _validate_base_url(opts.base_url)  # only http(s) endpoints may be pinned
-        env = {**os.environ, **pinned_env(opts.model, opts.base_url)}
+        env = {**os.environ, **pinned_env(opts.model, opts.base_url, opts.critic_base_url)}
         started = clock()
         result = run_stream(argv, cwd=tmp, env=env, timeout_secs=opts.review_timeout_secs)
         wall_seconds = clock() - started
@@ -512,7 +530,8 @@ def perform_review(item: WorkItem, opts: RunOptions, clock=time.monotonic) -> Re
 
 def _build_meta(item: WorkItem, opts: RunOptions, outcome: ReviewOutcome) -> dict:
     return {
-        "env": pinned_env(opts.model, opts.base_url),
+        "critic": opts.critic_base_url is not None,
+        "env": pinned_env(opts.model, opts.base_url, opts.critic_base_url),
         "exit_code": outcome.exit_code,
         "findings_count": len(outcome.findings),
         "hunks_total": outcome.hunks_total,
@@ -556,10 +575,10 @@ def _validate_tooling() -> None:
         raise HarnessError("stet not found on PATH")
 
 
-def _validate_base_url(base_url: str) -> str:
+def _validate_base_url(base_url: str, flag: str = "--base-url") -> str:
     """Require an http(s) URL so the value cannot smuggle other schemes."""
     if not (base_url.startswith("http://") or base_url.startswith("https://")):
-        raise HarnessError(f"--base-url must be an http(s) URL (got {base_url!r})")
+        raise HarnessError(f"{flag} must be an http(s) URL (got {base_url!r})")
     return base_url
 
 
@@ -585,6 +604,9 @@ def _run_options_from_args(args: argparse.Namespace) -> RunOptions:
         raise HarnessError("--review-timeout-minutes must be > 0")
     _validate_tooling()
     _validate_base_url(args.base_url)
+    critic_base_url = None
+    if args.critic:
+        critic_base_url = _validate_base_url(args.systemone_base_url, flag="--systemone-base-url")
     real_refs = tuple(_validate_real_ref(sha) for sha in args.real_refs)
     return RunOptions(
         model=model,
@@ -600,6 +622,7 @@ def _run_options_from_args(args: argparse.Namespace) -> RunOptions:
         cases_dir=Path(args.cases),
         out_dir=Path(args.out),
         stet_version=_stet_version(),
+        critic_base_url=critic_base_url,
     )
 
 def _work_items(opts: RunOptions, cases: list[Case]) -> list[WorkItem]:
@@ -1219,6 +1242,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run_parser.add_argument("--retry-failed", action="store_true", help="Re-run runs whose status is not ok")
     run_parser.add_argument("--dry-run", action="store_true", help="Pass --dry-run to stet start (no LLM)")
+    run_parser.add_argument("--critic", action="store_true", help="Enable the System One critic (default off)")
+    run_parser.add_argument(
+        "--systemone-base-url",
+        default=DEFAULT_SYSTEMONE_BASE_URL,
+        help=f"System One critic server URL, used with --critic (default {DEFAULT_SYSTEMONE_BASE_URL})",
+    )
 
     score_parser = sub.add_parser("score", help="Score recorded runs against fixture ground truth")
     score_parser.add_argument("--cases", type=Path, required=True, help="Fixture cases directory")

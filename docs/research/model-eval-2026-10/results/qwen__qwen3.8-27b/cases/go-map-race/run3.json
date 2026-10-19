@@ -1,0 +1,37 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-8efrfwcy/internal/metrics/collector.go#L28",
+      "file": "internal/metrics/collector.go",
+      "id": "4d885b7ca185b465e92abb9b5a497db3e6234984f267d1e5538bf7d91ca229d9",
+      "line": 28,
+      "message": "The variable 'counts' is declared but never used in the visible code. If it is intended to track probe execution counts, it must be populated and returned or used in the logic. If it is a duplicate of 'out', it is redundant. Please verify if this is an incomplete implementation or a typo.",
+      "severity": "warning",
+      "suggestion": "Either remove the unused 'counts' variable or implement the logic to populate and use it."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-8efrfwcy/internal/metrics/collector.go#L44",
+      "file": "internal/metrics/collector.go",
+      "id": "2293695019ec32b49130a0108d4705d52541ddf0d3f84e52380064bddda1cdc7",
+      "line": 44,
+      "message": "Data race on the 'counts' map. The map is accessed and modified concurrently by multiple goroutines without synchronization, while the 'out' map is protected by a mutex. This will cause a race condition and potential panic.",
+      "severity": "error",
+      "suggestion": "Move the 'counts[p.Name]++' statement inside the 'mu.Lock()' / 'mu.Unlock()' block to protect it with the mutex."
+    },
+    {
+      "category": "performance",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-8efrfwcy/internal/metrics/collector.go#L67",
+      "file": "internal/metrics/collector.go",
+      "id": "5c6a1d35ffe3bb4a12b93352bc40a472b766149c65ecd91bea3c7daa0363fe2c",
+      "line": 67,
+      "message": "The code allocates a slice and appends to it only to calculate its length, which is unnecessary since the length is already known from c.probes.",
+      "severity": "warning",
+      "suggestion": "Replace the loop and allocation with: return fmt.Sprintf(\"%d probes registered\", len(c.probes))"
+    }
+  ]
+}

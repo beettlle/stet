@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-rj4cbzf1/internal/userstore/store.go#L46",
+      "file": "internal/userstore/store.go",
+      "id": "7440891725ef9422eece5a1ead61469297c276dcda3d2b406029efd6d702a569",
+      "line": 46,
+      "message": "Ignoring the error from FindByEmail causes a nil pointer dereference if the user is not found or a database error occurs, leading to a panic.",
+      "severity": "error",
+      "suggestion": "Restore the error check: if err != nil { return Profile{}, fmt.Errorf(\"load profile for %q: %w\", email, err) }"
+    }
+  ]
+}

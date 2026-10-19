@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-b78_i49d/internal/metrics/collector.go#L28",
+      "file": "internal/metrics/collector.go",
+      "id": "513a79a206a804787168b26015f8d3e9b13eafda3ce9d13c313ef084e7bb07f6",
+      "line": 28,
+      "message": "The variable 'counts' is declared but never used in the visible code, which will cause a compilation error in Go.",
+      "severity": "warning",
+      "suggestion": "Remove the unused 'counts' variable or ensure it is properly utilized in the function logic."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-b78_i49d/internal/metrics/collector.go#L44",
+      "file": "internal/metrics/collector.go",
+      "id": "c4f921643a95ece1272f32b626418dafddebb5d99fd345f0133681189b67cec0",
+      "line": 44,
+      "message": "Data race on the 'counts' map. The line 'counts[p.Name]++' is executed outside the mutex lock, while multiple goroutines may run concurrently. This results in a data race on the map, which is undefined behavior in Go and can cause panics or corruption.",
+      "severity": "error",
+      "suggestion": "Move 'counts[p.Name]++' inside the 'mu.Lock()' and 'mu.Unlock()' block to ensure thread-safe access."
+    }
+  ]
+}

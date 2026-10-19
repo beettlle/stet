@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-nf74673v/app/reporting/stats.py#L17",
+      "file": "app/reporting/stats.py",
+      "id": "06ff8dec0b6be2da670fbabbcf60f4506843b5dfb4cf33a24283379d377a8c63",
+      "line": 17,
+      "message": "Using integer floor division (//) instead of true division (/) causes truncation of the percentage, leading to incorrect results (e.g., 1 completed out of 3 returns 0.0 instead of 33.33).",
+      "severity": "error",
+      "suggestion": "Change 'completed // total * 100' to 'completed / total * 100'."
+    }
+  ]
+}

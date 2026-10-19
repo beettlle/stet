@@ -1,0 +1,49 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-a6t1h2ds/cli/internal/expand/expand_jsts.go#L98-101",
+      "file": "cli/internal/expand/expand_jsts.go",
+      "id": "1ad604c8eb2d63c99dd2e760261792a2802dd124e5c6d7a2bc5813eef91abd70",
+      "line": 100,
+      "message": "jstsStatementEnd returns len(lines) - 1 when the loop exhausts all lines without the brace depth reaching 0. This occurs for unterminated multi-line statements (e.g., a missing closing brace). The caller then executes strings.Join(lines[i:end+1], \"\\n\"), which is equivalent to lines[i:len(lines)], causing the import block to silently swallow the rest of the file (including non-import code) until the end of the file.",
+      "range": {
+        "end": 101,
+        "start": 98
+      },
+      "severity": "warning",
+      "suggestion": "Return start (or a sentinel) when the loop exhausts lines without depth <= 0, and have the caller treat that as a malformed statement (e.g., break or skip) rather than joining to the end of the file."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-a6t1h2ds/cli/internal/expand/expand_jsts.go#L211-211",
+      "file": "cli/internal/expand/expand_jsts.go",
+      "id": "4ce1076fe7b8363b2314e044e1d4a2bdef3bfca78cd3e7960a07568e9353996c",
+      "line": 211,
+      "message": "The token budget for the function context can become negative, causing the function source to be truncated to an empty string. When `showImports` is true, `importBudget` is set to `maxTokens / jstsImportTokenShare`. Later, `funcSrc` is truncated using `maxTokens - importBudget`. If `jstsImportTokenShare` is less than 1 (e.g., 0.5), `importBudget` will be greater than `maxTokens`, resulting in a negative budget. `truncateToTokens` with a negative maxTokens results in a negative `maxChars`, causing the function source to be truncated to empty, which then triggers an early return and discards the import context that was intended to be preserved.",
+      "range": {
+        "end": 211,
+        "start": 211
+      },
+      "severity": "warning",
+      "suggestion": "Ensure the budget for the function context is non-negative by using `max(0, maxTokens-importBudget)` or by validating that `importBudget` does not exceed `maxTokens`."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-a6t1h2ds/cli/internal/expand/expand_jsts.go#L223-223",
+      "file": "cli/internal/expand/expand_jsts.go",
+      "id": "5a663094a21bfe13e4ddd9c044ffc10eff214c10f9d959e4201f764500396b54",
+      "line": 223,
+      "message": "The token budget for the function context can become negative or zero when the import budget consumes the entire maxTokens allocation. Since importBudget is calculated as maxTokens / jstsImportTokenShare, if jstsImportTokenShare is 1 (or if maxTokens is small), maxTokens - importBudget can be 0 or negative. Passing a non-positive value to truncateToTokens results in maxChars <= 0, which causes the function to return an empty string, silently dropping the enclosing function context from the prompt.",
+      "range": {
+        "end": 223,
+        "start": 223
+      },
+      "severity": "warning",
+      "suggestion": "Guard the truncation call to ensure a positive budget, e.g., `budget := maxTokens - importBudget; if budget <= 0 { budget = 1 }` or skip truncation if the budget is non-positive."
+    }
+  ]
+}

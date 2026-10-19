@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-mnkncbgq/src/invoice/pricing.ts#L25",
+      "file": "src/invoice/pricing.ts",
+      "id": "3a32a2660e0d466a8fc7bc1424cf3b0491f203695ea8734676b27a3ef36423b3",
+      "line": 25,
+      "message": "The discount threshold is set to 100,000 cents ($1,000), but the discount is applied to the total amount. If the intent is to apply a 5% discount for orders over $1,000, the logic is correct. However, if the intent was to apply the discount for orders over $100 (10,000 cents), the threshold is 10x too high. Given the context of 'bulk discount', $1,000 is plausible, but it is a significant business logic parameter. More critically, the `formatQuote` function applies a discount, but `qualifiesForFreeShipping` and `discountBucket` do not account for the discount when determining eligibility. For example, an order of $1,050 (105,000 cents) qualifies for free shipping (>= 50,000) and gets a 5% discount, resulting in a due amount of $997.50. If the free shipping threshold is intended to be based on the *final* price, this is a bug. If it is based on the *pre-discount* price, it is correct. Without explicit documentation, this is a potential logic inconsistency.",
+      "severity": "warning",
+      "suggestion": "Clarify whether free shipping and discount bucket eligibility should be based on the pre-discount or post-discount total. If post-discount, update the logic to use the discounted amount."
+    }
+  ]
+}

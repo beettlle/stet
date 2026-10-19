@@ -1,0 +1,47 @@
+=== Press-numbers eval preflight 2026-10-18T23:05:37Z ===
+
+Purpose: re-measure stet with the critic ON (the live .review/config.toml setup)
+on the SP-038 fixtures and 10 real stet commits, for the Oct 2026 fact sheet.
+Baseline for comparison: docs/research/model-eval/summary.json (2026-10-11, critic OFF).
+
+--- Hardware ---
+Mac Studio, Apple M1 Ultra, 20 cores (16P + 4E), 64 GB unified memory
+
+--- stet ---
+Repo HEAD: 45b9393
+Binary: built from HEAD into /tmp/stet-eval-bin/stet and put first on PATH
+stet --version: stet version dev-45b9393
+
+--- LLM (LM Studio, OpenAI-compatible, http://127.0.0.1:1234/v1) ---
+Model: qwen/qwen3.8-27b, context 65536, thinking off
+Thinking check: "Reply with OK" -> content 'OK', reasoning_tokens 0
+LM Studio parallel = 2 (harness runs one review at a time)
+
+--- Critic ---
+System One (OpenJev, openjev-latest) at http://127.0.0.1:8080
+stet doctor: "OpenAI-compatible API OK", "System One OK"
+
+--- Session state (issue #5) ---
+stet status in main repo: "No active session"; only the main worktree exists.
+
+--- Pinned settings ---
+Harness PINNED_ENV (temperature 0.1, 4096 completion cap, 64k context, strictness default)
+plus `--critic` (STET_CRITIC_ENABLED=true, backend systemone, timeout 90s).
+
+--- Runs (pre-registered before any results) ---
+Fixtures: scripts/model-eval-cases (12 seeded-bug cases + 2 clean), 3 runs each.
+Real refs, 1 run each:
+  SP-039 continuity:
+  3ee3055f13cf00b5cb4e182f169829b78961743e  SP-034 step 1 (config key/env)
+  2326c0487a36e9b306edbed7da91dda1b536d00b  SP-033 step 3 (shared System One client)
+  e9b2e61f637cf165c630061c6d8f89c5e9f39404  SP-033 step 2 (selector wiring)
+  New (recent feat/fix commits changing non-test Go under cli/):
+  c8b19f876eb1ca230af0b71f32d577b252375e41  SP-045 restore dismissals from history
+  71f514cb159ccd91c8aea673e7fb8e5d7bcbd6a2  SP-045 re-apply restored dismissals in Start
+  379d130c39ec500de9f094dcefa3cbb365d1cc62  SP-046 JS/TS import block extraction
+  8e205fe2132ff54f426a1c4be5ad6cfb80ebc33e  SP-054 added-line extraction and filter
+  95bd065712d8706876bfd531a4ae6dfe006e25df  SP-053 praise filter and prompt rule
+  65ec36fd7d8205fb71e9c7f5efc169f30dd8b10f  SP-052 client-side timing in openaicompat
+  83d183a4f514555e19641750c07ee2dd468e0394  SP-057 HunksReviewed in RunStats
+
+Labels: blind triage (export-blind), labeled by the stet author; agent second rater for agreement.

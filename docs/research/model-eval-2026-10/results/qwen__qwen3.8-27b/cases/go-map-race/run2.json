@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-d8_104_2/internal/metrics/collector.go#L28",
+      "file": "internal/metrics/collector.go",
+      "id": "513a79a206a804787168b26015f8d3e9b13eafda3ce9d13c313ef084e7bb07f6",
+      "line": 28,
+      "message": "The variable 'counts' is declared but never used in the visible code, which will cause a compilation error in Go.",
+      "severity": "warning",
+      "suggestion": "Remove the unused variable declaration or ensure it is utilized in the subsequent logic."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-d8_104_2/internal/metrics/collector.go#L44",
+      "file": "internal/metrics/collector.go",
+      "id": "fcafbb23f49c365b5b4879025e97c4800c11344a366ee499c8eedc83bd4a13c7",
+      "line": 44,
+      "message": "Data race on the 'counts' map. The map is accessed and modified concurrently by multiple goroutines without synchronization, while the 'out' map is protected by a mutex. This will cause a data race and potential panic.",
+      "severity": "error",
+      "suggestion": "Move the 'counts[p.Name]++' statement inside the 'mu.Lock()' / 'mu.Unlock()' block to protect it with the mutex."
+    }
+  ]
+}

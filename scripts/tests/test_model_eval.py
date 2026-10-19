@@ -110,6 +110,8 @@ def make_run_args(tmp_path: Path, **overrides) -> argparse.Namespace:
         review_timeout_minutes=30.0,
         retry_failed=False,
         dry_run=False,
+        critic=False,
+        systemone_base_url=model_eval.DEFAULT_SYSTEMONE_BASE_URL,
     )
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
@@ -247,6 +249,21 @@ class TestPinnedEnv:
         monkeypatch.setenv("STET_TEMPERATURE", "0.9")
         env = model_eval.pinned_env("m", "http://x/v1")
         assert env["STET_TEMPERATURE"] == "0.1"
+
+    def test_pinned_env_critic_off_by_default(self) -> None:
+        env = model_eval.pinned_env("m", "http://x/v1")
+        assert env["STET_CRITIC_ENABLED"] == "false"
+        assert "STET_CRITIC_BACKEND" not in env
+        assert "STET_SYSTEMONE_BASE_URL" not in env
+
+    def test_pinned_env_critic_on(self) -> None:
+        env = model_eval.pinned_env("m", "http://x/v1", "http://127.0.0.1:9090")
+        assert env["STET_CRITIC_ENABLED"] == "true"
+        assert env["STET_CRITIC_BACKEND"] == "systemone"
+        assert env["STET_SYSTEMONE_BASE_URL"] == "http://127.0.0.1:9090"
+        assert env["STET_SYSTEMONE_MODEL"] == "openjev-latest"
+        assert env["STET_SYSTEMONE_TIMEOUT"] == "90s"
+        assert env["STET_MODEL"] == "m"
 
     def test_model_tag(self) -> None:
         assert model_eval.model_tag("qwen/qwen3-coder-next") == "qwen__qwen3-coder-next"
@@ -395,6 +412,7 @@ class TestCmdRunHappyPath:
         assert meta["stet_version"] == "stet version fake"
         assert meta["env"]["STET_MODEL"] == "test/model-a"
         assert meta["env"]["STET_TEMPERATURE"] == "0.1"
+        assert meta["critic"] is False
         run_json = json.loads((out_dir / "cases" / "go-off-by-one" / "run1.json").read_text())
         assert run_json == {"findings": [finding()]}
         real_meta = json.loads((out_dir / "real" / "abc123" / "run1.meta.json").read_text())
@@ -431,6 +449,22 @@ class TestCmdRunHappyPath:
         assert call["env"]["STET_OPENAI_BASE_URL"] == model_eval.DEFAULT_BASE_URL
         assert "PATH" in call["env"]
         assert (tmp_path / "out" / "dry-run" / "cases" / "go-off-by-one" / "run1.meta.json").is_file()
+
+    def test_critic_flag_reaches_subprocess_and_meta(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        make_case(tmp_path / "cases")
+        monkeypatch.setattr(model_eval, "run_simple", FakeSimple())
+        runner = FakeRunner()
+        monkeypatch.setattr(model_eval, "run_stream", runner)
+        args = make_run_args(tmp_path, critic=True, systemone_base_url="http://127.0.0.1:9090")
+        assert model_eval.cmd_run(args, clock=FakeClock()) == model_eval.EXIT_OK
+        env = runner.calls[0]["env"]
+        assert env["STET_CRITIC_ENABLED"] == "true"
+        assert env["STET_SYSTEMONE_BASE_URL"] == "http://127.0.0.1:9090"
+        meta = json.loads(
+            (tmp_path / "out" / "test__model-a" / "cases" / "go-off-by-one" / "run1.meta.json").read_text()
+        )
+        assert meta["critic"] is True
+        assert meta["env"]["STET_CRITIC_BACKEND"] == "systemone"
 
     def test_review_timeout_reaches_subprocess(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         make_case(tmp_path / "cases")
@@ -594,6 +628,21 @@ class TestCmdRunSetupErrors:
 
     def test_invalid_runs(self, tmp_path: Path, fake_tools: FakeSimple) -> None:
         assert model_eval.cmd_run(make_run_args(tmp_path, runs=0), clock=FakeClock()) == model_eval.EXIT_ERROR
+
+    def test_invalid_systemone_url_with_critic_exits_1(
+        self, tmp_path: Path, fake_tools: FakeSimple, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        make_case(tmp_path / "cases")
+        args = make_run_args(tmp_path, critic=True, systemone_base_url="file:///etc/passwd")
+        assert model_eval.cmd_run(args, clock=FakeClock()) == model_eval.EXIT_ERROR
+        assert "--systemone-base-url must be an http(s) URL" in capsys.readouterr().err
+
+    def test_systemone_url_ignored_without_critic(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        make_case(tmp_path / "cases")
+        monkeypatch.setattr(model_eval, "run_simple", FakeSimple())
+        monkeypatch.setattr(model_eval, "run_stream", FakeRunner())
+        args = make_run_args(tmp_path, systemone_base_url="file:///etc/passwd")
+        assert model_eval.cmd_run(args, clock=FakeClock()) == model_eval.EXIT_OK
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,296 @@
+{
+  "F001": {
+    "index": 2,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "71f514cb159ccd91c8aea673e7fb8e5d7bcbd6a2",
+    "run": 1
+  },
+  "F002": {
+    "index": 3,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "65ec36fd7d8205fb71e9c7f5efc169f30dd8b10f",
+    "run": 1
+  },
+  "F003": {
+    "index": 3,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F004": {
+    "index": 2,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F005": {
+    "index": 0,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "83d183a4f514555e19641750c07ee2dd468e0394",
+    "run": 1
+  },
+  "F006": {
+    "index": 4,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F007": {
+    "index": 4,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F008": {
+    "index": 0,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F009": {
+    "index": 2,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "83d183a4f514555e19641750c07ee2dd468e0394",
+    "run": 1
+  },
+  "F010": {
+    "index": 0,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "71f514cb159ccd91c8aea673e7fb8e5d7bcbd6a2",
+    "run": 1
+  },
+  "F011": {
+    "index": 0,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "c8b19f876eb1ca230af0b71f32d577b252375e41",
+    "run": 1
+  },
+  "F012": {
+    "index": 2,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "65ec36fd7d8205fb71e9c7f5efc169f30dd8b10f",
+    "run": 1
+  },
+  "F013": {
+    "index": 7,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F014": {
+    "index": 0,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "8e205fe2132ff54f426a1c4be5ad6cfb80ebc33e",
+    "run": 1
+  },
+  "F015": {
+    "index": 4,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F016": {
+    "index": 10,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F017": {
+    "index": 2,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "379d130c39ec500de9f094dcefa3cbb365d1cc62",
+    "run": 1
+  },
+  "F018": {
+    "index": 1,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F019": {
+    "index": 8,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F020": {
+    "index": 7,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F021": {
+    "index": 1,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F022": {
+    "index": 9,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F023": {
+    "index": 3,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F024": {
+    "index": 0,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "65ec36fd7d8205fb71e9c7f5efc169f30dd8b10f",
+    "run": 1
+  },
+  "F025": {
+    "index": 9,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F026": {
+    "index": 2,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F027": {
+    "index": 6,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F028": {
+    "index": 5,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F029": {
+    "index": 0,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F030": {
+    "index": 6,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F031": {
+    "index": 11,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F032": {
+    "index": 5,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F033": {
+    "index": 5,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F034": {
+    "index": 1,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "83d183a4f514555e19641750c07ee2dd468e0394",
+    "run": 1
+  },
+  "F035": {
+    "index": 0,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F036": {
+    "index": 1,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "71f514cb159ccd91c8aea673e7fb8e5d7bcbd6a2",
+    "run": 1
+  },
+  "F037": {
+    "index": 10,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F038": {
+    "index": 0,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "379d130c39ec500de9f094dcefa3cbb365d1cc62",
+    "run": 1
+  },
+  "F039": {
+    "index": 1,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "379d130c39ec500de9f094dcefa3cbb365d1cc62",
+    "run": 1
+  },
+  "F040": {
+    "index": 8,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F041": {
+    "index": 12,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F042": {
+    "index": 7,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F043": {
+    "index": 1,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "65ec36fd7d8205fb71e9c7f5efc169f30dd8b10f",
+    "run": 1
+  },
+  "F044": {
+    "index": 8,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F045": {
+    "index": 3,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F046": {
+    "index": 2,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "2326c0487a36e9b306edbed7da91dda1b536d00b",
+    "run": 1
+  },
+  "F047": {
+    "index": 6,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "e9b2e61f637cf165c630061c6d8f89c5e9f39404",
+    "run": 1
+  },
+  "F048": {
+    "index": 1,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  },
+  "F049": {
+    "index": 9,
+    "model_tag": "qwen__qwen3.8-27b",
+    "ref": "3ee3055f13cf00b5cb4e182f169829b78961743e",
+    "run": 1
+  }
+}

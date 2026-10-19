@@ -1,0 +1,15 @@
+env: STET_PROVIDER=openai STET_OPENAI_BASE_URL=http://127.0.0.1:1234/v1 STET_MODEL=qwen/qwen3.8-27b num_ctx 65536, max_completion_tokens 4096; Sun Oct 18 17:56:44 PDT 2026
+Model: qwen/qwen3.8-27b
+Eval rate:       20.6 t/s (end-to-end)
+---
+Tokens: 1137 in, 126 out | Total: 6.1s
+Typical stet hunk (~3k prompt, ~200 out): ~9.7s estimated
+---
+Reference: 8B ~35-50 t/s, 30B ~15-25 t/s, 70B ~5-8 t/s (M1 Ultra)
+Model: qwen/qwen3.8-27b
+Eval rate:       22.1 t/s (end-to-end)
+---
+Tokens: 1137 in, 201 out | Total: 9.1s
+Typical stet hunk (~3k prompt, ~200 out): ~9.0s estimated
+---
+Reference: 8B ~35-50 t/s, 30B ~15-25 t/s, 70B ~5-8 t/s (M1 Ultra)

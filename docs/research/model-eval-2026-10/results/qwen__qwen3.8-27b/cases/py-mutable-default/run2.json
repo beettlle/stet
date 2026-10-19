@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-udre16o1/app/cart.py#L17",
+      "file": "app/cart.py",
+      "id": "6aa2f48e44f66f6e3a0552a99addaa94738d2f45af2df0b6bfb6f508a1eac4f2",
+      "line": 17,
+      "message": "Using a mutable list as a default argument causes state to be shared across all calls to the function. Subsequent calls will append to the same list instance instead of creating a new one.",
+      "severity": "error",
+      "suggestion": "def add_item(item: Item, items: list[Item] | None = None) -> list[Item]:\n    if items is None:\n        items = []\n    items.append(item)\n    return items"
+    }
+  ]
+}

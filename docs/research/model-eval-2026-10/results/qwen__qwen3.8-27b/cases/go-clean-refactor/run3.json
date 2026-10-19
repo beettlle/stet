@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-hqke7lu_/internal/units/parse.go#L37",
+      "file": "internal/units/parse.go",
+      "id": "bffd4ef2d09dce4245818ac3ebcbffec0ca855871eb5d6bbcccfeeec21ceac0b",
+      "line": 37,
+      "message": "splitNumberUnit returns an empty numeric prefix when the input string starts with a non-numeric character (e.g., \"GB\" or \".5GB\"). This causes strconv.ParseFloat to fail with an invalid syntax error instead of handling the input gracefully or returning a specific error for missing numeric values.",
+      "severity": "warning",
+      "suggestion": "Check if i == 0 before returning. If the first character is non-numeric, return an error or handle the case where the numeric part is empty."
+    }
+  ]
+}

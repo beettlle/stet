@@ -1,0 +1,67 @@
+{
+  "qwen__qwen3.8-27b": {
+    "bugs_caught_all_runs": [
+      "go-map-race",
+      "go-nil-after-err",
+      "go-off-by-one",
+      "go-sql-concat",
+      "go-swallowed-error",
+      "py-bare-except",
+      "py-int-division",
+      "py-mutable-default",
+      "ts-missing-await",
+      "ts-path-traversal"
+    ],
+    "bugs_caught_some_runs": [],
+    "bugs_missed_all_runs": [
+      "go-resource-leak",
+      "ts-inverted-guard"
+    ],
+    "real_diff": {
+      "actionable_rate": 0.0816,
+      "labeled": 49,
+      "labels": {
+        "actionable": 4,
+        "false_positive": 41,
+        "out_of_scope": 4,
+        "wrong_suggestion": 0
+      }
+    },
+    "recall_by_category": {
+      "correctness": {
+        "caught_mean": 1.0,
+        "total": 8
+      },
+      "performance": {
+        "caught_mean": 0.0,
+        "total": 1
+      },
+      "security": {
+        "caught_mean": 0.6667,
+        "total": 3
+      }
+    },
+    "recall_mean": 0.8333,
+    "reliability": {
+      "failed": 0,
+      "ok": 52,
+      "timeout": 0,
+      "zero_hunks": 0
+    },
+    "repeatability_cases_excluded": 0,
+    "repeatability_jaccard_mean": 0.8889,
+    "seconds_per_case_mean": 38.1497,
+    "seconds_per_real_ref_mean": 388.8839,
+    "unexpected": {
+      "by_severity": {
+        "error": 3,
+        "info": 4,
+        "nitpick": 0,
+        "warning": 13
+      },
+      "mean_per_run": 0.4762,
+      "on_clean_cases": 7,
+      "total": 20
+    }
+  }
+}

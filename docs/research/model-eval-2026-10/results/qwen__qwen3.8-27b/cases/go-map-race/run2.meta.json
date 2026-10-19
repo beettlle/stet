@@ -1,0 +1,31 @@
+{
+  "critic": true,
+  "env": {
+    "STET_CONTEXT_LIMIT": "65536",
+    "STET_CRITIC_BACKEND": "systemone",
+    "STET_CRITIC_ENABLED": "true",
+    "STET_MAX_COMPLETION_TOKENS": "4096",
+    "STET_MODEL": "qwen/qwen3.8-27b",
+    "STET_NUM_CTX": "65536",
+    "STET_OPENAI_BASE_URL": "http://127.0.0.1:1234/v1",
+    "STET_PROVIDER": "openai",
+    "STET_RULES_ANNOTATE": "false",
+    "STET_RULES_SELECTOR": "false",
+    "STET_STRICTNESS": "default",
+    "STET_SYSTEMONE_BASE_URL": "http://127.0.0.1:8080",
+    "STET_SYSTEMONE_MODEL": "openjev-latest",
+    "STET_SYSTEMONE_TIMEOUT": "90s",
+    "STET_TEMPERATURE": "0.1",
+    "STET_TIMEOUT": "30m"
+  },
+  "exit_code": 0,
+  "findings_count": 2,
+  "hunks_total": 3,
+  "kind": "case",
+  "model": "qwen/qwen3.8-27b",
+  "run": 2,
+  "status": "ok",
+  "stet_version": "stet version dev-45b9393",
+  "target": "go-map-race",
+  "wall_seconds": 17.9754
+}

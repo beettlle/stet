@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-zwxk4g6a/internal/pagination/page.go#L71",
+      "file": "internal/pagination/page.go",
+      "id": "826dd8a65567ba8671eefa67278301115e8faf8d6ff586cfc2152a93c02cf341",
+      "line": 71,
+      "message": "Off-by-one error in loop condition causes an index out of range panic. The loop iterates up to and including `start+len(pageRows)`, which is one past the last valid index of the page slice.",
+      "severity": "error",
+      "suggestion": "Change the loop condition to `i < start+len(pageRows)` to correctly iterate over the page rows."
+    }
+  ]
+}

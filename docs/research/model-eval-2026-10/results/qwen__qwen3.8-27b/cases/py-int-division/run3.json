@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-5ecn7r48/app/reporting/stats.py#L17",
+      "file": "app/reporting/stats.py",
+      "id": "e798b2dbf86bbaae6ac8fb116a74966bb6a61722286d2128f1f45dc3defaef35",
+      "line": 17,
+      "message": "Using integer floor division (//) instead of true division (/) causes truncation of the percentage. For example, if 1 task is completed out of 3, the result is 0.0 instead of the correct ~33.33. This breaks the function's contract of returning a float percentage.",
+      "severity": "error",
+      "suggestion": "return completed / total * 100"
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-5ecn7r48/app/reporting/stats.py#L46",
+      "file": "app/reporting/stats.py",
+      "id": "5d04a4802aad672c5c593f7d755a929d20eeedfbadbd433dc0e9076c0f0fc8cd",
+      "line": 46,
+      "message": "The function name 'passes_threshold' and docstring imply a strict threshold check, but the implementation uses '>=' (greater than or equal). If the intent is to strictly exceed the minimum, this is a logic error. If the intent is to meet or exceed, the name is misleading.",
+      "severity": "warning",
+      "suggestion": "Rename the function to 'meets_threshold' or change the comparison to 'value > minimum' depending on the intended semantics."
+    }
+  ]
+}

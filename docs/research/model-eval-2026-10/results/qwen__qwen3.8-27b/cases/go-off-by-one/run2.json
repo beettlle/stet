@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-wsz83w54/internal/pagination/page.go#L71",
+      "file": "internal/pagination/page.go",
+      "id": "4d8cb6ff1f4dd88c95a4673641430356f2a7898ffd7205ae919a38c2861c3d0f",
+      "line": 71,
+      "message": "Off-by-one error in loop condition causes an index out of range panic. The loop iterates up to and including `start+len(pageRows)`, which accesses `rows[start+len(pageRows)]`. Since `pageRows` is a slice of length `len(pageRows)`, the valid indices are `start` through `start+len(pageRows)-1`. The final iteration attempts to access an index one past the end of the slice.",
+      "severity": "error",
+      "suggestion": "Change the loop condition from `i <= start+len(pageRows)` to `i < start+len(pageRows)`."
+    }
+  ]
+}

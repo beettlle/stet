@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-9qv4vfqy/cli/internal/findings/evidence.go#L31",
+      "file": "cli/internal/findings/evidence.go",
+      "id": "0c583faae01c0bec3af1cd9c01374b49f7ef71ded6db7c58111932f95b886735",
+      "line": 31,
+      "message": "AddedLines will panic with an index out of range error if rawContent is an empty string, because strings.Split(\"\", \"\\n\") returns a slice with a single empty element, and the code unconditionally accesses lines[0].",
+      "severity": "error",
+      "suggestion": "Add a check for len(lines) == 0 or rawContent == \"\" before accessing lines[0]."
+    }
+  ]
+}

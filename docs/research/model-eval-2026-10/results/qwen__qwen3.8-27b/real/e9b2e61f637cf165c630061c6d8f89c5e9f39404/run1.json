@@ -1,0 +1,151 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-3h60_vz3/cli/internal/review/review.go#L100",
+      "file": "cli/internal/review/review.go",
+      "id": "14b2b6774fae3e5e785eb22d591b97b8a6c480a6ac11cb5b02163aba639c4415",
+      "line": 100,
+      "message": "The trace section header is hardcoded as \"Cursor rules\", but when ruleSections is non-nil, the code appends pre-selected rule sections (SP-033) instead of Cursor rules. This mislabels the trace output, making it confusing for debugging.",
+      "severity": "warning",
+      "suggestion": "Change the trace section header to \"Rules\" or conditionally set it based on whether ruleSections is used."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-3h60_vz3/cli/internal/review/review.go#L411",
+      "file": "cli/internal/review/review.go",
+      "id": "e335c68d16eced1302ef3bdc2e4573e4471963f24e900bd877263cc0030a135b",
+      "line": 411,
+      "message": "The call to PrepareHunkPrompt passes 'nil' for the 'ruleSections' parameter, which is the 15th argument. The function signature expects 'ruleSections []rules.Section' at this position. The 'ruleList' parameter (of type []rules.CursorRule) is passed as the 4th argument. If the intent was to pass the rules to the prompt preparation, 'ruleList' is being ignored for the ruleSections parameter, which may result in missing rule context in the generated prompt.",
+      "severity": "warning",
+      "suggestion": "Verify if 'ruleList' should be converted to '[]rules.Section' and passed as the 15th argument, or if 'nil' is intentionally used to disable rule sections in this specific code path."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-3h60_vz3/cli/internal/review/review_test.go#L823",
+      "file": "cli/internal/review/review_test.go",
+      "id": "565f4c5ca447fcb3d0024f49769c134c5dd5bcf718ccce16212d1c80cc405c89",
+      "line": 823,
+      "message": "The call to PrepareHunkPrompt is missing the 'ruleSections' argument. The function signature expects 16 arguments, but only 15 are provided in the diff. The added 'nil' is intended for 'traceOut', but the 'ruleSections' parameter (15th argument) is missing, which will cause a compilation error.",
+      "severity": "error",
+      "suggestion": "Add 'nil' as the 15th argument to represent 'ruleSections':\nsystem, _, err := PrepareHunkPrompt(ctx, \"base\", hunk, nil, \"\", 32768, 0, 0, false, 0, 0, 0, false, examples, nil, nil)"
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-3h60_vz3/cli/internal/review/review_test.go#L947",
+      "file": "cli/internal/review/review_test.go",
+      "id": "4992a918bf24df5b22f77814556f4501f030261e02760c75d948d56ea992162f",
+      "line": 947,
+      "message": "The call to PrepareHunkPrompt is missing the 'repoRoot' argument. The function signature expects 16 arguments, but only 15 are provided. The added 'nil' is being passed as 'ruleSections' instead of 'traceOut', and 'repoRoot' is omitted, which will cause a compilation error.",
+      "severity": "error",
+      "suggestion": "Add the missing 'repoRoot' argument (e.g., \"\") to the call: PrepareHunkPrompt(ctx, \"base\", hunk, nil, \"\", 0, 0, 0, false, 0, 0, 0, true, nil, nil, nil)"
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-3h60_vz3/cli/internal/run/run.go#L228-233",
+      "file": "cli/internal/run/run.go",
+      "id": "80bbb36c85733c43d5287aeed8b6f6c8e8946fa85b7dc11699e261e3b1765c31",
+      "line": 230,
+      "message": "The `rulesSelectorState` struct contains a `sync.Once` field, which must not be copied after first use. The comment states that 'parallel preparer goroutines share one instance', but if the state is passed by value (e.g., `state` instead of `&state`) to the goroutines, each goroutine will have its own copy of the `sync.Once`, causing the warning to be printed multiple times (once per failing hunk) instead of at most once per run. This violates the documented behavior and the `sync.Once` contract.",
+      "range": {
+        "end": 233,
+        "start": 228
+      },
+      "severity": "warning",
+      "suggestion": "Ensure that `rulesSelectorState` is always passed by pointer (`*rulesSelectorState`) to the parallel preparer goroutines, or add a `go vet`-compatible guard to prevent copying. If the current call sites pass it by value, change them to pass `&state`."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-3h60_vz3/cli/internal/run/run.go#L287",
+      "file": "cli/internal/run/run.go",
+      "id": "3cf93fee2cfe8772686495584e7fbba690fc1f455edceff112bf5b062fa4d006",
+      "line": 287,
+      "message": "The shared `selectorWarn` pointer is passed to multiple concurrent goroutines (workers) without synchronization. If `rulesSelectorState` contains mutable state (e.g., a flag to ensure 'at most one warning' or a mutex), concurrent access from multiple workers will cause a data race. The comment claims it ensures 'at most one selector warning', which implies internal mutable state that is not thread-safe by default.",
+      "severity": "warning",
+      "suggestion": "Ensure `rulesSelectorState` uses internal synchronization (e.g., `sync.Once` or `sync.Mutex`) for its warning state, or pass a separate instance to each worker if the state is per-hunk."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-3h60_vz3/cli/internal/run/run.go#L308",
+      "file": "cli/internal/run/run.go",
+      "id": "f57f81ae355ff0a095409d89e4dec1513f9b3ad12a556596b273d658991855c0",
+      "line": 308,
+      "message": "The `selectorWarn` pointer is shared across multiple concurrent goroutines (workers) and passed to `selectRuleSectionsForHunk`. If `selectRuleSectionsForHunk` mutates the state (e.g., to enforce the 'at most one warning' logic mentioned in the comment), this introduces a data race. Concurrent writes to the same struct fields from multiple workers will cause a race condition.",
+      "severity": "warning",
+      "suggestion": "Synchronize access to `selectorWarn` using a mutex inside `selectRuleSectionsForHunk`, or ensure the state is immutable/atomic if it is only read."
+    },
+    {
+      "category": "design",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-3h60_vz3/cli/internal/run/run.go#L902",
+      "file": "cli/internal/run/run.go",
+      "id": "40f845361f74eb29183f1418f0c5e0f4567f08c1f1a326dd5783b1ee8aa134b4",
+      "line": 902,
+      "message": "The comment states that selector failures fall back with 'one warning per run', but the struct only defines the client and configuration fields. If the implementation does not explicitly deduplicate warnings (e.g., via a flag or counter), a failure for every hunk will result in a warning for every hunk, contradicting the documented behavior and potentially flooding the output.",
+      "severity": "warning",
+      "suggestion": "Ensure the implementation tracks whether a warning has already been emitted for the run (e.g., a boolean flag in the run state) and only logs the warning on the first failure."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-3h60_vz3/cli/internal/run/run.go#L1345",
+      "file": "cli/internal/run/run.go",
+      "id": "53db8ece6f4deab9cb94e04f3d4b2b594725f336490d6889324843341f9824a3",
+      "line": 1345,
+      "message": "The commit message indicates a 'fail-open warning' for the selector wiring, but the diff only adds the fields to the pipeline options. If the selector client is nil or the call fails, the pipeline must explicitly handle this by logging a warning and proceeding without selector filtering. If the pipeline does not implement this fail-open logic, the selector will silently be ignored or cause a nil pointer panic.",
+      "severity": "warning",
+      "suggestion": "Ensure that runReviewPipeline (or the selector logic within it) checks if RulesSelectorClient is nil or if the selector call returns an error. In either case, it should log a warning (e.g., 'Warning: rules selector failed or not configured, proceeding without selector') and continue with the default rules, rather than failing the entire run or panicking."
+    },
+    {
+      "category": "maintainability",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-3h60_vz3/cli/internal/run/run_test.go#L25",
+      "file": "cli/internal/run/run_test.go",
+      "id": "df0c00582b0a7d24728ce3e1052559edfbdc6bdea1df477da8f33a1cb21b47f9",
+      "line": 25,
+      "message": "Unused import 'stet/cli/internal/rules' will cause a compilation error in Go.",
+      "severity": "warning",
+      "suggestion": "Remove the import if it is not used, or add a usage of the 'rules' package in the test file."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-3h60_vz3/cli/internal/run/run_test.go#L2710",
+      "file": "cli/internal/run/run_test.go",
+      "id": "df82305f16357a3f61530c661321256ea9094c7575b2fd7f29af09b08ddac758",
+      "line": 2710,
+      "message": "The `generate` method signature was changed to include a `systemPrompt` parameter, but the diff does not show updates to the `CriticLLM` interface definition or the production implementation. If the interface still expects the old signature, the test file will fail to compile because `fakeCriticLLM` no longer satisfies the interface.",
+      "severity": "warning",
+      "suggestion": "Ensure the `CriticLLM` interface and the production `generate` implementation are updated to match the new signature `generate(model, systemPrompt string, opts *ollama.GenerateOptions)`. If the interface is defined in a separate file, verify it has been updated in the same commit."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-3h60_vz3/cli/internal/run/run_test.go#L2742",
+      "file": "cli/internal/run/run_test.go",
+      "id": "f2c4f35d13c9c8a2b71777642033d34401b19ebfda864606acf33c7830764263",
+      "line": 2742,
+      "message": "The `GenerateWithMessages` method passes an empty string for the system prompt, but the `messages` parameter (which contains the actual conversation context) is ignored. This means the fake LLM will not receive the message history, potentially causing tests that rely on multi-turn context to fail or behave incorrectly.",
+      "severity": "warning",
+      "suggestion": "Extract the system prompt from the `messages` slice (e.g., find the message with `Role == \"system\"`) and pass it to `f.generate`, or update the `generate` method signature to accept `[]ollama.Message` directly."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-3h60_vz3/cli/internal/run/run_test.go#L2943",
+      "file": "cli/internal/run/run_test.go",
+      "id": "f33911657698041757cf93a71063d4737af8e5778e87224eacae6c1e93550544",
+      "line": 2943,
+      "message": "The fakeChoiceDecider.DecideChoice method will panic with a nil pointer dereference if the `responses` slice is empty and no error is returned. The code calculates `i := len(f.responses) - 1` (which results in -1) and then attempts to return `f.responses[i]`. This will occur in the 'disabled' and 'no matching rules' subtests if the implementation under test fails to short-circuit before calling the decider, causing a test crash instead of a clean assertion failure.",
+      "severity": "error",
+      "suggestion": "Add a guard to return a zero-value response or a sentinel error if `len(f.responses) == 0` before accessing the slice."
+    }
+  ]
+}

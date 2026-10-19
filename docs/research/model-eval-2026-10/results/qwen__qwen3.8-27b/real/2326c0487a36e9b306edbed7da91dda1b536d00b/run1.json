@@ -1,0 +1,114 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-oxtkjvr4/cli/cmd/stet/main.go#L31",
+      "file": "cli/cmd/stet/main.go",
+      "id": "c32d4d7faa81fba46896c9d81c76660d7881631734c7a3d46f6b7488284add6f",
+      "line": 31,
+      "message": "Unused import: 'stet/cli/internal/rules' is imported but not used in the visible code, which will cause a compilation error in Go.",
+      "severity": "warning",
+      "suggestion": "Remove the import if it is not used, or ensure it is referenced in the code."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-oxtkjvr4/cli/cmd/stet/main.go#L392",
+      "file": "cli/cmd/stet/main.go",
+      "id": "2377d9316bf4e522dadc1a1eb0f6654c2f8f760d6a8274bc67e098b18ab13822",
+      "line": 392,
+      "message": "The diff changes the call to systemOneRunOptions to return a single struct (so), but the subsequent code in the enclosing function still references the old individual variables (soClient, soBaseURL, etc.) which are no longer defined. This will cause a compilation error.",
+      "severity": "error",
+      "suggestion": "Update the field assignments in the run.StartOptions struct to use the fields of the so struct (e.g., so.Client, so.BaseURL, so.Model, so.MinKeep, so.Samples)."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-oxtkjvr4/cli/cmd/stet/main.go#L428",
+      "file": "cli/cmd/stet/main.go",
+      "id": "92736f91ce3231ddecbc28b03273dcb6dfbeb58f8abfae2f451909cb7660db74",
+      "line": 428,
+      "message": "RulesSelectorBaseURL is set to so.BaseURL, which is the System One base URL. If the rules selector is intended to use a different endpoint (implied by the distinct RulesSelectorClient and RulesSelectorModel fields), this will cause the selector to send requests to the System One endpoint, potentially resulting in 404s or incorrect behavior.",
+      "severity": "warning",
+      "suggestion": "Verify if the rules selector should use a distinct base URL (e.g., a dedicated selector endpoint or a different service). If so, add a SelectorBaseURL field to the systemOneRunOptions struct and use so.SelectorBaseURL here."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-oxtkjvr4/cli/cmd/stet/main.go#L703",
+      "file": "cli/cmd/stet/main.go",
+      "id": "3d4c3d19ffa85b1553359e4fe22a59f4659824a9630e812c875c03a3feb36ec1",
+      "line": 703,
+      "message": "The comment for SelectorClient states it is non-nil only when rules_selector is enabled and the command is not --dry-run. However, the implementation sets o.SelectorClient = client whenever wantSelector is true, which is true even if wantCritic is false. This means if rules_selector is enabled but the critic is disabled, the selector client is still constructed and assigned, contradicting the comment's implication that it shares the critic's instance (which would be nil). More importantly, if the intent is that the selector should only be active when the critic is also active (sharing the instance), the logic is flawed. If the intent is that the selector is independent, the comment is misleading. Given the commit message 'single shared System One client', it implies they should share the same client instance. If wantCritic is false, o.Client is nil, but o.SelectorClient is non-nil. This breaks the 'shared instance' invariant if the caller expects o.Client and o.SelectorClient to be the same object or both nil/non-nil together. If the caller checks o.Client == nil to decide whether to use System One, it might incorrectly skip the selector if the critic is disabled but selector is enabled, or vice versa. The logic should likely be: if wantCritic || wantSelector { client := ...; if wantCritic { o.Client = client }; if wantSelector { o.SelectorClient = client } }. This is what the code does. The issue is the comment says 'shares Client's instance'. If Client is nil, it doesn't share a non-nil instance. The comment is technically true (it shares the variable `client`), but misleading if it implies o.Client must be non-nil. However, a more subtle bug: if the caller uses `o.Client` to determine if System One is available for *any* purpose, it will fail when only the selector is enabled. But typically, the critic and selector are separate features. The real defect is likely that the comment is inaccurate or the logic doesn't match the 'shared client' design intent if one feature is disabled. Let's look closer. If `wantCritic` is false and `wantSelector` is true, `o.Client` is nil, `o.SelectorClient` is non-nil. This is valid Go. The comment says 'shares Client's instance'. It shares the *local variable* `client`. It does not share the *field* `o.Client` because that is nil. This is a documentation/comment defect that could lead to confusion, but is it a code defect? The code behaves as: construct client if either is needed. Assign to respective fields. This is correct. The comment is slightly imprecise. I will report it as a documentation/maintainability issue because the comment 'shares Client's instance' is misleading when Client is nil.",
+      "severity": "warning",
+      "suggestion": "Update the comment for SelectorClient to clarify that it shares the underlying *systemone.Client instance with the critic when both are enabled, but is independently constructed if only the selector is enabled. Or, if the design requires them to be mutually exclusive or strictly coupled, adjust the logic."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-oxtkjvr4/cli/cmd/stet/main.go#L818",
+      "file": "cli/cmd/stet/main.go",
+      "id": "b13f4190d456781629447d05212f8bde5042fade6b72d12c58b9822d1daa10d7",
+      "line": 818,
+      "message": "The diff changes the call to systemOneRunOptions to return a single struct (so), but the subsequent code in the hunk still references the old individual variables (soClient, soBaseURL, etc.) which are no longer defined. This will cause a compilation error.",
+      "severity": "error",
+      "suggestion": "Update the field assignments in run.RunOptions to use the struct fields, e.g., SystemOneClient: so.Client, SystemOneBaseURL: so.BaseURL, etc."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-oxtkjvr4/cli/cmd/stet/main.go#L850",
+      "file": "cli/cmd/stet/main.go",
+      "id": "acbdeec9ccf12e84e495783720b9706a7f3f9acd94d8f577809e0b58b04e6f1c",
+      "line": 850,
+      "message": "RulesSelectorBaseURL is set to so.BaseURL, which is the System One base URL. If the rules selector is configured to use a different endpoint (implied by the existence of a separate SelectorClient and SelectorModel), it will incorrectly point to the System One service, causing selector requests to fail or hit the wrong backend.",
+      "severity": "warning",
+      "suggestion": "Use so.SelectorBaseURL for RulesSelectorBaseURL instead of so.BaseURL."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-oxtkjvr4/cli/cmd/stet/main.go#L1014",
+      "file": "cli/cmd/stet/main.go",
+      "id": "a7d194a1c411f2259b9480a8d517164dcb045e12874d0c8fc7f83ef21508514d",
+      "line": 1014,
+      "message": "The variable 'so' is declared but not used. The diff updates the call to systemOneRunOptions to return a struct, but the subsequent code in the hunk still references the old individual variables (soClient, soBaseURL, etc.) which are no longer defined. This will cause a compilation error.",
+      "severity": "error",
+      "suggestion": "Update the RunOptions struct initialization to use the fields from the 'so' struct (e.g., SystemOneClient: so.Client, SystemOneBaseURL: so.BaseURL, etc.)."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-oxtkjvr4/cli/cmd/stet/main.go#L1045",
+      "file": "cli/cmd/stet/main.go",
+      "id": "b1d206f06de602fc985fd8e98370c03885f2763990d68253936a8c49f27a9101",
+      "line": 1045,
+      "message": "The RulesSelectorBaseURL is set to so.BaseURL, which is the System One Base URL. This is likely a copy-paste error; it should be so.SelectorBaseURL to match the pattern used for RulesSelectorClient and RulesSelectorModel. Using the System One URL for the Rules Selector will cause the selector to send requests to the wrong endpoint.",
+      "severity": "warning",
+      "suggestion": "Change RulesSelectorBaseURL: so.BaseURL to RulesSelectorBaseURL: so.SelectorBaseURL"
+    },
+    {
+      "category": "testing",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-oxtkjvr4/cli/cmd/stet/main_test.go#L3120",
+      "file": "cli/cmd/stet/main_test.go",
+      "id": "ff3301d0d94f1e951fc5a155036556c4c867a60319f5a238ec9002b4d5048d8d",
+      "line": 3120,
+      "message": "The test 'no selector client on dry-run' asserts that o.Client is nil when dryRun is true, but the implementation of systemOneRunOptions (per the commit message and standard CLI behavior) only suppresses the selector client on dry-run, while the critic client is still constructed if CriticEnabled is true. The test config sets CriticEnabled: true, so o.Client will be non-nil, causing the test to fail.",
+      "severity": "warning",
+      "suggestion": "Remove the assertion `if o.Client != nil { ... }` from the 'no selector client on dry-run' subtest, or set `CriticEnabled: false` in the config if the intent is to verify that no clients are created at all during dry-run."
+    },
+    {
+      "category": "security",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-oxtkjvr4/docs/cli-extension-contract.md#L146",
+      "file": "docs/cli-extension-contract.md",
+      "id": "1082fe5b81e619cac8e8ef47a77e424b52e7dc69fa61568d142f54f7c4a9de56",
+      "line": 146,
+      "message": "The documentation states that the hunk's diff text is sent to the configured server for the rule selector. This is a significant privacy and security risk, as diff text may contain sensitive information (e.g., credentials, internal logic, PII). The documentation should explicitly warn users about this data exfiltration risk and recommend using a trusted/local server or sanitizing inputs.",
+      "severity": "warning",
+      "suggestion": "Add a warning to the `rules_selector` documentation entry: \"**Security Note:** The hunk's diff text is sent to the configured `systemone_base_url`. Ensure this server is trusted and that the diff does not contain sensitive data, or use a local/private endpoint.\""
+    }
+  ]
+}

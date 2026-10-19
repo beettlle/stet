@@ -1,0 +1,40 @@
+=== stet stats (stet dev-45b9393, 2026-10-18T23:08:46Z) ===
+--- volume --since db371bde184e0fca1a087a4db117ca2d03e3faf8
+Sessions: 16
+Commits in range: 595
+Commits with Stet note: 16 (2.7%)
+Hunks reviewed: 546
+Lines added: 21065
+Lines removed: 441
+Chars added: 1068146
+Chars deleted: 26023
+Chars reviewed: 1235291
+Git AI (refs/notes/ai):
+Commits with AI note: 117
+Total AI-authored lines: 1
+--- quality (.review/history.jsonl)
+Sessions: 365
+Total findings: 23775
+Total dismissed: 835
+Dismissal rate: 0.04
+Acceptance rate: 0.96
+False positive rate: 0.01
+Actionability: 0.13
+Clean commit rate: 0.00
+Finding density (per 1k tokens): 307.27
+Dismissals by reason: map[already_correct:110 false_positive:134 out_of_scope:140 wrong_suggestion:29]
+Category breakdown: map[bug:4638 design:886 documentation:6033 maintainability:4572 performance:1509 security:879 style:58 testing:5200]
+--- energy --since db371bde184e0fca1a087a4db117ca2d03e3faf8, default 30 W
+Sessions: 16
+Total eval duration: 744.8 s
+Total prompt tokens: 585290
+Total completion tokens: 39884
+Local energy: 0.0062 kWh
+Cloud cost avoided (claude-sonnet-5.5): $1.57
+Cloud cost avoided (claude-opus-5.5): $3.14
+Cloud cost avoided (gpt-5.6-terra): $1.65
+Estimates only; model equivalence heuristic; local cost excludes electricity.
+--- energy --watts 100 (upper bound for M1 Ultra under load)
+Local energy: 0.0207 kWh
+--- cloud prices: list per 1M tokens in/out, vendor pricing pages checked 2026-10-18
+claude-sonnet-5.5 2/10, claude-opus-5.5 4/20 (platform.claude.com/docs/en/about-claude/pricing); gpt-5.6-terra 2/12 (developers.openai.com/api/docs/pricing)

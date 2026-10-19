@@ -166,7 +166,7 @@ This project utilizes **Go** and **JavaScript/TypeScript**. Refer to the followi
 - **Release gate:** `scripts/release-check.sh` runs all of the above plus gofmt, `go vet`, and a cross-compile of every release target. CI (`.github/workflows/ci.yml`) and the release workflow run the same script.
 
 ### Releases
-- Run releases with the `stet-release-operator` skill (`.agents/skills/stet-release-operator/`): pi `/skill:stet-release-operator release vX.Y.Z`, Cursor `/stet-release-operator release vX.Y.Z`. It covers intake, scope approval, spine waves, gates, tagging, and post-release smoke. Never push a release tag by hand outside that flow.
+- Run releases with the `stet-release-operator` skill (`.agents/skills/stet-release-operator/`): pi `/skill:stet-release-operator release vX.Y.Z`, Cursor `/stet-release-operator release vX.Y.Z`. It covers intake, scope approval, spine waves, gates, tagging, post-release smoke, and replacing the local `stet` on `PATH` with the published binary (`stet --version` must report the new tag). Never push a release tag by hand outside that flow.
 
 ### PR and Commit Guidelines
 - **Source of Truth:** All implementation MUST follow `docs/PRD.md` and `docs/implementation-plan.md`.
