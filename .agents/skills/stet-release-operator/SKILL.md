@@ -39,7 +39,8 @@ Repo scripts this skill drives: `scripts/release-check.sh` (the gate), `scripts/
 7. Operator explicitly approved publish; annotated tag `vX.Y.Z` pushed
 8. `release.yml` green (publish + `verify-install` on Linux, macOS, Windows)
 9. `scripts/post-release-smoke.sh vX.Y.Z` exit 0
-10. Final report delivered
+10. Local `stet` on `PATH` replaced with the release binary; `stet --version` reports `vX.Y.Z`
+11. Final report delivered
 
 ## Hard rules
 
@@ -258,6 +259,19 @@ scripts/post-release-smoke.sh v{TARGET}
 gh release view v{TARGET} --json url,isDraft,isPrerelease
 ```
 
+**Replace the local stet** (only after the smoke test passes). Install the published binary over the `stet` on `PATH`, so dogfooding and wave reviews use the release instead of a stale `dev` build:
+
+```bash
+STET_BIN_DIR="$(dirname "$(command -v stet 2>/dev/null || echo "$HOME/.local/bin/stet")")"
+curl -fsSL https://raw.githubusercontent.com/beettlle/stet/main/install.sh \
+  | STET_RELEASE_TAG=v{TARGET} STET_INSTALL_DIR="$STET_BIN_DIR" bash
+hash -r
+command -v stet
+stet --version
+```
+
+`stet --version` must report `v{TARGET}` and `command -v stet` must be inside `$STET_BIN_DIR`. `install.sh` falls back to building from source when the download fails, and that build is not the release, so a zero exit code alone proves nothing. If the version is wrong, or another `stet` earlier on `PATH` shadows the new one, **STOP** and report it. Do not hand-build or copy binaries to paper over it. This step changes only the operator's machine; it never blocks or rolls back the published release.
+
 Add a release line to `spine-tasks/CONTEXT.md` (version, date, closed issues), commit (`chore(spine): record v{TARGET} release`), and push.
 
 **Final issue sweep:** re-check every release-scoped `Closes #NNN`; close any still open with "Shipped in **v{TARGET}**: <release URL>". The release is not complete while any remains open.
@@ -272,7 +286,7 @@ Add a release line to `spine-tasks/CONTEXT.md` (version, date, closed issues), c
 4. **Dependency drift** — outcome and any included task
 5. **Self-review** — stet wave review active-finding counts per wave and how high-severity findings were handled
 6. **Verification** — final `release-check.sh` exit code and log path, `ci.yml` run URL
-7. **Publish** — tag, `release.yml` run URL and conclusion, release URL, smoke output
+7. **Publish** — tag, `release.yml` run URL and conclusion, release URL, smoke output, local `command -v stet` and `stet --version` output
 8. **Spend** — per wave from `spine metrics show --batch <batchId>`: tasks, attempts, failed-attempt time, quota fallbacks
 
 ---
@@ -302,5 +316,5 @@ gate approve → integrate → batch complete → release-check.sh (exit 0 via P
 ci.yml green on HEAD → close Closes #NNN for landed tasks →
 Phase 5: release-check + CI green + notes → STOP for "approve publish" →
 tag -a --cleanup=verbatim -F notes → push tag → watch release.yml → post-release-smoke.sh →
-CONTEXT.md release line → issue sweep → final report.
+install v{TARGET} over local stet (stet --version = v{TARGET}) → CONTEXT.md release line → issue sweep → final report.
 ```

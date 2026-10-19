@@ -117,4 +117,5 @@ curl -fsSL https://raw.githubusercontent.com/beettlle/stet/main/install.sh | STE
 - [ ] `git tag -a v{TARGET} --cleanup=verbatim -F release-notes.md` + `git push origin v{TARGET}`
 - [ ] `release.yml` run green (publish + verify-install ×3) — run: {url}
 - [ ] `scripts/post-release-smoke.sh v{TARGET}` exit 0
+- [ ] Local `stet` replaced: `stet --version` reports `v{TARGET}` (path: {command -v stet})
 - [ ] `spine-tasks/CONTEXT.md` release note added
