@@ -1,8 +1,8 @@
 # stet — Context
 
-**Last Updated:** 2026-10-17
+**Last Updated:** 2026-10-22
 **Status:** Active
-**Next Task ID:** SP-058
+**Next Task ID:** SP-067
 
 ---
 
@@ -178,6 +178,24 @@ Wave 2 (batch `20261018T211721-5f62`) landed SP-055, SP-056, SP-057. Tech debt f
 
 - `jsBuiltinNames` (`cli/internal/rag/js/resolver.go`) skips generic names (`get`, `set`, `add`, `log`, `find`, ...), so repo functions with those names never get RAG definitions. Consider skipping them only as member calls (`x.get(`), not bare calls.
 - Workers committed `test_output.txt` twice this release (repo root in SP-052, `cli/` in wave 2). Add `test_output.txt` to `.gitignore` or have the contract reject it.
+
+### Phase 11 — Release v1.3.0 (2026-10-22)
+
+Manifest: `spine-tasks/_authoring/release-v1.3.0/manifest.md`. Scope approval pending; do not start batches until the manifest says `Operator approved scope: yes`.
+
+| Task | Summary | Size | Status | Deps |
+|------|---------|------|--------|------|
+| SP-058 | `hunkid`: `.jsx` comment stripping via `jsts.IsExt` (#26) | S | Ready | — |
+| SP-059 | JS RAG: skip built-in method names only as member calls (#28) | S | Ready | — |
+| SP-060 | Benchmark: end-to-end hunk estimate grows with prompt size (#31) | S | Ready | — |
+| SP-061 | `stet benchmark` loads the repo `.review/config.toml` (#32) | S | Ready | — |
+| SP-062 | `main_test.go` output-capture helper drains and closes pipes (#29) | M | Ready | SP-061 |
+| SP-063 | Ignore `test_output.txt`; release check guard (#30) | S | Ready | — |
+| SP-064 | `jsts.Extensions()` returns a copy (#27) | S | Ready | SP-059 |
+| SP-065 | Docs: README `stet benchmark` config source and estimate | S | Ready | SP-060, SP-061 |
+| SP-066 | Docs: `review-process-internals.md` for v1.3.0 | S | Ready | SP-058, SP-059, SP-064 |
+
+Edges are shared-file serialization (`main_test.go`, `rag/js/resolver.go`) except SP-065 and SP-066, which document their dependencies' behavior.
 
 ### Completed (wave 0 + follow-on)
 
