@@ -38,7 +38,7 @@
       "model": "google/gemini-3.5-flash-lite",
       "thinking": "off"
     },
-    "activeProfile": "anthropic",
+    "activeProfile": "default",
     "profiles": {
       "default": {
         "worker": {
@@ -94,8 +94,8 @@
       },
       "allegretto": {
         "worker": {
-          "model": "google/gemini-4-argon",
-          "thinking": "medium"
+          "model": "kimi-coding/k3",
+          "thinking": "high"
         },
         "reviewer": {
           "model": "google/gemini-3.1-pro-preview",
@@ -173,7 +173,7 @@
     },
     "escalatePolicy": {
       "enabled": true,
-      "toProfile": "anthropic-fable"
+      "toProfile": "anthropic"
     },
     "quotaFallbackProfile": "allegretto"
   },
