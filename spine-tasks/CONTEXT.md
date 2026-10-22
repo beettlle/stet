@@ -181,7 +181,7 @@ Wave 2 (batch `20261018T211721-5f62`) landed SP-055, SP-056, SP-057. Tech debt f
 
 ### Phase 11 — Release v1.3.0 (2026-10-22)
 
-Manifest: `spine-tasks/_authoring/release-v1.3.0/manifest.md`. Scope approval pending; do not start batches until the manifest says `Operator approved scope: yes`.
+Manifest: `spine-tasks/_authoring/release-v1.3.0/manifest.md`. Scope approved 2026-10-22.
 
 | Task | Summary | Size | Status | Deps |
 |------|---------|------|--------|------|

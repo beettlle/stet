@@ -4,7 +4,7 @@
 **Last tag:** v1.2.0
 **Target version:** v1.3.0
 **Bump type / profile:** minor
-**Operator approved scope:** no — packets authored ahead of scope approval at operator request (2026-10-22: "just create the spine tasks, don't run until it is approved"). Phase 4 is blocked until this reads `yes`.
+**Operator approved scope:** yes (2026-10-22). Packets were authored ahead of approval at operator request; operator then said "approve release scope".
 **Worker model pin:** zai/glm-5.3-flash — do not change mid-release
 **Agent pin override:** none
 
