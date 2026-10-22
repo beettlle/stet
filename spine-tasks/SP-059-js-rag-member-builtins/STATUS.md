@@ -1,7 +1,7 @@
 # SP-059: JS RAG skips built-in method names only as member calls — Status
 
-**Current Step:** Not Started
-**Status:** ⬜ Not Started
+**Current Step:** 2
+**Status:** 🔄 In Progress
 **Last Updated:** 2026-10-22
 **Review Level:** 1
 **Review Counter:** 0
@@ -11,10 +11,10 @@
 ---
 
 ### Step 1: Split globals from member-method names
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] Globals set and member-method set; member names skipped only as `.name(`
-- [ ] Import-bound names, bare arguments, and declarations kept
+- [x] Globals set and member-method set; member names skipped only as `.name(`
+- [x] Import-bound names, bare arguments, and declarations kept
 
 ---
 
@@ -32,6 +32,7 @@
 
 | # | Type | Step | Verdict | File |
 |---|------|------|---------|------|
+| 1 | plan | 1 | skipped (engine-owned; SP-195) | .reviews/1-20261022T234625.md |
 
 ---
 

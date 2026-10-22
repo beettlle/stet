@@ -305,8 +305,11 @@ const r = Object.keys(o).reduce(merge, {});
 `
 	got := extractSymbols(hunk)
 	for _, s := range got {
-		if jsBuiltinNames[s] {
-			t.Errorf("built-in %q should not be a candidate; got %v", s, got)
+		if jsBuiltinGlobals[s] {
+			t.Errorf("built-in global %q should not be a candidate; got %v", s, got)
+		}
+		if jsBuiltinMethods[s] {
+			t.Errorf("member call to built-in method %q should not be a candidate; got %v", s, got)
 		}
 	}
 	set := make(map[string]bool, len(got))
