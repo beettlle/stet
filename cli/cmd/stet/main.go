@@ -1857,7 +1857,15 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(os.Stderr, err.Error())
 		return errExit(1)
 	}
-	cfg, err := config.Load(cmd.Context(), config.LoadOptions{RepoRoot: "", Overrides: overrides})
+	cwd, err := os.Getwd()
+	if err != nil {
+		return erruser.New("Could not determine current directory.", err)
+	}
+	repoRoot := ""
+	if r, e := git.RepoRoot(cwd); e == nil {
+		repoRoot = r
+	}
+	cfg, err := config.Load(cmd.Context(), config.LoadOptions{RepoRoot: repoRoot, Overrides: overrides})
 	if err != nil {
 		return err
 	}
