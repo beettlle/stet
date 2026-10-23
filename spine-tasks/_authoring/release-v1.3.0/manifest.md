@@ -115,6 +115,9 @@ Wave 2 · 1 task
 
 | Wave | Batch ID | Tasks landed | stet wave review (active findings) | release-check log | Exit | Pushed | Issues closed |
 |------|----------|--------------|------------------------------------|-------------------|------|--------|---------------|
+| 0 | `20261022T234114-7def` | SP-058, SP-059, SP-060, SP-061, SP-063 (merge `4517870`) | 12 (`/tmp/stet-wave-review-v1.3.0-w0.json`): all false positives or low nits (compile/"test will fail" claims disproven by green build and tests; `t.Parallel` race claim wrong for Go's sequential-then-parallel ordering; `estimateHunkSeconds` exists); none blocking | `/tmp/stet-release-check-wave-0.log` | 0 | yes ([CI 39881744558](https://github.com/beettlle/stet/actions/runs/39881744558) green) | #26, #28, #30, #31, #32 (closed without comment; operator OK needed to post comments) |
+
+Wave 0 recovery: SP-058 and SP-059 failed contract verification on stet review false positives while their Go tests passed (tests, vet, and gofmt were green each time). SP-058: 3 false positives dismissed in the lane, then `spine batch retry` passed. SP-059: first failure was 1+ false positive; on retry the lane had lost its stet session and `.review/spine-stet-baseline.ref` (SP-061's contract ran later in the same lane), so the contract exited "no session". Restored the ref to the lane base `700da3c`, re-ran the contract (8 false positives, all disproven by build/tests, dismissed), then `spine batch retry SP-059` passed. No packet or model-pin changes. The dry run's generic "max 4 tasks per wave" cap warned on wave 0 (5 S tasks); proceeded since the stet profile caps M-sized tasks only.
 
 ---
 
