@@ -1,7 +1,7 @@
 # SP-063: Ignore `test_output.txt`; release check fails when one is tracked — Status
 
-**Current Step:** Not Started
-**Status:** ⬜ Not Started
+**Current Step:** Step 2 — Testing & Verification
+**Status:** 🔄 In Progress
 **Last Updated:** 2026-10-22
 **Review Level:** 0
 **Review Counter:** 0
@@ -11,10 +11,10 @@
 ---
 
 ### Step 1: Ignore rule and release-check guard
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] `.gitignore` rule
-- [ ] Release-check guard step and header line
+- [x] `.gitignore` rule
+- [x] Release-check guard step and header line
 
 ---
 

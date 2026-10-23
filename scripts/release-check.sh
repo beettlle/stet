@@ -4,7 +4,8 @@
 #
 # Usage: scripts/release-check.sh
 # Steps: gofmt, go vet, Go tests with coverage thresholds, extension tests, coverage-artifact
-# guard, and a cross-compile of every release target with a --version smoke test.
+# guard, test-output-artifact guard, and a cross-compile of every release target with a
+# --version smoke test.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -51,6 +52,17 @@ pass
 
 step "coverage artifact guard"
 bash scripts/check-untracked-coverage.sh
+pass
+
+step "test output artifact guard"
+tracked="$(git ls-files | grep -E '(^|/)test_output\.txt$' || true)"
+if [ -n "$tracked" ]; then
+	echo "FAIL: test_output.txt must not be tracked in git."
+	echo "Tracked paths:"
+	echo "$tracked"
+	echo "Fix: git rm --cached <path>"
+	exit 1
+fi
 pass
 
 step "cross-compile release targets"
