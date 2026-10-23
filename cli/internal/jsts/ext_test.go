@@ -7,13 +7,13 @@ import (
 
 func TestExtensions_orderedList(t *testing.T) {
 	want := []string{".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}
-	if !slices.Equal(Extensions, want) {
-		t.Fatalf("Extensions = %v, want %v", Extensions, want)
+	if got := Extensions(); !slices.Equal(got, want) {
+		t.Fatalf("Extensions() = %v, want %v", got, want)
 	}
 }
 
 func TestIsExt(t *testing.T) {
-	for _, ext := range Extensions {
+	for _, ext := range Extensions() {
 		if !IsExt(ext) {
 			t.Errorf("IsExt(%q) = false, want true", ext)
 		}

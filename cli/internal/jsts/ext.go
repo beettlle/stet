@@ -5,13 +5,21 @@ package jsts
 
 import "slices"
 
-// Extensions is the ordered list of JavaScript/TypeScript file extensions
-// (including the leading dot) recognized by stet. Callers must not modify it.
-var Extensions = []string{".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}
+// extensions is the ordered list of JavaScript/TypeScript file extensions
+// (including the leading dot) recognized by stet. It is unexported so callers
+// cannot modify it; use Extensions to read a copy.
+var extensions = []string{".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}
+
+// Extensions returns a copy of the ordered list of JavaScript/TypeScript file
+// extensions (including the leading dot) recognized by stet. Mutating the
+// returned slice does not affect later calls or IsExt.
+func Extensions() []string {
+	return slices.Clone(extensions)
+}
 
 // IsExt reports whether ext (as returned by filepath.Ext, including the
 // leading dot) is a JavaScript/TypeScript extension. Matching is exact and
 // case-sensitive.
 func IsExt(ext string) bool {
-	return slices.Contains(Extensions, ext)
+	return slices.Contains(extensions, ext)
 }

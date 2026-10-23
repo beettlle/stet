@@ -1,8 +1,8 @@
 # SP-064: `jsts.Extensions()` returns a copy; unexport the slice — Status
 
-**Current Step:** Not Started
-**Status:** ⬜ Not Started
-**Last Updated:** 2026-10-22
+**Current Step:** 2
+**Status:** 🟨 Step 2 In Progress
+**Last Updated:** 2026-10-23
 **Review Level:** 1
 **Review Counter:** 0
 **Iteration:** 0
@@ -11,10 +11,10 @@
 ---
 
 ### Step 1: Accessor and callers
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] Unexported slice; `Extensions()` returns a clone
-- [ ] Callers use the accessor
+- [x] Unexported slice; `Extensions()` returns a clone
+- [x] Callers use the accessor
 
 ---
 
