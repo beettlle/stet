@@ -1,0 +1,5 @@
+SP-066 complete.
+
+- `docs/review-process-internals.md` documents v1.3.0: `.jsx` in semantic hunk ID JS/TS stripping (glossary, §5.2), `jsts.Extensions()` copy accessor plus `jsts.IsExt` (§7.5), and JS RAG member-call-only built-in method skipping (§7.7). Checked against `cli/internal/hunkid/hunkid.go`, `cli/internal/jsts/ext.go`, `cli/internal/rag/js/resolver.go`.
+- Contract: `testCommand` `true`; only `docs/review-process-internals.md` changed in scope; `rg 'Extensions\(\)'` and `rg 'member call'` match; no variable-style `jsts.Extensions` references remain.
+- Landed manually from lane commit `514f468` (batch `20261023T214812-7c11`): the pi worker finished the work but exited without `.DONE` on three attempts, so the batch was aborted.
