@@ -151,6 +151,8 @@ Full precedence and every key are documented in the [CLI–Extension Contract](d
 - **`--timeout`** — Per-request timeout for long or large-context reviews (e.g. `stet start --timeout 45m`). See [CLI–Extension Contract](docs/cli-extension-contract.md#long-reviews-and-large-context).
 - **`stet benchmark --model MODEL`** — Benchmark a specific model instead of the configured one.
 - **`stet benchmark --warmup`** — Run a warmup call before measuring (load model, discard metrics).
+- **`stet benchmark` configuration** — Like every command, `stet benchmark` reads the repo `.review/config.toml` (provider, base URL, model) when run inside a git repository, on top of your global config, environment, and flags; outside a repository only the global config, environment, and flags apply.
+- **`stet benchmark` estimate** — The `Typical stet hunk … estimated` line is approximate: for OpenAI-compatible providers the measured rate is end-to-end (prefill plus generation), and the estimate scales that measured request time to a typical hunk's prompt and output size.
 
 ## Cursor Extension
 
