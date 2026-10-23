@@ -743,19 +743,8 @@ func runCLICapture(t *testing.T, args []string) (code int, stdout, stderr string
 	origOut := getFindingsOut
 	getFindingsOut = func() io.Writer { return &out }
 	defer func() { getFindingsOut = origOut }()
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	oldStderr := os.Stderr
-	os.Stderr = w
-	code = runCLI(args)
-	os.Stderr = oldStderr
-	_ = w.Close()
-	var errBuf bytes.Buffer
-	_, _ = io.Copy(&errBuf, r)
-	_ = r.Close()
-	return code, out.String(), errBuf.String()
+	_, stderr = captureOutput(t, func() { code = runCLI(args) })
+	return code, out.String(), stderr
 }
 
 func TestRunCLI_runNoNewHunksWarnsIgnoredFlags(t *testing.T) {
