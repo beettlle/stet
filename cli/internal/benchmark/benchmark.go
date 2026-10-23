@@ -98,14 +98,53 @@ func resultToBenchmark(r *ollama.GenerateResult) *BenchmarkResult {
 		}
 	}
 	// Estimated time for typical hunk: prompt_time + output_time
-	if out.PromptEvalRateTPS > 0 {
-		out.EstimatedSecPerTypicalHunk += float64(TypicalPromptTokens) / out.PromptEvalRateTPS
-	}
-	if out.EvalRateTPS > 0 {
-		out.EstimatedSecPerTypicalHunk += float64(TypicalOutputTokens) / out.EvalRateTPS
-	}
-	if math.IsNaN(out.EstimatedSecPerTypicalHunk) || out.EstimatedSecPerTypicalHunk < 0 {
-		out.EstimatedSecPerTypicalHunk = 0
-	}
+	out.EstimatedSecPerTypicalHunk = estimateHunkSeconds(out, TypicalPromptTokens, TypicalOutputTokens)
 	return out
+}
+
+// estimateHunkSeconds estimates wall-clock seconds for one hunk with the given
+// prompt and output token counts.
+//
+// Ollama-shaped results (EndToEndRate == false) report separate prefill and
+// generation rates, so the estimate is promptTokens/PromptEvalRateTPS plus
+// outputTokens/EvalRateTPS (each part only when its rate is positive).
+//
+// End-to-end results (EndToEndRate == true, e.g. OpenAI-compatible clients)
+// report only the whole request time (EvalDurationNs) for PromptEvalCount
+// input plus EvalCount output tokens. Model: split the measured request time
+// between prompt and output in proportion to their token counts, then scale
+// each part by typical/measured for its token kind
+// (promptSec*typicalPrompt/measuredPrompt + outputSec*typicalOutput/measuredOutput).
+// This makes the estimate grow with prompt size instead of ignoring it. Every
+// division is guarded: zero counts or zero duration give 0, and a NaN or
+// negative result collapses to 0.
+func estimateHunkSeconds(r *BenchmarkResult, promptTokens, outputTokens int) float64 {
+	est := 0.0
+	if r.EndToEndRate {
+		measuredSec := float64(r.EvalDurationNs) / 1e9
+		measuredPrompt := float64(r.PromptEvalCount)
+		measuredOutput := float64(r.EvalCount)
+		total := measuredPrompt + measuredOutput
+		if measuredSec > 0 && total > 0 {
+			promptSec := measuredSec * measuredPrompt / total
+			outputSec := measuredSec * measuredOutput / total
+			if measuredPrompt > 0 {
+				est += promptSec * float64(promptTokens) / measuredPrompt
+			}
+			if measuredOutput > 0 {
+				est += outputSec * float64(outputTokens) / measuredOutput
+			}
+		}
+	} else {
+		if r.PromptEvalRateTPS > 0 {
+			est += float64(promptTokens) / r.PromptEvalRateTPS
+		}
+		if r.EvalRateTPS > 0 {
+			est += float64(outputTokens) / r.EvalRateTPS
+		}
+	}
+	if math.IsNaN(est) || est < 0 {
+		return 0
+	}
+	return est
 }

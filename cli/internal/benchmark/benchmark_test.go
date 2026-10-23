@@ -4,6 +4,7 @@ package benchmark
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -85,7 +86,9 @@ func TestRun_returnsMetricsFromMockServer(t *testing.T) {
 
 func TestRun_handlesZeroPromptEvalDuration(t *testing.T) {
 	// Do not run in parallel: avoids potential race with httptest.Server.
-	// When prompt_eval_duration is zero, PromptEvalRateTPS should be 0; EstimatedSecPerTypicalHunk uses only eval rate.
+	// When prompt_eval_duration is zero, PromptEvalRateTPS should be 0 and the
+	// result is end-to-end shaped (flag true): the estimate uses the measured
+	// request time split by token counts (see estimateHunkSeconds).
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -113,9 +116,87 @@ func TestRun_handlesZeroPromptEvalDuration(t *testing.T) {
 	if got.EvalRateTPS < 49 || got.EvalRateTPS > 51 {
 		t.Errorf("EvalRateTPS = %.2f, want ~50", got.EvalRateTPS)
 	}
-	// Estimated: only output part (3000/promptRate is 0 when promptRate=0, 200/50=4)
-	if got.EstimatedSecPerTypicalHunk < 3.5 || got.EstimatedSecPerTypicalHunk > 5 {
-		t.Errorf("EstimatedSecPerTypicalHunk = %.2f, want ~4", got.EstimatedSecPerTypicalHunk)
+	if !got.EndToEndRate {
+		t.Error("EndToEndRate = false with zero prompt_eval_duration, want true")
+	}
+	// Estimated via the end-to-end model: 1s measured for 100+50 tokens scales
+	// to (3000+200)/150 ≈ 21.3s, so the 3k-token prompt is no longer ignored.
+	if got.EstimatedSecPerTypicalHunk < 19 || got.EstimatedSecPerTypicalHunk > 23 {
+		t.Errorf("EstimatedSecPerTypicalHunk = %.2f, want ~21.3", got.EstimatedSecPerTypicalHunk)
+	}
+}
+
+func TestEstimateHunkSeconds_endToEndGrowsWithPromptTokens(t *testing.T) {
+	t.Parallel()
+	res := resultToBenchmark(&ollama.GenerateResult{
+		PromptEvalCount: 500,
+		EvalCount:       200,
+		EvalDuration:    2_000_000_000, // whole request: 2s for 700 tokens
+		TotalDuration:   2_000_000_000,
+	})
+	if !res.EndToEndRate {
+		t.Fatal("EndToEndRate = false, want true for OpenAI-compatible shape")
+	}
+	small := estimateHunkSeconds(res, 1_000, TypicalOutputTokens)
+	large := estimateHunkSeconds(res, 6_000, TypicalOutputTokens)
+	if small <= 0 {
+		t.Fatalf("estimate for 1000-token prompt = %.4f, want > 0", small)
+	}
+	if large <= small {
+		t.Errorf("estimate with 6000-token prompt = %.4f, want > 1000-token prompt = %.4f", large, small)
+	}
+	// Documented model: est = measuredSec * (promptTokens + outputTokens) / measuredTokens.
+	wantSmall := 2.0 * (1_000.0 + TypicalOutputTokens) / 700.0
+	if math.Abs(small-wantSmall) > 0.01 {
+		t.Errorf("small = %.4f, want ~%.4f", small, wantSmall)
+	}
+	wantLarge := 2.0 * (6_000.0 + TypicalOutputTokens) / 700.0
+	if math.Abs(large-wantLarge) > 0.01 {
+		t.Errorf("large = %.4f, want ~%.4f", large, wantLarge)
+	}
+}
+
+func TestEstimateHunkSeconds_ollamaShapeUnchanged(t *testing.T) {
+	t.Parallel()
+	res := resultToBenchmark(&ollama.GenerateResult{
+		PromptEvalCount:    1000,
+		PromptEvalDuration: 500_000_000, // 2000 t/s prefill
+		EvalCount:          100,
+		EvalDuration:       2_000_000_000, // 50 t/s generation
+		TotalDuration:      2_500_000_000,
+	})
+	if res.EndToEndRate {
+		t.Fatal("EndToEndRate = true, want false for Ollama-shaped result")
+	}
+	// Unchanged formula: 3000/2000 + 200/50 = 1.5 + 4 = 5.5s
+	want := float64(TypicalPromptTokens)/res.PromptEvalRateTPS + float64(TypicalOutputTokens)/res.EvalRateTPS
+	got := estimateHunkSeconds(res, TypicalPromptTokens, TypicalOutputTokens)
+	if math.Abs(got-want) > 1e-9 {
+		t.Errorf("estimate = %.6f, want %.6f (prompt/rate + output/rate formula)", got, want)
+	}
+	if res.EstimatedSecPerTypicalHunk != got {
+		t.Errorf("EstimatedSecPerTypicalHunk = %.6f, want helper result %.6f", res.EstimatedSecPerTypicalHunk, got)
+	}
+}
+
+func TestEstimateHunkSeconds_zeroCountsAndDurations(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name string
+		res  *BenchmarkResult
+	}{
+		{"end-to-end zero everything", &BenchmarkResult{EndToEndRate: true}},
+		{"end-to-end zero counts", &BenchmarkResult{EndToEndRate: true, EvalDurationNs: 2_000_000_000}},
+		{"end-to-end zero duration", &BenchmarkResult{EndToEndRate: true, PromptEvalCount: 500, EvalCount: 200}},
+		{"ollama-shaped zero rates", &BenchmarkResult{}},
+	}
+	for _, tc := range cases {
+		if got := estimateHunkSeconds(tc.res, TypicalPromptTokens, TypicalOutputTokens); got != 0 {
+			t.Errorf("%s: estimate = %.4f, want 0 (no NaN)", tc.name, got)
+		}
+	}
+	if v := resultToBenchmark(&ollama.GenerateResult{}).EstimatedSecPerTypicalHunk; v != 0 {
+		t.Errorf("resultToBenchmark zero-result estimate = %.4f, want 0", v)
 	}
 }
 

@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"stet/cli/internal/jsts"
 )
 
 // StrictHunkID returns a deterministic ID for a hunk from path and raw content.
@@ -76,13 +78,14 @@ func hashString(s string) string {
 // Supported: go, python, js, sh, rust. Unknown extensions return "" (no comment strip).
 func langFromPath(path string) string {
 	ext := strings.ToLower(filepath.Ext(path))
+	if jsts.IsExt(ext) {
+		return "js"
+	}
 	switch ext {
 	case ".go":
 		return "go"
 	case ".py", ".pyw":
 		return "python"
-	case ".js", ".mjs", ".cjs", ".ts", ".tsx":
-		return "js"
 	case ".sh", ".bash", ".zsh":
 		return "sh"
 	case ".rs":

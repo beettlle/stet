@@ -1,0 +1,23 @@
+Contract testCommand failure log
+Command: bash scripts/check-gofmt.sh && go vet ./cli/... && go test ./cli/internal/hunkid/... -count=1 && bash scripts/spine-stet-contract-run.sh lenient
+Exit code: 1
+Attempt: 2 of 2
+Timestamp: 2026-10-22T23:47:42.196Z
+Buffer overflow: no
+---
+ok  	stet/cli/internal/hunkid	0.073s
+be47528  cli/internal/hunkid/hunkid.go:14  ERROR  Imported package 'stet/cli/internal/jsts' is not used in the visible code, which will cause a compilation error in Go.
+97de54c  cli/internal/hunkid/hunkid.go:81  ERROR  The `jsts.IsExt` function performs a case-sensitive comparison against a list of extensions (e.g., ".js", ".ts"). However, `langFromPath` lowercases the extension before calling `IsExt`. This means files with uppercase extensions (e.g., `file.JS` or `file.TS`) will fail the `IsExt` check and return an empty string, breaking comment stripping for those files. This is a regression from the previous implementation which explicitly handled ".js" and ".ts" in a case-insensitive switch.
+37dff7e  cli/internal/hunkid/hunkid_test.go:145  ERROR  The test assumes that the `codeOnly` function strips comments for the `.jsx` extension. However, the implementation of `SemanticHunkID` (and `codeOnly`) only handles Go, Python, JS/TS, Shell, and Rust. Since `.jsx` is not explicitly handled, `codeOnly` likely returns the raw content unchanged, causing `SemanticHunkID` to include the comments in the hash. This will result in `semBase != semComment`, causing the test to fail.
+3 finding(s).
+
+warning: no new hunks to review; --strictness had no effect (pass them to "stet start" or use "stet rerun")
+stet: contract review found 3 active finding(s). Triage, then re-run the contract:
+
+  stet list
+  stet dismiss <id> <reason>
+
+Dismiss reasons: false_positive, already_correct, wrong_suggestion, out_of_scope.
+Fix real defects in this task's diff. If a finding exposes a stet reviewer bug (bad prompt,
+parser, critic), dismiss it with a reason and record it under Discoveries in STATUS.md.
+Never dismiss a real defect without fixing it.

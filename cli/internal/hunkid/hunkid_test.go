@@ -142,6 +142,23 @@ func TestSemanticHunkID(t *testing.T) {
 	}
 }
 
+func TestSemanticHunkID_JSX(t *testing.T) {
+	t.Parallel()
+	path := "src/App.jsx"
+	base := "function App() { return <div /> }"
+	withComment := "function App() { /* header */ return <div /> } // App"
+	semBase := SemanticHunkID(path, base)
+	semComment := SemanticHunkID(path, withComment)
+	if semBase != semComment {
+		t.Errorf("JSX: comment-only change should yield same semantic ID: %q != %q", semBase, semComment)
+	}
+	strictBase := StrictHunkID(path, base)
+	strictComment := StrictHunkID(path, withComment)
+	if strictBase == strictComment {
+		t.Error("JSX: comment-only change should yield different strict ID")
+	}
+}
+
 func TestSemanticHunkID_Python(t *testing.T) {
 	t.Parallel()
 	id1 := SemanticHunkID("x.py", "x = 1\n")
@@ -367,8 +384,11 @@ func TestLangFromPath(t *testing.T) {
 		{"x.go", "go"},
 		{"pkg/main.py", "python"},
 		{"file.js", "js"},
+		{"file.jsx", "js"},
 		{"file.ts", "js"},
 		{"file.tsx", "js"},
+		{"file.JSX", "js"},
+		{"file.TS", "js"},
 		{"script.sh", "sh"},
 		{"x.rs", "rust"},
 		{"file.xyz", ""},

@@ -1,0 +1,1 @@
+SP-058 complete. Steps 1-2 committed (af5eff5, dcd0ef2); stet contract triage + evidence recorded (b0d00e3). Contract testCommand exit 0 (0 active findings after verified triage of 8). Tests: ok stet/cli/internal/hunkid (93.3% coverage). rg check: ".jsx" literal only in cli/internal/jsts/ext.go.
