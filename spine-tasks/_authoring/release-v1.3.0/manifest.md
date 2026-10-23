@@ -117,6 +117,9 @@ Wave 2 · 1 task
 |------|----------|--------------|------------------------------------|-------------------|------|--------|---------------|
 | 0 | `20261022T234114-7def` | SP-058, SP-059, SP-060, SP-061, SP-063 (merge `4517870`) | 12 (`/tmp/stet-wave-review-v1.3.0-w0.json`): all false positives or low nits (compile/"test will fail" claims disproven by green build and tests; `t.Parallel` race claim wrong for Go's sequential-then-parallel ordering; `estimateHunkSeconds` exists); none blocking | `/tmp/stet-release-check-wave-0.log` | 0 | yes ([CI 39881744558](https://github.com/beettlle/stet/actions/runs/39881744558) green) | #26, #28, #30, #31, #32 (closed without comment; operator OK needed to post comments) |
 | 1 | `20261023T010609-ac5e` | SP-062, SP-064, SP-065 (merge `9f29686`) | 5 (`/tmp/stet-wave-review-v1.3.0-w1.json`): compile-error/"breaking API" claims on `main_test.go` and `jsts`, all disproven by the green release check; none blocking | `/tmp/stet-release-check-wave-1.log` | 0 | yes ([CI 39898183776](https://github.com/beettlle/stet/actions/runs/39898183776) green) | #27, #29 (with comments) |
+| 2 | `20261023T214812-7c11` (aborted) | SP-066 (manual land, cherry-pick of lane `514f468`) | not run (docs-only, 2 lines of prose checked against `hunkid.go`, `jsts/ext.go`, `rag/js/resolver.go`) | `/tmp/stet-release-check-wave-2.log` | 0 | with Phase 5 commit | none (no issue) |
+
+Wave 2 recovery: the SP-066 worker committed the doc update (`514f468`) and passed its contract checks but exited without `.DONE`. Three `spine batch retry SP-066` attempts repeated it (one session drifted into verifying SP-056); `--profile anthropic` was refused because the failure is classified infra, and salvage found no lane commits. Aborted the batch, cherry-picked `514f468` onto `main`, verified the contract and doc statements against code, and wrote `.DONE` by hand. Candidate pi-spine issue: worker never writes `.DONE` on retry when the task's work is already committed.
 
 Wave 1 recovery: SP-064 failed contract verification twice on one stet false positive (`ext_test.go:15`, claimed the mutation-isolation test was flawed for mutating a copy) while Go tests, vet, and gofmt passed. Finding dismissed, recorded in SP-064 STATUS, contract re-run exit 0, then `spine batch retry SP-064` (escalatePolicy moved the retry to the `anthropic` profile) passed. SP-062's final reviewer (gemini) hung for 53 minutes with no output; terminated it and the engine's spawn retry returned PASS in about 7 minutes. Removed worker scratch file `.tmp_test` committed by SP-062 (`7055f39`).
 
@@ -179,13 +182,13 @@ curl -fsSL https://raw.githubusercontent.com/beettlle/stet/main/install.sh | STE
 
 ## Publish checklist (Phases 5–6)
 
-- [ ] All release-scoped tasks `.DONE` on `main`
-- [ ] Post-integrate `scripts/release-check.sh` exit 0 after every wave (logs above)
+- [x] All release-scoped tasks `.DONE` on `main` (`spine plan pending`: 0 tasks)
+- [x] Post-integrate `scripts/release-check.sh` exit 0 after every wave (logs above)
 - [ ] `scripts/release-check.sh` exit 0 on final `HEAD` ({sha}) — log: {path}
 - [ ] `ci.yml` green on final `HEAD` — run: {url}
 - [ ] `git status` clean; `main` equals `origin/main`
-- [ ] Release-scoped `Closes #NNN` issues all CLOSED
-- [ ] Release notes written and reviewed
+- [x] Release-scoped `Closes #NNN` issues all CLOSED (#26–#32)
+- [x] Release notes written (`release-notes.md`); operator review pending
 - [ ] Operator approved publish ({date})
 - [ ] `git tag -a v1.3.0 --cleanup=verbatim -F release-notes.md` + `git push origin v1.3.0`
 - [ ] `release.yml` run green (publish + verify-install ×3) — run: {url}; `go version` step reports go1.27.3+
