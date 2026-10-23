@@ -1,0 +1,6 @@
+SP-060 complete.
+
+- estimateHunkSeconds helper with Ollama branch (formula unchanged) and end-to-end branch (documented proportional split scaled by token ratios; all divisions guarded)
+- Tests: e2e estimate grows with prompt tokens; Ollama-shaped fixed-number parity (5.5s); zero counts/durations -> 0, no NaN
+- Contract testCommand passed: check-gofmt, go vet ./cli/..., go test ./cli/internal/benchmark/..., spine-stet-contract-run.sh lenient (2 findings triaged: false_positive, already_correct; 0 active)
+- Commits: f839ca5 (Step 1), c3750d0 (Step 2), 230a760 (status)
