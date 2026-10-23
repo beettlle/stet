@@ -84,7 +84,7 @@ func TestRegistry_everyJSTSExtension_resolvesDefinition(t *testing.T) {
 			t.Fatalf("jsts.IsExt(%q) = false; shared list must include it", ext)
 		}
 	}
-	for _, ext := range jsts.Extensions {
+	for _, ext := range jsts.Extensions() {
 		if !seen[ext] {
 			cases = append(cases, struct {
 				ext     string

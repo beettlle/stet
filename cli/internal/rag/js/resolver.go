@@ -105,7 +105,7 @@ var (
 type Resolver struct{}
 
 func init() {
-	for _, ext := range jsts.Extensions {
+	for _, ext := range jsts.Extensions() {
 		rag.MustRegisterResolver(ext, New())
 	}
 }

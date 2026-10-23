@@ -1,0 +1,30 @@
+Contract testCommand failure log
+Command: bash scripts/check-gofmt.sh && go vet ./cli/... && go test ./cli/internal/jsts/... ./cli/internal/rag/... ./cli/internal/expand/... ./cli/internal/hunkid/... -count=1 && bash scripts/spine-stet-contract-run.sh lenient
+Exit code: 1
+Attempt: 2 of 2
+Timestamp: 2026-10-23T01:14:14.904Z
+Buffer overflow: no
+---
+ok  	stet/cli/internal/jsts	0.070s
+ok  	stet/cli/internal/rag	0.070s
+ok  	stet/cli/internal/rag/go	0.898s
+ok  	stet/cli/internal/rag/java	0.455s
+ok  	stet/cli/internal/rag/js	1.414s
+ok  	stet/cli/internal/rag/python	0.476s
+ok  	stet/cli/internal/rag/rust	0.476s
+ok  	stet/cli/internal/rag/swift	0.475s
+ok  	stet/cli/internal/expand	0.128s
+ok  	stet/cli/internal/hunkid	0.068s
+21fb2aa  cli/internal/jsts/ext_test.go:15  WARNING  The test `TestExtensions_mutationIsolation` is flawed because it mutates `got` (a copy) but then compares a *new* copy (`again`) against `original` (another copy). Since `Extensions()` returns a fresh clone every time, `again` and `original` will always be equal regardless of whether the internal state was mutated. The test fails to verify that the internal `extensions` slice is protected from mutation. To properly test isolation, the test should verify that the internal state is unchanged, or it should rely on the fact that `IsExt` uses the internal slice (which the test does, but the `slices.Equal` check is redundant and misleading).
+1 finding.
+
+warning: no new hunks to review; --strictness had no effect (pass them to "stet start" or use "stet rerun")
+stet: contract review found 1 active finding(s). Triage, then re-run the contract:
+
+  stet list
+  stet dismiss <id> <reason>
+
+Dismiss reasons: false_positive, already_correct, wrong_suggestion, out_of_scope.
+Fix real defects in this task's diff. If a finding exposes a stet reviewer bug (bad prompt,
+parser, critic), dismiss it with a reason and record it under Discoveries in STATUS.md.
+Never dismiss a real defect without fixing it.
