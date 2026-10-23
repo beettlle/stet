@@ -185,17 +185,19 @@ Manifest: `spine-tasks/_authoring/release-v1.3.0/manifest.md`. Scope approved 20
 
 | Task | Summary | Size | Status | Deps |
 |------|---------|------|--------|------|
-| SP-058 | `hunkid`: `.jsx` comment stripping via `jsts.IsExt` (#26) | S | Ready | — |
-| SP-059 | JS RAG: skip built-in method names only as member calls (#28) | S | Ready | — |
-| SP-060 | Benchmark: end-to-end hunk estimate grows with prompt size (#31) | S | Ready | — |
-| SP-061 | `stet benchmark` loads the repo `.review/config.toml` (#32) | S | Ready | — |
-| SP-062 | `main_test.go` output-capture helper drains and closes pipes (#29) | M | Ready | SP-061 |
-| SP-063 | Ignore `test_output.txt`; release check guard (#30) | S | Ready | — |
-| SP-064 | `jsts.Extensions()` returns a copy (#27) | S | Ready | SP-059 |
-| SP-065 | Docs: README `stet benchmark` config source and estimate | S | Ready | SP-060, SP-061 |
-| SP-066 | Docs: `review-process-internals.md` for v1.3.0 | S | Ready | SP-058, SP-059, SP-064 |
+| SP-058 | `hunkid`: `.jsx` comment stripping via `jsts.IsExt` (#26) | S | Done | — |
+| SP-059 | JS RAG: skip built-in method names only as member calls (#28) | S | Done | — |
+| SP-060 | Benchmark: end-to-end hunk estimate grows with prompt size (#31) | S | Done | — |
+| SP-061 | `stet benchmark` loads the repo `.review/config.toml` (#32) | S | Done | — |
+| SP-062 | `main_test.go` output-capture helper drains and closes pipes (#29) | M | Done | SP-061 |
+| SP-063 | Ignore `test_output.txt`; release check guard (#30) | S | Done | — |
+| SP-064 | `jsts.Extensions()` returns a copy (#27) | S | Done | SP-059 |
+| SP-065 | Docs: README `stet benchmark` config source and estimate | S | Done | SP-060, SP-061 |
+| SP-066 | Docs: `review-process-internals.md` for v1.3.0 | S | Done | SP-058, SP-059, SP-064 |
 
 Edges are shared-file serialization (`main_test.go`, `rag/js/resolver.go`) except SP-065 and SP-066, which document their dependencies' behavior.
+
+**Released:** v1.3.0 on 2026-10-23, tagged at `87d11ae` (closes #26, #27, #28, #29, #30, #31, #32). Release: https://github.com/beettlle/stet/releases/tag/v1.3.0
 
 ### Completed (wave 0 + follow-on)
 

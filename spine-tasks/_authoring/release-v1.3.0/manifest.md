@@ -184,14 +184,14 @@ curl -fsSL https://raw.githubusercontent.com/beettlle/stet/main/install.sh | STE
 
 - [x] All release-scoped tasks `.DONE` on `main` (`spine plan pending`: 0 tasks)
 - [x] Post-integrate `scripts/release-check.sh` exit 0 after every wave (logs above)
-- [ ] `scripts/release-check.sh` exit 0 on final `HEAD` ({sha}) — log: {path}
-- [ ] `ci.yml` green on final `HEAD` — run: {url}
-- [ ] `git status` clean; `main` equals `origin/main`
+- [x] `scripts/release-check.sh` exit 0 on `66de7e0` (`87d11ae` adds only `spine-tasks/` markdown) — log: `/tmp/stet-release-check-wave-2.log`; CI runs the same check green on `87d11ae`
+- [x] `ci.yml` green on final `HEAD` `87d11ae` — run: https://github.com/beettlle/stet/actions/runs/40030670899
+- [x] `git status` clean; `main` equals `origin/main`
 - [x] Release-scoped `Closes #NNN` issues all CLOSED (#26–#32)
-- [x] Release notes written (`release-notes.md`); operator review pending
-- [ ] Operator approved publish ({date})
-- [ ] `git tag -a v1.3.0 --cleanup=verbatim -F release-notes.md` + `git push origin v1.3.0`
-- [ ] `release.yml` run green (publish + verify-install ×3) — run: {url}; `go version` step reports go1.27.3+
-- [ ] `scripts/post-release-smoke.sh v1.3.0` exit 0
-- [ ] Local `stet` replaced: `stet --version` reports `v1.3.0` (path: {command -v stet})
-- [ ] `spine-tasks/CONTEXT.md` release note added
+- [x] Release notes written (`release-notes.md`) and reviewed
+- [x] Operator approved publish (2026-10-23)
+- [x] `git tag -a v1.3.0 --cleanup=verbatim -F release-notes.md` + `git push origin v1.3.0`
+- [x] `release.yml` run green (publish + verify-install ×3) — run: https://github.com/beettlle/stet/actions/runs/40030995140; `go version` step reports go1.27.3
+- [x] `scripts/post-release-smoke.sh v1.3.0` exit 0
+- [x] Local `stet` replaced: `stet --version` reports `v1.3.0` (path: `/Users/cdelgado/.local/bin/stet`)
+- [x] `spine-tasks/CONTEXT.md` release note added
