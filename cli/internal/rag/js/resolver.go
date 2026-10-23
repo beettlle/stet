@@ -39,10 +39,12 @@ var funcIdent = regexp.MustCompile(`\bfunction\s+(\w+)\s*\(`)
 var typeIdent = regexp.MustCompile(`\b([A-Z][A-Za-z0-9_]*)\b`)
 var callIdent = regexp.MustCompile(`\b([a-zA-Z_$][A-Za-z0-9_$]*)\s*\(`)
 
-// jsBuiltinNames lists common built-in globals and prototype/static method
-// names (Array, String, Map/Set, Promise, Object, console, ...). They rarely
-// have repo definitions, so they are skipped to save candidate slots.
-var jsBuiltinNames = map[string]bool{
+// jsBuiltinMethods lists common prototype and static method names (Array,
+// String, Map/Set, Promise, Object, console, ...). They are built-ins only
+// when used as member calls ("arr.filter(", "m.get(", "console.log("); the
+// same spellings are legitimate repo function names, so bare occurrences of
+// these names are kept as candidates.
+var jsBuiltinMethods = map[string]bool{
 	// Array / iterable prototype
 	"filter": true, "map": true, "sort": true, "push": true, "pop": true,
 	"shift": true, "unshift": true, "splice": true, "slice": true, "concat": true,
@@ -67,7 +69,12 @@ var jsBuiltinNames = map[string]bool{
 	"stringify": true,
 	// console
 	"log": true, "warn": true, "error": true, "info": true, "debug": true,
-	// Globals
+}
+
+// jsBuiltinGlobals lists common built-in global identifiers. They rarely have
+// repo definitions, so they are always skipped to save candidate slots —
+// including when imported or required under the same spelling.
+var jsBuiltinGlobals = map[string]bool{
 	"require": true, "console": true, "undefined": true, "NaN": true,
 	"Infinity": true, "parseInt": true, "parseFloat": true, "setTimeout": true,
 	"clearTimeout": true, "setInterval": true, "clearInterval": true,
@@ -133,40 +140,62 @@ func (r *Resolver) ResolveSymbols(ctx context.Context, repoRoot, filePath, hunkC
 // extractSymbols returns candidate symbol names from hunkContent in priority
 // order: import/require-bound local names, then function declarations, type
 // identifiers and callees, then bare identifiers passed as call arguments.
-// Keywords and jsBuiltinNames are skipped; the list is deduplicated and capped
-// at maxSymbolCandidates.
+// Keywords and jsBuiltinGlobals are always skipped; jsBuiltinMethods names are
+// skipped only when the occurrence is a member call (".name("). The list is
+// deduplicated and capped at maxSymbolCandidates.
 func extractSymbols(hunkContent string) []string {
 	seen := make(map[string]bool)
 	var list []string
-	add := func(name string) bool {
-		if name == "" || jsKeywords[name] || jsBuiltinNames[name] || seen[name] {
+	add := func(name string, memberCall bool) bool {
+		if name == "" || jsKeywords[name] || jsBuiltinGlobals[name] || seen[name] {
+			return len(list) >= maxSymbolCandidates
+		}
+		if memberCall && jsBuiltinMethods[name] {
 			return len(list) >= maxSymbolCandidates
 		}
 		seen[name] = true
 		list = append(list, name)
 		return len(list) >= maxSymbolCandidates
 	}
+	// Import/require-bound names are repo symbols by construction, so they are
+	// never dropped for being in the member-method set.
 	for _, name := range importBoundNames(hunkContent) {
-		if add(name) {
+		if add(name, false) {
 			return list
 		}
 	}
-	for _, re := range []*regexp.Regexp{funcIdent, typeIdent, callIdent} {
+	for _, re := range []*regexp.Regexp{funcIdent, typeIdent} {
 		for _, m := range re.FindAllStringSubmatch(hunkContent, -1) {
 			if len(m) < 2 {
 				continue
 			}
-			if add(m[1]) {
+			if add(m[1], false) {
 				return list
 			}
 		}
 	}
+	for _, loc := range callIdent.FindAllStringSubmatchIndex(hunkContent, -1) {
+		if add(hunkContent[loc[2]:loc[3]], isMemberCall(hunkContent, loc[2])) {
+			return list
+		}
+	}
+	// Bare call arguments are not member accesses.
 	for _, name := range callArgumentIdents(hunkContent) {
-		if add(name) {
+		if add(name, false) {
 			return list
 		}
 	}
 	return list
+}
+
+// isMemberCall reports whether the identifier starting at start in src is part
+// of a member access, i.e. preceded by "." with optional whitespace between.
+func isMemberCall(src string, start int) bool {
+	i := start
+	for i > 0 && (src[i-1] == ' ' || src[i-1] == '\t' || src[i-1] == '\r' || src[i-1] == '\n') {
+		i--
+	}
+	return i > 0 && src[i-1] == '.'
 }
 
 // importBoundNames returns local binding names introduced by import and

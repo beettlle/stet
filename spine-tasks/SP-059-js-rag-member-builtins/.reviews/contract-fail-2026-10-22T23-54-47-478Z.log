@@ -1,0 +1,27 @@
+Contract testCommand failure log
+Command: bash scripts/check-gofmt.sh && go vet ./cli/... && go test ./cli/internal/rag/... -count=1 && bash scripts/spine-stet-contract-run.sh default
+Exit code: 1
+Attempt: 1 of 2
+Timestamp: 2026-10-22T23:54:47.478Z
+Buffer overflow: no
+---
+ok  	stet/cli/internal/rag	0.078s
+ok  	stet/cli/internal/rag/go	1.080s
+ok  	stet/cli/internal/rag/java	0.635s
+ok  	stet/cli/internal/rag/js	1.562s
+ok  	stet/cli/internal/rag/python	0.564s
+ok  	stet/cli/internal/rag/rust	0.601s
+ok  	stet/cli/internal/rag/swift	0.632s
+eb892f3  cli/internal/rag/js/resolver_test.go:212  WARNING  The test case 'global named' asserts that 'console' is not extracted from the import statement. However, 'console' is a built-in global, not a built-in method. If the implementation filters out built-in globals (as suggested by the 'jsBuiltinGlobals' rename in the dismissed context), this test will fail because 'console' is a valid local binding in the import. The test should either expect 'console' to be extracted or use a non-builtin global name.
+5740146  cli/internal/rag/js/resolver_test.go:339  WARNING  The test asserts that 'console' is not a candidate, but 'console' is a built-in global, not a built-in method. The test name and comments indicate that member calls to built-in *methods* should be skipped, implying that the object (global) should still be extracted as a candidate. If 'extractSymbols' correctly filters out built-in globals (as suggested by the previous test context), this assertion will fail because 'console' will be absent from the results. The test should either remove 'console' from the 'should not be a candidate' list or add it to the 'should be a candidate' list if globals are expected to be kept.
+2 finding(s) at 101.9 tokens/sec.
+
+stet: contract review found 2 active finding(s). Triage, then re-run the contract:
+
+  stet list
+  stet dismiss <id> <reason>
+
+Dismiss reasons: false_positive, already_correct, wrong_suggestion, out_of_scope.
+Fix real defects in this task's diff. If a finding exposes a stet reviewer bug (bad prompt,
+parser, critic), dismiss it with a reason and record it under Discoveries in STATUS.md.
+Never dismiss a real defect without fixing it.

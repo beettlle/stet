@@ -1,0 +1,16 @@
+Contract testCommand failure log
+Command: bash scripts/check-gofmt.sh && go vet ./cli/... && go test ./cli/internal/rag/... -count=1 && bash scripts/spine-stet-contract-run.sh default
+Exit code: 1
+Attempt: 2 of 2
+Timestamp: 2026-10-23T00:43:16.061Z
+Buffer overflow: no
+---
+ok  	stet/cli/internal/rag	0.073s
+ok  	stet/cli/internal/rag/go	1.125s
+ok  	stet/cli/internal/rag/java	0.662s
+ok  	stet/cli/internal/rag/js	1.839s
+ok  	stet/cli/internal/rag/python	0.659s
+ok  	stet/cli/internal/rag/rust	0.611s
+ok  	stet/cli/internal/rag/swift	0.612s
+
+stet: no session and missing .review/spine-stet-baseline.ref (did worktreeSetupHook run?)

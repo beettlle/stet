@@ -209,6 +209,8 @@ func TestExtractSymbols_importForms_yieldLocalBindings(t *testing.T) {
 		{"require destructuring", `const { readTasks, writeTasks: saveTasks } = require("./tasks");`, []string{"readTasks", "saveTasks"}, []string{"writeTasks"}},
 		{"require default", `const loader = require("./loader");`, []string{"loader"}, []string{"require"}},
 		{"multi-line diff", "+import {\n+  first,\n+  second\n+    as third,\n+} from \"./m.js\";", []string{"first", "third"}, []string{"second"}},
+		{"builtin-method named", `import { get } from "./cache.mjs";`, []string{"get"}, nil},
+		{"global named", `import { console } from "./x.js";`, nil, []string{"console"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -305,8 +307,11 @@ const r = Object.keys(o).reduce(merge, {});
 `
 	got := extractSymbols(hunk)
 	for _, s := range got {
-		if jsBuiltinNames[s] {
-			t.Errorf("built-in %q should not be a candidate; got %v", s, got)
+		if jsBuiltinGlobals[s] {
+			t.Errorf("built-in global %q should not be a candidate; got %v", s, got)
+		}
+		if jsBuiltinMethods[s] {
+			t.Errorf("member call to built-in method %q should not be a candidate; got %v", s, got)
 		}
 	}
 	set := make(map[string]bool, len(got))
@@ -317,6 +322,53 @@ const r = Object.keys(o).reduce(merge, {});
 		if !set[w] {
 			t.Errorf("missing argument identifier %q; got %v", w, got)
 		}
+	}
+}
+
+func TestExtractSymbols_memberCallsSkipBuiltins_bareCallsAndDeclsKept(t *testing.T) {
+	// Member calls to built-in method names add no candidates; bare call
+	// arguments are still extracted.
+	memberHunk := `arr.filter(fn);
+m.get(k);
+console.log(x);
+`
+	got := extractSymbols(memberHunk)
+	set := make(map[string]bool, len(got))
+	for _, s := range got {
+		set[s] = true
+	}
+	for _, n := range []string{"filter", "get", "log", "console"} {
+		if set[n] {
+			t.Errorf("member call to built-in %q should not be a candidate; got %v", n, got)
+		}
+	}
+	for _, w := range []string{"fn", "k", "x"} {
+		if !set[w] {
+			t.Errorf("missing bare argument %q; got %v", w, got)
+		}
+	}
+
+	// The same spellings as bare callees are legitimate repo symbols.
+	bareHunk := "filter(fn);\nget(k);\nlog(x);\n"
+	got = extractSymbols(bareHunk)
+	set = make(map[string]bool, len(got))
+	for _, s := range got {
+		set[s] = true
+	}
+	for _, w := range []string{"filter", "get", "log", "fn"} {
+		if !set[w] {
+			t.Errorf("bare call %q should be a candidate; got %v", w, got)
+		}
+	}
+
+	// function declarations with method-like names are not member accesses.
+	got = extractSymbols("function map(items) { return items; }\nmap(list);\n")
+	set = make(map[string]bool, len(got))
+	for _, s := range got {
+		set[s] = true
+	}
+	if !set["map"] {
+		t.Errorf("declaration of map should be a candidate; got %v", got)
 	}
 }
 
@@ -395,6 +447,42 @@ export function compareTaskIds(a, b) {
 	}
 	if d.Docstring != "Orders task ids numerically." {
 		t.Errorf("Docstring = %q", d.Docstring)
+	}
+}
+
+func TestResolveSymbols_importBoundBuiltinMethodName_returnsDefinition(t *testing.T) {
+	ctx := context.Background()
+	dir := testutil.TempGitDir(t)
+	initGitRepo(t, dir)
+	if err := os.MkdirAll(filepath.Join(dir, "lib"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := `// Returns the cached value for key.
+export function get(key) {
+  return cache[key];
+}
+`
+	if err := os.WriteFile(filepath.Join(dir, "lib", "cache.mjs"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gitAdd(t, dir, "lib/cache.mjs")
+
+	// Issue #28: `get` was previously skipped by name before reaching RAG,
+	// producing "get is not defined" false positives.
+	hunk := "+import { get } from \"./cache.mjs\";\n+  const v = get(key);\n"
+	defs, err := New().ResolveSymbols(ctx, dir, "src/app.mjs", hunk, rag.ResolveOptions{MaxDefinitions: 5})
+	if err != nil {
+		t.Fatalf("ResolveSymbols: %v", err)
+	}
+	if len(defs) != 1 {
+		t.Fatalf("expected 1 definition; got %+v", defs)
+	}
+	d := defs[0]
+	if d.Symbol != "get" || d.File != "lib/cache.mjs" || d.Line != 2 {
+		t.Errorf("definition = %+v, want get at lib/cache.mjs:2", d)
+	}
+	if !strings.Contains(d.Signature, "function get") {
+		t.Errorf("Signature = %q, want function get", d.Signature)
 	}
 }
 

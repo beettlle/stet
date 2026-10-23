@@ -299,6 +299,136 @@ func TestRunCLI_helpExitsZero(t *testing.T) {
 	}
 }
 
+func TestRunCLI_benchmarkUsesRepoConfig(t *testing.T) {
+	// Do not run in parallel: test changes process cwd.
+	const repoModel = "repo-config-model"
+	modelCh := make(chan string, 8)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/models":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":[{"id":"` + repoModel + `"}]}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/chat/completions":
+			var body struct {
+				Model string `json:"model"`
+			}
+			data, _ := io.ReadAll(r.Body)
+			if err := json.Unmarshal(data, &body); err != nil {
+				t.Errorf("decode chat/completions body: %v", err)
+			}
+			modelCh <- body.Model
+			time.Sleep(25 * time.Millisecond)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"[]"},"finish_reason":"stop"}],"usage":{"prompt_tokens":500,"completion_tokens":200}}`))
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	repo := initRepo(t)
+	if err := os.MkdirAll(filepath.Join(repo, ".review"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	repoCfg := fmt.Sprintf("provider = \"openai\"\nopenai_base_url = %q\nmodel = %q\n", srv.URL+"/v1", repoModel)
+	writeFile(t, repo, ".review/config.toml", repoCfg)
+
+	// Clear provider env vars so only the repo config selects the backend, and
+	// isolate the global config directory so no host config leaks in.
+	t.Setenv("STET_PROVIDER", "")
+	t.Setenv("STET_OPENAI_BASE_URL", "")
+	t.Setenv("STET_MODEL", "")
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	oldStdout := os.Stdout
+	os.Stdout = w
+	t.Cleanup(func() { os.Stdout = oldStdout })
+	got := runCLI([]string{"benchmark"})
+	_ = w.Close()
+	var stdout bytes.Buffer
+	_, _ = io.Copy(&stdout, r)
+
+	if got != 0 {
+		t.Errorf("runCLI(benchmark) inside repo with .review/config.toml = %d, want 0; stdout:\n%s", got, stdout.String())
+	}
+	close(modelCh)
+	models := make([]string, 0, len(modelCh))
+	for m := range modelCh {
+		models = append(models, m)
+	}
+	if len(models) == 0 {
+		t.Fatalf("mock server received no chat/completions requests; stdout:\n%s", stdout.String())
+	}
+	for _, m := range models {
+		if m != repoModel {
+			t.Errorf("benchmark used model %q, want %q from .review/config.toml", m, repoModel)
+		}
+	}
+}
+
+func TestRunCLI_benchmarkOutsideGitRepoStillLoadsConfig(t *testing.T) {
+	// Do not run in parallel: test changes process cwd. Outside a git repo
+	// benchmark falls back to global/env config only; the mock server proves
+	// config.Load still ran and the LLM check used the env-configured backend.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/api/tags" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"models":[{"name":"env-model"}]}`))
+			return
+		}
+		if r.Method == http.MethodPost && r.URL.Path == "/api/generate" {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"response":             `[]`,
+				"done":                 true,
+				"model":                "env-model",
+				"prompt_eval_count":    500,
+				"prompt_eval_duration": 250000000,
+				"eval_count":           200,
+				"eval_duration":        4000000000,
+				"load_duration":        0,
+				"total_duration":       4250000000,
+			})
+			return
+		}
+		t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+	t.Setenv("STET_PROVIDER", "ollama")
+	t.Setenv("STET_OLLAMA_BASE_URL", srv.URL)
+	t.Setenv("STET_MODEL", "env-model")
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	plain := t.TempDir() // not a git repo
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
+	if err := os.Chdir(plain); err != nil {
+		t.Fatal(err)
+	}
+	got := runCLI([]string{"benchmark"})
+	if got != 0 {
+		t.Errorf("runCLI(benchmark) outside a git repo = %d, want 0 (config should still load)", got)
+	}
+}
+
 func TestRunCLI_skillPrintsToStdout(t *testing.T) {
 	t.Parallel()
 	r, w, err := os.Pipe()
