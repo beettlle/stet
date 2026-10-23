@@ -1,7 +1,7 @@
 # SP-062: `main_test.go`: one output-capture helper that drains and closes pipes — Status
 
-**Current Step:** Step 3
-**Status:** 🔄 In Progress — Step 2 complete
+**Current Step:** Complete
+**Status:** ✅ All steps complete — verification passing
 **Last Updated:** 2026-10-23
 **Review Level:** 1
 **Review Counter:** 0
@@ -31,11 +31,12 @@ Migrated (34 test sites + 2 helpers): `TestRunCLI_doctorUnreachableExits2`, `Tes
 ---
 
 ### Step 3: Testing & Verification
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] Coverage before/after recorded; after ≥ before
-- [ ] No `os.Pipe()` in `main_test.go`
-- [ ] Contract `testCommand` passing
+- [x] Coverage before/after recorded; after ≥ before — baseline (pre-change): **74.4%**; after: **74.4%** (`go test ./cli/cmd/stet/... -count=1 -cover`)
+- [x] No `os.Pipe()` in `main_test.go` (`rg` returns nothing; `os.Pipe()` only in `cli/cmd/stet/capture_test.go`)
+- [x] Contract `testCommand` passing: `bash scripts/check-gofmt.sh && go vet ./cli/... && go test ./cli/cmd/stet/... -count=1 -cover` → gofmt OK, vet OK, `ok stet/cli/cmd/stet coverage: 74.4%`
+- Extra: helper tests also pass with `-race` (5 iterations) and a `-race` subset of migrated tests (skill/status/stats/doctor/critic-eval/benchmark/systemone)
 
 ---
 
