@@ -4,8 +4,8 @@
 **Status:** ✅ Complete
 **Last Updated:** 2026-10-22
 **Review Level:** 2
-**Review Counter:** 1 (step-1 plan review spawn blocked in-worker per SP-195; engine runs reviews post-success)
-**Iteration:** 0
+**Review Counter:** 2 (plan APPROVE; code review REVISE — resolved by dismissing false positive aaee18d, contract re-run exit 0)
+**Iteration:** 1
 **Size:** S
 
 ---
@@ -51,11 +51,24 @@ Verification evidence:
 
 ---
 
+## Revision 1 (code review REVISE, resolved)
+
+Code review (post-Step-2) returned REVISE: stet finding `aaee18d` was active, making the contract
+gate exit non-zero. The finding claims the new cwd-changing tests can interleave with parallel
+tests and must call `t.Parallel()`. Dismissed as **false_positive** — Go's `testing.runTests` runs
+sequential top-level tests to completion before resuming parallel tests, so `os.Chdir` in a
+non-parallel test never interleaves with a parallel one; PROMPT Step 2 explicitly forbids parallel
+here ("Do not run the test in parallel (it changes cwd)"), and the tests match the file's
+established `os.Chdir` pattern. Re-ran the full Contract `testCommand` after dismissal: gofmt/vet
+clean, `go test ./cli/cmd/stet/... -count=1` ok (64.9s), `spine-stet-contract-run.sh default`
+0 findings, exit 0. No code changes required.
+
 ## Reviews
 
 | # | Type | Step | Verdict | File |
 |---|------|------|---------|------|
-| 1 | plan | 1 | skipped (in-worker spawn blocked, SP-195) | `.reviews/1-20261022T235907.md` |
+| 1 | plan | 1 | APPROVE | `.reviews/1-20261023T000806.md` |
+| 2 | code | 2 | REVISE → resolved (dismissed false positive aaee18d; contract re-run exit 0) | `.reviews/2-20261023T000826.md` |
 
 ---
 
@@ -65,6 +78,7 @@ Verification evidence:
 |-----------|-------------|----------|
 | Stet reviewer: critic claims `console` import/member tests "will fail" if built-in globals are filtered — but filtering built-in globals even when import-bound or used as member receivers is SP-059's specified behavior (resolver.go:76 comment) and both tests pass | Dismissed eb892f3, 5740146 as false_positive (counterfactual failure predictions; 5740146 misreads `if set[n] { t.Errorf }` as wanting presence) | contract run 1 |
 | Stet reviewer: flags discarded `git.RepoRoot` error in `runBenchmark` | Dismissed 9bd4837 as already_correct — the discard is the task contract: mirror `runDoctor`'s fallback to global-only config outside a git repo so benchmark works anywhere; warning would change benchmark output (out of scope) | contract run 1 |
+| Stet reviewer: claims cwd-changing tests must call `t.Parallel()` or risk interleaving with parallel tests | Dismissed aaee18d as false_positive — sequential top-level tests complete before parallel tests resume in Go, so no interleaving is possible; PROMPT forbids parallel for these tests; matches existing `os.Chdir` pattern | code review (revision 1) |
 | Existing benchmark tests all set `STET_PROVIDER` + base URL/model env vars, so env overrides keep them green now that benchmark reads the repo's own `.review/config.toml` (openai/LM Studio) during tests run from inside the stet worktree | No action needed — noted for future benchmark tests | contract run 1 |
 
 ---
