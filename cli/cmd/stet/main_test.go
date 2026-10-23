@@ -76,24 +76,14 @@ func TestRunCLI_doctorUnreachableExits2(t *testing.T) {
 	}()
 
 	// Capture stderr to assert underlying error is printed for troubleshooting.
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	oldStderr := os.Stderr
-	os.Stderr = w
-	t.Cleanup(func() { os.Stderr = oldStderr })
-
-	got := runCLI([]string{"doctor"})
-	_ = w.Close()
-	var stderr bytes.Buffer
-	_, _ = io.Copy(&stderr, r)
+	var got int
+	_, stderr := captureOutput(t, func() { got = runCLI([]string{"doctor"}) })
 
 	if got != 2 {
 		t.Errorf("runCLI(doctor) with unreachable Ollama = %d, want 2", got)
 	}
-	if !strings.Contains(stderr.String(), "Details:") {
-		t.Errorf("stderr should contain 'Details:' for troubleshooting; got:\n%s", stderr.String())
+	if !strings.Contains(stderr, "Details:") {
+		t.Errorf("stderr should contain 'Details:' for troubleshooting; got:\n%s", stderr)
 	}
 }
 
@@ -216,22 +206,13 @@ func TestRunCLI_benchmarkWithMockReturnsZero(t *testing.T) {
 		}
 	}()
 
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	oldStdout := os.Stdout
-	os.Stdout = w
-	t.Cleanup(func() { os.Stdout = oldStdout })
-	got := runCLI([]string{"benchmark"})
-	_ = w.Close()
-	var stdout bytes.Buffer
-	_, _ = io.Copy(&stdout, r)
+	var got int
+	stdout, _ := captureOutput(t, func() { got = runCLI([]string{"benchmark"}) })
 
 	if got != 0 {
 		t.Errorf("runCLI(benchmark) with mock server = %d, want 0", got)
 	}
-	output := stdout.String()
+	output := stdout
 	if !strings.Contains(output, "Model: qwen3-coder:30b") {
 		t.Errorf("output should contain 'Model: qwen3-coder:30b'; got:\n%s", output)
 	}
@@ -264,22 +245,13 @@ func TestRunCLI_benchmarkOpenAILabelsEndToEnd(t *testing.T) {
 	t.Setenv("STET_OPENAI_BASE_URL", srv.URL+"/v1")
 	t.Setenv("STET_MODEL", "local-model")
 
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	oldStdout := os.Stdout
-	os.Stdout = w
-	t.Cleanup(func() { os.Stdout = oldStdout })
-	got := runCLI([]string{"benchmark"})
-	_ = w.Close()
-	var stdout bytes.Buffer
-	_, _ = io.Copy(&stdout, r)
+	var got int
+	stdout, _ := captureOutput(t, func() { got = runCLI([]string{"benchmark"}) })
 
 	if got != 0 {
 		t.Errorf("runCLI(benchmark) with OpenAI mock = %d, want 0", got)
 	}
-	output := stdout.String()
+	output := stdout
 	if !strings.Contains(output, "t/s (end-to-end)") {
 		t.Errorf("output should contain 't/s (end-to-end)'; got:\n%s", output)
 	}
@@ -350,20 +322,11 @@ func TestRunCLI_benchmarkUsesRepoConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	oldStdout := os.Stdout
-	os.Stdout = w
-	t.Cleanup(func() { os.Stdout = oldStdout })
-	got := runCLI([]string{"benchmark"})
-	_ = w.Close()
-	var stdout bytes.Buffer
-	_, _ = io.Copy(&stdout, r)
+	var got int
+	stdout, _ := captureOutput(t, func() { got = runCLI([]string{"benchmark"}) })
 
 	if got != 0 {
-		t.Errorf("runCLI(benchmark) inside repo with .review/config.toml = %d, want 0; stdout:\n%s", got, stdout.String())
+		t.Errorf("runCLI(benchmark) inside repo with .review/config.toml = %d, want 0; stdout:\n%s", got, stdout)
 	}
 	close(modelCh)
 	models := make([]string, 0, len(modelCh))
@@ -371,7 +334,7 @@ func TestRunCLI_benchmarkUsesRepoConfig(t *testing.T) {
 		models = append(models, m)
 	}
 	if len(models) == 0 {
-		t.Fatalf("mock server received no chat/completions requests; stdout:\n%s", stdout.String())
+		t.Fatalf("mock server received no chat/completions requests; stdout:\n%s", stdout)
 	}
 	for _, m := range models {
 		if m != repoModel {
@@ -430,22 +393,13 @@ func TestRunCLI_benchmarkOutsideGitRepoStillLoadsConfig(t *testing.T) {
 }
 
 func TestRunCLI_skillPrintsToStdout(t *testing.T) {
-	t.Parallel()
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	oldStdout := os.Stdout
-	os.Stdout = w
-	t.Cleanup(func() { os.Stdout = oldStdout })
-	got := runCLI([]string{"skill"})
-	_ = w.Close()
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
+	// Do not run in parallel: captureOutput swaps process-wide os.Stdout/os.Stderr.
+	var got int
+	stdout, _ := captureOutput(t, func() { got = runCLI([]string{"skill"}) })
 	if got != 0 {
 		t.Errorf("runCLI(skill) = %d, want 0", got)
 	}
-	out := buf.String()
+	out := stdout
 	if !strings.Contains(out, "name: stet-integration") {
 		t.Errorf("skill stdout must contain name: stet-integration; got:\n%s", out)
 	}
@@ -535,18 +489,8 @@ func TestRunCLI_startFromNonGitStderrHumanReadable(t *testing.T) {
 	if err := os.Chdir(dir); err != nil {
 		t.Fatal(err)
 	}
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	oldStderr := os.Stderr
-	os.Stderr = w
-	t.Cleanup(func() { os.Stderr = oldStderr })
-	_ = runCLI([]string{"start"})
-	_ = w.Close()
-	var stderr bytes.Buffer
-	_, _ = io.Copy(&stderr, r)
-	out := stderr.String()
+	_, stderr := captureOutput(t, func() { _ = runCLI([]string{"start"}) })
+	out := stderr
 	// Primary user-facing lines must not contain technical jargon; "Details:" line may.
 	for _, line := range strings.Split(out, "\n") {
 		if strings.HasPrefix(strings.TrimSpace(line), "Details:") {
@@ -621,26 +565,16 @@ func TestRunCLI_startDryRunExcludePatterns(t *testing.T) {
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	oldStderr := os.Stderr
-	os.Stderr = w
-	t.Cleanup(func() { os.Stderr = oldStderr })
-
-	got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--exclude=*.txt"})
-	_ = w.Close()
-	var stderr bytes.Buffer
-	_, _ = io.Copy(&stderr, r)
+	var got int
+	_, stderr := captureOutput(t, func() { got = runCLI([]string{"start", "HEAD~1", "--dry-run", "--exclude=*.txt"}) })
 	if got != 0 {
-		t.Fatalf("runCLI(start --exclude=*.txt) = %d, want 0; stderr:\n%s", got, stderr.String())
+		t.Fatalf("runCLI(start --exclude=*.txt) = %d, want 0; stderr:\n%s", got, stderr)
 	}
-	if !strings.Contains(stderr.String(), "Excluded from review: f2.txt") {
-		t.Errorf("stderr should list excluded f2.txt; got:\n%s", stderr.String())
+	if !strings.Contains(stderr, "Excluded from review: f2.txt") {
+		t.Errorf("stderr should list excluded f2.txt; got:\n%s", stderr)
 	}
-	if !strings.Contains(stderr.String(), "Nothing to review") {
-		t.Errorf("stderr should say nothing to review when only hunk is excluded; got:\n%s", stderr.String())
+	if !strings.Contains(stderr, "Nothing to review") {
+		t.Errorf("stderr should say nothing to review when only hunk is excluded; got:\n%s", stderr)
 	}
 }
 
@@ -743,19 +677,8 @@ func runCLICapture(t *testing.T, args []string) (code int, stdout, stderr string
 	origOut := getFindingsOut
 	getFindingsOut = func() io.Writer { return &out }
 	defer func() { getFindingsOut = origOut }()
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	oldStderr := os.Stderr
-	os.Stderr = w
-	code = runCLI(args)
-	os.Stderr = oldStderr
-	_ = w.Close()
-	var errBuf bytes.Buffer
-	_, _ = io.Copy(&errBuf, r)
-	_ = r.Close()
-	return code, out.String(), errBuf.String()
+	_, stderr = captureOutput(t, func() { code = runCLI(args) })
+	return code, out.String(), stderr
 }
 
 func TestRunCLI_runNoNewHunksWarnsIgnoredFlags(t *testing.T) {
@@ -840,22 +763,13 @@ func TestRunCLI_strictnessInvalidExits1(t *testing.T) {
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	oldStderr := os.Stderr
-	os.Stderr = w
-	t.Cleanup(func() { os.Stderr = oldStderr })
-	got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--strictness=aggressive"})
-	_ = w.Close()
-	var stderr bytes.Buffer
-	_, _ = io.Copy(&stderr, r)
+	var got int
+	_, stderr := captureOutput(t, func() { got = runCLI([]string{"start", "HEAD~1", "--dry-run", "--strictness=aggressive"}) })
 	if got != 1 {
 		t.Errorf("runCLI(start --dry-run --strictness=aggressive) = %d, want 1", got)
 	}
-	if !strings.Contains(stderr.String(), "invalid strictness") {
-		t.Errorf("stderr should contain invalid strictness error; got:\n%s", stderr.String())
+	if !strings.Contains(stderr, "invalid strictness") {
+		t.Errorf("stderr should contain invalid strictness error; got:\n%s", stderr)
 	}
 }
 
@@ -1135,22 +1049,13 @@ func TestRunCLI_rerunNoSessionFails(t *testing.T) {
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	oldStderr := os.Stderr
-	os.Stderr = w
-	t.Cleanup(func() { os.Stderr = oldStderr })
-	got := runCLI([]string{"rerun", "--dry-run"})
-	_ = w.Close()
-	var stderr bytes.Buffer
-	_, _ = io.Copy(&stderr, r)
+	var got int
+	_, stderr := captureOutput(t, func() { got = runCLI([]string{"rerun", "--dry-run"}) })
 	if got != 1 {
 		t.Errorf("runCLI(rerun --dry-run) with no session = %d, want 1", got)
 	}
-	if !strings.Contains(stderr.String(), "active session") {
-		t.Errorf("stderr should contain 'active session'; got %q", stderr.String())
+	if !strings.Contains(stderr, "active session") {
+		t.Errorf("stderr should contain 'active session'; got %q", stderr)
 	}
 }
 
@@ -1241,22 +1146,13 @@ func TestRunCLI_startBaselineNotAncestorPrintsClearMessage(t *testing.T) {
 	orphanSHA := runGitOut(t, repo, "git", "rev-parse", "HEAD")
 	runGit(t, repo, "git", "checkout", mainBranch)
 
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	oldStderr := os.Stderr
-	os.Stderr = w
-	t.Cleanup(func() { os.Stderr = oldStderr })
-	got := runCLI([]string{"start", orphanSHA, "--dry-run"})
-	_ = w.Close()
-	var stderr bytes.Buffer
-	_, _ = io.Copy(&stderr, r)
+	var got int
+	_, stderr := captureOutput(t, func() { got = runCLI([]string{"start", orphanSHA, "--dry-run"}) })
 	if got == 0 {
 		t.Errorf("runCLI(start <orphan-sha>) = %d, want non-zero", got)
 	}
-	if !strings.Contains(stderr.String(), "not an ancestor") {
-		t.Errorf("stderr should contain 'not an ancestor'; got %q", stderr.String())
+	if !strings.Contains(stderr, "not an ancestor") {
+		t.Errorf("stderr should contain 'not an ancestor'; got %q", stderr)
 	}
 }
 
@@ -1271,21 +1167,12 @@ func TestRunCLI_startInvalidBaselineRefPrintsHint(t *testing.T) {
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	oldStderr := os.Stderr
-	os.Stderr = w
-	t.Cleanup(func() { os.Stderr = oldStderr })
-	got := runCLI([]string{"start", "HEAD~999", "--dry-run"})
-	_ = w.Close()
-	var stderr bytes.Buffer
-	_, _ = io.Copy(&stderr, r)
+	var got int
+	_, stderr := captureOutput(t, func() { got = runCLI([]string{"start", "HEAD~999", "--dry-run"}) })
 	if got == 0 {
 		t.Errorf("runCLI(start HEAD~999) = %d, want non-zero", got)
 	}
-	out := stderr.String()
+	out := stderr
 	if !strings.Contains(out, "Could not resolve baseline ref") {
 		t.Errorf("stderr should contain 'Could not resolve baseline ref'; got %q", out)
 	}
@@ -1329,18 +1216,9 @@ func TestRunCLI_startConcurrentLockPrintsClearMessage(t *testing.T) {
 
 	var buf bytes.Buffer
 	errHintOut = &buf
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	oldStderr := os.Stderr
-	os.Stderr = w
-	t.Cleanup(func() { os.Stderr = oldStderr })
-	got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"})
-	_ = w.Close()
-	var stderrBuf bytes.Buffer
-	_, _ = io.Copy(&stderrBuf, r)
-	combined := buf.String() + stderrBuf.String()
+	var got int
+	_, stderr := captureOutput(t, func() { got = runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}) })
+	combined := buf.String() + stderr
 	if got == 0 {
 		t.Errorf("runCLI(start) with lock held = %d, want non-zero", got)
 	}
@@ -1362,18 +1240,8 @@ func TestRunCLI_startAllowDirtyProceedsWithWarning(t *testing.T) {
 	}
 	writeFile(t, repo, "dirty.txt", "uncommitted\n")
 
-	stderrR, stderrW, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	oldStderr := os.Stderr
-	os.Stderr = stderrW
-	t.Cleanup(func() { os.Stderr = oldStderr })
-	got := runCLI([]string{"start", "HEAD~1", "--allow-dirty", "--dry-run"})
-	_ = stderrW.Close()
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, stderrR)
-	stderr := buf.String()
+	var got int
+	_, stderr := captureOutput(t, func() { got = runCLI([]string{"start", "HEAD~1", "--allow-dirty", "--dry-run"}) })
 	if got != 0 {
 		t.Errorf("runCLI(start --allow-dirty --dry-run) with dirty worktree = %d, want 0", got)
 	}
@@ -1451,21 +1319,12 @@ func TestRunCLI_statusNoSessionExitsNonZero(t *testing.T) {
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	oldStderr := os.Stderr
-	os.Stderr = w
-	t.Cleanup(func() { os.Stderr = oldStderr })
-	got := runCLI([]string{"status"})
-	_ = w.Close()
-	var stderr bytes.Buffer
-	_, _ = io.Copy(&stderr, r)
+	var got int
+	_, stderr := captureOutput(t, func() { got = runCLI([]string{"status"}) })
 	if got != 1 {
 		t.Errorf("runCLI(status) with no session = %d, want 1", got)
 	}
-	out := stderr.String()
+	out := stderr
 	if !strings.Contains(out, "No active session") {
 		t.Errorf("stderr should contain 'No active session'; got %q", out)
 	}
@@ -1488,20 +1347,12 @@ func TestRunCLI_statusWithSessionPrintsFields(t *testing.T) {
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start HEAD~1 --dry-run) = %d, want 0", got)
 	}
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
+	var code int
+	stdout, _ := captureOutput(t, func() { code = runCLI([]string{"status"}) })
+	if code != 0 {
+		t.Fatalf("runCLI(status) = %d, want 0", code)
 	}
-	oldStdout := os.Stdout
-	os.Stdout = w
-	t.Cleanup(func() { os.Stdout = oldStdout })
-	if got := runCLI([]string{"status"}); got != 0 {
-		t.Fatalf("runCLI(status) = %d, want 0", got)
-	}
-	_ = w.Close()
-	var stdout bytes.Buffer
-	_, _ = io.Copy(&stdout, r)
-	out := stdout.String()
+	out := stdout
 	for _, sub := range []string{"baseline:", "last_reviewed_at:", "worktree:", "findings:", "dismissed:"} {
 		if !strings.Contains(out, sub) {
 			t.Errorf("status output missing %q; got:\n%s", sub, out)
@@ -1525,20 +1376,12 @@ func TestRunCLI_statusWithSessionPrintsSessionOptions(t *testing.T) {
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--strictness=lenient", "--rag-symbol-max-definitions=5", "--rag-symbol-max-tokens=500"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run --strictness=lenient ...) = %d, want 0", got)
 	}
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
+	var code int
+	stdout, _ := captureOutput(t, func() { code = runCLI([]string{"status"}) })
+	if code != 0 {
+		t.Fatalf("runCLI(status) = %d, want 0", code)
 	}
-	oldStdout := os.Stdout
-	os.Stdout = w
-	t.Cleanup(func() { os.Stdout = oldStdout })
-	if got := runCLI([]string{"status"}); got != 0 {
-		t.Fatalf("runCLI(status) = %d, want 0", got)
-	}
-	_ = w.Close()
-	var stdout bytes.Buffer
-	_, _ = io.Copy(&stdout, r)
-	out := stdout.String()
+	out := stdout
 	if !strings.Contains(out, "strictness: lenient") {
 		t.Errorf("status should show strictness when set at start; got:\n%s", out)
 	}
@@ -1576,20 +1419,12 @@ func TestRunCLI_statusWithIdsPrintsFindingsWithIds(t *testing.T) {
 	wantID := out.Findings[0].ID
 	wantFile := out.Findings[0].File
 
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
+	var code int
+	stdout, _ := captureOutput(t, func() { code = runCLI([]string{"status", "--ids"}) })
+	if code != 0 {
+		t.Fatalf("runCLI(status --ids) = %d, want 0", code)
 	}
-	oldStdout := os.Stdout
-	os.Stdout = w
-	t.Cleanup(func() { os.Stdout = oldStdout })
-	if got := runCLI([]string{"status", "--ids"}); got != 0 {
-		t.Fatalf("runCLI(status --ids) = %d, want 0", got)
-	}
-	_ = w.Close()
-	var stdout bytes.Buffer
-	_, _ = io.Copy(&stdout, r)
-	outStr := stdout.String()
+	outStr := stdout
 	if !strings.Contains(outStr, "---") {
 		t.Errorf("status --ids should contain ---; got:\n%s", outStr)
 	}
@@ -1615,20 +1450,12 @@ func TestRunCLI_statusWithoutIdsUnchanged(t *testing.T) {
 	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
 		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
 	}
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
+	var code int
+	stdout, _ := captureOutput(t, func() { code = runCLI([]string{"status"}) })
+	if code != 0 {
+		t.Fatalf("runCLI(status) = %d, want 0", code)
 	}
-	oldStdout := os.Stdout
-	os.Stdout = w
-	t.Cleanup(func() { os.Stdout = oldStdout })
-	if got := runCLI([]string{"status"}); got != 0 {
-		t.Fatalf("runCLI(status) = %d, want 0", got)
-	}
-	_ = w.Close()
-	var stdout bytes.Buffer
-	_, _ = io.Copy(&stdout, r)
-	out := stdout.String()
+	out := stdout
 	if strings.Contains(out, "---") {
 		t.Errorf("status without --ids should not contain ---; got:\n%s", out)
 	}
@@ -1660,20 +1487,12 @@ func TestRunCLI_listPrintsFindingsWithIds(t *testing.T) {
 	wantID := out.Findings[0].ID
 	wantFile := out.Findings[0].File
 
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
+	var code int
+	stdout, _ := captureOutput(t, func() { code = runCLI([]string{"list"}) })
+	if code != 0 {
+		t.Fatalf("runCLI(list) = %d, want 0", code)
 	}
-	oldStdout := os.Stdout
-	os.Stdout = w
-	t.Cleanup(func() { os.Stdout = oldStdout })
-	if got := runCLI([]string{"list"}); got != 0 {
-		t.Fatalf("runCLI(list) = %d, want 0", got)
-	}
-	_ = w.Close()
-	var stdout bytes.Buffer
-	_, _ = io.Copy(&stdout, r)
-	outStr := stdout.String()
+	outStr := stdout
 	shortID := findings.ShortID(wantID)
 	if !strings.Contains(outStr, shortID) {
 		t.Errorf("list should contain short finding ID %q; got:\n%s", shortID, outStr)
@@ -1693,22 +1512,13 @@ func TestRunCLI_listNoSessionExitsNonZero(t *testing.T) {
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	oldStderr := os.Stderr
-	os.Stderr = w
-	t.Cleanup(func() { os.Stderr = oldStderr })
-	got := runCLI([]string{"list"})
-	_ = w.Close()
-	var stderr bytes.Buffer
-	_, _ = io.Copy(&stderr, r)
+	var got int
+	_, stderr := captureOutput(t, func() { got = runCLI([]string{"list"}) })
 	if got != 1 {
 		t.Errorf("runCLI(list) with no session = %d, want 1", got)
 	}
-	if !strings.Contains(stderr.String(), "No active session") {
-		t.Errorf("stderr should contain 'No active session'; got %q", stderr.String())
+	if !strings.Contains(stderr, "No active session") {
+		t.Errorf("stderr should contain 'No active session'; got %q", stderr)
 	}
 }
 
@@ -1740,21 +1550,13 @@ func TestRunCLI_listEmptyFindings(t *testing.T) {
 			t.Fatalf("runCLI(dismiss %q) = %d, want 0", f.ID, got)
 		}
 	}
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
+	var code int
+	stdout, _ := captureOutput(t, func() { code = runCLI([]string{"list"}) })
+	if code != 0 {
+		t.Fatalf("runCLI(list) = %d, want 0", code)
 	}
-	oldStdout := os.Stdout
-	os.Stdout = w
-	t.Cleanup(func() { os.Stdout = oldStdout })
-	if got := runCLI([]string{"list"}); got != 0 {
-		t.Fatalf("runCLI(list) = %d, want 0", got)
-	}
-	_ = w.Close()
-	var stdout bytes.Buffer
-	_, _ = io.Copy(&stdout, r)
-	if stdout.Len() != 0 {
-		t.Errorf("list with all findings dismissed should output nothing; got:\n%s", stdout.String())
+	if stdout != "" {
+		t.Errorf("list with all findings dismissed should output nothing; got:\n%s", stdout)
 	}
 }
 
@@ -1805,24 +1607,16 @@ func TestRunCLI_dismissPersistence(t *testing.T) {
 	if got := runCLI([]string{"dismiss", id}); got != 0 {
 		t.Fatalf("runCLI(dismiss %q) = %d, want 0", id, got)
 	}
-	ro, wo, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
+	var code int
+	stdout, _ := captureOutput(t, func() { code = runCLI([]string{"status"}) })
+	if code != 0 {
+		t.Fatalf("runCLI(status) = %d", code)
 	}
-	oldStdout := os.Stdout
-	os.Stdout = wo
-	t.Cleanup(func() { os.Stdout = oldStdout })
-	if got := runCLI([]string{"status"}); got != 0 {
-		t.Fatalf("runCLI(status) = %d", got)
+	if !strings.Contains(stdout, "findings: 0") {
+		t.Errorf("status after dismissing the only finding should show findings: 0; got %s", stdout)
 	}
-	_ = wo.Close()
-	var stdout bytes.Buffer
-	_, _ = io.Copy(&stdout, ro)
-	if !strings.Contains(stdout.String(), "findings: 0") {
-		t.Errorf("status after dismissing the only finding should show findings: 0; got %s", stdout.String())
-	}
-	if !strings.Contains(stdout.String(), "dismissed: 1") {
-		t.Errorf("status after dismiss should show dismissed: 1; got %s", stdout.String())
+	if !strings.Contains(stdout, "dismissed: 1") {
+		t.Errorf("status after dismiss should show dismissed: 1; got %s", stdout)
 	}
 }
 
@@ -1858,24 +1652,16 @@ func TestRunCLI_statusActiveCountAfterPartialDismiss(t *testing.T) {
 	if got := runCLI([]string{"dismiss", id}); got != 0 {
 		t.Fatalf("runCLI(dismiss %q) = %d, want 0", id, got)
 	}
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	oldStdout := os.Stdout
-	os.Stdout = w
-	t.Cleanup(func() { os.Stdout = oldStdout })
-	if got := runCLI([]string{"status"}); got != 0 {
+	var got int
+	stdout, _ := captureOutput(t, func() { got = runCLI([]string{"status"}) })
+	if got != 0 {
 		t.Fatalf("runCLI(status) = %d", got)
 	}
-	_ = w.Close()
-	var stdout bytes.Buffer
-	_, _ = io.Copy(&stdout, r)
-	if !strings.Contains(stdout.String(), "findings: 1") {
-		t.Errorf("status after dismissing one of two findings should show findings: 1; got %s", stdout.String())
+	if !strings.Contains(stdout, "findings: 1") {
+		t.Errorf("status after dismissing one of two findings should show findings: 1; got %s", stdout)
 	}
-	if !strings.Contains(stdout.String(), "dismissed: 1") {
-		t.Errorf("status after dismiss should show dismissed: 1; got %s", stdout.String())
+	if !strings.Contains(stdout, "dismissed: 1") {
+		t.Errorf("status after dismiss should show dismissed: 1; got %s", stdout)
 	}
 }
 
@@ -2181,17 +1967,11 @@ func TestRunCLI_dismissByShortPrefix(t *testing.T) {
 	if len(shortID) < 4 {
 		t.Skip("short ID too short for prefix resolution minimum")
 	}
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	oldStdout := os.Stdout
-	os.Stdout = w
-	t.Cleanup(func() { w.Close(); r.Close(); os.Stdout = oldStdout })
-	if got := runCLI([]string{"dismiss", shortID}); got != 0 {
+	var got int
+	_, _ = captureOutput(t, func() { got = runCLI([]string{"dismiss", shortID}) })
+	if got != 0 {
 		t.Fatalf("runCLI(dismiss %q) = %d, want 0", shortID, got)
 	}
-	_ = w.Close()
 	cfg, err := loadConfigForTest(repo)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
@@ -2332,22 +2112,13 @@ func TestRunCLI_optimizeNotConfiguredExitsNonZero(t *testing.T) {
 	origEnv := os.Getenv("STET_OPTIMIZER_SCRIPT")
 	os.Unsetenv("STET_OPTIMIZER_SCRIPT")
 	t.Cleanup(func() { _ = os.Setenv("STET_OPTIMIZER_SCRIPT", origEnv) })
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	oldStderr := os.Stderr
-	os.Stderr = w
-	t.Cleanup(func() { os.Stderr = oldStderr })
-	got := runCLI([]string{"optimize"})
-	_ = w.Close()
-	var stderr bytes.Buffer
-	_, _ = io.Copy(&stderr, r)
+	var got int
+	_, stderr := captureOutput(t, func() { got = runCLI([]string{"optimize"}) })
 	if got != 1 {
 		t.Errorf("runCLI(optimize) with no config = %d, want 1", got)
 	}
-	if !strings.Contains(stderr.String(), "Optimizer not configured") {
-		t.Errorf("stderr should mention Optimizer not configured; got %q", stderr.String())
+	if !strings.Contains(stderr, "Optimizer not configured") {
+		t.Errorf("stderr should mention Optimizer not configured; got %q", stderr)
 	}
 }
 
@@ -2534,19 +2305,10 @@ func TestRunCLI_statsVolumeJSONInRepoWithNote(t *testing.T) {
 	if got := runCLI([]string{"finish"}); got != 0 {
 		t.Fatalf("runCLI(finish) = %d, want 0", got)
 	}
-	oldStdout := os.Stdout
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	os.Stdout = w
-	t.Cleanup(func() { os.Stdout = oldStdout })
-	got := runCLI([]string{"stats", "volume", "--format=json", "--since=HEAD~1", "--until=HEAD"})
-	_ = w.Close()
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
+	var got int
+	stdout, _ := captureOutput(t, func() { got = runCLI([]string{"stats", "volume", "--format=json", "--since=HEAD~1", "--until=HEAD"}) })
 	if got != 0 {
-		t.Fatalf("runCLI(stats volume --format=json) = %d, want 0\nstderr/out: %s", got, buf.String())
+		t.Fatalf("runCLI(stats volume --format=json) = %d, want 0\nstderr/out: %s", got, stdout)
 	}
 	var out struct {
 		SessionsCount          int     `json:"sessions_count"`
@@ -2555,8 +2317,8 @@ func TestRunCLI_statsVolumeJSONInRepoWithNote(t *testing.T) {
 		PercentCommitsWithNote float64 `json:"percent_commits_with_note"`
 		TotalHunksReviewed     int     `json:"total_hunks_reviewed"`
 	}
-	if err := json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &out); err != nil {
-		t.Fatalf("parse stats volume JSON: %v\noutput: %s", err, buf.Bytes())
+	if err := json.Unmarshal(bytes.TrimSpace([]byte(stdout)), &out); err != nil {
+		t.Fatalf("parse stats volume JSON: %v\noutput: %s", err, []byte(stdout))
 	}
 	if out.CommitsInRange < 1 {
 		t.Errorf("commits_in_range: got %d, want >= 1", out.CommitsInRange)
@@ -2587,19 +2349,10 @@ func TestRunCLI_statsVolumeJSONWithGitAI(t *testing.T) {
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
-	oldStdout := os.Stdout
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	os.Stdout = w
-	t.Cleanup(func() { os.Stdout = oldStdout })
-	got := runCLI([]string{"stats", "volume", "--format=json", "--since=HEAD~1", "--until=HEAD"})
-	_ = w.Close()
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
+	var got int
+	stdout, _ := captureOutput(t, func() { got = runCLI([]string{"stats", "volume", "--format=json", "--since=HEAD~1", "--until=HEAD"}) })
 	if got != 0 {
-		t.Fatalf("runCLI(stats volume --format=json) = %d, want 0\nstderr/out: %s", got, buf.String())
+		t.Fatalf("runCLI(stats volume --format=json) = %d, want 0\nstderr/out: %s", got, stdout)
 	}
 	var out struct {
 		GitAI *struct {
@@ -2607,8 +2360,8 @@ func TestRunCLI_statsVolumeJSONWithGitAI(t *testing.T) {
 			TotalAIAuthoredLines int `json:"total_ai_authored_lines"`
 		} `json:"git_ai"`
 	}
-	if err := json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &out); err != nil {
-		t.Fatalf("parse stats volume JSON: %v\noutput: %s", err, buf.Bytes())
+	if err := json.Unmarshal(bytes.TrimSpace([]byte(stdout)), &out); err != nil {
+		t.Fatalf("parse stats volume JSON: %v\noutput: %s", err, []byte(stdout))
 	}
 	if out.GitAI == nil {
 		t.Fatal("git_ai: want non-nil when git-ai notes exist")
@@ -2639,21 +2392,12 @@ func TestRunCLI_statsVolumeHumanWithGitAI(t *testing.T) {
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
-	oldStdout := os.Stdout
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	os.Stdout = w
-	t.Cleanup(func() { os.Stdout = oldStdout })
-	got := runCLI([]string{"stats", "volume", "--since=HEAD~1", "--until=HEAD"})
-	_ = w.Close()
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
+	var got int
+	stdout, _ := captureOutput(t, func() { got = runCLI([]string{"stats", "volume", "--since=HEAD~1", "--until=HEAD"}) })
 	if got != 0 {
-		t.Fatalf("runCLI(stats volume) = %d, want 0\nstderr/out: %s", got, buf.String())
+		t.Fatalf("runCLI(stats volume) = %d, want 0\nstderr/out: %s", got, stdout)
 	}
-	out := buf.String()
+	out := stdout
 	if !strings.Contains(out, "Git AI (refs/notes/ai)") {
 		t.Errorf("human output should contain 'Git AI (refs/notes/ai)'; got:\n%s", out)
 	}
@@ -2698,19 +2442,10 @@ func TestRunCLI_statsQualityJSONInRepo(t *testing.T) {
 	if got := runCLI([]string{"finish"}); got != 0 {
 		t.Fatalf("runCLI(finish) = %d, want 0", got)
 	}
-	oldStdout := os.Stdout
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	os.Stdout = w
-	t.Cleanup(func() { os.Stdout = oldStdout })
-	got := runCLI([]string{"stats", "quality", "--format=json"})
-	_ = w.Close()
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
+	var got int
+	stdout, _ := captureOutput(t, func() { got = runCLI([]string{"stats", "quality", "--format=json"}) })
 	if got != 0 {
-		t.Fatalf("runCLI(stats quality --format=json) = %d, want 0\nstderr/out: %s", got, buf.String())
+		t.Fatalf("runCLI(stats quality --format=json) = %d, want 0\nstderr/out: %s", got, stdout)
 	}
 	var out struct {
 		SessionsCount      int            `json:"sessions_count"`
@@ -2720,8 +2455,8 @@ func TestRunCLI_statsQualityJSONInRepo(t *testing.T) {
 		CategoryBreakdown  map[string]int `json:"category_breakdown"`
 		DismissalsByReason map[string]int `json:"dismissals_by_reason"`
 	}
-	if err := json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &out); err != nil {
-		t.Fatalf("parse stats quality JSON: %v\noutput: %s", err, buf.Bytes())
+	if err := json.Unmarshal(bytes.TrimSpace([]byte(stdout)), &out); err != nil {
+		t.Fatalf("parse stats quality JSON: %v\noutput: %s", err, []byte(stdout))
 	}
 	if out.SessionsCount < 1 {
 		t.Errorf("sessions_count: got %d, want >= 1 after finish", out.SessionsCount)
@@ -2765,19 +2500,12 @@ func TestRunCLI_statsEnergyJSONInRepo(t *testing.T) {
 	if err := os.Chdir(repo); err != nil {
 		t.Fatal(err)
 	}
-	oldStdout := os.Stdout
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	os.Stdout = w
-	t.Cleanup(func() { os.Stdout = oldStdout })
-	got := runCLI([]string{"stats", "energy", "--format=json", "--since=HEAD~1", "--until=HEAD", "--cloud-model=gpt-4o-mini"})
-	_ = w.Close()
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
+	var got int
+	stdout, _ := captureOutput(t, func() {
+		got = runCLI([]string{"stats", "energy", "--format=json", "--since=HEAD~1", "--until=HEAD", "--cloud-model=gpt-4o-mini"})
+	})
 	if got != 0 {
-		t.Fatalf("runCLI(stats energy --format=json) = %d, want 0\nstderr/out: %s", got, buf.String())
+		t.Fatalf("runCLI(stats energy --format=json) = %d, want 0\nstderr/out: %s", got, stdout)
 	}
 	var out struct {
 		SessionsCount         int                `json:"sessions_count"`
@@ -2787,8 +2515,8 @@ func TestRunCLI_statsEnergyJSONInRepo(t *testing.T) {
 		LocalEnergyKWh        float64            `json:"local_energy_kwh"`
 		CloudCostAvoided      map[string]float64 `json:"cloud_cost_avoided"`
 	}
-	if err := json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &out); err != nil {
-		t.Fatalf("parse stats energy JSON: %v\noutput: %s", err, buf.Bytes())
+	if err := json.Unmarshal(bytes.TrimSpace([]byte(stdout)), &out); err != nil {
+		t.Fatalf("parse stats energy JSON: %v\noutput: %s", err, []byte(stdout))
 	}
 	if out.SessionsCount != 1 {
 		t.Errorf("sessions_count: got %d, want 1", out.SessionsCount)
@@ -2864,14 +2592,9 @@ func TestFormatLLMRejected(t *testing.T) {
 }
 
 func TestPrintLLMUnreachable_timeoutHint(t *testing.T) {
-	var stderr bytes.Buffer
-	orig := os.Stderr
-	r, w, _ := os.Pipe()
-	os.Stderr = w
-	defer func() { os.Stderr = orig }()
-	printLLMUnreachable("ollama", "http://localhost:11434", context.DeadlineExceeded)
-	_ = w.Close()
-	_, _ = stderr.ReadFrom(r)
+	_, _ = captureOutput(t, func() {
+		printLLMUnreachable("ollama", "http://localhost:11434", context.DeadlineExceeded)
+	})
 }
 
 func TestWriteFindingsHuman_singleFinding(t *testing.T) {
@@ -3030,16 +2753,11 @@ func TestRunCLI_commitMsgPrintsSuggestion(t *testing.T) {
 	origURL := os.Getenv("STET_OLLAMA_BASE_URL")
 	_ = os.Setenv("STET_OLLAMA_BASE_URL", srv.URL)
 	t.Cleanup(func() { _ = os.Setenv("STET_OLLAMA_BASE_URL", origURL) })
-	var stdout bytes.Buffer
-	origOut := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-	t.Cleanup(func() { os.Stdout = origOut })
-	if got := runCLI([]string{"commitmsg"}); got != 0 {
-		t.Fatalf("runCLI(commitmsg) = %d, want 0", got)
+	var code int
+	_, _ = captureOutput(t, func() { code = runCLI([]string{"commitmsg"}) })
+	if code != 0 {
+		t.Fatalf("runCLI(commitmsg) = %d, want 0", code)
 	}
-	_ = w.Close()
-	_, _ = stdout.ReadFrom(r)
 }
 
 func TestOverridesFromFlags_noFlagsNil(t *testing.T) {
@@ -3302,19 +3020,9 @@ func TestFindingsWriter_nilUsesStdout(t *testing.T) {
 }
 
 func TestPrintLLMUnreachable_emptyBaseURL(t *testing.T) {
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	oldStderr := os.Stderr
-	os.Stderr = w
-	t.Cleanup(func() { os.Stderr = oldStderr })
-	printLLMUnreachable("openai", "", errors.New("dial"))
-	_ = w.Close()
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-	if !strings.Contains(buf.String(), "(no URL)") {
-		t.Errorf("stderr = %q", buf.String())
+	_, stderr := captureOutput(t, func() { printLLMUnreachable("openai", "", errors.New("dial")) })
+	if !strings.Contains(stderr, "(no URL)") {
+		t.Errorf("stderr = %q", stderr)
 	}
 }
 
@@ -3631,21 +3339,14 @@ func TestRunCLI_startSystemOneCriticDropsLowScoredFinding(t *testing.T) {
 	}
 
 	// Capture stdout (findings JSON) and stderr (progress/errors) to assert the API key never leaks.
-	stdoutR, stdoutW, _ := os.Pipe()
-	stderrR, stderrW, _ := os.Pipe()
-	oldStdout, oldStderr := os.Stdout, os.Stderr
-	os.Stdout, os.Stderr = stdoutW, stderrW
-	got := runCLI([]string{"start", "HEAD~1", "--verify", "--critic-backend", "systemone", "--json"})
-	os.Stdout, os.Stderr = oldStdout, oldStderr
-	_ = stdoutW.Close()
-	_ = stderrW.Close()
-	var stdoutBuf, stderrBuf bytes.Buffer
-	_, _ = stdoutBuf.ReadFrom(stdoutR)
-	_, _ = stderrBuf.ReadFrom(stderrR)
-	combined := stdoutBuf.String() + stderrBuf.String()
+	var got int
+	stdout, stderr := captureOutput(t, func() {
+		got = runCLI([]string{"start", "HEAD~1", "--verify", "--critic-backend", "systemone", "--json"})
+	})
+	combined := stdout + stderr
 
 	if got != 0 {
-		t.Fatalf("runCLI(start --verify --critic-backend systemone) = %d, want 0; stderr: %s", got, stderrBuf.String())
+		t.Fatalf("runCLI(start --verify --critic-backend systemone) = %d, want 0; stderr: %s", got, stderr)
 	}
 	if len(sysOneRequests) == 0 {
 		t.Fatal("System One server received no requests; critic did not run")
@@ -3747,25 +3448,10 @@ func setDoctorSysOneEnv(t *testing.T, llmURL, sysOneURL string) {
 
 // runCLIWithOutput runs runCLI(args) capturing os.Stdout and os.Stderr.
 // Tests using it must not run in parallel.
-func runCLIWithOutput(args []string) (code int, stdout, stderr string) {
-	stdoutR, stdoutW, err := os.Pipe()
-	if err != nil {
-		panic(err)
-	}
-	stderrR, stderrW, err := os.Pipe()
-	if err != nil {
-		panic(err)
-	}
-	oldStdout, oldStderr := os.Stdout, os.Stderr
-	os.Stdout, os.Stderr = stdoutW, stderrW
-	code = runCLI(args)
-	os.Stdout, os.Stderr = oldStdout, oldStderr
-	_ = stdoutW.Close()
-	_ = stderrW.Close()
-	var stdoutBuf, stderrBuf bytes.Buffer
-	_, _ = stdoutBuf.ReadFrom(stdoutR)
-	_, _ = stderrBuf.ReadFrom(stderrR)
-	return code, stdoutBuf.String(), stderrBuf.String()
+func runCLIWithOutput(t *testing.T, args []string) (code int, stdout, stderr string) {
+	t.Helper()
+	stdout, stderr = captureOutput(t, func() { code = runCLI(args) })
+	return code, stdout, stderr
 }
 
 // assertNoSystemOneDecisionCall fails the test if doctor issued any request
@@ -3793,7 +3479,7 @@ func TestRunCLI_doctorSystemOneOK(t *testing.T) {
 	defer llmSrv.Close()
 	setDoctorSysOneEnv(t, llmSrv.URL, sysSrv.URL)
 
-	code, stdout, stderr := runCLIWithOutput([]string{"doctor"})
+	code, stdout, stderr := runCLIWithOutput(t, []string{"doctor"})
 	if code != 0 {
 		t.Errorf("runCLI(doctor) with healthy System One = %d, want 0; stderr: %s", code, stderr)
 	}
@@ -3841,7 +3527,7 @@ func TestRunCLI_doctorSystemOneTimeoutConfigurable(t *testing.T) {
 	t.Run("1s timeout fails as unreachable", func(t *testing.T) {
 		setDoctorSysOneEnv(t, llmSrv.URL, sysSrv.URL)
 		setTestEnv(t, "STET_SYSTEMONE_TIMEOUT", "1s")
-		code, _, stderr := runCLIWithOutput([]string{"doctor"})
+		code, _, stderr := runCLIWithOutput(t, []string{"doctor"})
 		if code != 2 {
 			t.Errorf("runCLI(doctor) with 1s timeout vs 1.2s server = %d, want 2; stderr: %s", code, stderr)
 		}
@@ -3852,7 +3538,7 @@ func TestRunCLI_doctorSystemOneTimeoutConfigurable(t *testing.T) {
 	t.Run("timeout raised above sleep succeeds", func(t *testing.T) {
 		setDoctorSysOneEnv(t, llmSrv.URL, sysSrv.URL)
 		setTestEnv(t, "STET_SYSTEMONE_TIMEOUT", "2") // integer seconds form
-		code, stdout, stderr := runCLIWithOutput([]string{"doctor"})
+		code, stdout, stderr := runCLIWithOutput(t, []string{"doctor"})
 		if code != 0 {
 			t.Errorf("runCLI(doctor) with 2s timeout vs 1.2s server = %d, want 0; stderr: %s", code, stderr)
 		}
@@ -3880,7 +3566,7 @@ func TestRunCLI_doctorSystemOneUnreachableExits2(t *testing.T) {
 	defer llmSrv.Close()
 	setDoctorSysOneEnv(t, llmSrv.URL, baseURL)
 
-	code, _, stderr := runCLIWithOutput([]string{"doctor"})
+	code, _, stderr := runCLIWithOutput(t, []string{"doctor"})
 	if code != 2 {
 		t.Errorf("runCLI(doctor) with unreachable System One = %d, want 2; stderr: %s", code, stderr)
 	}
@@ -3902,7 +3588,7 @@ func TestRunCLI_doctorSystemOneHealthUnauthorizedExits2(t *testing.T) {
 	defer llmSrv.Close()
 	setDoctorSysOneEnv(t, llmSrv.URL, sysSrv.URL)
 
-	code, stdout, stderr := runCLIWithOutput([]string{"doctor"})
+	code, stdout, stderr := runCLIWithOutput(t, []string{"doctor"})
 	if code != 2 {
 		t.Errorf("runCLI(doctor) with 401 System One health = %d, want 2; stderr: %s", code, stderr)
 	}
@@ -3931,7 +3617,7 @@ func TestRunCLI_doctorSystemOneModelsUnauthorizedExits2(t *testing.T) {
 	defer llmSrv.Close()
 	setDoctorSysOneEnv(t, llmSrv.URL, sysSrv.URL)
 
-	code, _, stderr := runCLIWithOutput([]string{"doctor"})
+	code, _, stderr := runCLIWithOutput(t, []string{"doctor"})
 	if code != 2 {
 		t.Errorf("runCLI(doctor) with 401 System One models = %d, want 2; stderr: %s", code, stderr)
 	}
@@ -3954,7 +3640,7 @@ func TestRunCLI_doctorSystemOneModelNotFoundExits1(t *testing.T) {
 	defer llmSrv.Close()
 	setDoctorSysOneEnv(t, llmSrv.URL, sysSrv.URL)
 
-	code, stdout, stderr := runCLIWithOutput([]string{"doctor"})
+	code, stdout, stderr := runCLIWithOutput(t, []string{"doctor"})
 	if code != 1 {
 		t.Errorf("runCLI(doctor) with missing System One model = %d, want 1; stderr: %s", code, stderr)
 	}
@@ -3993,7 +3679,7 @@ func TestRunCLI_doctorSystemOneDisabledMakesNoRequest(t *testing.T) {
 	setTestEnv(t, "STET_RULES_ANNOTATE", "0")
 
 	// Critic disabled: doctor must not contact the System One server.
-	code, stdout, _ := runCLIWithOutput([]string{"doctor"})
+	code, stdout, _ := runCLIWithOutput(t, []string{"doctor"})
 	if code != 0 {
 		t.Errorf("runCLI(doctor) with critic disabled = %d, want 0", code)
 	}
@@ -4007,7 +3693,7 @@ func TestRunCLI_doctorSystemOneDisabledMakesNoRequest(t *testing.T) {
 	// Critic enabled but backend llm: still no System One requests.
 	setTestEnv(t, "STET_CRITIC_ENABLED", "1")
 	setTestEnv(t, "STET_CRITIC_BACKEND", "llm")
-	code, stdout, _ = runCLIWithOutput([]string{"doctor"})
+	code, stdout, _ = runCLIWithOutput(t, []string{"doctor"})
 	if code != 0 {
 		t.Errorf("runCLI(doctor) with critic backend llm = %d, want 0", code)
 	}
@@ -4075,7 +3761,7 @@ func TestRunCLI_doctorSystemOneTriggerCombinations(t *testing.T) {
 			setTestEnv(t, "STET_RULES_SELECTOR", boolEnvOrOff(tc.rulesSelector))
 			setTestEnv(t, "STET_RULES_ANNOTATE", boolEnvOrOff(tc.rulesAnnotate))
 
-			code, stdout, stderr := runCLIWithOutput([]string{"doctor"})
+			code, stdout, stderr := runCLIWithOutput(t, []string{"doctor"})
 			if code != 0 {
 				t.Errorf("runCLI(doctor) = %d, want 0; stderr: %s", code, stderr)
 			}
@@ -4132,7 +3818,7 @@ func TestRunCLI_doctorSystemOneSelectorUnreachableExits2(t *testing.T) {
 	setTestEnv(t, "STET_SYSTEMONE_BASE_URL", baseURL)
 	setTestEnv(t, "STET_SYSTEMONE_MODEL", "openjev-test")
 
-	code, _, stderr := runCLIWithOutput([]string{"doctor"})
+	code, _, stderr := runCLIWithOutput(t, []string{"doctor"})
 	if code != 2 {
 		t.Errorf("runCLI(doctor) with selector on and unreachable System One = %d, want 2; stderr: %s", code, stderr)
 	}
@@ -4224,7 +3910,7 @@ func TestRunCLI_criticEvalHuman(t *testing.T) {
 	datasetPath := writeCriticEvalDatasetN(t, 3, 3)
 	setCriticEvalEnv(t, sysSrv.URL)
 
-	code, stdout, stderr := runCLIWithOutput([]string{"critic-eval", "--dataset", datasetPath})
+	code, stdout, stderr := runCLIWithOutput(t, []string{"critic-eval", "--dataset", datasetPath})
 	if code != 0 {
 		t.Fatalf("runCLI(critic-eval) = %d, want 0; stderr: %s", code, stderr)
 	}
@@ -4274,7 +3960,7 @@ func TestRunCLI_criticEvalJSON(t *testing.T) {
 	datasetPath := writeCriticEvalDatasetN(t, 3, 3)
 	setCriticEvalEnv(t, sysSrv.URL)
 
-	code, stdout, stderr := runCLIWithOutput([]string{"critic-eval", "--dataset", datasetPath, "--json"})
+	code, stdout, stderr := runCLIWithOutput(t, []string{"critic-eval", "--dataset", datasetPath, "--json"})
 	if code != 0 {
 		t.Fatalf("runCLI(critic-eval --json) = %d, want 0; stderr: %s", code, stderr)
 	}
@@ -4313,7 +3999,7 @@ func TestRunCLI_criticEvalEmptyStateExits1(t *testing.T) {
 	setCriticEvalEnv(t, sysSrv.URL)
 	setTestEnv(t, "STET_STATE_DIR", t.TempDir()) // exists but has no history/session
 
-	code, _, stderr := runCLIWithOutput([]string{"critic-eval"})
+	code, _, stderr := runCLIWithOutput(t, []string{"critic-eval"})
 	if code != 1 {
 		t.Fatalf("runCLI(critic-eval) with empty state = %d, want 1", code)
 	}
@@ -4345,7 +4031,7 @@ func TestRunCLI_criticEvalUnreachableExits2(t *testing.T) {
 	datasetPath := writeCriticEvalDatasetN(t, 1, 0)
 	setCriticEvalEnv(t, baseURL)
 
-	code, _, stderr := runCLIWithOutput([]string{"critic-eval", "--dataset", datasetPath})
+	code, _, stderr := runCLIWithOutput(t, []string{"critic-eval", "--dataset", datasetPath})
 	if code != 2 {
 		t.Fatalf("runCLI(critic-eval) with unreachable System One = %d, want 2; stderr: %s", code, stderr)
 	}
@@ -4367,7 +4053,7 @@ func TestRunCLI_criticEvalMissingDatasetExits1(t *testing.T) {
 	setCriticEvalEnv(t, sysSrv.URL)
 
 	missing := filepath.Join(t.TempDir(), "missing.jsonl")
-	code, _, stderr := runCLIWithOutput([]string{"critic-eval", "--dataset", missing})
+	code, _, stderr := runCLIWithOutput(t, []string{"critic-eval", "--dataset", missing})
 	if code != 1 {
 		t.Fatalf("runCLI(critic-eval --dataset <missing>) = %d, want 1", code)
 	}
