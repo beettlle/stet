@@ -1,0 +1,23 @@
+cli/internal/review/review.go
+  s_8bc3d4db589f10::t_417905225989f8 39-45,306,308,311-313,315,328
+cli/internal/review/truncation.go
+  s_8bc3d4db589f10::t_12988b4e2e824a 1-268
+cli/internal/review/truncation_test.go
+  s_8bc3d4db589f10::t_e4722ea8c7e8cf 1-258
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ea2124fe559d4026eabbe33fc2734f85a98d3001",
+  "prompts": {},
+  "sessions": {
+    "s_8bc3d4db589f10": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "a8955180-c57b-4cf4-8283-f1640ad8014b",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
