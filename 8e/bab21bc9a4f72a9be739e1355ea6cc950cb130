@@ -1,0 +1,21 @@
+.review/config.toml
+  s_8bc3d4db589f10::t_2e019810854c72 5-8,20-22,26
+spine-tasks/CONTEXT.md
+  s_8bc3d4db589f10::t_5a729fe2cb10c6 101,105,119,151
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8ebab21bc9a4f72a9be739e1355ea6cc950cb130",
+  "prompts": {},
+  "sessions": {
+    "s_8bc3d4db589f10": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "a8955180-c57b-4cf4-8283-f1640ad8014b",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
