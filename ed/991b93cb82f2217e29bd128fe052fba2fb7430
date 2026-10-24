@@ -1,0 +1,14 @@
+spine-tasks/SP-073-contract-actionable-gate/STATUS.md
+  h_ae151c586ac6c5 3-4,29,37,45-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ed991b93cb82f2217e29bd128fe052fba2fb7430",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
