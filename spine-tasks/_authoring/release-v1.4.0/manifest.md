@@ -4,7 +4,7 @@
 **Last tag:** v1.3.0
 **Target version:** v1.4.0
 **Bump type / profile:** minor
-**Operator approved scope:** no. Packets were authored ahead of approval at operator request ("just create the spine tasks, don't run until it is approved"). Do not start Phase 4 until the operator says "approve release scope".
+**Operator approved scope:** yes (2026-10-24). Packets were authored ahead of approval at operator request ("just create the spine tasks, don't run until it is approved"); operator then approved the scope, including the SP-073 gate policy (`--min-severity warning --min-confidence 0.8`).
 **Worker model pin:** zai/glm-5.3-flash — do not change mid-release
 **Agent pin override:** none
 
@@ -41,8 +41,8 @@ M/L check: three M (SP-068, SP-069, SP-070); no L/XL. Minor allows S/M. The only
 | Check | Result |
 |-------|--------|
 | `go list -u -m` | 4 indirect-only updates (go-md2man v2.0.7, pflag v1.0.10, yaml/v3 v3.0.5, check.v1) — no threshold |
-| `govulncheck` | 1 reachable stdlib finding: GO-2026-6809 (`crypto/x509`, trace `run.Run` → `fmt.Fprintf` → `x509.Certificate.Verify`), found in go1.27.2, fixed in go1.27.3. Same finding as v1.3.0; mitigated without a task: both workflows use `go-version: "1.27.x"` with `check-latest: true` (SP-042), and the v1.3.0 `release.yml` run built with go1.27.3. Verify again in Phase 6. Operator: the local toolchain is still go1.27.2; update it. |
-| Toolchain / Actions pins | Go `1.27.x` + `check-latest` (local go1.27.2), Node 22, actions `@v7` — current |
+| `govulncheck` | 1 reachable stdlib finding: GO-2026-6809 (`crypto/x509`, trace `run.Run` → `fmt.Fprintf` → `x509.Certificate.Verify`), found in go1.27.2, fixed in go1.27.3. Same finding as v1.3.0; mitigated without a task: both workflows use `go-version: "1.27.x"` with `check-latest: true` (SP-042), and the v1.3.0 `release.yml` run built with go1.27.3. Verify again in Phase 6. Local toolchain updated to go1.27.3 on 2026-10-24, so the finding is fixed locally too (re-checked before wave 0). |
+| Toolchain / Actions pins | Go `1.27.x` + `check-latest` (local go1.27.3), Node 22, actions `@v7` — current |
 | Extension npm | vitest 2→5, typescript 5→7, @types/* behind; 0 audit findings — deferred (not shipped) |
 | Action | deferred: indirect-only drift; stdlib finding covered by the workflow pin |
 
@@ -143,13 +143,11 @@ Wave 3 · 2 tasks · 2 lanes in parallel
 
 ## Risks and blockers
 
-- Scope approval pending. Do not start Phase 4 until the operator says "approve release scope".
-- `main` is 2 commits ahead of `origin/main` (`1ea4f48`, `e35636b`); push before the first wave lands.
-- Uncommitted files from another session are in the working tree (`AGENTS.md` modified, `.claude/` and `CLAUDE.md` untracked). Spine preflight and `spine batch start` need a clean tree; resolve before Phase 4.
+- `main` was ahead of `origin/main` (`1ea4f48`, `e35636b`, `5c0865c`, `fbe1888`, plus the approval commit); pushed after the baseline release check, before wave 0.
 - Three tasks edit `cli/internal/run/run.go` in sequence (SP-069 → SP-070 → SP-072), which stretches the plan to 4 waves.
 - SP-069 raises critic input from ≤4096 to ≤16384 characters per finding/hunk; expect higher critic latency in lane contracts once it lands.
 - Lane reuse can leave a lane without `.review/spine-stet-baseline.ref` (v1.2.0 / v1.3.0 tech debt); stet-gated contracts may need the baseline restored (wave 0 reuses lane 1 for SP-069 and SP-073).
-- Local toolchain is go1.27.2 (GO-2026-6809). Release binaries are built in CI with the latest 1.27.x; confirm the version in the `release.yml` log.
+- Release binaries are built in CI with the latest 1.27.x; confirm go1.27.3 or later in the `release.yml` log (GO-2026-6809).
 
 ---
 

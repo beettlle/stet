@@ -201,7 +201,7 @@ Edges are shared-file serialization (`main_test.go`, `rag/js/resolver.go`) excep
 
 ### Phase 12 — Release v1.4.0 (2026-10-24)
 
-Manifest: `spine-tasks/_authoring/release-v1.4.0/manifest.md`. Scope approval pending.
+Manifest: `spine-tasks/_authoring/release-v1.4.0/manifest.md`. Scope approved 2026-10-24.
 
 | Task | Summary | Size | Status | Deps |
 |------|---------|------|--------|------|
