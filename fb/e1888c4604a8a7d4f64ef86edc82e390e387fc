@@ -1,0 +1,18 @@
+.gitignore
+  h_ae151c586ac6c5 83-88
+AGENTS.md
+  h_ae151c586ac6c5 190-234
+CLAUDE.md
+  h_ae151c586ac6c5 1-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fbe1888c4604a8a7d4f64ef86edc82e390e387fc",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
