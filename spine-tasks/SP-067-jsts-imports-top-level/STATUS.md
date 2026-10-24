@@ -1,7 +1,7 @@
 # SP-067: JS/TS import block reaches top-level and test-callback hunks — Status
 
-**Current Step:** 3
-**Status:** 🔄 In Progress
+**Current Step:** 3 (complete)
+**Status:** ✅ Complete
 **Last Updated:** 2026-10-24
 **Review Level:** 1
 **Review Counter:** 0
@@ -60,9 +60,21 @@ by `..._tinyBudget_truncatedBlock`; added `..._degenerateBudget_importsOnly` and
 ---
 
 ### Step 3: Testing & Verification
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] Contract `testCommand` passing (stet review exits 0)
+- [x] Contract `testCommand` passing (stet review exits 0)
+
+**Evidence:**
+
+- `bash scripts/check-gofmt.sh` → clean
+- `go vet ./cli/...` → clean
+- `go test ./cli/internal/expand/... -count=1` → ok (incl. new regression tests; sub-floor table
+  also verified with `-race -count=5`)
+- `bash scripts/spine-stet-contract-run.sh default` → first run found 7 findings, all triaged and
+  dismissed as false positives (see Discoveries); re-run → 0 findings, exit 0.
+- `gitnexus detect_changes` (scope=all) → 0 changed symbols; only the test-hygiene tweak is in the
+  working tree; production blast radius unchanged (expandJSTSHunk → ExpandHunk → PrepareHunkPrompt,
+  LOW risk).
 
 ---
 
@@ -77,3 +89,7 @@ by `..._tinyBudget_truncatedBlock`; added `..._degenerateBudget_importsOnly` and
 
 | Discovery | Disposition | Location |
 |-----------|-------------|----------|
+| All four Mission cases already passed at the pipeline budget (4096 tokens); the reported #36 evidence was the prompt shadow storing `RawContent` only, as the PROMPT suspected. Real defects were below the pipeline floor: import block dropped for maxTokens 5–23, panic at maxTokens ≤ 4. | fixed | `cli/internal/expand/expand_jsts.go` |
+| Latent panic: `truncateToTokens(funcSrc, maxTokens)` slices `s[:-3]` for maxTokens ≤ 4 with a long function (pre-existing, reached via `expandJSTSHunk:239`). `truncateToTokens` itself is out of file scope; guarded at the call site instead. | fixed (guard) | `expand_jsts.go` funcSrc truncation |
+| stet reviewer bugs (all 7 contract findings dismissed as false_positive; none were real defects): (1) `d13bebf` reasoned from a truncated view of the new `jstsImportsOnlyHunk` and claimed the diff hunk section was missing — it is included; (2) `777d586` (ERROR severity) claimed `t.Run` subtests run in parallel by default — they are sequential without `t.Parallel()` (verified with `-race -count=5`); (3) `856c36` claimed the old code "truncated and included" the context at maxTokens ≤ 4 — it panicked; (4) `35afab5` claimed the previous behavior kept output within `maxTokens` — the raw hunk was never part of the budget; (5) `fb95990` speculated `minJSTSTruncateTokens` might evaluate ≤ 4 — it is the compile-time const 6; (6) `d7f1f6f` claimed the function context is dropped in the long-import-block test — funcBudget is 3072 at the pipeline budget and the test passes; (7) `fc7ed98` flagged an empty-`importSection` call — both call sites guard on `showImports`, so it cannot be empty. | dismissed (false_positive) | stet contract review |
+| `docs/review-process-internals.md` documents expansion behavior at pipeline budgets, which is byte-identical before/after this change; no doc update needed for SP-076. | no change needed | docs/review-process-internals.md |

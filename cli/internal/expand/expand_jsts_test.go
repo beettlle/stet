@@ -1151,15 +1151,16 @@ func TestExpandHunk_JSTS_subFloorBudget_noPanic(t *testing.T) {
 	for _, maxTokens := range []int{1, 2, 3, 4, 5} {
 		for _, file := range []string{"noimports.js", "withimports.js"} {
 			t.Run(fmt.Sprintf("%s/maxTokens=%d", file, maxTokens), func(t *testing.T) {
-				hunk.FilePath = file
-				expanded, err := ExpandHunk(dir, hunk, maxTokens)
+				h := hunk // local copy: no shared mutable state across subtests
+				h.FilePath = file
+				expanded, err := ExpandHunk(dir, h, maxTokens)
 				if err != nil {
 					t.Fatalf("ExpandHunk: %v", err)
 				}
 				if file == "withimports.js" && !strings.Contains(expanded.Context, "## File imports") {
 					t.Errorf("import block must never be dropped while any budget remains, got:\n%s", expanded.Context)
 				}
-				if file == "noimports.js" && maxTokens < minJSTSTruncateTokens && expanded.Context != hunk.Context {
+				if file == "noimports.js" && maxTokens < minJSTSTruncateTokens && expanded.Context != h.Context {
 					t.Errorf("sub-floor budget without imports must fail open to the hunk unchanged, got:\n%s", expanded.Context)
 				}
 			})
