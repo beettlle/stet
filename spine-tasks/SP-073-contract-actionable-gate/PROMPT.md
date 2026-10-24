@@ -99,3 +99,16 @@ Add `scripts/tests/spine-stet-contract-run-test.sh`: creates a temp directory wi
 ---
 
 ## Amendments (Added During Execution)
+
+### 2026-10-24 — Fallback for a released stet without the threshold flags
+
+The first attempt failed its Contract: the `stet` on the operator's `PATH` is v1.3.0, and its `stet list` rejects `--min-severity` (`unknown flag: --min-severity`). The flags ship in v1.4.0, so every lane in this release runs the script against v1.3.0.
+
+Keep the Step 1 work and add:
+
+1. Before computing the gating list, detect flag support with `stet list --help` (look for `--min-severity`). When supported, behave exactly as in Step 1.
+2. When not supported: print one line to stderr, `stet: installed stet does not support 'stet list --min-severity'; gating on all active findings`, and use the unfiltered `stet list` as the gating list. This is the pre-v1.4.0 policy: any active finding fails the contract. Never silently pass.
+3. Extend the test: the fake `stet` answers `list --help` with or without the `--min-severity` line based on an env var, and add case (e) — no flag support plus one `info` finding → exit 1, the warning line is printed, and `--min-severity` is never passed to `list`. Keep the existing cases passing (their fake must advertise the flag).
+4. Update the header comment to mention the fallback.
+
+File Scope and Contract are unchanged.
