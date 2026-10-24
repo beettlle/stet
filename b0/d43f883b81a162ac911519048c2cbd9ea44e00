@@ -1,0 +1,21 @@
+scripts/model_eval.py
+  s_8bc3d4db589f10::t_e59cc74ac7762f 81,83-84
+scripts/tests/test_model_eval.py
+  s_8bc3d4db589f10::t_17b7ef62925010 237-239
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b0d43f883b81a162ac911519048c2cbd9ea44e00",
+  "prompts": {},
+  "sessions": {
+    "s_8bc3d4db589f10": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "a8955180-c57b-4cf4-8283-f1640ad8014b",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
