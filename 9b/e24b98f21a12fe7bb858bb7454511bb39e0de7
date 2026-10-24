@@ -1,0 +1,14 @@
+spine-tasks/SP-073-contract-actionable-gate/PROMPT.md
+  h_ae151c586ac6c5 102-114
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9be24b98f21a12fe7bb858bb7454511bb39e0de7",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
