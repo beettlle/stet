@@ -119,6 +119,13 @@ Wave 3 · 2 tasks · 2 lanes in parallel
 
 | Wave | Batch ID | Tasks landed | stet wave review (active findings) | release-check log | Exit | Pushed | Issues closed |
 |------|----------|--------------|------------------------------------|-------------------|------|--------|---------------|
+| 0 | 20261024T211835-d201 | SP-067, SP-068, SP-069, SP-071, SP-073 (integrate `42b70dc`) | 15 (advisory; mostly partial-hunk hallucinations; byte-slice truncation is pre-existing → deferred) | `/tmp/stet-release-check-wave-0.log` | 0 | `6de2150`, CI run 40143711668 green | #36, #19, #37, #25 closed; #18 progress comment |
+
+**Wave 0 recovery notes:**
+
+- Dry run reported "wave cap exceeded (max 4)" for 5 tasks; proceeded per the v1.3.0 precedent (stet profile caps M tasks; wave 0 has 2 M).
+- SP-073 failed its Contract (`contract_failed`): the `stet` on `PATH` is v1.3.0 and rejects `stet list --min-severity` (flags ship in v1.4.0). Operator-approved fix: amended the PROMPT (`9be24b9`) so the script falls back to gating on all active findings when the flags are missing, cherry-picked into lane 1, `spine batch retry SP-073` (escalatePolicy → `anthropic` profile). Retry passed.
+- Workers committed test-output artifacts (`cli/stet.log`, `cli/go-test-output.txt`, `cli/go-cover-output.txt`, `go-test-output.txt`); removed on `main` in `6de2150`.
 
 ---
 
@@ -138,6 +145,7 @@ Wave 3 · 2 tasks · 2 lanes in parallel
 | #2 | enhancement | Epic-sized token reduction |
 | Go indirect drift | deps | Indirect-only; no threshold fired |
 | Extension npm drift | deps | Extension not shipped |
+| Critic byte-slice truncation | bug | `review/critic.go` and `critic_systemone.go` truncate with `s[:n]`, which can split a UTF-8 rune (pre-existing in `critic.go`; flagged by the wave 0 review). Candidate XS task |
 
 ---
 
