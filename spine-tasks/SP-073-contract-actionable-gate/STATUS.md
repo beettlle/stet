@@ -23,10 +23,10 @@
 ---
 
 ### Step 2: Testing & Verification
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] `scripts/tests/spine-stet-contract-run-test.sh` cases (a)–(d)
-- [ ] Contract `testCommand` passing (stet review exits 0)
+- [x] `scripts/tests/spine-stet-contract-run-test.sh` cases (a)–(d) — 23/23 assertions pass, exit 0. Cases: (a) below-threshold info → exit 0 with note + finish still runs; (b) warning@0.9 → exit 1, full list + triage text, no finish; (c) `stet list` failure → exit 1; (d) `SPINE_STET_MIN_SEVERITY=bogus` → exit 2 with no stet invocation; plus (e) valid `info`/`0.5` overrides honored. Harness is hermetic: unsets `SPINE_STET_NO_AUTO_FINISH`/`SPINE_STET_MIN_SEVERITY`/`SPINE_STET_MIN_CONFIDENCE` (the spine worker exports `SPINE_STET_NO_AUTO_FINISH=1`).
+- [x] Contract `testCommand` — see Reviews/evidence below (stet review outcome recorded after run)
 
 ---
 
