@@ -233,6 +233,65 @@ func TestExtractSymbols_importForms_yieldLocalBindings(t *testing.T) {
 	}
 }
 
+func TestImportBindings_pairsWithModuleAndSource(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		want []importBinding
+	}{
+		{"named", `import { compareTaskIds } from "./discover.mjs";`,
+			[]importBinding{{local: "compareTaskIds", source: "compareTaskIds", module: "./discover.mjs"}}},
+		{"named multiple with alias", `import { alpha, beta as gamma } from "./m.js";`,
+			[]importBinding{
+				{local: "alpha", source: "alpha", module: "./m.js"},
+				{local: "gamma", source: "beta", module: "./m.js"},
+			}},
+		{"type-only", `import type { Options } from "./x";`,
+			[]importBinding{{local: "Options", source: "Options", module: "./x"}}},
+		{"default", `import discover from "./discover.mjs";`,
+			[]importBinding{{local: "discover", source: sourceDefault, module: "./discover.mjs"}}},
+		{"default plus named", `import React, { useMemo } from "react";`,
+			[]importBinding{
+				{local: "useMemo", source: "useMemo", module: "react"},
+				{local: "React", source: sourceDefault, module: "react"},
+			}},
+		{"namespace binding is skipped", `import * as helpers from "./helpers.js";`, nil},
+		{"default plus namespace", `import React, * as ns from "react";`,
+			[]importBinding{{local: "React", source: sourceDefault, module: "react"}}},
+		{"single quotes", `import { alpha } from './m.js';`,
+			[]importBinding{{local: "alpha", source: "alpha", module: "./m.js"}}},
+		{"require destructuring", `const { readTasks, writeTasks: saveTasks } = require("./tasks");`,
+			[]importBinding{
+				{local: "readTasks", source: "readTasks", module: "./tasks"},
+				{local: "saveTasks", source: "writeTasks", module: "./tasks"},
+			}},
+		{"require default", `const loader = require("./loader");`,
+			[]importBinding{{local: "loader", source: sourceDefault, module: "./loader"}}},
+		{"dynamic require has no specifier", `const loader = require(resolve("./loader"));`, nil},
+		{"cut-off hunk has no specifier", `import { alpha } from`, nil},
+		{"multi-line diff", "+import {\n+  first,\n+  second\n+    as third,\n+} from \"./m.js\";", []importBinding{
+			{local: "first", source: "first", module: "./m.js"},
+			{local: "third", source: "second", module: "./m.js"},
+		}},
+		{"multi-line require", "const loader = require(\n  \"./loader\"\n);", []importBinding{
+			{local: "loader", source: sourceDefault, module: "./loader"},
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := importBindings(tc.src)
+			if len(got) != len(tc.want) {
+				t.Fatalf("importBindings(%q) = %+v, want %+v", tc.src, got, tc.want)
+			}
+			for i := range tc.want {
+				if got[i] != tc.want[i] {
+					t.Errorf("importBindings(%q)[%d] = %+v, want %+v", tc.src, i, got[i], tc.want[i])
+				}
+			}
+		})
+	}
+}
+
 func TestExtractSymbols_importBoundNamesComeFirst(t *testing.T) {
 	hunk := "+const x = Widget(arr.sort(byName));\n+import { compareTaskIds } from \"./discover.mjs\";\n"
 	got := extractSymbols(hunk)

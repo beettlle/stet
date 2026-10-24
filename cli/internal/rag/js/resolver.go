@@ -87,19 +87,44 @@ var jsBuiltinGlobals = map[string]bool{
 const jsIdentPattern = `[A-Za-z_$][A-Za-z0-9_$]*`
 
 var (
+	// specifier matches a quoted module specifier after "from" or inside
+	// require(...); its capture group holds the specifier text ("" when the
+	// text is cut off before it or the require is dynamic).
+	specifier = `(?:["']([^"']*)["'])?`
+
 	// import { a, b as c } from "..."; import d, { e } from "..."
-	importNamedRe = regexp.MustCompile(`\bimport\s+(?:type\s+)?(?:` + jsIdentPattern + `\s*,\s*)?\{([^}]*)\}\s*from\b`)
+	// Group 1: brace list. Group 2: module specifier.
+	importNamedRe = regexp.MustCompile(`\bimport\s+(?:type\s+)?(?:` + jsIdentPattern + `\s*,\s*)?\{([^}]*)\}\s*from\b\s*` + specifier)
 	// import d from "..."; import d, { e } from "..."; import d, * as ns from "..."
-	importDefaultRe = regexp.MustCompile(`\bimport\s+(?:type\s+)?(` + jsIdentPattern + `)\s*(?:,|from\b)`)
+	// Group 1: default binding. Groups 2-3: module specifier (after a comma
+	// with a named or namespace clause, or directly after "from").
+	importDefaultRe = regexp.MustCompile(`\bimport\s+(?:type\s+)?(` + jsIdentPattern + `)\s*(?:,(?:\s*(?:\{[^}]*\}\s*|\*\s*as\s+` + jsIdentPattern + `\s+)?from\b\s*` + specifier + `)?|from\b\s*` + specifier + `)`)
 	// import * as ns from "..."; import d, * as ns from "..."
-	importNamespaceRe = regexp.MustCompile(`\bimport\s+(?:` + jsIdentPattern + `\s*,\s*)?\*\s*as\s+(` + jsIdentPattern + `)`)
+	// Group 1: namespace binding. Group 2: module specifier.
+	importNamespaceRe = regexp.MustCompile(`\bimport\s+(?:` + jsIdentPattern + `\s*,\s*)?\*\s*as\s+(` + jsIdentPattern + `)(?:\s+from\b\s*` + specifier + `)?`)
 	// const { a, b: c } = require("...")
-	requireDestructRe = regexp.MustCompile(`\b(?:const|let|var)\s+\{([^}]*)\}\s*=\s*require\s*\(`)
+	// Group 1: brace list. Group 2: module specifier.
+	requireDestructRe = regexp.MustCompile(`\b(?:const|let|var)\s+\{([^}]*)\}\s*=\s*require\s*\(\s*` + specifier + `\s*\)?`)
 	// const x = require("...")
-	requireDefaultRe = regexp.MustCompile(`\b(?:const|let|var)\s+(` + jsIdentPattern + `)\s*=\s*require\s*\(`)
+	// Group 1: local binding. Group 2: module specifier.
+	requireDefaultRe = regexp.MustCompile(`\b(?:const|let|var)\s+(` + jsIdentPattern + `)\s*=\s*require\s*\(\s*` + specifier + `\s*\)?`)
 	// Bare identifier (whole string).
 	bareIdentRe = regexp.MustCompile(`^` + jsIdentPattern + `$`)
 )
+
+// sourceDefault is the exported source name for default-style bindings: ESM
+// "import d from m" and whole-module CommonJS "const x = require(m)".
+const sourceDefault = "default"
+
+// importBinding is one import/require-bound local name together with the
+// module specifier it comes from and the exported source name it is bound to
+// in that module. Namespace bindings ("* as ns") never get a binding: no
+// single exported name corresponds to them, so they resolve via git grep.
+type importBinding struct {
+	local  string // local name bound in the importing file
+	source string // exported name in the module; sourceDefault for default-style
+	module string // module specifier as written ("./discover.mjs", "lodash")
+}
 
 // Resolver implements rag.Resolver for JavaScript and TypeScript.
 type Resolver struct{}
@@ -219,18 +244,89 @@ func importBoundNames(src string) []string {
 	return names
 }
 
+// importBindings parses import and require statements in src and returns one
+// binding per local name that carries a module specifier, in the same form
+// order as importBoundNames. Unlike importBoundNames it drops bindings with
+// no usable specifier (dynamic require(m), cut-off hunks) and namespace
+// bindings — neither can be resolved in a module, so they fall back to git
+// grep. bindingListPairs (not bindingListNames) is used here because both
+// sides of an alias must be bare identifiers for module lookup.
+func importBindings(src string) []importBinding {
+	var bindings []importBinding
+	for _, m := range importNamedRe.FindAllStringSubmatch(src, -1) {
+		if m[2] == "" {
+			continue
+		}
+		for _, pair := range bindingListPairs(m[1], " as ") {
+			bindings = append(bindings, importBinding{local: pair[1], source: pair[0], module: m[2]})
+		}
+	}
+	for _, m := range importDefaultRe.FindAllStringSubmatch(src, -1) {
+		spec := m[2]
+		if spec == "" {
+			spec = m[3]
+		}
+		if spec != "" {
+			bindings = append(bindings, importBinding{local: m[1], source: sourceDefault, module: spec})
+		}
+	}
+	for _, m := range requireDestructRe.FindAllStringSubmatch(src, -1) {
+		if m[2] == "" {
+			continue
+		}
+		for _, pair := range bindingListPairs(m[1], ":") {
+			bindings = append(bindings, importBinding{local: pair[1], source: pair[0], module: m[2]})
+		}
+	}
+	for _, m := range requireDefaultRe.FindAllStringSubmatch(src, -1) {
+		if m[2] != "" {
+			bindings = append(bindings, importBinding{local: m[1], source: sourceDefault, module: m[2]})
+		}
+	}
+	return bindings
+}
+
+// normalizeBindingItem normalizes one comma-separated item of an import or
+// destructuring brace list: strips diff markers, collapses whitespace
+// (including newlines, so "b\n+  as c" matches the alias separator), and
+// removes a trailing "= default" initializer.
+func normalizeBindingItem(item string) string {
+	item = strings.Join(strings.Fields(stripDiffMarkers(item)), " ")
+	if i := strings.Index(item, "="); i >= 0 {
+		item = item[:i]
+	}
+	return item
+}
+
+// bindingListPairs parses the inside of an import/destructuring brace list
+// ("a, b as c" or "a, b: c") into (source, local) name pairs: the exported
+// source name first, the local alias second. Items whose either side is not
+// a bare identifier (string export names, computed keys) are skipped.
+func bindingListPairs(list, aliasSep string) [][2]string {
+	var pairs [][2]string
+	for _, item := range strings.Split(list, ",") {
+		item = normalizeBindingItem(item)
+		source, local := item, item
+		if i := strings.Index(item, aliasSep); i >= 0 {
+			source, local = item[:i], item[i+len(aliasSep):]
+		}
+		source = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(source), "type "))
+		local = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(local), "type "))
+		if bareIdentRe.MatchString(source) && bareIdentRe.MatchString(local) {
+			pairs = append(pairs, [2]string{source, local})
+		}
+	}
+	return pairs
+}
+
 // bindingListNames parses the inside of an import/destructuring brace list
 // ("a, b as c" or "a, b: c = 1") and returns the local names. aliasSep is the
-// token that separates the source name from the local alias.
+// token that separates the source name from the local alias. Unlike
+// bindingListPairs only the local side must be a bare identifier.
 func bindingListNames(list, aliasSep string) []string {
 	var names []string
 	for _, item := range strings.Split(list, ",") {
-		// Normalize whitespace (including newlines and diff markers) so
-		// "b\n+  as c" matches the alias separator.
-		item = strings.Join(strings.Fields(stripDiffMarkers(item)), " ")
-		if i := strings.Index(item, "="); i >= 0 {
-			item = item[:i]
-		}
+		item = normalizeBindingItem(item)
 		if i := strings.Index(item, aliasSep); i >= 0 {
 			item = item[i+len(aliasSep):]
 		}

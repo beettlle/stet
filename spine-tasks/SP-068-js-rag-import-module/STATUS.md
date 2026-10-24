@@ -1,8 +1,8 @@
 # SP-068: JS RAG resolves imported names in the module they come from — Status
 
-**Current Step:** Not Started
-**Status:** ⬜ Not Started
-**Last Updated:** 2026-10-24
+**Current Step:** Step 2
+**Status:** 🔵 In Progress
+**Last Updated:** 2026-10-24 (worker)
 **Review Level:** 1
 **Review Counter:** 0
 **Iteration:** 0
@@ -11,9 +11,9 @@
 ---
 
 ### Step 1: Import bindings with module and source name
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] Local name, source name, and specifier parsed for every supported form
+- [x] Local name, source name, and specifier parsed for every supported form
 
 ---
 
