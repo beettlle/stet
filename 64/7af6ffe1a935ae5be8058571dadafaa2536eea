@@ -1,0 +1,20 @@
+cli/internal/review/critic.go
+  h_ae151c586ac6c5 17-18,20-24,29,45-47,50,109
+cli/internal/review/critic_systemone.go
+  h_ae151c586ac6c5 55,110-112,114-123
+cli/internal/review/critic_systemone_test.go
+  h_ae151c586ac6c5 284,291,293-308
+cli/internal/review/critic_test.go
+  h_ae151c586ac6c5 62-78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "647af6ffe1a935ae5be8058571dadafaa2536eea",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
