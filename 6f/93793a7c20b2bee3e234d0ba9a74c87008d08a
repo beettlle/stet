@@ -1,0 +1,59 @@
+spine-tasks/CONTEXT.md
+  s_96477c3d74b96c::t_b010d41d568ed0 3,5,182-199
+spine-tasks/SP-058-hunkid-jsx-comments/PROMPT.md
+  s_96477c3d74b96c::t_76a7fefb9df335 1-99
+spine-tasks/SP-058-hunkid-jsx-comments/STATUS.md
+  s_96477c3d74b96c::t_41e4e379c79b09 1-39
+spine-tasks/SP-059-js-rag-member-builtins/PROMPT.md
+  s_96477c3d74b96c::t_295dedba037cb8 1-112
+spine-tasks/SP-059-js-rag-member-builtins/STATUS.md
+  s_96477c3d74b96c::t_2c57f97519c71a 1-41
+spine-tasks/SP-060-benchmark-end-to-end-estimate/PROMPT.md
+  s_96477c3d74b96c::t_950813586b4c7a 1-98
+spine-tasks/SP-060-benchmark-end-to-end-estimate/STATUS.md
+  s_96477c3d74b96c::t_26f429296edb89 1-41
+spine-tasks/SP-061-benchmark-repo-config/PROMPT.md
+  s_96477c3d74b96c::t_bd79ca47477661 1-97
+spine-tasks/SP-061-benchmark-repo-config/STATUS.md
+  s_96477c3d74b96c::t_09171b4f52694f 1-38
+spine-tasks/SP-062-cli-test-output-capture/PROMPT.md
+  s_96477c3d74b96c::t_3e7a50f3f8a957 1-112
+spine-tasks/SP-062-cli-test-output-capture/STATUS.md
+  s_96477c3d74b96c::t_04f32ff7d82d71 1-49
+spine-tasks/SP-063-ignore-test-output/PROMPT.md
+  s_96477c3d74b96c::t_c8e2151e13d0ba 1-90
+spine-tasks/SP-063-ignore-test-output/STATUS.md
+  s_96477c3d74b96c::t_522bcd70696c44 1-41
+spine-tasks/SP-064-jsts-extensions-accessor/PROMPT.md
+  s_96477c3d74b96c::t_771b6313af9329 1-109
+spine-tasks/SP-064-jsts-extensions-accessor/STATUS.md
+  s_96477c3d74b96c::t_6cb6028fbf63a0 1-40
+spine-tasks/SP-065-readme-benchmark-docs/PROMPT.md
+  s_96477c3d74b96c::t_e436705ece98f4 1-86
+spine-tasks/SP-065-readme-benchmark-docs/STATUS.md
+  s_96477c3d74b96c::t_915e334db73ff9 1-39
+spine-tasks/SP-066-review-internals-v1-3-docs/PROMPT.md
+  s_96477c3d74b96c::t_6e6bd734c5d642 1-86
+spine-tasks/SP-066-review-internals-v1-3-docs/STATUS.md
+  s_96477c3d74b96c::t_dce367ce8cf0d9 1-40
+spine-tasks/_authoring/release-v1.3.0/manifest.md
+  s_96477c3d74b96c::t_e086bf059b831d 1-188
+spine-tasks/dependencies.json
+  s_96477c3d74b96c::t_914ab821f675bf 105-119
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6f93793a7c20b2bee3e234d0ba9a74c87008d08a",
+  "prompts": {},
+  "sessions": {
+    "s_96477c3d74b96c": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "4baaf7f4-22ec-4bcd-8bb0-57f54155499d",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
