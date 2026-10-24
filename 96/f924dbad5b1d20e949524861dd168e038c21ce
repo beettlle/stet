@@ -1,0 +1,22 @@
+spine-tasks/SP-073-contract-actionable-gate/.DONE
+  h_ae151c586ac6c5 1
+spine-tasks/SP-073-contract-actionable-gate/.reviews/1-20261024T225824.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-073-contract-actionable-gate/.reviews/contract-fail-2026-10-24T22-59-22-457Z.log
+  h_ae151c586ac6c5 1-37
+spine-tasks/SP-073-contract-actionable-gate/.reviews/contract-fail-2026-10-24T22-59-27-975Z.log
+  h_ae151c586ac6c5 1-37
+spine-tasks/SP-073-contract-actionable-gate/.reviews/final-20261024T231137.md
+  h_ae151c586ac6c5 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "96f924dbad5b1d20e949524861dd168e038c21ce",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
