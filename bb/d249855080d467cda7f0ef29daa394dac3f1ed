@@ -1,0 +1,18 @@
+cli/internal/rag/js/resolver.go
+  h_ae151c586ac6c5 90-94,96-97,99-101,103-104,106-107,109-110,115-128,247-321,324-325,329
+cli/internal/rag/js/resolver_test.go
+  h_ae151c586ac6c5 236-294
+spine-tasks/SP-068-js-rag-import-module/STATUS.md
+  h_ae151c586ac6c5 3-5,14,16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bbd249855080d467cda7f0ef29daa394dac3f1ed",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
