@@ -1,0 +1,51 @@
+spine-tasks/CONTEXT.md
+  s_42ab2485a66575::t_c77391f594f256 3,5,129-144
+spine-tasks/SP-041-suppression-header-docs/PROMPT.md
+  s_42ab2485a66575::t_87d48f2d4dc9e5 1-93
+spine-tasks/SP-041-suppression-header-docs/STATUS.md
+  s_42ab2485a66575::t_64d18abd85fc88 1-53
+spine-tasks/SP-042-go-toolchain-vulns/PROMPT.md
+  s_42ab2485a66575::t_4c60751acfcb4c 1-79
+spine-tasks/SP-042-go-toolchain-vulns/STATUS.md
+  s_42ab2485a66575::t_5451aae84e5ac4 1-53
+spine-tasks/SP-043-status-active-findings/PROMPT.md
+  s_42ab2485a66575::t_4cb0a6d808ba19 1-111
+spine-tasks/SP-043-status-active-findings/STATUS.md
+  s_42ab2485a66575::t_e977c60aa0d29f 1-54
+spine-tasks/SP-044-review-worktree-gitignore/PROMPT.md
+  s_42ab2485a66575::t_7354db04e0c460 1-115
+spine-tasks/SP-044-review-worktree-gitignore/STATUS.md
+  s_42ab2485a66575::t_19a98435bd1dfd 1-61
+spine-tasks/SP-045-restore-dismissals/PROMPT.md
+  s_42ab2485a66575::t_db7f7fff57365f 1-132
+spine-tasks/SP-045-restore-dismissals/STATUS.md
+  s_42ab2485a66575::t_fab8a210b15272 1-69
+spine-tasks/SP-046-jsts-import-context/PROMPT.md
+  s_42ab2485a66575::t_798ecd5a146c77 1-115
+spine-tasks/SP-046-jsts-import-context/STATUS.md
+  s_42ab2485a66575::t_7d9ec69023330c 1-59
+spine-tasks/SP-047-prompt-out-of-view/PROMPT.md
+  s_42ab2485a66575::t_1fd1ee319b3aed 1-93
+spine-tasks/SP-047-prompt-out-of-view/STATUS.md
+  s_42ab2485a66575::t_e7f4ccff2f3a01 1-52
+spine-tasks/_authoring/release-v1.1.0/manifest.md
+  s_42ab2485a66575::t_b8aef995dabcb9 1-168
+spine-tasks/dependencies.json
+  s_42ab2485a66575::t_8e700c2128bd1a 23-26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "35fb09c22e9be67cc3e8ed044ebccdb734e71cc6",
+  "prompts": {},
+  "sessions": {
+    "s_42ab2485a66575": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "8fbf3006-4fae-4e5c-ad4c-da4c4c3036d6",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
