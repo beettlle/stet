@@ -1,0 +1,19 @@
+cli/internal/run/run_test.go
+  s_42ab2485a66575::t_607ff0e4731841 16,2937-2938,2940,2948-2949
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f3b9356a9e6551344cac0a712fa047267d1df596",
+  "prompts": {},
+  "sessions": {
+    "s_42ab2485a66575": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "8fbf3006-4fae-4e5c-ad4c-da4c4c3036d6",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
