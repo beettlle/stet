@@ -1,0 +1,14 @@
+scripts/spine-stet-contract-run.sh
+  h_ae151c586ac6c5 12-13,55-60,66-73,79-83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "75738e8d799b3b8e1fb5dbe96a7abf449b890e58",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
