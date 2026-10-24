@@ -1,0 +1,16 @@
+spine-tasks/SP-067-jsts-imports-top-level/.reviews/1-20261024T214019.md
+  h_ae151c586ac6c5 1-12
+spine-tasks/SP-067-jsts-imports-top-level/STATUS.md
+  h_ae151c586ac6c5 4,85-100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fc16e99ddc2384de514b0f3d5205dc8ca9e373bd",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
