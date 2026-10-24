@@ -1,0 +1,14 @@
+.spine/spine-config.json
+  h_ae151c586ac6c5 19,46,98,125-126,129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f30f376755d5ff9a116b1b5a14b3fca2824e6dbc",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
