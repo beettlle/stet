@@ -53,6 +53,8 @@ A typical review cycle on a branch with new commits:
 
 You can also run start, run, and finish from the Cursor extension.
 
+**Gating CI or agent scripts:** Use `stet list --min-severity warning --min-confidence 0.8` to fail a pipeline only on actionable findings—the command prints nothing and exits 0 when nothing meets the threshold, and exits 1 on invalid values. Findings hidden by the thresholds stay active, so `stet status` still counts them. This repo's spine contract step (`scripts/spine-stet-contract-run.sh`) gates on exactly this policy; set `SPINE_STET_MIN_SEVERITY` or `SPINE_STET_MIN_CONFIDENCE` to override its defaults.
+
 ## Installation
 
 ### Install Ollama
@@ -135,7 +137,7 @@ Full precedence and every key are documented in the [CLI–Extension Contract](d
 | `stet rerun` | Re-run full review (all hunks) with same or overridden parameters; use `--replace` to overwrite previous findings; requires an active session |
 | `stet finish` | Persist state, clean up; writes session note to `refs/notes/stet` for impact analytics |
 | `stet status` | Show session status |
-| `stet list` | List active findings with IDs (for use with dismiss) |
+| `stet list` | List active findings with IDs (for use with dismiss); `--min-severity <error\|warning\|info\|nitpick>` and `--min-confidence <0..1>` hide findings below a threshold |
 | `stet dismiss <id> [reason]` | Mark a finding as dismissed; optional reason: `false_positive`, `already_correct`, `wrong_suggestion`, `out_of_scope` |
 | `stet cleanup` | Remove orphan stet worktrees |
 | `stet optimize` | Run optional DSPy optimizer (history → optimized prompt) |
