@@ -1,0 +1,31 @@
+.github/workflows/release.yml
+  s_42ab2485a66575::t_7c48173dd6260f 1-86
+.gitignore
+  s_42ab2485a66575::t_31fa06c4900f3d 20
+Makefile
+  s_42ab2485a66575::t_d75def003ee5a8 2,4,25-26,28,30-34,36-39
+README.md
+  s_42ab2485a66575::t_241b855d61f3a6 57,60-66,70,73,76-79,83
+cli/cmd/stet/main_test.go
+  s_42ab2485a66575::t_d6554de063b3ae 3591-3595,3597,3624-3631,3671-3675,3677-3678
+install.ps1
+  s_42ab2485a66575::t_c33b3361ba86b9 1-2,5-6,8-14,19,23-30,56,60,64,66,68,71-76,78,81-82,84,86-97,101,103,106-116
+install.sh
+  s_42ab2485a66575::t_8b86935a49d87d 3-5,8-11,13-18,22-23,27-34,58-61,63-65,69-94,96-99,102-103,106-110,112-133,139,146,152-166,168,173,178
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1c4a4f8a8568bd0f449c8b783c83b70b05cbfe88",
+  "prompts": {},
+  "sessions": {
+    "s_42ab2485a66575": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "8fbf3006-4fae-4e5c-ad4c-da4c4c3036d6",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
