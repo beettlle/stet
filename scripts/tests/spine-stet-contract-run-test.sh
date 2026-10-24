@@ -1,7 +1,9 @@
 #!/bin/bash
-# Tests for scripts/spine-stet-contract-run.sh (SP-073): threshold gating.
-# Creates a temp directory with .review/session.json and puts a fake `stet` first on PATH;
-# `list` output depends on whether --min-severity was passed. Needs no network or model.
+# Tests for scripts/spine-stet-contract-run.sh (SP-073): threshold gating, with the fallback for
+# stet builds without the threshold flags (pre-v1.4.0). Creates a temp directory with
+# .review/session.json and puts a fake `stet` first on PATH; `list` output depends on whether
+# --min-severity was passed, and `list --help` advertises the flag line only when
+# FAKE_STET_SUPPORTS_THRESHOLDS=1. Needs no network or model.
 # Exits non-zero if any case fails.
 set -u
 
@@ -38,10 +40,20 @@ new_case() {
 #!/bin/bash
 # Fake stet: appends each invocation's arguments to $FAKE_STET_LOG; 'list' output
 # comes from $FAKE_STET_GATING when --min-severity is passed, else $FAKE_STET_FULL.
+# 'list --help' mimics cobra help: the --min-severity flag line appears only when
+# FAKE_STET_SUPPORTS_THRESHOLDS=1 (otherwise this fake models a pre-v1.4.0 stet).
 printf '%s\n' "$*" >> "${FAKE_STET_LOG:?}"
 cmd="${1:-}"
 if [ "$#" -gt 0 ]; then shift; fi
 if [ "$cmd" = "list" ]; then
+	if [[ " $* " == *" --help "* ]]; then
+		if [ "${FAKE_STET_SUPPORTS_THRESHOLDS:-0}" = "1" ]; then
+			printf 'List active findings with IDs (for stet dismiss)\n\nUsage:\n  stet list [flags]\n\nFlags:\n      --min-confidence float   minimum confidence to report (default 0)\n      --min-severity string    minimum severity to report (error, warning, info, nitpick)\n'
+		else
+			printf 'List active findings with IDs (for stet dismiss)\n\nUsage:\n  stet list [flags]\n\nFlags:\n  -h, --help   help for list\n'
+		fi
+		exit 0
+	fi
 	if [[ " $* " == *" --min-severity "* ]]; then
 		cat "${FAKE_STET_GATING:?}"
 	else
@@ -65,6 +77,7 @@ run_contract() {
 		FAKE_STET_LOG="$case_dir/args.log" \
 		FAKE_STET_FULL="$case_dir/full.txt" \
 		FAKE_STET_GATING="$case_dir/gating.txt" \
+		FAKE_STET_SUPPORTS_THRESHOLDS=1 \
 		env -u SPINE_STET_NO_AUTO_FINISH -u SPINE_STET_MIN_SEVERITY -u SPINE_STET_MIN_CONFIDENCE \
 			"$@" bash "$contract" default 2>&1)"
 	run_status=$?
@@ -150,14 +163,29 @@ expect_status "case-d" 2
 args_lacks "case-d" "list"
 args_lacks "case-d" "run"
 
-# (e) Valid env overrides are honored: info/0.5 threshold blocks an info finding.
+# (e) Fallback: a stet without threshold-flag support (pre-v1.4.0) gates on ALL active findings:
+# one below-threshold info finding blocks (exit 1), the fallback warning is printed, and
+# --min-severity is never passed to `stet list`.
 new_case case-e
+printf '%s\n' "$INFO_LINE" > "$case_dir/full.txt"
+run_contract FAKE_STET_SUPPORTS_THRESHOLDS=0
+expect_status "case-e" 1
+expect_out "case-e" "installed stet does not support 'stet list --min-severity'; gating on all active findings"
+expect_out "case-e" "found 1 active finding(s)"
+expect_out "case-e" "$INFO_LINE"
+expect_out "case-e" "stet dismiss <id> <reason>"
+args_has "case-e" "list --help"
+args_lacks "case-e" "--min-severity"
+args_lacks "case-e" "finish"
+
+# (f) Valid env overrides are honored: info/0.5 threshold blocks an info finding.
+new_case case-f
 printf '%s\n%s\n' "$INFO_LINE" "$NIT_LINE" > "$case_dir/full.txt"
 printf '%s\n' "$INFO_LINE" > "$case_dir/gating.txt"
 run_contract SPINE_STET_MIN_SEVERITY=info SPINE_STET_MIN_CONFIDENCE=0.5
-expect_status "case-e" 1
-expect_out "case-e" "found 1 finding(s) at or above the info/0.5 threshold"
-args_has "case-e" "list --min-severity info --min-confidence 0.5"
+expect_status "case-f" 1
+expect_out "case-f" "found 1 finding(s) at or above the info/0.5 threshold"
+args_has "case-f" "list --min-severity info --min-confidence 0.5"
 
 echo
 echo "$pass passed, $fail failed"
