@@ -1,0 +1,14 @@
+spine-tasks/SP-075-readme-list-thresholds/.DONE
+  h_ae151c586ac6c5 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6a5eeaa70628bded2d5851629d5065408fda215e",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
