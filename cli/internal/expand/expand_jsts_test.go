@@ -1054,10 +1054,11 @@ func TestExpandHunk_JSTS_noImports_pipelineBudget(t *testing.T) {
 	}
 }
 
-func TestExpandHunk_JSTS_fileImports_tinyBudget_noImportSection(t *testing.T) {
-	// With maxTokens=23 the import quarter share is 5 tokens, below
-	// minJSTSTruncateTokens: the import section is dropped and the function
-	// context keeps the full budget (pre-change behavior).
+func TestExpandHunk_JSTS_fileImports_tinyBudget_truncatedBlock(t *testing.T) {
+	// Issue #36: with maxTokens=23 the import quarter share is 5 tokens,
+	// below minJSTSTruncateTokens. The block must be kept (clamped up to a
+	// meaningful truncation budget) rather than dropped; the function
+	// context gets what remains and is truncated.
 	dir := t.TempDir()
 	var b strings.Builder
 	b.WriteString("import fs from \"fs\";\n\nfunction longFunc() {\n")
@@ -1078,13 +1079,90 @@ func TestExpandHunk_JSTS_fileImports_tinyBudget_noImportSection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ExpandHunk: %v", err)
 	}
-	if strings.Contains(expanded.Context, "## File imports") {
-		t.Error("tiny budget should not show an import section")
+	if !strings.Contains(expanded.Context, "## File imports\n\n```javascript\nimport fs from \"fs\";\n```") {
+		t.Errorf("tiny budget must keep (not drop) the import block, got:\n%s", expanded.Context)
 	}
 	if !strings.Contains(expanded.Context, "## Enclosing function context") {
 		t.Error("expected function context to be kept")
 	}
 	if !strings.Contains(expanded.Context, truncateMarker) {
-		t.Error("expected function context to be truncated with the full budget")
+		t.Error("expected function context to be truncated with the remaining budget")
+	}
+	wantImportsBeforeFunctionBeforeHunk(t, expanded.Context)
+}
+
+func TestExpandHunk_JSTS_degenerateBudget_importsOnly(t *testing.T) {
+	// With maxTokens=10 the clamped import block (6 tokens) leaves fewer
+	// than minJSTSTruncateTokens for the function context: emit the
+	// truncated import block plus the hunk instead of a degenerate cut.
+	dir := t.TempDir()
+	var b strings.Builder
+	b.WriteString("import fs from \"fs\";\n\nfunction longFunc() {\n")
+	for i := 0; i < 100; i++ {
+		b.WriteString("  const value = computeSomething(value + 1);\n")
+	}
+	b.WriteString("}\n")
+	path := filepath.Join(dir, "tiny.js")
+	if err := os.WriteFile(path, []byte(b.String()), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hunk := diff.Hunk{
+		FilePath:   "tiny.js",
+		RawContent: "@@ -3,2 +3,2 @@\n function longFunc() {\n-  const value = computeSomething(value + 1);\n+  const value = computeSomething(value + 2);",
+	}
+
+	expanded, err := ExpandHunk(dir, hunk, 10)
+	if err != nil {
+		t.Fatalf("ExpandHunk: %v", err)
+	}
+	if !strings.Contains(expanded.Context, "## File imports\n\n```javascript\nimport fs from \"fs\";\n```") {
+		t.Errorf("expected the import block even at a degenerate budget, got:\n%s", expanded.Context)
+	}
+	if strings.Contains(expanded.Context, "## Enclosing function context") {
+		t.Error("no room for a meaningful function context; expected it to be dropped")
+	}
+	if !strings.Contains(expanded.Context, "## Diff hunk\n\n"+hunk.RawContent) {
+		t.Errorf("expected the hunk verbatim, got:\n%s", expanded.Context)
+	}
+}
+
+func TestExpandHunk_JSTS_subFloorBudget_noPanic(t *testing.T) {
+	// Regression: budgets below the truncation floor used to panic in
+	// truncateToTokens (slice bounds out of range). Fail open instead:
+	// no panic, and the import block is never dropped while a budget remains.
+	longFunc := "function longFunc() {\n"
+	for i := 0; i < 100; i++ {
+		longFunc += "  const value = computeSomething(value + 1);\n"
+	}
+	longFunc += "}\n"
+	dir := t.TempDir()
+	for name, content := range map[string]string{
+		"noimports.js":   longFunc,
+		"withimports.js": "import fs from \"fs\";\n\n" + longFunc,
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	hunk := diff.Hunk{
+		RawContent: "@@ -2,2 +2,2 @@\n-  const value = computeSomething(value + 1);\n+  const value = computeSomething(value + 2);",
+	}
+
+	for _, maxTokens := range []int{1, 2, 3, 4, 5} {
+		for _, file := range []string{"noimports.js", "withimports.js"} {
+			t.Run(fmt.Sprintf("%s/maxTokens=%d", file, maxTokens), func(t *testing.T) {
+				hunk.FilePath = file
+				expanded, err := ExpandHunk(dir, hunk, maxTokens)
+				if err != nil {
+					t.Fatalf("ExpandHunk: %v", err)
+				}
+				if file == "withimports.js" && !strings.Contains(expanded.Context, "## File imports") {
+					t.Errorf("import block must never be dropped while any budget remains, got:\n%s", expanded.Context)
+				}
+				if file == "noimports.js" && maxTokens < minJSTSTruncateTokens && expanded.Context != hunk.Context {
+					t.Errorf("sub-floor budget without imports must fail open to the hunk unchanged, got:\n%s", expanded.Context)
+				}
+			})
+		}
 	}
 }

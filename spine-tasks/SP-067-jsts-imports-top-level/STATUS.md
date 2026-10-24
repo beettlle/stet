@@ -1,6 +1,6 @@
 # SP-067: JS/TS import block reaches top-level and test-callback hunks — Status
 
-**Current Step:** 2
+**Current Step:** 3
 **Status:** 🔄 In Progress
 **Last Updated:** 2026-10-24
 **Review Level:** 1
@@ -36,10 +36,26 @@
 ---
 
 ### Step 2: Fix the failing cases
-**Status:** ⬜ Not Started
-> ⚠️ Hydrate: Expand based on which Step 1 cases fail
+**Status:** ✅ Complete
 
-- [ ] Import block reaches the context in every case
+- [x] Import block reaches the context in every case (truncated when over budget, never dropped while any budget remains)
+
+**Changes in `cli/internal/expand/expand_jsts.go` (expandJSTSHunk):**
+
+- Import budget: when `maxTokens/4 < minJSTSTruncateTokens`, the quarter share is **clamped up** to
+  `minJSTSTruncateTokens` and the block is truncated, instead of dropping the section. The block is
+  now never dropped while any budget remains (#36).
+- Function-context budget: guarded before `truncateToTokens` — when the remaining
+  `maxTokens - importBudget` falls below `minJSTSTruncateTokens` (degenerate total budget), emit
+  the imports-only output (or return the hunk unchanged when there are no imports) instead of
+  calling `truncateToTokens` with a sub-floor budget. This also fixes the latent panic at
+  `maxTokens` ≤ 4 (slice bounds out of range) found in Step 1.
+- Extracted `jstsImportsOnlyHunk` helper, reused by the no-enclosing-scope path.
+- Pipeline behavior (4096 tokens) is byte-identical to before; only sub-24-token budgets change.
+
+**Tests:** `TestExpandHunk_JSTS_fileImports_tinyBudget_noImportSection` (codified the drop) replaced
+by `..._tinyBudget_truncatedBlock`; added `..._degenerateBudget_importsOnly` and
+`..._subFloorBudget_noPanic` (table over maxTokens 1–5 × with/without imports).
 
 ---
 
