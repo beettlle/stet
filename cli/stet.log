@@ -1,0 +1,559 @@
+=== RUN   TestCaptureOutput_largeStdoutCompletesWithoutBlocking
+--- PASS: TestCaptureOutput_largeStdoutCompletesWithoutBlocking (0.00s)
+=== RUN   TestCaptureOutput_separatesStreams
+--- PASS: TestCaptureOutput_separatesStreams (0.00s)
+=== RUN   TestCaptureOutput_restoresStreams
+--- PASS: TestCaptureOutput_restoresStreams (0.00s)
+=== RUN   TestCaptureOutput_restoresStreamsAfterPanic
+--- PASS: TestCaptureOutput_restoresStreamsAfterPanic (0.00s)
+=== RUN   TestRun
+=== PAUSE TestRun
+=== RUN   TestRunCLI_doctorUnreachableExits2
+--- PASS: TestRunCLI_doctorUnreachableExits2 (7.18s)
+=== RUN   TestRunCLI_doctorModelNotFoundExits1
+Model "qwen3-coder:30b" not found. Pull it with: ollama pull qwen3-coder:30b
+--- PASS: TestRunCLI_doctorModelNotFoundExits1 (0.02s)
+=== RUN   TestRunCLI_benchmarkUnreachableExits2
+Ollama unreachable at http://127.0.0.1:50815. Is the server running? For local: ollama serve.
+Details: ollama tags: LLM server unreachable
+Get "http://127.0.0.1:50815/api/tags": dial tcp 127.0.0.1:50815: connect: connection refused
+--- PASS: TestRunCLI_benchmarkUnreachableExits2 (6.73s)
+=== RUN   TestRunCLI_benchmarkWithMockReturnsZero
+--- PASS: TestRunCLI_benchmarkWithMockReturnsZero (0.05s)
+=== RUN   TestRunCLI_benchmarkOpenAILabelsEndToEnd
+--- PASS: TestRunCLI_benchmarkOpenAILabelsEndToEnd (0.05s)
+=== RUN   TestRunCLI_helpExitsZero
+=== PAUSE TestRunCLI_helpExitsZero
+=== RUN   TestRunCLI_benchmarkUsesRepoConfig
+--- PASS: TestRunCLI_benchmarkUsesRepoConfig (0.35s)
+=== RUN   TestRunCLI_benchmarkOutsideGitRepoStillLoadsConfig
+Model: env-model
+Eval rate:       50.0 t/s (generation)
+Prompt eval:     2000 t/s (prefill)
+---
+Tokens: 500 in, 200 out | Total: 4.2s
+Typical stet hunk (~3k prompt, ~200 out): ~5.5s estimated
+---
+Reference: 8B ~35-50 t/s, 30B ~15-25 t/s, 70B ~5-8 t/s (M1 Ultra)
+--- PASS: TestRunCLI_benchmarkOutsideGitRepoStillLoadsConfig (0.02s)
+=== RUN   TestRunCLI_skillPrintsToStdout
+--- PASS: TestRunCLI_skillPrintsToStdout (0.00s)
+=== RUN   TestRunCLI_skillWriteToFile
+Wrote skill to /private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/TestRunCLI_skillWriteToFile123942333/001/SKILL.md
+--- PASS: TestRunCLI_skillWriteToFile (0.00s)
+=== RUN   TestRunCLI_skillOutputPathOutsideCwdRejected
+Output path must be under the current directory. Use stdout redirection (e.g. stet skill > path) to write elsewhere.
+--- PASS: TestRunCLI_skillOutputPathOutsideCwdRejected (0.00s)
+=== RUN   TestRunCLI_startFromNonGitReturnsNonZero
+This directory is not inside a Git repository.
+Details: exit status 128: fatal: not a git repository (or any of the parent directories): .git
+--- PASS: TestRunCLI_startFromNonGitReturnsNonZero (0.01s)
+=== RUN   TestRunCLI_startFromNonGitStderrHumanReadable
+--- PASS: TestRunCLI_startFromNonGitStderrHumanReadable (0.02s)
+=== RUN   TestRunCLI_noArgs
+=== PAUSE TestRunCLI_noArgs
+=== RUN   TestRunCLI_startDryRunExcludePatterns
+--- PASS: TestRunCLI_startDryRunExcludePatterns (0.33s)
+=== RUN   TestRunCLI_startFinishFromGitRepo
+{"findings":[{"id":"6bec885914fa153e40a39de2bf70bab3e5ae2d05a90c7a326c3955c9144878f9","file":"f2.txt","line":1,"severity":"info","category":"maintainability","confidence":1,"message":"Dry-run placeholder (CI)","cursor_uri":"file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/gitrepo-test-2113817434/f2.txt#L1"}]}
+0 hunks to review
+Nothing to review.
+6bec885  f2.txt:1  INFO  Dry-run placeholder (CI)
+1 finding.
+--- PASS: TestRunCLI_startFinishFromGitRepo (0.53s)
+=== RUN   TestRunCLI_runWithDryRun
+{"findings":[{"id":"6bec885914fa153e40a39de2bf70bab3e5ae2d05a90c7a326c3955c9144878f9","file":"f2.txt","line":1,"severity":"info","category":"maintainability","confidence":1,"message":"Dry-run placeholder (CI)","cursor_uri":"file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/gitrepo-test-247567432/f2.txt#L1"}]}
+0 hunks to review
+Nothing to review.
+6bec885  f2.txt:1  INFO  Dry-run placeholder (CI)
+1 finding.
+--- PASS: TestRunCLI_runWithDryRun (0.40s)
+=== RUN   TestChangedReviewFlags_stableOrderOnlySetFlags
+=== PAUSE TestChangedReviewFlags_stableOrderOnlySetFlags
+=== RUN   TestWarnIgnoredReviewFlags
+=== PAUSE TestWarnIgnoredReviewFlags
+=== RUN   TestRunCLI_runNoNewHunksWarnsIgnoredFlags
+--- PASS: TestRunCLI_runNoNewHunksWarnsIgnoredFlags (0.59s)
+=== RUN   TestRunCLI_finishWithoutStartReturnsNonZero
+no active session; run stet start first
+--- PASS: TestRunCLI_finishWithoutStartReturnsNonZero (0.20s)
+=== RUN   TestRunCLI_strictnessInvalidExits1
+--- PASS: TestRunCLI_strictnessInvalidExits1 (0.19s)
+=== RUN   TestRunCLI_startWithStrictnessThenRunUsesSessionStrictness
+Worktree created at /private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/gitrepo-test-3179781769/.review/worktrees/stet-0bb84ee82488
+1 hunks to review, 0 already approved
+6bec885  f2.txt:1  INFO  Dry-run placeholder (CI)
+1 finding.
+0 hunks to review
+Nothing to review.
+6bec885  f2.txt:1  INFO  Dry-run placeholder (CI)
+1 finding.
+--- PASS: TestRunCLI_startWithStrictnessThenRunUsesSessionStrictness (0.40s)
+=== RUN   TestRunCLI_startDryRunEmitsFindingsJSON
+--- PASS: TestRunCLI_startDryRunEmitsFindingsJSON (0.33s)
+=== RUN   TestRunCLI_startStreamEmitsNDJSON
+--- PASS: TestRunCLI_startStreamEmitsNDJSON (0.32s)
+=== RUN   TestRunCLI_startDryRunDefaultOutputIsHuman
+--- PASS: TestRunCLI_startDryRunDefaultOutputIsHuman (0.33s)
+=== RUN   TestRunCLI_runDryRunEmitsFindingsJSON
+{"findings":[{"id":"6bec885914fa153e40a39de2bf70bab3e5ae2d05a90c7a326c3955c9144878f9","file":"f2.txt","line":1,"severity":"info","category":"maintainability","confidence":1,"message":"Dry-run placeholder (CI)","cursor_uri":"file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/gitrepo-test-3194089273/f2.txt#L1"}]}
+--- PASS: TestRunCLI_runDryRunEmitsFindingsJSON (0.40s)
+=== RUN   TestRunCLI_rerunNoSessionFails
+--- PASS: TestRunCLI_rerunNoSessionFails (0.21s)
+=== RUN   TestRunCLI_rerunDryRunRerunsAllHunks
+{"findings":[{"id":"1aacfad776aaaf8ef33d2333d48e1495ad16b026721e7df69a5798c82ee8054a","file":"f1.txt","line":1,"severity":"info","category":"maintainability","confidence":1,"message":"Dry-run placeholder (CI)","cursor_uri":"file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/gitrepo-test-2675215077/f1.txt#L1"},{"id":"6bec885914fa153e40a39de2bf70bab3e5ae2d05a90c7a326c3955c9144878f9","file":"f2.txt","line":1,"severity":"info","category":"maintainability","confidence":1,"message":"Dry-run placeholder (CI)","cursor_uri":"file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/gitrepo-test-2675215077/f2.txt#L1"}]}
+0 hunks to review
+Nothing to review.
+1aacfad  f1.txt:1  INFO  Dry-run placeholder (CI)
+6bec885  f2.txt:1  INFO  Dry-run placeholder (CI)
+2 finding(s).
+--- PASS: TestRunCLI_rerunDryRunRerunsAllHunks (0.47s)
+=== RUN   TestRunCLI_startDirtyWorktreePrintsHint
+working tree has uncommitted changes; commit or stash before starting
+--- PASS: TestRunCLI_startDirtyWorktreePrintsHint (0.21s)
+=== RUN   TestRunCLI_startBaselineNotAncestorPrintsClearMessage
+--- PASS: TestRunCLI_startBaselineNotAncestorPrintsClearMessage (0.35s)
+=== RUN   TestRunCLI_startInvalidBaselineRefPrintsHint
+--- PASS: TestRunCLI_startInvalidBaselineRefPrintsHint (0.23s)
+=== RUN   TestRunCLI_startConcurrentLockPrintsClearMessage
+--- PASS: TestRunCLI_startConcurrentLockPrintsClearMessage (0.21s)
+=== RUN   TestRunCLI_startAllowDirtyProceedsWithWarning
+--- PASS: TestRunCLI_startAllowDirtyProceedsWithWarning (0.33s)
+=== RUN   TestRunCLI_startWorktreeExistsPrintsHint
+{"findings":[{"id":"6bec885914fa153e40a39de2bf70bab3e5ae2d05a90c7a326c3955c9144878f9","file":"f2.txt","line":1,"severity":"info","category":"maintainability","confidence":1,"message":"Dry-run placeholder (CI)","cursor_uri":"file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/gitrepo-test-1463335542/f2.txt#L1"}]}
+worktree already exists
+--- PASS: TestRunCLI_startWorktreeExistsPrintsHint (0.41s)
+=== RUN   TestRunCLI_statusNoSessionExitsNonZero
+--- PASS: TestRunCLI_statusNoSessionExitsNonZero (0.19s)
+=== RUN   TestRunCLI_statusWithSessionPrintsFields
+{"findings":[{"id":"6bec885914fa153e40a39de2bf70bab3e5ae2d05a90c7a326c3955c9144878f9","file":"f2.txt","line":1,"severity":"info","category":"maintainability","confidence":1,"message":"Dry-run placeholder (CI)","cursor_uri":"file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/gitrepo-test-1826485331/f2.txt#L1"}]}
+--- PASS: TestRunCLI_statusWithSessionPrintsFields (0.36s)
+=== RUN   TestRunCLI_statusWithSessionPrintsSessionOptions
+Worktree created at /private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/gitrepo-test-2286222124/.review/worktrees/stet-530e4e1921ec
+1 hunks to review, 0 already approved
+6bec885  f2.txt:1  INFO  Dry-run placeholder (CI)
+1 finding.
+--- PASS: TestRunCLI_statusWithSessionPrintsSessionOptions (0.36s)
+=== RUN   TestRunCLI_statusWithIdsPrintsFindingsWithIds
+--- PASS: TestRunCLI_statusWithIdsPrintsFindingsWithIds (0.37s)
+=== RUN   TestRunCLI_statusWithoutIdsUnchanged
+{"findings":[{"id":"6bec885914fa153e40a39de2bf70bab3e5ae2d05a90c7a326c3955c9144878f9","file":"f2.txt","line":1,"severity":"info","category":"maintainability","confidence":1,"message":"Dry-run placeholder (CI)","cursor_uri":"file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/gitrepo-test-431425702/f2.txt#L1"}]}
+--- PASS: TestRunCLI_statusWithoutIdsUnchanged (0.36s)
+=== RUN   TestRunCLI_listPrintsFindingsWithIds
+--- PASS: TestRunCLI_listPrintsFindingsWithIds (0.34s)
+=== RUN   TestRunCLI_listNoSessionExitsNonZero
+--- PASS: TestRunCLI_listNoSessionExitsNonZero (0.19s)
+=== RUN   TestRunCLI_listEmptyFindings
+--- PASS: TestRunCLI_listEmptyFindings (0.37s)
+=== RUN   TestRunCLI_listThresholdFlags
+--- PASS: TestRunCLI_listThresholdFlags (0.42s)
+=== RUN   TestRunCLI_dismissNoSessionExitsNonZero
+no active session; run stet start first
+--- PASS: TestRunCLI_dismissNoSessionExitsNonZero (0.18s)
+=== RUN   TestRunCLI_dismissPersistence
+--- PASS: TestRunCLI_dismissPersistence (0.38s)
+=== RUN   TestRunCLI_statusActiveCountAfterPartialDismiss
+--- PASS: TestRunCLI_statusActiveCountAfterPartialDismiss (0.38s)
+=== RUN   TestRunCLI_dismissIdempotent
+--- PASS: TestRunCLI_dismissIdempotent (0.38s)
+=== RUN   TestRunCLI_dismissWritesPromptShadows
+--- PASS: TestRunCLI_dismissWritesPromptShadows (0.35s)
+=== RUN   TestRunCLI_dismissWithoutPromptContext
+--- PASS: TestRunCLI_dismissWithoutPromptContext (0.22s)
+=== RUN   TestRunCLI_dismissAppendsHistory
+--- PASS: TestRunCLI_dismissAppendsHistory (0.45s)
+=== RUN   TestRunCLI_dismissWithReason
+--- PASS: TestRunCLI_dismissWithReason (0.78s)
+=== RUN   TestRunCLI_dismissInvalidReasonExits1
+Invalid reason; use one of: false_positive, already_correct, wrong_suggestion, out_of_scope.
+--- PASS: TestRunCLI_dismissInvalidReasonExits1 (0.34s)
+=== RUN   TestRunCLI_dismissByShortPrefix
+--- PASS: TestRunCLI_dismissByShortPrefix (0.35s)
+=== RUN   TestRunCLI_dismissNoFindingWithIdExits1
+{"findings":[{"id":"6bec885914fa153e40a39de2bf70bab3e5ae2d05a90c7a326c3955c9144878f9","file":"f2.txt","line":1,"severity":"info","category":"maintainability","confidence":1,"message":"Dry-run placeholder (CI)","cursor_uri":"file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/gitrepo-test-219031079/f2.txt#L1"}]}
+no finding with id "0000000"
+--- PASS: TestRunCLI_dismissNoFindingWithIdExits1 (0.36s)
+=== RUN   TestRunCLI_dismissIdTooShortExits1
+{"findings":[{"id":"6bec885914fa153e40a39de2bf70bab3e5ae2d05a90c7a326c3955c9144878f9","file":"f2.txt","line":1,"severity":"info","category":"maintainability","confidence":1,"message":"Dry-run placeholder (CI)","cursor_uri":"file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/gitrepo-test-2979111265/f2.txt#L1"}]}
+finding id must be at least 4 characters
+--- PASS: TestRunCLI_dismissIdTooShortExits1 (0.35s)
+=== RUN   TestWriteFindingsJSON_filtersDismissed
+=== PAUSE TestWriteFindingsJSON_filtersDismissed
+=== RUN   TestWriteFindingsJSON_emptyFindingsEmitsArray
+=== PAUSE TestWriteFindingsJSON_emptyFindingsEmitsArray
+=== RUN   TestRunCLI_optimizeNotConfiguredExitsNonZero
+--- PASS: TestRunCLI_optimizeNotConfiguredExitsNonZero (0.19s)
+=== RUN   TestRunCLI_optimizeScriptFailsExitsNonZero
+--- PASS: TestRunCLI_optimizeScriptFailsExitsNonZero (0.20s)
+=== RUN   TestRunCLI_optimizeScriptSucceedsExitsZero
+--- PASS: TestRunCLI_optimizeScriptSucceedsExitsZero (0.19s)
+=== RUN   TestRunCLI_cleanupNotGitRepoExits1
+This directory is not inside a Git repository.
+Details: exit status 128: fatal: not a git repository (or any of the parent directories): .git
+--- PASS: TestRunCLI_cleanupNotGitRepoExits1 (0.02s)
+=== RUN   TestRunCLI_cleanupNoOrphansExitsZero
+No orphan worktrees.
+--- PASS: TestRunCLI_cleanupNoOrphansExitsZero (0.21s)
+=== RUN   TestRunCLI_cleanupRemovesOrphanWhenNoSession
+Removed worktree: /private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/gitrepo-test-1314853920/.review/worktrees/stet-ef538c938ee0
+--- PASS: TestRunCLI_cleanupRemovesOrphanWhenNoSession (0.29s)
+=== RUN   TestRunCLI_cleanupRemovesOnlyOrphanWhenSessionExists
+{"findings":[{"id":"6bec885914fa153e40a39de2bf70bab3e5ae2d05a90c7a326c3955c9144878f9","file":"f2.txt","line":1,"severity":"info","category":"maintainability","confidence":1,"message":"Dry-run placeholder (CI)","cursor_uri":"file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/gitrepo-test-555094392/f2.txt#L1"}]}
+Removed worktree: /private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/gitrepo-test-555094392/.review/worktrees/stet-e7c81ce4183f
+--- PASS: TestRunCLI_cleanupRemovesOnlyOrphanWhenSessionExists (0.57s)
+=== RUN   TestRunCLI_statsVolumeFromNonRepoExits1
+This directory is not inside a Git repository.
+Details: exit status 128: fatal: not a git repository (or any of the parent directories): .git
+--- PASS: TestRunCLI_statsVolumeFromNonRepoExits1 (0.01s)
+=== RUN   TestRunCLI_statsVolumeJSONInRepoWithNote
+{"findings":[{"id":"6bec885914fa153e40a39de2bf70bab3e5ae2d05a90c7a326c3955c9144878f9","file":"f2.txt","line":1,"severity":"info","category":"maintainability","confidence":1,"message":"Dry-run placeholder (CI)","cursor_uri":"file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/gitrepo-test-349378784/f2.txt#L1"}]}
+--- PASS: TestRunCLI_statsVolumeJSONInRepoWithNote (0.85s)
+=== RUN   TestRunCLI_statsVolumeJSONWithGitAI
+--- PASS: TestRunCLI_statsVolumeJSONWithGitAI (1.16s)
+=== RUN   TestRunCLI_statsVolumeHumanWithGitAI
+--- PASS: TestRunCLI_statsVolumeHumanWithGitAI (1.08s)
+=== RUN   TestRunCLI_statsQualityFromNonRepoExits1
+This directory is not inside a Git repository.
+Details: exit status 128: fatal: not a git repository (or any of the parent directories): .git
+--- PASS: TestRunCLI_statsQualityFromNonRepoExits1 (0.04s)
+=== RUN   TestRunCLI_statsQualityJSONInRepo
+{"findings":[{"id":"6bec885914fa153e40a39de2bf70bab3e5ae2d05a90c7a326c3955c9144878f9","file":"f2.txt","line":1,"severity":"info","category":"maintainability","confidence":1,"message":"Dry-run placeholder (CI)","cursor_uri":"file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/gitrepo-test-3952615414/f2.txt#L1"}]}
+--- PASS: TestRunCLI_statsQualityJSONInRepo (1.02s)
+=== RUN   TestRunCLI_statsEnergyFromNonRepoExits1
+This directory is not inside a Git repository.
+Details: exit status 128: fatal: not a git repository (or any of the parent directories): .git
+--- PASS: TestRunCLI_statsEnergyFromNonRepoExits1 (0.02s)
+=== RUN   TestRunCLI_statsEnergyJSONInRepo
+--- PASS: TestRunCLI_statsEnergyJSONInRepo (0.29s)
+=== RUN   TestParseContextPreset
+=== PAUSE TestParseContextPreset
+=== RUN   TestErrExit_Error
+=== PAUSE TestErrExit_Error
+=== RUN   TestFormatLLMRejected
+=== PAUSE TestFormatLLMRejected
+=== RUN   TestPrintLLMUnreachable_timeoutHint
+--- PASS: TestPrintLLMUnreachable_timeoutHint (0.00s)
+=== RUN   TestWriteFindingsHuman_singleFinding
+=== PAUSE TestWriteFindingsHuman_singleFinding
+=== RUN   TestWriteFindingsHuman_withStats
+=== PAUSE TestWriteFindingsHuman_withStats
+=== RUN   TestWriteFindingsHuman_openAIStatsShowTokensPerSec
+=== PAUSE TestWriteFindingsHuman_openAIStatsShowTokensPerSec
+=== RUN   TestWriteFindingsHuman_singleFindingWithStats
+=== PAUSE TestWriteFindingsHuman_singleFindingWithStats
+=== RUN   TestWriteFindingsWithIDs_usesRangeStart
+=== PAUSE TestWriteFindingsWithIDs_usesRangeStart
+=== RUN   TestRunCLI_commitMsgPrintsSuggestion
+--- PASS: TestRunCLI_commitMsgPrintsSuggestion (0.23s)
+=== RUN   TestOverridesFromFlags_noFlagsNil
+--- PASS: TestOverridesFromFlags_noFlagsNil (0.00s)
+=== RUN   TestOverridesFromFlags_providerOpenAIAndTimeout
+--- PASS: TestOverridesFromFlags_providerOpenAIAndTimeout (0.00s)
+=== RUN   TestOverridesFromFlags_invalidProvider
+--- PASS: TestOverridesFromFlags_invalidProvider (0.00s)
+=== RUN   TestOverridesFromFlags_negativeNumCtx
+--- PASS: TestOverridesFromFlags_negativeNumCtx (0.00s)
+=== RUN   TestRunCLI_statsQualityHumanInRepo
+Sessions: 0
+Total findings: 0
+Total dismissed: 0
+Dismissal rate: 0.00
+Acceptance rate: 0.00
+False positive rate: 0.00
+Actionability: 0.00
+Clean commit rate: 0.00
+Dismissals by reason: map[]
+Category breakdown: map[]
+--- PASS: TestRunCLI_statsQualityHumanInRepo (0.19s)
+=== RUN   TestRunCLI_statsEnergyHumanInRepo
+Sessions: 0
+Total eval duration: 0.0 s
+Total prompt tokens: 0
+Total completion tokens: 0
+Local energy: 0.0000 kWh
+Estimates only; model equivalence heuristic; local cost excludes electricity.
+--- PASS: TestRunCLI_statsEnergyHumanInRepo (0.22s)
+=== RUN   TestRunCLI_runAfterStartDryRun
+Worktree created at /private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/gitrepo-test-1862434954/.review/worktrees/stet-816c7d3b4772
+1 hunks to review, 0 already approved
+6bec885  f2.txt:1  INFO  Dry-run placeholder (CI)
+1 finding.
+0 hunks to review
+Nothing to review.
+6bec885  f2.txt:1  INFO  Dry-run placeholder (CI)
+1 finding.
+--- PASS: TestRunCLI_runAfterStartDryRun (0.40s)
+=== RUN   TestRunCLI_rerunAfterStartDryRun
+Worktree created at /private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/gitrepo-test-2674728764/.review/worktrees/stet-b4154fed1aa2
+1 hunks to review, 0 already approved
+6bec885  f2.txt:1  INFO  Dry-run placeholder (CI)
+1 finding.
+1 hunks to review
+6bec885  f2.txt:1  INFO  Dry-run placeholder (CI)
+6bec885  f2.txt:1  INFO  Dry-run placeholder (CI)
+2 finding(s).
+--- PASS: TestRunCLI_rerunAfterStartDryRun (0.40s)
+=== RUN   TestWriteFindingsJSON_writeError
+=== PAUSE TestWriteFindingsJSON_writeError
+=== RUN   TestFormatLLMRejected_emptyBaseURL
+=== PAUSE TestFormatLLMRejected_emptyBaseURL
+=== RUN   TestWriteFindingsHuman_multipleFindingsNoStats
+=== PAUSE TestWriteFindingsHuman_multipleFindingsNoStats
+=== RUN   TestRunCLI_commitMsgNoChangesExits1
+No uncommitted changes to summarize.
+--- PASS: TestRunCLI_commitMsgNoChangesExits1 (0.22s)
+=== RUN   TestRunCLI_commitMsgUnreachableLLMExits2
+Ollama unreachable at http://127.0.0.1:1. Is the server running? For local: ollama serve.
+Details: ollama tags: LLM server unreachable
+Get "http://127.0.0.1:1/api/tags": dial tcp 127.0.0.1:1: connect: connection refused
+--- PASS: TestRunCLI_commitMsgUnreachableLLMExits2 (7.52s)
+=== RUN   TestRunCLI_doctorReachableExits0
+Ollama OK
+Model: qwen3-coder:30b
+--- PASS: TestRunCLI_doctorReachableExits0 (0.02s)
+=== RUN   TestFindingsWriter_nilUsesStdout
+--- PASS: TestFindingsWriter_nilUsesStdout (0.00s)
+=== RUN   TestPrintLLMUnreachable_emptyBaseURL
+--- PASS: TestPrintLLMUnreachable_emptyBaseURL (0.00s)
+=== RUN   TestRunCLI_startFinishCleanupDryRun
+Worktree created at /private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/gitrepo-test-903162080/.review/worktrees/stet-9feb50441ddd
+1 hunks to review, 0 already approved
+6bec885  f2.txt:1  INFO  Dry-run placeholder (CI)
+1 finding.
+No orphan worktrees.
+--- PASS: TestRunCLI_startFinishCleanupDryRun (0.48s)
+=== RUN   TestTryAutoFinishZero_zeroFindingsFinishes
+--- PASS: TestTryAutoFinishZero_zeroFindingsFinishes (0.46s)
+=== RUN   TestRunCLI_commitMsgStagedOnlyNoStagedExits1
+No staged changes to summarize. Stage changes with git add.
+--- PASS: TestRunCLI_commitMsgStagedOnlyNoStagedExits1 (0.20s)
+=== RUN   TestOverridesFromFlags_criticBackendSystemOne
+--- PASS: TestOverridesFromFlags_criticBackendSystemOne (0.00s)
+=== RUN   TestOverridesFromFlags_invalidCriticBackend
+--- PASS: TestOverridesFromFlags_invalidCriticBackend (0.00s)
+=== RUN   TestSystemOneRunOptions
+=== RUN   TestSystemOneRunOptions/nil_client_when_critic_disabled
+=== RUN   TestSystemOneRunOptions/nil_client_when_backend_llm
+=== RUN   TestSystemOneRunOptions/client_built_when_enabled_and_systemone
+=== RUN   TestSystemOneRunOptions/selector_client_built_when_rules_selector_on_and_not_dry-run
+=== RUN   TestSystemOneRunOptions/no_selector_client_on_dry-run
+=== RUN   TestSystemOneRunOptions/one_shared_client_when_critic_and_selector_both_enabled
+=== RUN   TestSystemOneRunOptions/never_two_clients_when_neither_enabled
+=== RUN   TestSystemOneRunOptions/annotate_client_built_when_rules_annotate_on_and_not_dry-run
+=== RUN   TestSystemOneRunOptions/no_annotate_client_on_dry-run
+=== RUN   TestSystemOneRunOptions/one_shared_client_across_critic,_selector,_and_annotator
+--- PASS: TestSystemOneRunOptions (0.00s)
+    --- PASS: TestSystemOneRunOptions/nil_client_when_critic_disabled (0.00s)
+    --- PASS: TestSystemOneRunOptions/nil_client_when_backend_llm (0.00s)
+    --- PASS: TestSystemOneRunOptions/client_built_when_enabled_and_systemone (0.00s)
+    --- PASS: TestSystemOneRunOptions/selector_client_built_when_rules_selector_on_and_not_dry-run (0.00s)
+    --- PASS: TestSystemOneRunOptions/no_selector_client_on_dry-run (0.00s)
+    --- PASS: TestSystemOneRunOptions/one_shared_client_when_critic_and_selector_both_enabled (0.00s)
+    --- PASS: TestSystemOneRunOptions/never_two_clients_when_neither_enabled (0.00s)
+    --- PASS: TestSystemOneRunOptions/annotate_client_built_when_rules_annotate_on_and_not_dry-run (0.00s)
+    --- PASS: TestSystemOneRunOptions/no_annotate_client_on_dry-run (0.00s)
+    --- PASS: TestSystemOneRunOptions/one_shared_client_across_critic,_selector,_and_annotator (0.00s)
+=== RUN   TestRunCLI_startSystemOneCriticDropsLowScoredFinding
+--- PASS: TestRunCLI_startSystemOneCriticDropsLowScoredFinding (0.36s)
+=== RUN   TestRunCLI_doctorSystemOneOK
+--- PASS: TestRunCLI_doctorSystemOneOK (0.02s)
+=== RUN   TestRunCLI_doctorSystemOneTimeoutConfigurable
+=== RUN   TestRunCLI_doctorSystemOneTimeoutConfigurable/1s_timeout_fails_as_unreachable
+=== RUN   TestRunCLI_doctorSystemOneTimeoutConfigurable/timeout_raised_above_sleep_succeeds
+--- PASS: TestRunCLI_doctorSystemOneTimeoutConfigurable (2.24s)
+    --- PASS: TestRunCLI_doctorSystemOneTimeoutConfigurable/1s_timeout_fails_as_unreachable (1.02s)
+    --- PASS: TestRunCLI_doctorSystemOneTimeoutConfigurable/timeout_raised_above_sleep_succeeds (1.22s)
+=== RUN   TestRunCLI_doctorSystemOneUnreachableExits2
+--- PASS: TestRunCLI_doctorSystemOneUnreachableExits2 (7.27s)
+=== RUN   TestRunCLI_doctorSystemOneHealthUnauthorizedExits2
+--- PASS: TestRunCLI_doctorSystemOneHealthUnauthorizedExits2 (0.03s)
+=== RUN   TestRunCLI_doctorSystemOneModelsUnauthorizedExits2
+--- PASS: TestRunCLI_doctorSystemOneModelsUnauthorizedExits2 (0.04s)
+=== RUN   TestRunCLI_doctorSystemOneModelNotFoundExits1
+--- PASS: TestRunCLI_doctorSystemOneModelNotFoundExits1 (0.03s)
+=== RUN   TestRunCLI_doctorSystemOneDisabledMakesNoRequest
+--- PASS: TestRunCLI_doctorSystemOneDisabledMakesNoRequest (0.15s)
+=== RUN   TestRunCLI_doctorSystemOneTriggerCombinations
+=== RUN   TestRunCLI_doctorSystemOneTriggerCombinations/none_on
+=== RUN   TestRunCLI_doctorSystemOneTriggerCombinations/critic_systemone_alone
+=== RUN   TestRunCLI_doctorSystemOneTriggerCombinations/selector_alone
+=== RUN   TestRunCLI_doctorSystemOneTriggerCombinations/annotate_alone
+=== RUN   TestRunCLI_doctorSystemOneTriggerCombinations/selector_and_annotate
+=== RUN   TestRunCLI_doctorSystemOneTriggerCombinations/all_three_on
+=== RUN   TestRunCLI_doctorSystemOneTriggerCombinations/critic_llm,_selector_and_annotate_off
+--- PASS: TestRunCLI_doctorSystemOneTriggerCombinations (0.24s)
+    --- PASS: TestRunCLI_doctorSystemOneTriggerCombinations/none_on (0.04s)
+    --- PASS: TestRunCLI_doctorSystemOneTriggerCombinations/critic_systemone_alone (0.04s)
+    --- PASS: TestRunCLI_doctorSystemOneTriggerCombinations/selector_alone (0.04s)
+    --- PASS: TestRunCLI_doctorSystemOneTriggerCombinations/annotate_alone (0.04s)
+    --- PASS: TestRunCLI_doctorSystemOneTriggerCombinations/selector_and_annotate (0.03s)
+    --- PASS: TestRunCLI_doctorSystemOneTriggerCombinations/all_three_on (0.03s)
+    --- PASS: TestRunCLI_doctorSystemOneTriggerCombinations/critic_llm,_selector_and_annotate_off (0.03s)
+=== RUN   TestRunCLI_doctorSystemOneSelectorUnreachableExits2
+--- PASS: TestRunCLI_doctorSystemOneSelectorUnreachableExits2 (6.80s)
+=== RUN   TestRunCLI_criticEvalHuman
+--- PASS: TestRunCLI_criticEvalHuman (0.02s)
+=== RUN   TestRunCLI_criticEvalJSON
+--- PASS: TestRunCLI_criticEvalJSON (0.02s)
+=== RUN   TestRunCLI_criticEvalEmptyStateExits1
+--- PASS: TestRunCLI_criticEvalEmptyStateExits1 (0.02s)
+=== RUN   TestRunCLI_criticEvalUnreachableExits2
+--- PASS: TestRunCLI_criticEvalUnreachableExits2 (7.04s)
+=== RUN   TestRunCLI_criticEvalMissingDatasetExits1
+--- PASS: TestRunCLI_criticEvalMissingDatasetExits1 (0.02s)
+=== RUN   TestPrintCriticEvalReportNoRecommendation
+=== PAUSE TestPrintCriticEvalReportNoRecommendation
+=== CONT  TestRun
+=== CONT  TestWriteFindingsHuman_singleFinding
+=== CONT  TestWriteFindingsJSON_filtersDismissed
+=== CONT  TestErrExit_Error
+=== CONT  TestFormatLLMRejected
+=== CONT  TestWriteFindingsJSON_emptyFindingsEmitsArray
+=== CONT  TestWriteFindingsJSON_writeError
+=== CONT  TestPrintCriticEvalReportNoRecommendation
+=== CONT  TestWriteFindingsHuman_multipleFindingsNoStats
+=== CONT  TestParseContextPreset
+Local-first code review tool
+
+Usage:
+  stet [command]
+
+Available Commands:
+  benchmark   Measure model throughput (tokens/s) for the configured model
+  cleanup     Remove orphan stet worktrees (not the current session's worktree)
+  commitmsg   Generate a conventional git commit message from uncommitted changes using the local LLM
+  completion  Generate the autocompletion script for the specified shell
+  critic-eval Score past findings with the System One critic and recommend systemone_min_keep
+  dismiss     Mark a finding as dismissed so it does not resurface
+  doctor      Verify environment (Ollama, Git, models)
+  finish      Finish the review session and remove the worktree
+  help        Help about any command
+  list        List active findings with IDs (for stet dismiss)
+  optimize    Run optional DSPy optimizer (reads history.jsonl, writes system_prompt_optimized.txt)
+  rerun       Re-run full review (all hunks) with current or overridden parameters
+  run         Run incremental review (only to-review hunks)
+  skill       Print Agent Skill Markdown for LLM integration
+  start       Start a review session at the given ref (default HEAD)
+  stats       Impact reporting (volume, quality, energy)
+  status      Report session status (baseline, findings, dismissed)
+
+Flags:
+  -h, --help      help for stet
+  -v, --version   version for stet
+
+Use "stet [command] --help" for more information about a command.
+=== RUN   TestParseContextPreset/4k
+=== CONT  TestWriteFindingsHuman_withStats
+=== CONT  TestRunCLI_noArgs
+=== CONT  TestWriteFindingsHuman_openAIStatsShowTokensPerSec
+=== CONT  TestFormatLLMRejected_emptyBaseURL
+=== CONT  TestWriteFindingsHuman_singleFindingWithStats
+=== CONT  TestChangedReviewFlags_stableOrderOnlySetFlags
+--- PASS: TestRun (0.00s)
+--- PASS: TestErrExit_Error (0.00s)
+--- PASS: TestFormatLLMRejected (0.00s)
+=== CONT  TestWriteFindingsWithIDs_usesRangeStart
+Local-first code review tool
+
+--- PASS: TestPrintCriticEvalReportNoRecommendation (0.00s)
+--- PASS: TestFormatLLMRejected_emptyBaseURL (0.00s)
+Usage:
+  stet [command]
+
+Available Commands:
+  benchmark   Measure model throughput (tokens/s) for the configured model
+  cleanup     Remove orphan stet worktrees (not the current session's worktree)
+  commitmsg   Generate a conventional git commit message from uncommitted changes using the local LLM
+  completion  Generate the autocompletion script for the specified shell
+  critic-eval Score past findings with the System One critic and recommend systemone_min_keep
+  dismiss     Mark a finding as dismissed so it does not resurface
+  doctor      Verify environment (Ollama, Git, models)
+  finish      Finish the review session and remove the worktree
+  help        Help about any command
+  list        List active findings with IDs (for stet dismiss)
+  optimize    Run optional DSPy optimizer (reads history.jsonl, writes system_prompt_optimized.txt)
+  rerun       Re-run full review (all hunks) with current or overridden parameters
+  run         Run incremental review (only to-review hunks)
+  skill       Print Agent Skill Markdown for LLM integration
+  start       Start a review session at the given ref (default HEAD)
+  stats       Impact reporting (volume, quality, energy)
+  status      Report session status (baseline, findings, dismissed)
+
+Flags:
+  -h, --help      help for stet
+  -v, --version   version for stet
+
+Use "stet [command] --help" for more information about a command.
+--- PASS: TestRunCLI_noArgs (0.00s)
+--- PASS: TestChangedReviewFlags_stableOrderOnlySetFlags (0.00s)
+=== RUN   TestParseContextPreset/8k
+=== RUN   TestParseContextPreset/16k
+=== CONT  TestWarnIgnoredReviewFlags
+=== RUN   TestParseContextPreset/32k
+=== RUN   TestParseContextPreset/64k
+=== RUN   TestParseContextPreset/128k
+=== RUN   TestParseContextPreset/256k
+=== RUN   TestParseContextPreset/32k_uppercase
+=== CONT  TestRunCLI_helpExitsZero
+=== RUN   TestParseContextPreset/4k_mixed
+--- PASS: TestWarnIgnoredReviewFlags (0.00s)
+--- PASS: TestWriteFindingsJSON_writeError (0.03s)
+--- PASS: TestWriteFindingsHuman_singleFindingWithStats (0.04s)
+=== RUN   TestParseContextPreset/invalid_1k
+=== RUN   TestParseContextPreset/invalid_33k
+=== RUN   TestParseContextPreset/invalid_no_k
+Local-first code review tool
+
+=== RUN   TestParseContextPreset/empty
+Usage:
+  stet [command]
+
+Available Commands:
+  benchmark   Measure model throughput (tokens/s) for the configured model
+  cleanup     Remove orphan stet worktrees (not the current session's worktree)
+  commitmsg   Generate a conventional git commit message from uncommitted changes using the local LLM
+  completion  Generate the autocompletion script for the specified shell
+  critic-eval Score past findings with the System One critic and recommend systemone_min_keep
+  dismiss     Mark a finding as dismissed so it does not resurface
+  doctor      Verify environment (Ollama, Git, models)
+  finish      Finish the review session and remove the worktree
+  help        Help about any command
+  list        List active findings with IDs (for stet dismiss)
+  optimize    Run optional DSPy optimizer (reads history.jsonl, writes system_prompt_optimized.txt)
+  rerun       Re-run full review (all hunks) with current or overridden parameters
+  run         Run incremental review (only to-review hunks)
+  skill       Print Agent Skill Markdown for LLM integration
+  start       Start a review session at the given ref (default HEAD)
+  stats       Impact reporting (volume, quality, energy)
+  status      Report session status (baseline, findings, dismissed)
+
+Flags:
+  -h, --help      help for stet
+  -v, --version   version for stet
+
+Use "stet [command] --help" for more information about a command.
+--- PASS: TestRunCLI_helpExitsZero (0.04s)
+--- PASS: TestParseContextPreset (0.04s)
+    --- PASS: TestParseContextPreset/4k (0.00s)
+    --- PASS: TestParseContextPreset/8k (0.00s)
+    --- PASS: TestParseContextPreset/16k (0.00s)
+    --- PASS: TestParseContextPreset/32k (0.00s)
+    --- PASS: TestParseContextPreset/64k (0.00s)
+    --- PASS: TestParseContextPreset/128k (0.00s)
+    --- PASS: TestParseContextPreset/256k (0.00s)
+    --- PASS: TestParseContextPreset/32k_uppercase (0.00s)
+    --- PASS: TestParseContextPreset/4k_mixed (0.00s)
+    --- PASS: TestParseContextPreset/invalid_1k (0.00s)
+    --- PASS: TestParseContextPreset/invalid_33k (0.00s)
+    --- PASS: TestParseContextPreset/invalid_no_k (0.00s)
+    --- PASS: TestParseContextPreset/empty (0.00s)
+--- PASS: TestWriteFindingsJSON_emptyFindingsEmitsArray (0.04s)
+--- PASS: TestWriteFindingsHuman_singleFinding (0.04s)
+--- PASS: TestWriteFindingsJSON_filtersDismissed (0.04s)
+--- PASS: TestWriteFindingsWithIDs_usesRangeStart (0.04s)
+--- PASS: TestWriteFindingsHuman_multipleFindingsNoStats (0.04s)
+--- PASS: TestWriteFindingsHuman_withStats (0.05s)
+--- PASS: TestWriteFindingsHuman_openAIStatsShowTokensPerSec (0.05s)
+PASS
+ok  	stet/cli/cmd/stet	69.313s
+59s

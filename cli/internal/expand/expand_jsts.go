@@ -22,7 +22,9 @@ const jstsImportTokenShare = 4
 // minJSTSTruncateTokens is the smallest token budget for which
 // truncateToTokens yields a non-degenerate truncation: under the chars/4
 // heuristic a smaller budget leaves no room for truncateMarker next to the
-// cut. Import blocks are only shown when their quarter share reaches it.
+// cut. Import budgets below it are clamped up (issue #36: the block is
+// truncated, never dropped), and a function-context budget below it means
+// the remaining room cannot hold a second truncated section.
 const minJSTSTruncateTokens = len(truncateMarker)/4 + 2
 
 var jstsFuncDeclPatterns = []*regexp.Regexp{
@@ -204,13 +206,12 @@ func expandJSTSHunk(repoRoot string, hunk diff.Hunk, maxTokens int) (diff.Hunk, 
 	if showImports && maxTokens > 0 {
 		importBudget = maxTokens / jstsImportTokenShare
 		if importBudget < minJSTSTruncateTokens {
-			// Budget too small for a meaningful import block; fail open
-			// without it and keep the full budget for the function context.
-			showImports = false
-			importBudget = 0
-		} else {
-			imports.block = truncateToTokens(imports.block, importBudget)
+			// Budget too small for the quarter share: keep a truncated
+			// block rather than dropping it (#36). Clamp up to the
+			// smallest budget truncateToTokens cuts non-degenerately.
+			importBudget = minJSTSTruncateTokens
 		}
+		imports.block = truncateToTokens(imports.block, importBudget)
 	}
 	lang := jstsFenceLang(hunk.FilePath)
 	importSection := ""
@@ -223,12 +224,7 @@ func expandJSTSHunk(repoRoot string, hunk diff.Hunk, maxTokens int) (diff.Hunk, 
 		if !showImports {
 			return hunk, nil
 		}
-		augmented := importSection + "## Diff hunk\n\n" + hunk.RawContent
-		return diff.Hunk{
-			FilePath:   hunk.FilePath,
-			RawContent: hunk.RawContent,
-			Context:    augmented,
-		}, nil
+		return jstsImportsOnlyHunk(hunk, importSection), nil
 	}
 
 	funcSrc := extractLineRange(src, scope.startLine, scope.endLine)
@@ -236,7 +232,18 @@ func expandJSTSHunk(repoRoot string, hunk diff.Hunk, maxTokens int) (diff.Hunk, 
 		return hunk, nil
 	}
 	if maxTokens > 0 {
-		funcSrc = truncateToTokens(funcSrc, maxTokens-importBudget)
+		funcBudget := maxTokens - importBudget
+		if funcBudget < minJSTSTruncateTokens {
+			// After the (clamped) import block there is no room left for a
+			// meaningful function context: truncateToTokens would panic or
+			// emit a marker-only cut below this floor. Keep the truncated
+			// import block and the hunk; drop the function context.
+			if !showImports {
+				return hunk, nil
+			}
+			return jstsImportsOnlyHunk(hunk, importSection), nil
+		}
+		funcSrc = truncateToTokens(funcSrc, funcBudget)
 	}
 
 	augmented := importSection + "## Enclosing function context\n\n```" + lang + "\n" + funcSrc + "\n```\n\n## Diff hunk\n\n" + hunk.RawContent
@@ -245,6 +252,16 @@ func expandJSTSHunk(repoRoot string, hunk diff.Hunk, maxTokens int) (diff.Hunk, 
 		RawContent: hunk.RawContent,
 		Context:    augmented,
 	}, nil
+}
+
+// jstsImportsOnlyHunk wraps the hunk with only the import section above it
+// (no enclosing function context).
+func jstsImportsOnlyHunk(hunk diff.Hunk, importSection string) diff.Hunk {
+	return diff.Hunk{
+		FilePath:   hunk.FilePath,
+		RawContent: hunk.RawContent,
+		Context:    importSection + "## Diff hunk\n\n" + hunk.RawContent,
+	}
 }
 
 type jstsScope struct {

@@ -59,6 +59,23 @@ func TestBuildCriticPrompt_rangeLocation(t *testing.T) {
 	}
 }
 
+func TestBuildCriticPrompt_defaultCapTruncatesPreparedPrompt(t *testing.T) {
+	// Default cap (maxLen 0) must truncate a prepared user prompt longer than
+	// defaultCriticContextCap with the [truncated] marker.
+	f := findings.Finding{File: "x", Line: 1, Severity: findings.SeverityInfo, Category: findings.CategoryStyle, Message: "msg"}
+	promptInput := strings.Repeat("y", defaultCriticContextCap+1000)
+	prompt := BuildCriticPrompt(f, promptInput, 0)
+	if !strings.Contains(prompt, "[truncated]") {
+		t.Error("prompt should contain [truncated] when the prepared prompt exceeds the default cap")
+	}
+	if !strings.Contains(prompt, strings.Repeat("y", defaultCriticContextCap)) {
+		t.Errorf("prompt should keep the first %d chars before truncating", defaultCriticContextCap)
+	}
+	if strings.Contains(prompt, strings.Repeat("y", defaultCriticContextCap+1)) {
+		t.Error("prompt should not carry more than defaultCriticContextCap chars of the input")
+	}
+}
+
 func TestBuildCriticPrompt_truncatesLongHunk(t *testing.T) {
 	f := findings.Finding{File: "x", Line: 1, Severity: findings.SeverityInfo, Category: findings.CategoryStyle, Message: "msg"}
 	hunk := strings.Repeat("x", 5000)

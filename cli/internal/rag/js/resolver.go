@@ -87,19 +87,44 @@ var jsBuiltinGlobals = map[string]bool{
 const jsIdentPattern = `[A-Za-z_$][A-Za-z0-9_$]*`
 
 var (
+	// specifier matches a quoted module specifier after "from" or inside
+	// require(...); its capture group holds the specifier text ("" when the
+	// text is cut off before it or the require is dynamic).
+	specifier = `(?:["']([^"']*)["'])?`
+
 	// import { a, b as c } from "..."; import d, { e } from "..."
-	importNamedRe = regexp.MustCompile(`\bimport\s+(?:type\s+)?(?:` + jsIdentPattern + `\s*,\s*)?\{([^}]*)\}\s*from\b`)
+	// Group 1: brace list. Group 2: module specifier.
+	importNamedRe = regexp.MustCompile(`\bimport\s+(?:type\s+)?(?:` + jsIdentPattern + `\s*,\s*)?\{([^}]*)\}\s*from\b\s*` + specifier)
 	// import d from "..."; import d, { e } from "..."; import d, * as ns from "..."
-	importDefaultRe = regexp.MustCompile(`\bimport\s+(?:type\s+)?(` + jsIdentPattern + `)\s*(?:,|from\b)`)
+	// Group 1: default binding. Groups 2-3: module specifier (after a comma
+	// with a named or namespace clause, or directly after "from").
+	importDefaultRe = regexp.MustCompile(`\bimport\s+(?:type\s+)?(` + jsIdentPattern + `)\s*(?:,(?:\s*(?:\{[^}]*\}\s*|\*\s*as\s+` + jsIdentPattern + `\s+)?from\b\s*` + specifier + `)?|from\b\s*` + specifier + `)`)
 	// import * as ns from "..."; import d, * as ns from "..."
-	importNamespaceRe = regexp.MustCompile(`\bimport\s+(?:` + jsIdentPattern + `\s*,\s*)?\*\s*as\s+(` + jsIdentPattern + `)`)
+	// Group 1: namespace binding. Group 2: module specifier.
+	importNamespaceRe = regexp.MustCompile(`\bimport\s+(?:` + jsIdentPattern + `\s*,\s*)?\*\s*as\s+(` + jsIdentPattern + `)(?:\s+from\b\s*` + specifier + `)?`)
 	// const { a, b: c } = require("...")
-	requireDestructRe = regexp.MustCompile(`\b(?:const|let|var)\s+\{([^}]*)\}\s*=\s*require\s*\(`)
+	// Group 1: brace list. Group 2: module specifier.
+	requireDestructRe = regexp.MustCompile(`\b(?:const|let|var)\s+\{([^}]*)\}\s*=\s*require\s*\(\s*` + specifier + `\s*\)?`)
 	// const x = require("...")
-	requireDefaultRe = regexp.MustCompile(`\b(?:const|let|var)\s+(` + jsIdentPattern + `)\s*=\s*require\s*\(`)
+	// Group 1: local binding. Group 2: module specifier.
+	requireDefaultRe = regexp.MustCompile(`\b(?:const|let|var)\s+(` + jsIdentPattern + `)\s*=\s*require\s*\(\s*` + specifier + `\s*\)?`)
 	// Bare identifier (whole string).
 	bareIdentRe = regexp.MustCompile(`^` + jsIdentPattern + `$`)
 )
+
+// sourceDefault is the exported source name for default-style bindings: ESM
+// "import d from m" and whole-module CommonJS "const x = require(m)".
+const sourceDefault = "default"
+
+// importBinding is one import/require-bound local name together with the
+// module specifier it comes from and the exported source name it is bound to
+// in that module. Namespace bindings ("* as ns") never get a binding: no
+// single exported name corresponds to them, so they resolve via git grep.
+type importBinding struct {
+	local  string // local name bound in the importing file
+	source string // exported name in the module; sourceDefault for default-style
+	module string // module specifier as written ("./discover.mjs", "lodash")
+}
 
 // Resolver implements rag.Resolver for JavaScript and TypeScript.
 type Resolver struct{}
@@ -127,7 +152,7 @@ func (r *Resolver) ResolveSymbols(ctx context.Context, repoRoot, filePath, hunkC
 	if maxDefs <= 0 {
 		maxDefs = 10
 	}
-	defs, err := lookupDefinitions(ctx, repoRoot, filePath, symbols, maxDefs)
+	defs, err := lookupDefinitions(ctx, repoRoot, filePath, hunkContent, symbols, maxDefs)
 	if err != nil || len(defs) == 0 {
 		return nil, err
 	}
@@ -219,18 +244,89 @@ func importBoundNames(src string) []string {
 	return names
 }
 
+// importBindings parses import and require statements in src and returns one
+// binding per local name that carries a module specifier, in the same form
+// order as importBoundNames. Unlike importBoundNames it drops bindings with
+// no usable specifier (dynamic require(m), cut-off hunks) and namespace
+// bindings — neither can be resolved in a module, so they fall back to git
+// grep. bindingListPairs (not bindingListNames) is used here because both
+// sides of an alias must be bare identifiers for module lookup.
+func importBindings(src string) []importBinding {
+	var bindings []importBinding
+	for _, m := range importNamedRe.FindAllStringSubmatch(src, -1) {
+		if m[2] == "" {
+			continue
+		}
+		for _, pair := range bindingListPairs(m[1], " as ") {
+			bindings = append(bindings, importBinding{local: pair[1], source: pair[0], module: m[2]})
+		}
+	}
+	for _, m := range importDefaultRe.FindAllStringSubmatch(src, -1) {
+		spec := m[2]
+		if spec == "" {
+			spec = m[3]
+		}
+		if spec != "" {
+			bindings = append(bindings, importBinding{local: m[1], source: sourceDefault, module: spec})
+		}
+	}
+	for _, m := range requireDestructRe.FindAllStringSubmatch(src, -1) {
+		if m[2] == "" {
+			continue
+		}
+		for _, pair := range bindingListPairs(m[1], ":") {
+			bindings = append(bindings, importBinding{local: pair[1], source: pair[0], module: m[2]})
+		}
+	}
+	for _, m := range requireDefaultRe.FindAllStringSubmatch(src, -1) {
+		if m[2] != "" {
+			bindings = append(bindings, importBinding{local: m[1], source: sourceDefault, module: m[2]})
+		}
+	}
+	return bindings
+}
+
+// normalizeBindingItem normalizes one comma-separated item of an import or
+// destructuring brace list: strips diff markers, collapses whitespace
+// (including newlines, so "b\n+  as c" matches the alias separator), and
+// removes a trailing "= default" initializer.
+func normalizeBindingItem(item string) string {
+	item = strings.Join(strings.Fields(stripDiffMarkers(item)), " ")
+	if i := strings.Index(item, "="); i >= 0 {
+		item = item[:i]
+	}
+	return item
+}
+
+// bindingListPairs parses the inside of an import/destructuring brace list
+// ("a, b as c" or "a, b: c") into (source, local) name pairs: the exported
+// source name first, the local alias second. Items whose either side is not
+// a bare identifier (string export names, computed keys) are skipped.
+func bindingListPairs(list, aliasSep string) [][2]string {
+	var pairs [][2]string
+	for _, item := range strings.Split(list, ",") {
+		item = normalizeBindingItem(item)
+		source, local := item, item
+		if i := strings.Index(item, aliasSep); i >= 0 {
+			source, local = item[:i], item[i+len(aliasSep):]
+		}
+		source = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(source), "type "))
+		local = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(local), "type "))
+		if bareIdentRe.MatchString(source) && bareIdentRe.MatchString(local) {
+			pairs = append(pairs, [2]string{source, local})
+		}
+	}
+	return pairs
+}
+
 // bindingListNames parses the inside of an import/destructuring brace list
 // ("a, b as c" or "a, b: c = 1") and returns the local names. aliasSep is the
-// token that separates the source name from the local alias.
+// token that separates the source name from the local alias. Unlike
+// bindingListPairs only the local side must be a bare identifier.
 func bindingListNames(list, aliasSep string) []string {
 	var names []string
 	for _, item := range strings.Split(list, ",") {
-		// Normalize whitespace (including newlines and diff markers) so
-		// "b\n+  as c" matches the alias separator.
-		item = strings.Join(strings.Fields(stripDiffMarkers(item)), " ")
-		if i := strings.Index(item, "="); i >= 0 {
-			item = item[:i]
-		}
+		item = normalizeBindingItem(item)
 		if i := strings.Index(item, aliasSep); i >= 0 {
 			item = item[i+len(aliasSep):]
 		}
@@ -367,11 +463,12 @@ func stripDiffMarkers(s string) string {
 	return strings.TrimSpace(strings.Join(lines, "\n"))
 }
 
-func lookupDefinitions(ctx context.Context, repoRoot, fromFile string, symbols []string, maxDefs int) ([]rag.Definition, error) {
+func lookupDefinitions(ctx context.Context, repoRoot, fromFile, hunkContent string, symbols []string, maxDefs int) ([]rag.Definition, error) {
 	absRepo, err := filepath.Abs(repoRoot)
 	if err != nil {
 		return nil, err
 	}
+	bindings := moduleBindings(hunkContent, absRepo, fromFile)
 	seen := make(map[string]bool)
 	var defs []rag.Definition
 	for _, sym := range symbols {
@@ -379,6 +476,13 @@ func lookupDefinitions(ctx context.Context, repoRoot, fromFile string, symbols [
 			break
 		}
 		if seen[sym] {
+			continue
+		}
+		// Import-bound names resolve in the module they come from first;
+		// git grep is the fallback for everything else and every failure.
+		if def, ok := resolveImportedDefinition(absRepo, fromFile, sym, bindings[sym]); ok {
+			seen[sym] = true
+			defs = append(defs, def)
 			continue
 		}
 		path, line, content, err := gitGrepSymbol(ctx, absRepo, sym)
@@ -401,6 +505,189 @@ func lookupDefinitions(ctx context.Context, repoRoot, fromFile string, symbols [
 		})
 	}
 	return defs, nil
+}
+
+// moduleBindings maps local import/require-bound names to their module
+// bindings for definition lookup. Bindings come from the edited file's import
+// block (read from disk at fromFile) and from the hunk itself — a hunk that
+// edits an import line wins over the stale file content. Names without a
+// usable module binding are absent from the map and resolve via git grep.
+func moduleBindings(hunkContent, absRepo, fromFile string) map[string]importBinding {
+	bindings := make(map[string]importBinding)
+	absFile := filepath.Join(absRepo, filepath.FromSlash(fromFile))
+	if pathInsideRepo(absRepo, absFile) {
+		if src, err := os.ReadFile(absFile); err == nil {
+			for _, b := range importBindings(string(src)) {
+				bindings[b.local] = b
+			}
+		}
+	}
+	for _, b := range importBindings(hunkContent) {
+		bindings[b.local] = b
+	}
+	return bindings
+}
+
+// resolveImportedDefinition resolves an import-bound symbol to its exported
+// declaration in the module it was imported from. Only relative specifiers
+// ("./x", "../y") are resolved; bare package specifiers ("lodash",
+// "node:fs") return false so the caller falls back to git grep. Every
+// failure — missing module file, no matching export, unreadable path —
+// returns false: the lookup never fails the review.
+func resolveImportedDefinition(absRepo, fromFile, symbol string, b importBinding) (rag.Definition, bool) {
+	if b.module == "" || b.source == "" {
+		return rag.Definition{}, false
+	}
+	if !strings.HasPrefix(b.module, "./") && !strings.HasPrefix(b.module, "../") {
+		return rag.Definition{}, false
+	}
+	fromDir := filepath.Dir(filepath.Join(absRepo, filepath.FromSlash(fromFile)))
+	modulePath := resolveModulePath(absRepo, fromDir, b.module)
+	if modulePath == "" {
+		return rag.Definition{}, false
+	}
+	line, decl, ok := findExportedDecl(modulePath, b.source)
+	if !ok {
+		return rag.Definition{}, false
+	}
+	relPath, err := filepath.Rel(absRepo, modulePath)
+	if err != nil {
+		return rag.Definition{}, false
+	}
+	sig, doc := readSignatureAndDoc(modulePath, line, decl)
+	if sig == "" {
+		sig = strings.TrimSpace(decl)
+	}
+	return rag.Definition{
+		Symbol:    symbol,
+		File:      filepath.ToSlash(relPath),
+		Line:      line,
+		Signature: sig,
+		Docstring: doc,
+	}, true
+}
+
+// resolveModulePath resolves a relative module specifier against fromDir the
+// way Node resolves file modules: the exact path, then the path with each
+// JS/TS extension appended (extensionless specifiers), then index with each
+// extension inside the directory (directory imports). The result must be a
+// regular file inside repoRoot — candidates that escape via ".." or via
+// symlinks are rejected — otherwise "" is returned.
+func resolveModulePath(repoRoot, fromDir, specifier string) string {
+	if !strings.HasPrefix(specifier, "./") && !strings.HasPrefix(specifier, "../") {
+		return ""
+	}
+	target := filepath.Clean(filepath.Join(fromDir, specifier))
+	candidates := []string{target}
+	if filepath.Ext(target) == "" {
+		for _, ext := range jsts.Extensions() {
+			candidates = append(candidates, target+ext)
+		}
+	}
+	for _, ext := range jsts.Extensions() {
+		candidates = append(candidates, filepath.Join(target, "index"+ext))
+	}
+	for _, cand := range candidates {
+		info, err := os.Stat(cand)
+		if err != nil || info.IsDir() {
+			continue
+		}
+		if !pathInsideRepo(repoRoot, cand) {
+			continue
+		}
+		return cand
+	}
+	return ""
+}
+
+// pathInsideRepo reports whether path lies inside repoRoot after cleaning
+// and after resolving symlinks in both, so a module (or importing file)
+// outside the repository is never read even when reached through a symlink.
+// Both paths are evaluated so a repo root reached through a symlink (e.g.
+// macOS /tmp) still compares correctly.
+func pathInsideRepo(repoRoot, path string) bool {
+	if !withinClean(repoRoot, path) {
+		return false
+	}
+	realRoot, err := filepath.EvalSymlinks(repoRoot)
+	if err != nil {
+		return false
+	}
+	realPath, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return false
+	}
+	return withinClean(realRoot, realPath)
+}
+
+// withinClean reports whether cleaned path lies inside cleaned root (root
+// itself counts as inside; callers require a regular file separately).
+func withinClean(root, path string) bool {
+	rel, err := filepath.Rel(filepath.Clean(root), filepath.Clean(path))
+	if err != nil {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// Export declaration patterns matched per line of a resolved module file.
+// Lists are matched single-line; multi-line export lists fall back to git grep.
+var (
+	// export function name / export async function name / export const name /
+	// export class name (also with "default": export default function name)
+	// — group 1 is the declared name.
+	exportDeclRe = regexp.MustCompile(`^\s*export\s+(?:default\s+)?(?:async\s+)?(?:function|const|class)\b\s*\*?\s*(` + jsIdentPattern + `)`)
+	// export default ...
+	exportDefaultRe = regexp.MustCompile(`^\s*export\s+default\b`)
+	// export { a, b as c } / export type { A } — group 1 is the brace list.
+	exportListRe = regexp.MustCompile(`^\s*export\s+(?:type\s+)?\{([^}]*)\}`)
+	// export { a } from "..." — a re-export, not a declaration.
+	exportListFromRe = regexp.MustCompile(`^\s*export\s+(?:type\s+)?\{[^}]*\}\s*from\b`)
+	// module.exports.name = / exports.name = — group 1 is the exported name.
+	cjsNamedExportRe = regexp.MustCompile(`^\s*(?:module\.)?exports\.` + `(` + jsIdentPattern + `)\s*=`)
+	// module.exports = ... — whole-object export for default-style requires.
+	cjsModuleExportsRe = regexp.MustCompile(`^\s*module\.exports\s*=`)
+)
+
+// findExportedDecl scans a module file for the exported declaration of source
+// and returns its 1-based line number and the line content. Supported forms:
+// "export function|const|class name", single-line "export { ... name ... }"
+// lists, "export default" for default-style imports, and CommonJS
+// "module.exports.name =" / "exports.name =" (whole-object
+// "module.exports =" for default-style requires). Re-export lists
+// ("export { x } from ...") are skipped. ok is false when nothing matches or
+// the file cannot be read.
+func findExportedDecl(absPath, source string) (line int, decl string, ok bool) {
+	data, err := os.ReadFile(absPath)
+	if err != nil {
+		return 0, "", false
+	}
+	for i, text := range strings.Split(string(data), "\n") {
+		if exportListFromRe.MatchString(text) {
+			continue
+		}
+		if source == sourceDefault {
+			if exportDefaultRe.MatchString(text) || cjsModuleExportsRe.MatchString(text) {
+				return i + 1, text, true
+			}
+			continue
+		}
+		if m := exportDeclRe.FindStringSubmatch(text); m != nil && m[1] == source {
+			return i + 1, text, true
+		}
+		if m := exportListRe.FindStringSubmatch(text); m != nil {
+			for _, pair := range bindingListPairs(m[1], " as ") {
+				// In an export list the exported name follows " as ".
+				if pair[1] == source {
+					return i + 1, text, true
+				}
+			}
+		}
+		if m := cjsNamedExportRe.FindStringSubmatch(text); m != nil && m[1] == source {
+			return i + 1, text, true
+		}
+	}
+	return 0, "", false
 }
 
 func gitGrepSymbol(ctx context.Context, repoRoot, symbol string) (absPath string, line int, lineContent string, err error) {

@@ -641,9 +641,10 @@ func applyCritic(ctx context.Context, opts reviewPipelineOpts, p *preparedPrompt
 	if opts.CriticModel == opts.Model {
 		criticOpts.KeepAlive = keepAliveDuringRun
 	}
+	criticInput := criticInputFor(p)
 	kept := batch[:0]
 	for _, f := range batch {
-		keep, verr := review.VerifyFinding(ctx, opts.Client, opts.CriticModel, f, p.Hunk.RawContent, criticOpts)
+		keep, verr := review.VerifyFinding(ctx, opts.Client, opts.CriticModel, f, criticInput, criticOpts)
 		if verr != nil {
 			if opts.TraceOut != nil && opts.TraceOut.Enabled() {
 				opts.TraceOut.Printf("Critic request failed: %v\n", verr)
@@ -656,9 +657,23 @@ func applyCritic(ctx context.Context, opts reviewPipelineOpts, p *preparedPrompt
 	}
 	batch = kept
 	if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+		opts.TraceOut.Printf("Critic input: %d chars\n", len(criticInput))
 		opts.TraceOut.Printf("Critic: %d -> %d\n", beforeCritic, len(batch))
 	}
 	return batch, nil
+}
+
+// criticInputFor returns the code context the critic judges: the reviewer's
+// prepared user prompt (expanded hunk with enclosing-function/import context
+// plus the RAG symbol-definitions block), so the critic can refute claims
+// whose supporting evidence the reviewer had. Falls back to the raw hunk when
+// the prepared prompt is empty (defensive; prepared prompts are non-empty in
+// the pipeline).
+func criticInputFor(p *preparedPrompt) string {
+	if p.User != "" {
+		return p.User
+	}
+	return p.Hunk.RawContent
 }
 
 // applyCriticSystemOne verifies the batch with the System One decision server
@@ -674,7 +689,8 @@ func applyCriticSystemOne(ctx context.Context, opts reviewPipelineOpts, p *prepa
 		return nil, erruser.New("Critic failed for "+p.Hunk.FilePath+" (System One at "+opts.SystemOneBaseURL+").", errors.New("system one client is not configured"))
 	}
 	beforeCritic := len(batch)
-	kept, scores, err := review.VerifyFindingsSystemOne(ctx, opts.SystemOneClient, opts.SystemOneModel, batch, p.Hunk.RawContent, opts.SystemOneMinKeep, opts.SystemOneSamples)
+	criticInput := criticInputFor(p)
+	kept, scores, err := review.VerifyFindingsSystemOne(ctx, opts.SystemOneClient, opts.SystemOneModel, batch, criticInput, opts.SystemOneMinKeep, opts.SystemOneSamples)
 	if err != nil {
 		if opts.TraceOut != nil && opts.TraceOut.Enabled() {
 			opts.TraceOut.Printf("Critic request failed: %v\n", err)
@@ -682,6 +698,7 @@ func applyCriticSystemOne(ctx context.Context, opts reviewPipelineOpts, p *prepa
 		return nil, erruser.New("Critic failed for "+p.Hunk.FilePath+" (System One at "+opts.SystemOneBaseURL+").", err)
 	}
 	if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+		opts.TraceOut.Printf("Critic input: %d chars\n", len(criticInput))
 		opts.TraceOut.Printf("Critic (systemone): %d -> %d\n", beforeCritic, len(kept))
 		for _, f := range batch {
 			if score, ok := scores[f.ID]; ok {

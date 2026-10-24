@@ -1,0 +1,7 @@
+SP-071 complete.
+
+- Step 1: pure -U0 hunk-header parser + remapSpan (cli/internal/run/line_remap.go)
+- Step 2: loadLineRemaps — one git diff per ref pair, empty file list makes no call
+- Step 3: all contract test cases pass; contract testCommand exits 0 (finding d8062e9 triaged as false_positive — stet diff-splitter bug recorded in STATUS.md Discoveries and CONTEXT.md tech-debt backlog)
+
+Commits: 4ce3884 (Steps 1-2), 441e864 (Step 3).
