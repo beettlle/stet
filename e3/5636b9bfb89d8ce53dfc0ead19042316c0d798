@@ -1,0 +1,22 @@
+cli/cmd/stet/main.go
+  h_ae151c586ac6c5 221-226,1414-1419,1421-1422,1426-1443,1445-1448,1470
+cli/cmd/stet/main_test.go
+  h_ae151c586ac6c5 1563-1620
+cli/internal/findings/finding.go
+  h_ae151c586ac6c5 22-67
+cli/internal/findings/finding_test.go
+  h_ae151c586ac6c5 246-320
+docs/cli-extension-contract.md
+  h_ae151c586ac6c5 87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e35636b9bfb89d8ce53dfc0ead19042316c0d798",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
