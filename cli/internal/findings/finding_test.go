@@ -243,6 +243,81 @@ func TestFindingValidate_nilReceiver(t *testing.T) {
 	}
 }
 
+func TestSeverityRank(t *testing.T) {
+	t.Parallel()
+	ordered := []Severity{SeverityNitpick, SeverityInfo, SeverityWarning, SeverityError}
+	for i := 1; i < len(ordered); i++ {
+		if ordered[i].Rank() <= ordered[i-1].Rank() {
+			t.Errorf("%q.Rank() = %d, want > %q.Rank() = %d", ordered[i], ordered[i].Rank(), ordered[i-1], ordered[i-1].Rank())
+		}
+	}
+	if got := Severity("critical").Rank(); got != 0 {
+		t.Errorf("unknown severity Rank() = %d, want 0", got)
+	}
+}
+
+func TestParseSeverity(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		in     string
+		want   Severity
+		wantOK bool
+	}{
+		{"error", SeverityError, true},
+		{" Warning ", SeverityWarning, true},
+		{"INFO", SeverityInfo, true},
+		{"nitpick", SeverityNitpick, true},
+		{"", "", false},
+		{"critical", "", false},
+	}
+	for _, tt := range tests {
+		got, ok := ParseSeverity(tt.in)
+		if got != tt.want || ok != tt.wantOK {
+			t.Errorf("ParseSeverity(%q) = (%q, %v), want (%q, %v)", tt.in, got, ok, tt.want, tt.wantOK)
+		}
+	}
+}
+
+func TestFilterAtLeast(t *testing.T) {
+	t.Parallel()
+	list := []Finding{
+		{ID: "err-hi", Severity: SeverityError, Confidence: 0.9},
+		{ID: "err-lo", Severity: SeverityError, Confidence: 0.5},
+		{ID: "warn-hi", Severity: SeverityWarning, Confidence: 0.95},
+		{ID: "info-hi", Severity: SeverityInfo, Confidence: 1.0},
+		{ID: "nit-lo", Severity: SeverityNitpick, Confidence: 0.3},
+	}
+	ids := func(fs []Finding) []string {
+		out := make([]string, 0, len(fs))
+		for _, f := range fs {
+			out = append(out, f.ID)
+		}
+		return out
+	}
+	tests := []struct {
+		name          string
+		minSeverity   Severity
+		minConfidence float64
+		want          []string
+	}{
+		{"no thresholds keeps all", "", 0, []string{"err-hi", "err-lo", "warn-hi", "info-hi", "nit-lo"}},
+		{"severity only", SeverityWarning, 0, []string{"err-hi", "err-lo", "warn-hi"}},
+		{"confidence only", "", 0.9, []string{"err-hi", "warn-hi", "info-hi"}},
+		{"both", SeverityWarning, 0.9, []string{"err-hi", "warn-hi"}},
+		{"confidence boundary inclusive", SeverityError, 0.5, []string{"err-hi", "err-lo"}},
+		{"nothing passes", SeverityError, 0.99, []string{}},
+	}
+	for _, tt := range tests {
+		got := ids(FilterAtLeast(list, tt.minSeverity, tt.minConfidence))
+		if !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("%s: FilterAtLeast = %v, want %v", tt.name, got, tt.want)
+		}
+	}
+	if got := FilterAtLeast(nil, SeverityError, 0.5); len(got) != 0 {
+		t.Errorf("FilterAtLeast(nil) = %v, want empty", got)
+	}
+}
+
 func TestUnmarshalFinding(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

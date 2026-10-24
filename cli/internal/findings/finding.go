@@ -19,6 +19,52 @@ const (
 	SeverityNitpick Severity = "nitpick"
 )
 
+// Rank orders severities for threshold filtering: error (4) > warning (3) >
+// info (2) > nitpick (1). Unknown severities rank 0.
+func (s Severity) Rank() int {
+	switch s {
+	case SeverityError:
+		return 4
+	case SeverityWarning:
+		return 3
+	case SeverityInfo:
+		return 2
+	case SeverityNitpick:
+		return 1
+	default:
+		return 0
+	}
+}
+
+// ParseSeverity returns the Severity named by s (case-insensitive, trimmed)
+// and whether s names a known severity.
+func ParseSeverity(s string) (Severity, bool) {
+	sev := Severity(strings.ToLower(strings.TrimSpace(s)))
+	if sev.Rank() == 0 {
+		return "", false
+	}
+	return sev, true
+}
+
+// FilterAtLeast returns the findings whose severity ranks at least minSeverity
+// and whose confidence is at least minConfidence. An empty minSeverity or a
+// zero minConfidence disables that check. Order is preserved; the input is not
+// modified.
+func FilterAtLeast(list []Finding, minSeverity Severity, minConfidence float64) []Finding {
+	minRank := minSeverity.Rank()
+	out := make([]Finding, 0, len(list))
+	for _, f := range list {
+		if f.Severity.Rank() < minRank {
+			continue
+		}
+		if f.Confidence < minConfidence {
+			continue
+		}
+		out = append(out, f)
+	}
+	return out
+}
+
 // Category is the category of a finding for filtering and display.
 type Category string
 

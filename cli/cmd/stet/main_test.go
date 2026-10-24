@@ -1560,6 +1560,64 @@ func TestRunCLI_listEmptyFindings(t *testing.T) {
 	}
 }
 
+func TestRunCLI_listThresholdFlags(t *testing.T) {
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	origOut := getFindingsOut
+	getFindingsOut = func() io.Writer { return &buf }
+	t.Cleanup(func() { getFindingsOut = origOut })
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
+	}
+	var out struct {
+		Findings []findings.Finding `json:"findings"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil || len(out.Findings) == 0 {
+		t.Fatalf("need at least one finding; err=%v", err)
+	}
+	// Dry-run findings are severity info with confidence 1.0.
+	shortID := findings.ShortID(out.Findings[0].ID)
+
+	tests := []struct {
+		name      string
+		args      []string
+		wantCode  int
+		wantShown bool
+	}{
+		{"no flags lists finding", []string{"list"}, 0, true},
+		{"min-severity info keeps info", []string{"list", "--min-severity", "info"}, 0, true},
+		{"min-severity warning hides info", []string{"list", "--min-severity", "warning"}, 0, false},
+		{"min-confidence 1 keeps confidence 1.0", []string{"list", "--min-confidence", "1"}, 0, true},
+		{"both flags combine", []string{"list", "--min-severity", "nitpick", "--min-confidence", "0.8"}, 0, true},
+		{"both flags, severity hides", []string{"list", "--min-severity", "error", "--min-confidence", "0.8"}, 0, false},
+		{"invalid severity", []string{"list", "--min-severity", "critical"}, 1, false},
+		{"confidence above 1", []string{"list", "--min-confidence", "1.5"}, 1, false},
+		{"negative confidence", []string{"list", "--min-confidence", "-0.1"}, 1, false},
+	}
+	for _, tt := range tests {
+		var code int
+		stdout, stderr := captureOutput(t, func() { code = runCLI(tt.args) })
+		if code != tt.wantCode {
+			t.Errorf("%s: runCLI(%v) = %d, want %d (stderr %q)", tt.name, tt.args, code, tt.wantCode, stderr)
+			continue
+		}
+		if shown := strings.Contains(stdout, shortID); shown != tt.wantShown {
+			t.Errorf("%s: finding shown = %v, want %v; stdout:\n%s", tt.name, shown, tt.wantShown, stdout)
+		}
+		if tt.wantCode != 0 && !strings.Contains(stderr, "Invalid --min-") {
+			t.Errorf("%s: stderr should name the invalid flag; got %q", tt.name, stderr)
+		}
+	}
+}
+
 func TestRunCLI_dismissNoSessionExitsNonZero(t *testing.T) {
 	repo := initRepo(t)
 	orig, err := os.Getwd()

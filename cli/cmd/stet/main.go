@@ -218,7 +218,12 @@ func writeFindingsWithIDs(w io.Writer, stateDir string) error {
 	if err != nil {
 		return err
 	}
-	for _, f := range active {
+	return writeFindingLines(w, active)
+}
+
+// writeFindingLines writes one line per finding: id  file:line  severity  message.
+func writeFindingLines(w io.Writer, list []findings.Finding) error {
+	for _, f := range list {
 		line := f.Line
 		if f.Range != nil {
 			line = f.Range.Start
@@ -1406,12 +1411,41 @@ func newListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List active findings with IDs (for stet dismiss)",
-		RunE:  runList,
+		Long: `List active findings with IDs (for stet dismiss).
+
+--min-severity and --min-confidence hide findings below a threshold, so a
+script can gate only on actionable findings (e.g. --min-severity warning
+--min-confidence 0.8). Hidden findings stay active; stet status still counts them.`,
+		RunE: runList,
 	}
+	cmd.Flags().String("min-severity", "", "Only list findings at or above this severity: error, warning, info, or nitpick")
+	cmd.Flags().Float64("min-confidence", 0, "Only list findings with confidence at or above this value (0 to 1)")
 	return cmd
 }
 
+// listThresholds reads and validates the stet list filter flags.
+func listThresholds(cmd *cobra.Command) (findings.Severity, float64, error) {
+	var minSeverity findings.Severity
+	sevFlag, _ := cmd.Flags().GetString("min-severity")
+	if strings.TrimSpace(sevFlag) != "" {
+		sev, ok := findings.ParseSeverity(sevFlag)
+		if !ok {
+			return "", 0, erruser.New("Invalid --min-severity "+strconv.Quote(sevFlag)+"; use one of: error, warning, info, nitpick.", nil)
+		}
+		minSeverity = sev
+	}
+	minConfidence, _ := cmd.Flags().GetFloat64("min-confidence")
+	if minConfidence < 0 || minConfidence > 1 {
+		return "", 0, erruser.New("Invalid --min-confidence; must be between 0 and 1.", nil)
+	}
+	return minSeverity, minConfidence, nil
+}
+
 func runList(cmd *cobra.Command, args []string) error {
+	minSeverity, minConfidence, err := listThresholds(cmd)
+	if err != nil {
+		return err
+	}
 	cwd, err := os.Getwd()
 	if err != nil {
 		return erruser.New("Could not determine current directory.", err)
@@ -1433,7 +1467,7 @@ func runList(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(os.Stderr, "No active session. Run 'stet start' to begin a review.")
 		return errExit(1)
 	}
-	return writeFindingsWithIDs(os.Stdout, stateDir)
+	return writeFindingLines(os.Stdout, findings.FilterAtLeast(activeFindingsInSession(&s), minSeverity, minConfidence))
 }
 
 func newDismissCmd() *cobra.Command {
