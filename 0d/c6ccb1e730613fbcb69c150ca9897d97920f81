@@ -1,0 +1,16 @@
+.spine/spine-config.json
+  h_ae151c586ac6c5 41,120-171,176
+spine-tasks/_authoring/release-v1.2.0/manifest.md
+  h_ae151c586ac6c5 1-128
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0dc6ccb1e730613fbcb69c150ca9897d97920f81",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
