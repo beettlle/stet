@@ -1,0 +1,41 @@
+.agents/skills/stet-release-operator/SKILL.md
+  s_42ab2485a66575::t_8b1effb8126573 1-306
+.agents/skills/stet-release-operator/references/issue-intake-checklist.md
+  s_42ab2485a66575::t_d2a43db2a148fe 1-92
+.agents/skills/stet-release-operator/references/post-integrate-regression-gate.md
+  s_42ab2485a66575::t_5e792eed8999f9 1-51
+.agents/skills/stet-release-operator/references/publish-recovery.md
+  s_42ab2485a66575::t_45d304a77a2a0f 1-50
+.agents/skills/stet-release-operator/references/release-manifest-template.md
+  s_42ab2485a66575::t_5fd861937a0c50 1-120
+.agents/skills/stet-release-operator/references/release-profiles.md
+  s_42ab2485a66575::t_667eeb400748f1 1-96
+.agents/skills/stet-release-operator/scripts/collect-release-intake.sh
+  s_42ab2485a66575::t_92699fa36e33d7 1-131
+.github/workflows/ci.yml
+  s_42ab2485a66575::t_40bc415f7c008c 1-38
+.github/workflows/release.yml
+  s_42ab2485a66575::t_78175d617939c2 3-5,7-10,15-20,26,29-31,36-42,44-45,49,54-67,70,77-78,85-93,104,107-108
+AGENTS.md
+  s_42ab2485a66575::t_ee32fa915225b2 166-169
+scripts/post-release-smoke.sh
+  s_42ab2485a66575::t_50df757b20aa43 1-77
+scripts/release-check.sh
+  s_42ab2485a66575::t_a2f6dd0d2e728a 1-79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0b144185d1252d128da517b3d055113c8e645349",
+  "prompts": {},
+  "sessions": {
+    "s_42ab2485a66575": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "8fbf3006-4fae-4e5c-ad4c-da4c4c3036d6",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
