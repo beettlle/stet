@@ -1,0 +1,16 @@
+spine-tasks/CONTEXT.md
+  h_ae151c586ac6c5 308
+spine-tasks/SP-071-dismissal-line-remap/STATUS.md
+  h_ae151c586ac6c5 3-4,33-40,42-43,58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "441e86455e37b254da89aba1b1d1ac80779ac3cc",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
