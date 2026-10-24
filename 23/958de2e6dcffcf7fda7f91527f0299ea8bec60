@@ -1,0 +1,14 @@
+spine-tasks/SP-075-readme-list-thresholds/STATUS.md
+  h_ae151c586ac6c5 3-4,14,16-17,22,24-37,52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "23958de2e6dcffcf7fda7f91527f0299ea8bec60",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
