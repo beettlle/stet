@@ -1,0 +1,16 @@
+.agents/skills/stet-release-operator/SKILL.md
+  h_ae151c586ac6c5 42-43,262-274,289,319
+.agents/skills/stet-release-operator/references/release-manifest-template.md
+  h_ae151c586ac6c5 120
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fbadcea5e62dfa91a7912753702138855482ca29",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
