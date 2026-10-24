@@ -1,8 +1,8 @@
 # stet — Context
 
-**Last Updated:** 2026-10-22
+**Last Updated:** 2026-10-24
 **Status:** Active
-**Next Task ID:** SP-067
+**Next Task ID:** SP-077
 
 ---
 
@@ -198,6 +198,25 @@ Manifest: `spine-tasks/_authoring/release-v1.3.0/manifest.md`. Scope approved 20
 Edges are shared-file serialization (`main_test.go`, `rag/js/resolver.go`) except SP-065 and SP-066, which document their dependencies' behavior.
 
 **Released:** v1.3.0 on 2026-10-23, tagged at `87d11ae` (closes #26, #27, #28, #29, #30, #31, #32). Release: https://github.com/beettlle/stet/releases/tag/v1.3.0
+
+### Phase 12 — Release v1.4.0 (2026-10-24)
+
+Manifest: `spine-tasks/_authoring/release-v1.4.0/manifest.md`. Scope approval pending.
+
+| Task | Summary | Size | Status | Deps |
+|------|---------|------|--------|------|
+| SP-067 | JS/TS import block reaches top-level and test-callback hunks (#36) | S | Ready | — |
+| SP-068 | JS RAG resolves imported names in the `from` module (#19) | M | Ready | — |
+| SP-069 | Critic sees the reviewer's expanded context and RAG (#18, partial) | M | Ready | — |
+| SP-070 | Existence-claim filter before the critic (#33) | M | Ready | SP-069 |
+| SP-071 | Line re-mapping library for dismissals (#38, partial) | S | Ready | — |
+| SP-072 | Dismissals follow line shifts in `stet start` / `stet run` (#38, partial) | S | Ready | SP-070, SP-071 |
+| SP-073 | Contract gates on `stet list --min-severity warning --min-confidence 0.8` (#37, #25) | S | Ready | — |
+| SP-074 | Docs: dismissal re-mapping and history across `.review` cleanup (#38) | S | Ready | SP-072 |
+| SP-075 | Docs: README `stet list` thresholds and contract gating | S | Ready | SP-073 |
+| SP-076 | Docs: `review-process-internals.md` for v1.4.0 | S | Ready | SP-067, SP-068, SP-069, SP-070, SP-072 |
+
+Edges are shared-file serialization (`run.go`: SP-069 → SP-070 → SP-072) and data deps (SP-072 uses SP-071's `line_remap.go`); the docs tasks document their dependencies' behavior.
 
 ### Completed (wave 0 + follow-on)
 
