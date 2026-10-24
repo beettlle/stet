@@ -1,0 +1,16 @@
+spine-tasks/SP-069-critic-expanded-context/.reviews/1-20261024T223204.md
+  h_ae151c586ac6c5 1-14
+spine-tasks/SP-069-critic-expanded-context/STATUS.md
+  h_ae151c586ac6c5 8,13-37,39,64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d2e9c38b0590836b6014b7a9b596085f9c9611cc",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
