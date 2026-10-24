@@ -1,0 +1,14 @@
+README.md
+  h_ae151c586ac6c5 12-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a43bf01fbbd70d85456b75b21d59f6f8c9603bc0",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
