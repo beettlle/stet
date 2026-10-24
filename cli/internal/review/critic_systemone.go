@@ -52,7 +52,7 @@ func VerifyFindingsSystemOne(ctx context.Context, client SystemOneDecider, model
 		return batch, map[string]float64{}, nil
 	}
 
-	state := buildSystemOneState(hunkContent)
+	state := buildSystemOneStateCapped(hunkContent, defaultCriticContextCap)
 	probs := make([]float64, len(batch))
 	for start := 0; start < len(batch); start += systemOneMaxQuestionsPerRequest {
 		end := start + systemOneMaxQuestionsPerRequest
@@ -107,11 +107,20 @@ func systemOneQuestionKey(i int) string {
 	return fmt.Sprintf("f%d", i)
 }
 
-// buildSystemOneState builds the request state: the code under review only,
-// truncated with the same marker and cap as BuildCriticPrompt.
+// buildSystemOneState builds the rules-annotation request state: the code
+// under review only, truncated with the same marker and 4096-character cap the
+// annotation requests have always used (defaultCriticMaxHunkLen).
 func buildSystemOneState(hunkContent string) string {
-	if len(hunkContent) > defaultCriticMaxHunkLen {
-		hunkContent = hunkContent[:defaultCriticMaxHunkLen] + "\n[truncated]"
+	return buildSystemOneStateCapped(hunkContent, defaultCriticMaxHunkLen)
+}
+
+// buildSystemOneStateCapped builds the request state at the given cap: the
+// code context under review only, truncated with the same marker as
+// BuildCriticPrompt. The critic calls it with defaultCriticContextCap; the
+// rules-annotation requests keep their own smaller cap via buildSystemOneState.
+func buildSystemOneStateCapped(hunkContent string, maxLen int) string {
+	if len(hunkContent) > maxLen {
+		hunkContent = hunkContent[:maxLen] + "\n[truncated]"
 	}
 	return systemOneStatePrefix + hunkContent
 }

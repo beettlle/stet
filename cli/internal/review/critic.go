@@ -14,14 +14,22 @@ import (
 
 const (
 	criticSystemPrompt = "You are a code review critic. Output only valid JSON."
-	// Default max characters of hunk content to include in the critic prompt to keep prompts small.
+	// defaultCriticMaxHunkLen caps the request state of the rules-annotation
+	// System One requests (buildSystemOneState in rules_annotation.go paths).
 	defaultCriticMaxHunkLen = 4096
+	// defaultCriticContextCap caps the critic's code-context input. Since SP-069
+	// the critics receive the reviewer's prepared user prompt (expanded hunk
+	// plus RAG symbol definitions) rather than the raw hunk, so the cap is
+	// larger than the annotation cap to keep the extra context.
+	defaultCriticContextCap = 16384
 )
 
 // CriticOptions configures VerifyFinding. Zero value uses defaults.
 type CriticOptions struct {
-	// MaxHunkContentLen caps the hunk content in the prompt (0 = defaultCriticMaxHunkLen).
-	MaxHunkContentLen int
+	// MaxContextLen caps the critic code-context input in characters (0 = defaultCriticContextCap).
+	// Callers pass the reviewer's prepared user prompt (or a raw hunk); the cap applies to whatever
+	// content is given, not just hunks.
+	MaxContextLen int
 	// RetryOnParseError when true retries the LLM call once on parse failure; then treat as no (drop finding).
 	RetryOnParseError bool
 	// KeepAlive, when set, is passed to Ollama GenerateOptions (e.g. -1 to keep model loaded). When nil, 0 is used so the critic model is unloaded after the call. Set when critic uses the same model as the main review to avoid unloading between hunks.
@@ -36,11 +44,12 @@ type verdictResponse struct {
 	Reason  string `json:"reason"`
 }
 
-// BuildCriticPrompt returns the user prompt for the critic: finding details plus code under review.
-// maxHunkLen caps the hunk content (0 = defaultCriticMaxHunkLen). Callers may truncate hunkContent before calling.
+// BuildCriticPrompt returns the user prompt for the critic: finding details plus the code context under
+// review (the reviewer's prepared user prompt). maxHunkLen caps that content (0 = defaultCriticContextCap).
+// Callers may truncate hunkContent before calling.
 func BuildCriticPrompt(f findings.Finding, hunkContent string, maxHunkLen int) string {
 	if maxHunkLen <= 0 {
-		maxHunkLen = defaultCriticMaxHunkLen
+		maxHunkLen = defaultCriticContextCap
 	}
 	if len(hunkContent) > maxHunkLen {
 		hunkContent = hunkContent[:maxHunkLen] + "\n[truncated]"
@@ -99,11 +108,11 @@ func VerifyFinding(ctx context.Context, client CriticClient, criticModel string,
 	if client == nil || criticModel == "" {
 		return false, nil
 	}
-	maxHunk := defaultCriticMaxHunkLen
+	maxHunk := defaultCriticContextCap
 	retryParse := true
 	if opts != nil {
-		if opts.MaxHunkContentLen > 0 {
-			maxHunk = opts.MaxHunkContentLen
+		if opts.MaxContextLen > 0 {
+			maxHunk = opts.MaxContextLen
 		}
 		retryParse = opts.RetryOnParseError
 	}

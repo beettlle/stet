@@ -23,6 +23,7 @@ import (
 	"stet/cli/internal/llm"
 	"stet/cli/internal/ollama"
 	"stet/cli/internal/prompt"
+	"stet/cli/internal/rag"
 	"stet/cli/internal/review"
 	"stet/cli/internal/rules"
 	"stet/cli/internal/session"
@@ -2921,13 +2922,15 @@ type fakeCriticLLM struct {
 	calls     int                       // total Generate calls
 	models    []string                  // model per call
 	systems   []string                  // system prompt per call (rules-selector tests)
+	prompts   []string                  // user prompt per call (critic-input tests)
 	genOpts   []*ollama.GenerateOptions // options per call
 }
 
-func (f *fakeCriticLLM) generate(model, systemPrompt string, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error) {
+func (f *fakeCriticLLM) generate(model, systemPrompt, userPrompt string, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error) {
 	f.calls++
 	f.models = append(f.models, model)
 	f.systems = append(f.systems, systemPrompt)
+	f.prompts = append(f.prompts, userPrompt)
 	f.genOpts = append(f.genOpts, opts)
 	if i := f.calls - 1; i < len(f.errors) && f.errors[i] != nil {
 		return nil, f.errors[i]
@@ -2944,15 +2947,29 @@ func (f *fakeCriticLLM) Check(ctx context.Context, model string) (*ollama.CheckR
 }
 
 func (f *fakeCriticLLM) Generate(ctx context.Context, model, systemPrompt, userPrompt string, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error) {
-	return f.generate(model, systemPrompt, opts)
+	return f.generate(model, systemPrompt, userPrompt, opts)
 }
 
 func (f *fakeCriticLLM) GeneratePlain(ctx context.Context, model, systemPrompt, userPrompt string, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error) {
-	return f.generate(model, systemPrompt, opts)
+	return f.generate(model, systemPrompt, userPrompt, opts)
 }
 
 func (f *fakeCriticLLM) GenerateWithMessages(ctx context.Context, model string, messages []ollama.Message, opts *ollama.GenerateOptions) (*ollama.GenerateResult, error) {
-	return f.generate(model, "", opts)
+	return f.generate(model, "", "", opts)
+}
+
+// criticContextCapForTest mirrors review's defaultCriticContextCap (16384):
+// the cap is unexported, so the run-package truncation tests pin the literal.
+const criticContextCapForTest = 16384
+
+// preparedUserPromptFor builds a user prompt in the shape PrepareHunkPrompt
+// produces for an expanded hunk: the hunk block (with enclosing-function
+// context) plus the RAG symbol-definitions block via
+// prompt.UserPromptWithRAGPlacement. The expanded-context and definition
+// markers let tests assert what the critic actually receives.
+func preparedUserPromptFor(hunk diff.Hunk) string {
+	defs := []rag.Definition{{Symbol: "helperFunc", File: "helper.go", Line: 3, Signature: "func helperFunc() {}"}}
+	return prompt.UserPromptWithRAGPlacement(hunk.Context, prompt.FormatSymbolDefinitions(defs, 0))
 }
 
 func TestApplyCritic(t *testing.T) {
@@ -3101,6 +3118,91 @@ func TestApplyCritic(t *testing.T) {
 		}
 		if fake.calls != 2 {
 			t.Errorf("calls = %d, want 2 (initial + parse retry)", fake.calls)
+		}
+	})
+
+	t.Run("critic receives prepared user prompt with expanded context and RAG definitions", func(t *testing.T) {
+		prep := diff.Hunk{
+			FilePath:   "a.go",
+			RawContent: "package main\n",
+			Context:    "## Enclosing function context\n\n```go\nfunc expandedEnclosing() { UNIQUE_EXPANDED_MARKER }\n```\n\n## Diff hunk\n\npackage main\n",
+		}
+		user := preparedUserPromptFor(prep)
+		if !strings.Contains(user, "UNIQUE_EXPANDED_MARKER") || !strings.Contains(user, "func helperFunc() {}") {
+			t.Fatalf("prepared prompt should carry the expanded context and the RAG definition, got %q", user)
+		}
+		pp := &preparedPrompt{User: user, Hunk: prep}
+		fake := &fakeCriticLLM{responses: []string{yes, yes}}
+		opts := reviewPipelineOpts{Client: fake, Model: "main", CriticEnabled: true, CriticModel: "critic"}
+		out, err := applyCritic(context.Background(), opts, pp, mkBatch())
+		if err != nil {
+			t.Fatalf("applyCritic: %v", err)
+		}
+		if len(out) != 2 {
+			t.Fatalf("kept %d findings, want 2", len(out))
+		}
+		for i, prompt := range fake.prompts {
+			for _, want := range []string{"## Enclosing function context", "UNIQUE_EXPANDED_MARKER", "## Symbol definitions (for context)", "func helperFunc() {}"} {
+				if !strings.Contains(prompt, want) {
+					t.Errorf("critic prompt %d should contain %q from the prepared user prompt, got %q", i, want, prompt)
+				}
+			}
+		}
+	})
+
+	t.Run("falls back to raw hunk when prepared prompt is empty", func(t *testing.T) {
+		fh := diff.Hunk{FilePath: "a.go", RawContent: "RAW_FALLBACK_HUNK_BODY"}
+		pp := &preparedPrompt{Hunk: fh}
+		fake := &fakeCriticLLM{responses: []string{yes}}
+		opts := reviewPipelineOpts{Client: fake, Model: "main", CriticEnabled: true, CriticModel: "critic"}
+		if _, err := applyCritic(context.Background(), opts, pp, mkBatch()[:1]); err != nil {
+			t.Fatalf("applyCritic: %v", err)
+		}
+		if !strings.Contains(fake.prompts[0], fh.RawContent) {
+			t.Errorf("critic prompt = %q, want it to contain the raw hunk fallback %q", fake.prompts[0], fh.RawContent)
+		}
+	})
+
+	t.Run("truncates prepared prompt over the critic context cap", func(t *testing.T) {
+		big := strings.Repeat("z", criticContextCapForTest+500)
+		pp := &preparedPrompt{User: big, Hunk: diff.Hunk{FilePath: "a.go", RawContent: "package main\n"}}
+		fake := &fakeCriticLLM{responses: []string{yes}}
+		opts := reviewPipelineOpts{Client: fake, Model: "main", CriticEnabled: true, CriticModel: "critic"}
+		if _, err := applyCritic(context.Background(), opts, pp, mkBatch()[:1]); err != nil {
+			t.Fatalf("applyCritic: %v", err)
+		}
+		got := fake.prompts[0]
+		if !strings.Contains(got, "\n[truncated]") {
+			t.Errorf("critic prompt should contain the [truncated] marker, got %q", got)
+		}
+		if !strings.Contains(got, strings.Repeat("z", criticContextCapForTest)) {
+			t.Errorf("critic prompt should keep the first %d chars before truncating", criticContextCapForTest)
+		}
+		if strings.Contains(got, strings.Repeat("z", criticContextCapForTest+1)) {
+			t.Errorf("critic prompt should not carry more than %d chars of the prepared prompt", criticContextCapForTest)
+		}
+	})
+
+	t.Run("trace prints critic input length next to the Critic line", func(t *testing.T) {
+		var traceBuf bytes.Buffer
+		user := preparedUserPromptFor(diff.Hunk{FilePath: "a.go", RawContent: "package main\n", Context: "expanded context"})
+		pp := &preparedPrompt{User: user, Hunk: diff.Hunk{FilePath: "a.go", RawContent: "package main\n"}}
+		fake := &fakeCriticLLM{responses: []string{yes}}
+		opts := reviewPipelineOpts{Client: fake, Model: "main", CriticEnabled: true, CriticModel: "critic", TraceOut: trace.New(&traceBuf)}
+		if _, err := applyCritic(context.Background(), opts, pp, mkBatch()[:1]); err != nil {
+			t.Fatalf("applyCritic: %v", err)
+		}
+		got := traceBuf.String()
+		wantInput := fmt.Sprintf("Critic input: %d chars", len(user))
+		if !strings.Contains(got, wantInput) {
+			t.Errorf("trace = %q, want %q", got, wantInput)
+		}
+		ci, cl := strings.Index(got, "Critic input:"), strings.Index(got, "Critic: 1 -> 1")
+		if ci < 0 || cl < 0 || ci > cl {
+			t.Errorf("trace = %q, want Critic input line printed once next to the Critic line", got)
+		}
+		if strings.Count(got, "Critic input:") != 1 {
+			t.Errorf("trace = %q, want exactly one Critic input line per hunk", got)
 		}
 	})
 }
@@ -3798,6 +3900,58 @@ func TestApplyCriticSystemOne(t *testing.T) {
 		}
 		if strings.Contains(got, "questions") || strings.Contains(got, `"state"`) {
 			t.Errorf("trace = %q, want no request bodies logged", got)
+		}
+	})
+
+	t.Run("state carries the prepared user prompt with expanded context and RAG definitions", func(t *testing.T) {
+		prep := diff.Hunk{
+			FilePath:   "a.go",
+			RawContent: "package main\n",
+			Context:    "## Enclosing function context\n\n```go\nfunc expandedEnclosing() { UNIQUE_EXPANDED_MARKER }\n```\n\n## Diff hunk\n\npackage main\n",
+		}
+		user := preparedUserPromptFor(prep)
+		if !strings.Contains(user, "UNIQUE_EXPANDED_MARKER") || !strings.Contains(user, "func helperFunc() {}") {
+			t.Fatalf("prepared prompt should carry the expanded context and the RAG definition, got %q", user)
+		}
+		sp := &preparedPrompt{User: user, Hunk: prep}
+		decider := &fakeSystemOneDecider{responses: []*systemone.Response{noulResponse(map[string]float64{"f0": 0.9, "f1": 0.9})}}
+		out, err := applyCritic(context.Background(), mkOpts(decider), sp, mkBatch())
+		if err != nil {
+			t.Fatalf("applyCritic: %v", err)
+		}
+		if len(out) != 2 {
+			t.Fatalf("kept %d findings, want 2", len(out))
+		}
+		req := decider.requests[0]
+		for _, want := range []string{"Code under review:", "## Enclosing function context", "UNIQUE_EXPANDED_MARKER", "## Symbol definitions (for context)", "func helperFunc() {}"} {
+			if !strings.Contains(req.State, want) {
+				t.Errorf("request state should contain %q from the prepared user prompt, got %q", want, req.State)
+			}
+		}
+	})
+
+	t.Run("truncates prepared prompt over the critic context cap and traces input length", func(t *testing.T) {
+		var traceBuf bytes.Buffer
+		big := strings.Repeat("z", criticContextCapForTest+500)
+		sp := &preparedPrompt{User: big, Hunk: diff.Hunk{FilePath: "a.go", RawContent: "package main\n"}}
+		decider := &fakeSystemOneDecider{responses: []*systemone.Response{noulResponse(map[string]float64{"f0": 0.9, "f1": 0.9})}}
+		opts := mkOpts(decider)
+		opts.TraceOut = trace.New(&traceBuf)
+		if _, err := applyCritic(context.Background(), opts, sp, mkBatch()); err != nil {
+			t.Fatalf("applyCritic: %v", err)
+		}
+		state := decider.requests[0].State
+		if !strings.HasSuffix(state, "\n[truncated]") {
+			t.Errorf("request state should end with the [truncated] marker, got suffix %q", state[len(state)-30:])
+		}
+		if !strings.Contains(state, strings.Repeat("z", criticContextCapForTest)) {
+			t.Errorf("request state should keep the first %d chars before truncating", criticContextCapForTest)
+		}
+		if strings.Contains(state, strings.Repeat("z", criticContextCapForTest+1)) {
+			t.Errorf("request state should not carry more than %d chars of the prepared prompt", criticContextCapForTest)
+		}
+		if got := traceBuf.String(); !strings.Contains(got, fmt.Sprintf("Critic input: %d chars", len(big))) {
+			t.Errorf("trace = %q, want critic input length line", got)
 		}
 	})
 

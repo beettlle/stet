@@ -1,0 +1,11 @@
+SP-067 complete. All completion criteria met:
+
+- Step 1: regression tests for the four Mission hunk positions at the review-pipeline budget
+  (contextLimit/4 capped at maxExpandTokensCap; 32768 context -> 4096 tokens) — all pass; no-imports
+  behavior preserved (TestExpandHunk_JSTS_noImports_pipelineBudget).
+- Step 2: fixes in cli/internal/expand/expand_jsts.go — import budget clamped up to
+  minJSTSTruncateTokens so the block is truncated, never dropped (#36); function-context budget
+  guarded before truncateToTokens (fixes latent panic at maxTokens <= 4); fail-open contract kept.
+- Step 3: contract testCommand verified on resume after REVISE review #1 (procedural only):
+  check-gofmt clean, go vet clean, go test ./cli/internal/expand/... -count=1 ok,
+  spine-stet-contract-run.sh default exit 0 with 0 findings.

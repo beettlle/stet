@@ -1,0 +1,37 @@
+Contract testCommand failure log
+Command: bash -n scripts/spine-stet-contract-run.sh && bash scripts/tests/spine-stet-contract-run-test.sh && bash scripts/spine-stet-contract-run.sh lenient
+Exit code: 1
+Attempt: 2 of 2
+Timestamp: 2026-10-24T22:59:27.975Z
+Buffer overflow: no
+---
+ok: contract script parses (bash -n)
+ok: case-a: exit 0
+ok: case-a: output contains: 1 finding(s) below the warning/0.8 threshold did not block this lane
+ok: case-a: output does not contain: 9f2e1ab  scripts/spine-stet-contract-run.sh:44  INFO  Naming could be clearer (confidence 0.30)
+ok: case-a: stet was invoked with: list --min-severity warning --min-confidence 0.8
+ok: case-a: stet was invoked with: list
+ok: case-a: stet was invoked with: run --strictness default --quiet
+ok: case-a: stet was invoked with: finish
+ok: case-b: exit 1
+ok: case-b: output contains: found 1 finding(s) at or above the warning/0.8 threshold
+ok: case-b: output contains: c4d8e2f  scripts/spine-stet-contract-run.sh:52  WARNING  Possible unquoted expansion (confidence 0.90)
+ok: case-b: output contains: 9f2e1ab  scripts/spine-stet-contract-run.sh:44  INFO  Naming could be clearer (confidence 0.30)
+ok: case-b: output contains: stet dismiss <id> <reason>
+ok: case-b: stet was not invoked with: finish
+ok: case-c: exit 1
+ok: case-c: output contains: 'stet list' failed
+ok: case-c: stet was not invoked with: finish
+ok: case-d: exit 2
+ok: case-d: stet was not invoked with: list
+ok: case-d: stet was not invoked with: run
+ok: case-e: exit 1
+ok: case-e: output contains: found 1 finding(s) at or above the info/0.5 threshold
+ok: case-e: stet was invoked with: list --min-severity info --min-confidence 0.5
+
+23 passed, 0 failed
+0 finding(s).
+
+warning: no new hunks to review; --strictness had no effect (pass them to "stet start" or use "stet rerun")
+unknown flag: --min-severity
+stet: 'stet list' failed; cannot verify active findings
