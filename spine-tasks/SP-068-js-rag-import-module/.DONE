@@ -1,0 +1,12 @@
+SP-068 complete.
+
+REVISE from review #1 addressed: implementation plan documented in STATUS.md
+(steps 1-3: binding parsing, module-path resolution, export lookup, containment,
+fallbacks, test matrix), reviews table populated, header status accurate.
+
+All completion criteria met:
+- Steps 1-3 implemented and committed (bbd2498, 58e0875, f648073, 36e65ce)
+- Contract testCommand passes end to end: check-gofmt, go vet ./cli/...,
+  go test ./cli/internal/rag/... -count=1 (all green), stet contract review exits 0
+- File scope respected: only resolver.go + resolver_test.py code changes
+  (resolver.go, resolver_test.go) plus task STATUS.md
