@@ -1,0 +1,18 @@
+spine-tasks/SP-071-dismissal-line-remap/.DONE
+  h_ae151c586ac6c5 1-7
+spine-tasks/SP-071-dismissal-line-remap/.reviews/1-20261024T222534.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-071-dismissal-line-remap/.reviews/final-20261024T222557.md
+  h_ae151c586ac6c5 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d4058e37b113c149c75071252cb626df780aef87",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
