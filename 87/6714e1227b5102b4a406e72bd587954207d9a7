@@ -1,0 +1,63 @@
+spine-tasks/CONTEXT.md
+  s_42ab2485a66575::t_a472bae4ad69dd 3,5,147-165
+spine-tasks/SP-048-rules-max-tokens-docs/PROMPT.md
+  s_42ab2485a66575::t_1018897d598bdf 1-97
+spine-tasks/SP-048-rules-max-tokens-docs/STATUS.md
+  s_42ab2485a66575::t_b7b32d482e8f13 1-46
+spine-tasks/SP-049-contract-recovery-strictness/PROMPT.md
+  s_42ab2485a66575::t_0e4392ae6281a9 1-94
+spine-tasks/SP-049-contract-recovery-strictness/STATUS.md
+  s_42ab2485a66575::t_044ac9e798c12b 1-38
+spine-tasks/SP-050-jsts-arrow-scope/PROMPT.md
+  s_42ab2485a66575::t_e45852850d552e 1-103
+spine-tasks/SP-050-jsts-arrow-scope/STATUS.md
+  s_42ab2485a66575::t_3757742309934f 1-40
+spine-tasks/SP-051-jsts-shared-extensions/PROMPT.md
+  s_42ab2485a66575::t_ab563b1fec2387 1-110
+spine-tasks/SP-051-jsts-shared-extensions/STATUS.md
+  s_42ab2485a66575::t_2651969a75bbdb 1-48
+spine-tasks/SP-052-openai-benchmark-throughput/PROMPT.md
+  s_42ab2485a66575::t_586bfbec2e169e 1-112
+spine-tasks/SP-052-openai-benchmark-throughput/STATUS.md
+  s_42ab2485a66575::t_98e6a7f596f33e 1-48
+spine-tasks/SP-053-praise-findings-filter/PROMPT.md
+  s_42ab2485a66575::t_4461e1b3e0cda7 1-107
+spine-tasks/SP-053-praise-findings-filter/STATUS.md
+  s_42ab2485a66575::t_0f736058795f45 1-48
+spine-tasks/SP-054-evidence-added-lines/PROMPT.md
+  s_42ab2485a66575::t_e3dece690e0d4d 1-104
+spine-tasks/SP-054-evidence-added-lines/STATUS.md
+  s_42ab2485a66575::t_a6c8576a2c11de 1-47
+spine-tasks/SP-055-js-rag-symbol-extraction/PROMPT.md
+  s_42ab2485a66575::t_47fde1116014b4 1-100
+spine-tasks/SP-055-js-rag-symbol-extraction/STATUS.md
+  s_42ab2485a66575::t_b7ff3eeb45be77 1-39
+spine-tasks/SP-056-review-internals-docs/PROMPT.md
+  s_42ab2485a66575::t_29fb8ffb148088 1-93
+spine-tasks/SP-056-review-internals-docs/STATUS.md
+  s_42ab2485a66575::t_1fb3e027d5a974 1-47
+spine-tasks/SP-057-run-ignored-flags-warning/PROMPT.md
+  s_42ab2485a66575::t_c869f4b78f4ab7 1-111
+spine-tasks/SP-057-run-ignored-flags-warning/STATUS.md
+  s_42ab2485a66575::t_a0fe22cf8520be 1-47
+spine-tasks/_authoring/release-v1.2.0/manifest.md
+  s_42ab2485a66575::t_3b88a406a57bef 7,25,27,29,54-58,60,64,66-71,78,85-107,131
+spine-tasks/dependencies.json
+  s_42ab2485a66575::t_601c4d78627fa8 4-105
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "876714e1227b5102b4a406e72bd587954207d9a7",
+  "prompts": {},
+  "sessions": {
+    "s_42ab2485a66575": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "8fbf3006-4fae-4e5c-ad4c-da4c4c3036d6",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
