@@ -26,8 +26,10 @@ const (
 
 // CriticOptions configures VerifyFinding. Zero value uses defaults.
 type CriticOptions struct {
-	// MaxHunkContentLen caps the critic code-context input (0 = defaultCriticContextCap).
-	MaxHunkContentLen int
+	// MaxContextLen caps the critic code-context input in characters (0 = defaultCriticContextCap).
+	// Callers pass the reviewer's prepared user prompt (or a raw hunk); the cap applies to whatever
+	// content is given, not just hunks.
+	MaxContextLen int
 	// RetryOnParseError when true retries the LLM call once on parse failure; then treat as no (drop finding).
 	RetryOnParseError bool
 	// KeepAlive, when set, is passed to Ollama GenerateOptions (e.g. -1 to keep model loaded). When nil, 0 is used so the critic model is unloaded after the call. Set when critic uses the same model as the main review to avoid unloading between hunks.
@@ -109,8 +111,8 @@ func VerifyFinding(ctx context.Context, client CriticClient, criticModel string,
 	maxHunk := defaultCriticContextCap
 	retryParse := true
 	if opts != nil {
-		if opts.MaxHunkContentLen > 0 {
-			maxHunk = opts.MaxHunkContentLen
+		if opts.MaxContextLen > 0 {
+			maxHunk = opts.MaxContextLen
 		}
 		retryParse = opts.RetryOnParseError
 	}
