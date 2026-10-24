@@ -1,0 +1,21 @@
+cli/internal/run/restore_dismissals.go
+  s_42ab2485a66575::t_96e5da2c032343 85-89
+cli/internal/run/restore_dismissals_test.go
+  s_42ab2485a66575::t_1447e58b97a844 208-231
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5cd4430107c90a5ac20c036715b1d0481f1cd232",
+  "prompts": {},
+  "sessions": {
+    "s_42ab2485a66575": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "8fbf3006-4fae-4e5c-ad4c-da4c4c3036d6",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
