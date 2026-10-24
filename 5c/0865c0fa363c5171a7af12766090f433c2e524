@@ -1,0 +1,68 @@
+spine-tasks/CONTEXT.md
+  s_42ab2485a66575::t_73621c3af4a245 3,5,202-220
+spine-tasks/SP-067-jsts-imports-top-level/PROMPT.md
+  s_42ab2485a66575::t_f0e5f4c8e8d5a8 1-104
+spine-tasks/SP-067-jsts-imports-top-level/STATUS.md
+  s_42ab2485a66575::t_21e2ac1774f4fd 1-45
+spine-tasks/SP-068-js-rag-import-module/PROMPT.md
+  s_42ab2485a66575::t_c97cbf63cb17b4 1-105
+spine-tasks/SP-068-js-rag-import-module/STATUS.md
+  s_42ab2485a66575::t_293e1e44995d2a 1-45
+spine-tasks/SP-069-critic-expanded-context/PROMPT.md
+  s_42ab2485a66575::t_0be2b530e1275d 1-105
+spine-tasks/SP-069-critic-expanded-context/STATUS.md
+  s_42ab2485a66575::t_adde5a53d318d4 1-45
+spine-tasks/SP-070-existence-claim-filter/PROMPT.md
+  s_42ab2485a66575::t_661ed4d14e810a 1-105
+spine-tasks/SP-070-existence-claim-filter/STATUS.md
+  s_42ab2485a66575::t_2fb71e82b69906 1-45
+spine-tasks/SP-071-dismissal-line-remap/PROMPT.md
+  s_42ab2485a66575::t_a8d235fb1fc6ae 1-105
+spine-tasks/SP-071-dismissal-line-remap/STATUS.md
+  s_42ab2485a66575::t_72c454f76ccba6 1-45
+spine-tasks/SP-072-dismissals-follow-line-shifts/PROMPT.md
+  s_42ab2485a66575::t_3d212403334da4 1-107
+spine-tasks/SP-072-dismissals-follow-line-shifts/STATUS.md
+  s_42ab2485a66575::t_c6d64f64c318cf 1-45
+spine-tasks/SP-073-contract-actionable-gate/PROMPT.md
+  s_42ab2485a66575::t_c2db23053dada5 1-101
+spine-tasks/SP-073-contract-actionable-gate/STATUS.md
+  s_42ab2485a66575::t_ee32d788c4b7d5 1-38
+spine-tasks/SP-074-dismissal-state-docs/PROMPT.md
+  s_42ab2485a66575::t_f4aa6c88908c09 1-86
+spine-tasks/SP-074-dismissal-state-docs/STATUS.md
+  s_42ab2485a66575::t_05a2c6473f5717 1-39
+spine-tasks/SP-075-readme-list-thresholds/PROMPT.md
+  s_42ab2485a66575::t_0ad74f949445e6 1-84
+spine-tasks/SP-075-readme-list-thresholds/STATUS.md
+  s_42ab2485a66575::t_2e0ea8328931dc 1-39
+spine-tasks/SP-076-review-internals-v1-4-docs/PROMPT.md
+  s_42ab2485a66575::t_4f9c45a8fbd76c 1-92
+spine-tasks/SP-076-review-internals-v1-4-docs/STATUS.md
+  s_42ab2485a66575::t_4a0a5532b5dba2 1-45
+spine-tasks/_authoring/release-v1.4.0/manifest.md
+  s_42ab2485a66575::t_ad39e72056e8f0 1-196
+spine-tasks/dependencies.json
+  s_42ab2485a66575::t_f21758e9d5a46d 120-139
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5c0865c0fa363c5171a7af12766090f433c2e524",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_42ab2485a66575": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "8fbf3006-4fae-4e5c-ad4c-da4c4c3036d6",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
