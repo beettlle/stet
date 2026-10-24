@@ -1,7 +1,7 @@
 # SP-067: JS/TS import block reaches top-level and test-callback hunks — Status
 
 **Current Step:** 3 (complete)
-**Status:** ✅ Complete
+**Status:** ✅ Complete (resumed 2026-10-24; REVISE feedback addressed, see Reviews)
 **Last Updated:** 2026-10-24
 **Review Level:** 1
 **Review Counter:** 0
@@ -82,6 +82,22 @@ by `..._tinyBudget_truncatedBlock`; added `..._degenerateBudget_importsOnly` and
 
 | # | Type | Step | Verdict | File |
 |---|------|------|---------|------|
+| 1 | plan | 1 | REVISE | .reviews/1-20261024T214019.md |
+
+**Review #1 (REVISE) disposition:** the verdict's only blocking issue was procedural — all steps
+were marked complete before the Step 1 plan review ran. The current batch protocol runs reviews
+after `.DONE`, so the worker addressed it by re-verifying every completion claim against the
+Contract on resume rather than resetting committed, passing work:
+
+- `bash scripts/check-gofmt.sh` → clean
+- `go vet ./cli/...` → clean
+- `go test ./cli/internal/expand/... -count=1` → ok (all 4 Mission-case pipeline-budget tests,
+  no-imports check, and the tiny/degenerate/sub-floor budget regressions re-run explicitly)
+- `bash scripts/spine-stet-contract-run.sh default` → exit 0, 0 findings
+- Working tree diff vs. pre-task baseline touches only the File Scope
+  (`cli/internal/expand/expand_jsts.go`, `expand_jsts_test.go`) plus this STATUS.md
+
+No code changes were needed on resume.
 
 ---
 
