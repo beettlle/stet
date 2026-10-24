@@ -1,7 +1,7 @@
 # SP-071: Line re-mapping library for dismissed findings — Status
 
-**Current Step:** 3
-**Status:** 🔄 Step 3 in progress (contract verification)
+**Current Step:** Complete
+**Status:** ✅ Complete (all steps done, contract review exits 0)
 **Last Updated:** 2026-10-24
 **Review Level:** 1
 **Review Counter:** 0
@@ -30,10 +30,17 @@
 ---
 
 ### Step 3: Testing & Verification
-**Status:** 🔄 In progress
+**Status:** ✅ Complete
 
-- [x] Tests for every Contract `completionCriteria` case
-- [ ] Contract `testCommand` passing (stet review exits 0)
+- [x] Tests for every Contract `completionCriteria` case (parser table tests incl. lines above/inside/below a modification, insertion/deletion shifts, insertion directly after the span, overlap `ok=false`, multi-hunk accumulation, absent-file identity, deleted file, plus temp-repo `loadLineRemaps` end to end)
+- [x] Contract `testCommand` passing (stet review exits 0; one finding d8062e9 triaged as false_positive — stet diff-splitter bug, see Discoveries)
+
+---
+
+## Completion Criteria
+
+- [x] All steps complete
+- [x] All tests passing (`bash scripts/check-gofmt.sh`, `go vet ./cli/...`, `go test ./cli/internal/run/... -run 'Remap' -count=1`, full `go test ./cli/internal/run/... -count=1`; contract `testCommand` exits 0)
 
 ---
 
@@ -48,3 +55,4 @@
 
 | Discovery | Disposition | Location |
 |-----------|-------------|----------|
+| Contract finding d8062e9 claimed `line_remap_test.go` is truncated at `remapDiffFixture` with a compilation error — false: `gofmt`/`go vet`/`go build`/`go test` all pass. Root cause is a stet review-pipeline bug: `splitByFileSections` (`cli/internal/diff/parse.go` ~55) splits at `"diff --git "` anywhere in the text, so the fixture's embedded `diff --git a/f.txt b/f.txt` line cuts the reviewer's file view mid-constant. Fixing the splitter is outside this packet's File Scope; logged in `spine-tasks/CONTEXT.md` tech-debt backlog. Finding dismissed `false_positive` with that evidence. | stet reviewer bug — dismissed false_positive, fix logged as tech debt | `cli/internal/diff/parse.go` `splitByFileSections` |
