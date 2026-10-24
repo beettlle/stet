@@ -1,0 +1,16 @@
+cli/internal/expand/expand_jsts_test.go
+  h_ae151c586ac6c5 857-1056
+spine-tasks/SP-067-jsts-imports-top-level/STATUS.md
+  h_ae151c586ac6c5 3-4,14-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0f223b3fd88b269ffade7f285d3debd3f37d9679",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
