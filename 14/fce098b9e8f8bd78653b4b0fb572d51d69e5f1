@@ -1,0 +1,23 @@
+cli/internal/prompt/prompt.go
+  s_8bc3d4db589f10::t_ae223113db525e 68
+cli/internal/prompt/prompt_test.go
+  s_8bc3d4db589f10::t_8ebc0fe1971a3d 77-96
+cli/internal/review/parse_test.go
+  s_8bc3d4db589f10::t_05ad2161d33399 248-267
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "14fce098b9e8f8bd78653b4b0fb572d51d69e5f1",
+  "prompts": {},
+  "sessions": {
+    "s_8bc3d4db589f10": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "a8955180-c57b-4cf4-8283-f1640ad8014b",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
