@@ -1,0 +1,22 @@
+cli/stet.log
+  h_ae151c586ac6c5 1-559
+spine-tasks/SP-069-critic-expanded-context/.DONE
+  h_ae151c586ac6c5 1
+spine-tasks/SP-069-critic-expanded-context/.reviews/1-20261024T223600.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-069-critic-expanded-context/.reviews/3-20261024T223619.md
+  h_ae151c586ac6c5 1-21
+spine-tasks/SP-069-critic-expanded-context/.reviews/final-20261024T224512.md
+  h_ae151c586ac6c5 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "76892da505d69e07333c045c50f2f3fbc32300aa",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
