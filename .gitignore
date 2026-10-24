@@ -80,3 +80,9 @@ extension/coverage
 .pi-smart-router/models/Xenova/all-MiniLM-L6-v2/tokenizer_config.json
 .pi-smart-router/models/Xenova/all-MiniLM-L6-v2/tokenizer.json
 .pi-smart-router/models/Xenova/all-MiniLM-L6-v2/onnx/model.onnx
+.claude/skills/gitnexus/gitnexus-cli/SKILL.md
+.claude/skills/gitnexus/gitnexus-debugging/SKILL.md
+.claude/skills/gitnexus/gitnexus-exploring/SKILL.md
+.claude/skills/gitnexus/gitnexus-guide/SKILL.md
+.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md
+.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md
