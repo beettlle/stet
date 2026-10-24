@@ -1,0 +1,217 @@
+docs/research/model-eval/baseline-pre-fix/harness-27b-thinking-on.log
+  s_8bc3d4db589f10::t_91fd80df030672 1-3
+docs/research/model-eval/baseline-pre-fix/harness-coder-next.log
+  s_8bc3d4db589f10::t_a460383c8d3208 1-52
+docs/research/model-eval/baseline-pre-fix/lmstudio-27b-thinking-on.log
+  s_8bc3d4db589f10::t_99be605214f5aa 1-354
+docs/research/model-eval/baseline-pre-fix/preflight.txt
+  s_8bc3d4db589f10::t_ed865f0793702e 1-194
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/benchmark.txt
+  s_8bc3d4db589f10::t_05d608c24ff878 1-6
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-clean-refactor/run1.json
+  s_8bc3d4db589f10::t_81d015d06dc066 1-32
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-clean-refactor/run1.meta.json
+  s_8bc3d4db589f10::t_929139e01a4c66 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-clean-refactor/run2.json
+  s_8bc3d4db589f10::t_68a6c1f58f46ba 1-22
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-clean-refactor/run2.meta.json
+  s_8bc3d4db589f10::t_da55d165d33662 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-clean-refactor/run3.json
+  s_8bc3d4db589f10::t_926ada9f0442ae 1-58
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-clean-refactor/run3.meta.json
+  s_8bc3d4db589f10::t_b2008d81b670a5 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-map-race/run1.json
+  s_8bc3d4db589f10::t_a64c4aba011659 1-18
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-map-race/run1.meta.json
+  s_8bc3d4db589f10::t_8340fcf42af7a9 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-map-race/run2.json
+  s_8bc3d4db589f10::t_a757ac68e9f026 1-3
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-map-race/run2.meta.json
+  s_8bc3d4db589f10::t_6d5a3ca05a7c6a 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-map-race/run3.json
+  s_8bc3d4db589f10::t_f75048bd2ba628 1-15
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-map-race/run3.meta.json
+  s_8bc3d4db589f10::t_e1d40e636b0ab2 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-nil-after-err/run1.json
+  s_8bc3d4db589f10::t_b67fce94344378 1-15
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-nil-after-err/run1.meta.json
+  s_8bc3d4db589f10::t_191a71dbbbe98b 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-nil-after-err/run2.json
+  s_8bc3d4db589f10::t_7bc52dc6ed8707 1-15
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-nil-after-err/run2.meta.json
+  s_8bc3d4db589f10::t_1627884b42fc1a 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-nil-after-err/run3.json
+  s_8bc3d4db589f10::t_f0dfa2343fa90e 1-18
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-nil-after-err/run3.meta.json
+  s_8bc3d4db589f10::t_9a7bc0dff7b186 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-off-by-one/run1.json
+  s_8bc3d4db589f10::t_d041e7bcbac09b 1-29
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-off-by-one/run1.meta.json
+  s_8bc3d4db589f10::t_081955f3c6629b 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-off-by-one/run2.json
+  s_8bc3d4db589f10::t_4fbfaebfaf4c44 1-29
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-off-by-one/run2.meta.json
+  s_8bc3d4db589f10::t_e42c915173c2df 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-off-by-one/run3.json
+  s_8bc3d4db589f10::t_228db8f120590a 1-29
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-off-by-one/run3.meta.json
+  s_8bc3d4db589f10::t_69a970670657ba 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-resource-leak/run1.json
+  s_8bc3d4db589f10::t_3d65c2f3555cc0 1-18
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-resource-leak/run1.meta.json
+  s_8bc3d4db589f10::t_b2a72685149c19 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-resource-leak/run2.json
+  s_8bc3d4db589f10::t_0801b54af6b222 1-18
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-resource-leak/run2.meta.json
+  s_8bc3d4db589f10::t_6b8c59c92072ab 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-resource-leak/run3.json
+  s_8bc3d4db589f10::t_0641416f0bad26 1-18
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-resource-leak/run3.meta.json
+  s_8bc3d4db589f10::t_d230f2d44297d2 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-sql-concat/run1.json
+  s_8bc3d4db589f10::t_c28230ec4771ec 1-18
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-sql-concat/run1.meta.json
+  s_8bc3d4db589f10::t_3ee53d94fd284f 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-sql-concat/run2.json
+  s_8bc3d4db589f10::t_c6c48497f8269d 1-18
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-sql-concat/run2.meta.json
+  s_8bc3d4db589f10::t_730159ade2c0c3 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-sql-concat/run3.json
+  s_8bc3d4db589f10::t_ca72d2eda586d7 1-18
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-sql-concat/run3.meta.json
+  s_8bc3d4db589f10::t_db88a487b8b7dc 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-swallowed-error/run1.json
+  s_8bc3d4db589f10::t_eb6da356afc72a 1-18
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-swallowed-error/run1.meta.json
+  s_8bc3d4db589f10::t_130f8bb7daab43 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-swallowed-error/run2.json
+  s_8bc3d4db589f10::t_2037729d5269e5 1-18
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-swallowed-error/run2.meta.json
+  s_8bc3d4db589f10::t_6cda880e73d6ac 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-swallowed-error/run3.json
+  s_8bc3d4db589f10::t_d36bc11702c6ec 1-18
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/go-swallowed-error/run3.meta.json
+  s_8bc3d4db589f10::t_82a2738624c451 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/py-bare-except/run1.json
+  s_8bc3d4db589f10::t_67a889ae7a3751 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/py-bare-except/run1.meta.json
+  s_8bc3d4db589f10::t_7262519d890e6e 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/py-bare-except/run2.json
+  s_8bc3d4db589f10::t_7895b5da5da083 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/py-bare-except/run2.meta.json
+  s_8bc3d4db589f10::t_9640b0af02d9fa 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/py-bare-except/run3.json
+  s_8bc3d4db589f10::t_5d2e3911c18a98 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/py-bare-except/run3.meta.json
+  s_8bc3d4db589f10::t_e21dd0f001ecd2 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/py-int-division/run1.json
+  s_8bc3d4db589f10::t_dd820f18df6fd0 1-18
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/py-int-division/run1.meta.json
+  s_8bc3d4db589f10::t_632e5391e7c755 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/py-int-division/run2.json
+  s_8bc3d4db589f10::t_4305ae5834d13d 1-18
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/py-int-division/run2.meta.json
+  s_8bc3d4db589f10::t_f9d7e6ffe8bf96 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/py-int-division/run3.json
+  s_8bc3d4db589f10::t_4739969014f7b4 1-18
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/py-int-division/run3.meta.json
+  s_8bc3d4db589f10::t_d98aa956083275 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/py-mutable-default/run1.json
+  s_8bc3d4db589f10::t_ffcd42cf0124ae 1-15
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/py-mutable-default/run1.meta.json
+  s_8bc3d4db589f10::t_725c9434cafb82 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/py-mutable-default/run2.json
+  s_8bc3d4db589f10::t_4661751daddf6d 1-15
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/py-mutable-default/run2.meta.json
+  s_8bc3d4db589f10::t_561cb92d2065ae 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/py-mutable-default/run3.json
+  s_8bc3d4db589f10::t_ec4e2e631f52bf 1-15
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/py-mutable-default/run3.meta.json
+  s_8bc3d4db589f10::t_ad0609785b3fb7 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/ts-clean-rename/run1.json
+  s_8bc3d4db589f10::t_9d578b4e2e9d78 1-19
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/ts-clean-rename/run1.meta.json
+  s_8bc3d4db589f10::t_5021d31d83cb76 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/ts-clean-rename/run2.json
+  s_8bc3d4db589f10::t_356f6721ad95e0 1-18
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/ts-clean-rename/run2.meta.json
+  s_8bc3d4db589f10::t_264f057fe83e87 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/ts-clean-rename/run3.json
+  s_8bc3d4db589f10::t_7e58c0ad6396fb 1-18
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/ts-clean-rename/run3.meta.json
+  s_8bc3d4db589f10::t_b99bca21d8ed1f 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/ts-inverted-guard/run1.json
+  s_8bc3d4db589f10::t_a56763bdc10d0e 1-18
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/ts-inverted-guard/run1.meta.json
+  s_8bc3d4db589f10::t_20e1afd3027b37 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/ts-inverted-guard/run2.json
+  s_8bc3d4db589f10::t_1fbd291a24f743 1-18
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/ts-inverted-guard/run2.meta.json
+  s_8bc3d4db589f10::t_5a220c7c0923c2 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/ts-inverted-guard/run3.json
+  s_8bc3d4db589f10::t_c7eb791774cea1 1-18
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/ts-inverted-guard/run3.meta.json
+  s_8bc3d4db589f10::t_3d20a6bab69094 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/ts-missing-await/run1.json
+  s_8bc3d4db589f10::t_2aa125db93f90e 1-15
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/ts-missing-await/run1.meta.json
+  s_8bc3d4db589f10::t_07731abc069e5b 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/ts-missing-await/run2.json
+  s_8bc3d4db589f10::t_6767caa77b50af 1-15
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/ts-missing-await/run2.meta.json
+  s_8bc3d4db589f10::t_bb2a6828fd884d 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/ts-missing-await/run3.json
+  s_8bc3d4db589f10::t_e42abd7c8c9a06 1-18
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/ts-missing-await/run3.meta.json
+  s_8bc3d4db589f10::t_b55e70727932aa 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/ts-path-traversal/run1.json
+  s_8bc3d4db589f10::t_394d23595be23a 1-29
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/ts-path-traversal/run1.meta.json
+  s_8bc3d4db589f10::t_8d2e748151e8be 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/ts-path-traversal/run2.json
+  s_8bc3d4db589f10::t_cacbaee9b6f45d 1-32
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/ts-path-traversal/run2.meta.json
+  s_8bc3d4db589f10::t_918083410ea239 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/ts-path-traversal/run3.json
+  s_8bc3d4db589f10::t_a0b798bffa76ec 1-32
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/cases/ts-path-traversal/run3.meta.json
+  s_8bc3d4db589f10::t_213639a973df0b 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/real/2326c0487a36e9b306edbed7da91dda1b536d00b/run1.json
+  s_8bc3d4db589f10::t_b37a17e7ae921a 1-137
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/real/2326c0487a36e9b306edbed7da91dda1b536d00b/run1.meta.json
+  s_8bc3d4db589f10::t_087f511db9d48a 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/real/3ee3055f13cf00b5cb4e182f169829b78961743e/run1.json
+  s_8bc3d4db589f10::t_d00628cedc32af 1-314
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/real/3ee3055f13cf00b5cb4e182f169829b78961743e/run1.meta.json
+  s_8bc3d4db589f10::t_eabbfff84543ec 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/real/e9b2e61f637cf165c630061c6d8f89c5e9f39404/run1.json
+  s_8bc3d4db589f10::t_e40de7b8f6948b 1-223
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3-coder-next/real/e9b2e61f637cf165c630061c6d8f89c5e9f39404/run1.meta.json
+  s_8bc3d4db589f10::t_f59a0a7c984283 1-26
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3.8-27b-thinking-on-partial/benchmark.txt
+  s_8bc3d4db589f10::t_26020ee2dc60d3 1-6
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3.8-27b-thinking-on-partial/cases/go-clean-refactor/run1.json
+  s_8bc3d4db589f10::t_35c7afc30119c1 1-15
+docs/research/model-eval/baseline-pre-fix/results/qwen__qwen3.8-27b-thinking-on-partial/cases/go-clean-refactor/run1.meta.json
+  s_8bc3d4db589f10::t_2d3e15c191b27a 1-26
+spine-tasks/SP-039-model-comparison-run/PROMPT.md
+  s_8bc3d4db589f10::t_16d775303f0dd9 30-31,35-38,108,137-142,148-149,153,162,185-186,228
+spine-tasks/SP-039-model-comparison-run/STATUS.md
+  s_8bc3d4db589f10::t_ab6eb757100f34 77,85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9d1698725fb9ea3fda06abd50cf11785038d4e5d",
+  "prompts": {},
+  "sessions": {
+    "s_8bc3d4db589f10": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "a8955180-c57b-4cf4-8283-f1640ad8014b",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
