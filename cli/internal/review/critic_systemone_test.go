@@ -281,16 +281,31 @@ func TestVerifyFindingsSystemOne_missingAnswerIsError(t *testing.T) {
 }
 
 func TestVerifyFindingsSystemOne_truncatesLongHunk(t *testing.T) {
-	hunk := strings.Repeat("x", defaultCriticMaxHunkLen+1000)
+	hunk := strings.Repeat("x", defaultCriticContextCap+1000)
 	fake := &fakeDecider{probs: map[string]float64{"f0": 0.9}}
 	_, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{sampleFinding("f-a", "x")}, hunk, 0.5, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	state := fake.requests[0].State
-	want := "Code under review:\n" + strings.Repeat("x", defaultCriticMaxHunkLen) + "\n[truncated]"
+	want := "Code under review:\n" + strings.Repeat("x", defaultCriticContextCap) + "\n[truncated]"
 	if state != want {
-		t.Errorf("state should truncate the hunk at %d chars with the [truncated] marker (len %d, want %d)", defaultCriticMaxHunkLen, len(state), len(want))
+		t.Errorf("state should truncate the critic input at %d chars with the [truncated] marker (len %d, want %d)", defaultCriticContextCap, len(state), len(want))
+	}
+}
+
+func TestVerifyFindingsSystemOne_keepsContextUnderDefaultCap(t *testing.T) {
+	// Content at or under defaultCriticContextCap must reach the request state
+	// untruncated: the critic may see everything the reviewer saw.
+	hunk := strings.Repeat("x", defaultCriticContextCap)
+	fake := &fakeDecider{probs: map[string]float64{"f0": 0.9}}
+	_, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{sampleFinding("f-a", "x")}, hunk, 0.5, 0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := "Code under review:\n" + hunk
+	if fake.requests[0].State != want {
+		t.Errorf("state should carry the full %d-char input untruncated (len %d)", defaultCriticContextCap, len(fake.requests[0].State))
 	}
 }
 
