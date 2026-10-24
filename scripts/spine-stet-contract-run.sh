@@ -9,6 +9,8 @@
 # SPINE_STET_MIN_SEVERITY (one of error, warning, info, nitpick) and SPINE_STET_MIN_CONFIDENCE
 # (0 to 1; validated by `stet list`, whose non-zero exit fails the script). Active findings below
 # the threshold are reported to stderr but do not block the lane.
+# Fallback: an installed stet without the threshold flags (pre-v1.4.0, detected via
+# `stet list --help`) gates on ALL active findings after warning on stderr — never silently pass.
 set -euo pipefail
 
 strictness="${1:-default}"
@@ -50,21 +52,35 @@ if [[ "$run_exit" -ne 0 ]]; then
 fi
 
 # stet list prints one line per active (non-dismissed) finding; stet status counts dismissed ones too.
-# The gating list hides findings below the threshold; the full list is for triage output.
-if ! gating_list="$(stet list --min-severity "$min_severity" --min-confidence "$min_confidence")"; then
-	echo "stet: 'stet list' failed; cannot verify active findings" >&2
-	exit 1
+# The gating list hides findings below the threshold; the full list is for triage output. An older
+# stet without the threshold flags (pre-v1.4.0) falls back to gating on all active findings.
+thresholds_supported=1
+if ! list_help="$(stet list --help 2>/dev/null)" || ! printf '%s' "$list_help" | grep -q -- '--min-severity'; then
+	thresholds_supported=0
+	echo "stet: installed stet does not support 'stet list --min-severity'; gating on all active findings" >&2
 fi
 if ! active_list="$(stet list)"; then
 	echo "stet: 'stet list' failed; cannot verify active findings" >&2
 	exit 1
+fi
+if [[ "$thresholds_supported" -eq 1 ]]; then
+	if ! gating_list="$(stet list --min-severity "$min_severity" --min-confidence "$min_confidence")"; then
+		echo "stet: 'stet list' failed; cannot verify active findings" >&2
+		exit 1
+	fi
+else
+	gating_list="$active_list"
 fi
 gating_count="$(printf '%s' "$gating_list" | grep -c . || true)"
 active_count="$(printf '%s' "$active_list" | grep -c . || true)"
 
 if [[ "$gating_count" -gt 0 ]]; then
 	{
-		echo "stet: contract review found ${gating_count} finding(s) at or above the ${min_severity}/${min_confidence} threshold."
+		if [[ "$thresholds_supported" -eq 1 ]]; then
+			echo "stet: contract review found ${gating_count} finding(s) at or above the ${min_severity}/${min_confidence} threshold."
+		else
+			echo "stet: contract review found ${gating_count} active finding(s); this stet cannot filter by threshold, so any active finding blocks."
+		fi
 		echo "Full list of active findings (all severities, for triage):"
 		printf '%s\n' "$active_list"
 	} >&2
