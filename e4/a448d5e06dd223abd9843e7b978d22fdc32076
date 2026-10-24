@@ -1,0 +1,14 @@
+cli/internal/review/critic.go
+  h_ae151c586ac6c5 29-32,114-115
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e4a448d5e06dd223abd9843e7b978d22fdc32076",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
