@@ -1,0 +1,52 @@
+.spine/spine-config.json
+  h_ae151c586ac6c5 97
+cli/cmd/stet/main.go
+  h_ae151c586ac6c5 298,424,516,588-589,593-602,888,1088,1670,1709
+cli/internal/config/config.go
+  h_ae151c586ac6c5 29,125-127,166,450,630-636,705,1002-1013,1164-1166
+cli/internal/config/config_test.go
+  h_ae151c586ac6c5 2028-2085
+cli/internal/prompt/prompt.go
+  h_ae151c586ac6c5 169-179
+cli/internal/prompt/prompt_test.go
+  h_ae151c586ac6c5 473,481,492,503,521,533-550
+cli/internal/review/review.go
+  h_ae151c586ac6c5 96-98,106-107,111,141-146,408
+cli/internal/review/review_test.go
+  h_ae151c586ac6c5 788,810,831,835,860,886,907,916-935,947,971,975,1005,1009,1071
+cli/internal/rules/criteria.go
+  h_ae151c586ac6c5 1-133
+cli/internal/rules/criteria_test.go
+  h_ae151c586ac6c5 1-113
+cli/internal/rules/digest.go
+  h_ae151c586ac6c5 1-69
+cli/internal/rules/digest_test.go
+  h_ae151c586ac6c5 1-70
+cli/internal/rules/digestcache.go
+  h_ae151c586ac6c5 1-226
+cli/internal/rules/digestcache_test.go
+  h_ae151c586ac6c5 1-262
+cli/internal/rules/loader.go
+  h_ae151c586ac6c5 73-74,76-83,98-111,134,138-150
+cli/internal/rules/rules.go
+  h_ae151c586ac6c5 30-31,38-39,46-47,62-70,73,76,78,81-82,85,96-97,100
+cli/internal/run/rules_load.go
+  h_ae151c586ac6c5 1-59
+cli/internal/run/rules_load_test.go
+  h_ae151c586ac6c5 1-85
+cli/internal/run/run.go
+  h_ae151c586ac6c5 185-190,376,944-945,1042,1422,1438,1863,1880
+cli/internal/run/run_test.go
+  h_ae151c586ac6c5 2422
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1a1782e8ad2fecd6bdc2cec36618e338e828ad9e",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
