@@ -1,0 +1,18 @@
+cli/internal/run/line_remap.go
+  h_ae151c586ac6c5 1-266
+cli/internal/run/line_remap_test.go
+  h_ae151c586ac6c5 1-311
+spine-tasks/SP-071-dismissal-line-remap/STATUS.md
+  h_ae151c586ac6c5 3-4,14,16-19,24,26-28,33,35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4ce3884c838ea15b00497dd4fad535efc476d218",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
