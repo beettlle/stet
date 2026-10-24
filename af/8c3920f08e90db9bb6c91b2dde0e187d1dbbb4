@@ -1,0 +1,20 @@
+spine-tasks/SP-068-js-rag-import-module/.DONE
+  h_ae151c586ac6c5 1-12
+spine-tasks/SP-068-js-rag-import-module/.reviews/1-20261024T215810.md
+  h_ae151c586ac6c5 1-13
+spine-tasks/SP-068-js-rag-import-module/.reviews/1-20261024T220216.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-068-js-rag-import-module/.reviews/final-20261024T220305.md
+  h_ae151c586ac6c5 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "af8c3920f08e90db9bb6c91b2dde0e187d1dbbb4",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
