@@ -1321,7 +1321,7 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 	part = scope.PromotePendingExcluded(part, pending)
 
 	// Restore dismissals from recent history so they survive stet finish (FR-3).
-	// Collection and the changed-file check run before the review; matching
+	// Collection and line re-mapping to HEAD run before the review; matching
 	// against the new findings happens after the review loop. History problems
 	// never fail Start.
 	var restorable []restorableDismissal
@@ -1332,7 +1332,7 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 			fmt.Fprintf(os.Stderr, "warning: could not restore dismissals: %v\n", restoreErr)
 			restorable = nil
 		} else {
-			restorable = filterUnchangedFiles(ctx, opts.RepoRoot, restorable, headSHA)
+			restorable = remapRestorableDismissals(ctx, opts.RepoRoot, restorable, headSHA)
 		}
 	}
 

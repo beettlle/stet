@@ -229,37 +229,94 @@ func TestCollectRestorableDismissals_locationMatchesRewordedFinding(t *testing.T
 	}
 }
 
-func TestFilterUnchangedFiles_dropsChangedAndUnresolvable(t *testing.T) {
+func TestRemapRestorableDismissals_shiftsSpansAndKeepsUnchanged(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	repo := initRepo(t)
-	// DiffRef: current HEAD (f1.txt exists, f2.txt does not).
-	diffRef := runOut(t, repo, "git", "rev-parse", "HEAD")
-	writeFile(t, repo, "f2.txt", "changed\n")
+	// State at the dismissal's DiffRef: "l2" sits on line 2 of f2.txt.
+	writeFile(t, repo, "f2.txt", "b\nl2\nl3\n")
 	runGit(t, repo, "git", "add", "f2.txt")
 	runGit(t, repo, "git", "commit", "-m", "c3")
+	diffRef := runOut(t, repo, "git", "rev-parse", "HEAD")
+	// Edit ABOVE line 2: insert two lines after line 1, shifting "l2" to line 4.
+	writeFile(t, repo, "f2.txt", "b\nx1\nx2\nl2\nl3\n")
+	runGit(t, repo, "git", "add", "f2.txt")
+	runGit(t, repo, "git", "commit", "-m", "c4")
+	head := runOut(t, repo, "git", "rev-parse", "HEAD")
 
 	dismissals := []restorableDismissal{
-		{id: "changed", diffRef: diffRef, file: "f2.txt", line: 1, category: findings.CategoryBug},               // changed since record
-		{id: "unchanged", diffRef: diffRef, file: "f1.txt", line: 1, category: findings.CategoryBug},             // unchanged
-		{id: "unresolvable", diffRef: "does-not-exist", file: "f1.txt", line: 1, category: findings.CategoryBug}, // bad ref
+		{id: "shifted", diffRef: diffRef, file: "f2.txt", line: 2, category: findings.CategoryBug},
+		{id: "ranged", diffRef: diffRef, file: "f2.txt", line: 0, rangeStart: 2, rangeEnd: 3, category: findings.CategoryBug},
+		{id: "otherfile", diffRef: diffRef, file: "f1.txt", line: 1, category: findings.CategoryBug}, // unchanged file
 	}
-	got := filterUnchangedFiles(ctx, repo, dismissals, runOut(t, repo, "git", "rev-parse", "HEAD"))
+	got := remapRestorableDismissals(ctx, repo, dismissals, head)
 	ids := collectIDs(got)
-	if _, ok := ids["changed"]; ok {
-		t.Error("dismissal for file changed since its record: want dropped")
+	if len(got) != 3 {
+		t.Fatalf("remapRestorableDismissals kept = %d, want 3; got %v", len(got), got)
 	}
-	if _, ok := ids["unchanged"]; !ok {
-		t.Error("dismissal for unchanged file: want kept")
+	shifted := ids["shifted"]
+	if shifted.line != 4 {
+		t.Errorf("shifted dismissal line = %d, want 4 (shifted by 2)", shifted.line)
+	}
+	// A reworded finding at the shifted line matches; one at the old line does not.
+	if !matchesRestorableDismissal(shifted, testFinding("new-id", "f2.txt", 4, findings.CategoryBug)) {
+		t.Error("reworded finding at the shifted line 4: want match")
+	}
+	if matchesRestorableDismissal(shifted, testFinding("new-id", "f2.txt", 2, findings.CategoryBug)) {
+		t.Error("finding at the pre-shift line 2: want no match")
+	}
+	ranged := ids["ranged"]
+	if ranged.rangeStart != 4 || ranged.rangeEnd != 5 {
+		t.Errorf("ranged dismissal span = [%d,%d], want [4,5] (shifted by 2)", ranged.rangeStart, ranged.rangeEnd)
+	}
+	if other := ids["otherfile"]; other.line != 1 {
+		t.Errorf("unchanged-file dismissal line = %d, want 1 (identity)", other.line)
+	}
+}
+
+func TestRemapRestorableDismissals_dropsEditedSpansDeletedFilesBadRefs(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	writeFile(t, repo, "f2.txt", "b\nl2\nl3\n")
+	runGit(t, repo, "git", "add", "f2.txt")
+	runGit(t, repo, "git", "commit", "-m", "c3")
+	diffRef := runOut(t, repo, "git", "rev-parse", "HEAD")
+	// Edit the dismissed line itself (line 2) and delete f1.txt entirely.
+	writeFile(t, repo, "f2.txt", "b\nL2\nl3\n")
+	runGit(t, repo, "git", "add", "f2.txt")
+	runGit(t, repo, "git", "rm", "f1.txt")
+	runGit(t, repo, "git", "commit", "-m", "c4")
+	head := runOut(t, repo, "git", "rev-parse", "HEAD")
+
+	dismissals := []restorableDismissal{
+		{id: "edited", diffRef: diffRef, file: "f2.txt", line: 2, category: findings.CategoryBug},
+		{id: "survivor", diffRef: diffRef, file: "f2.txt", line: 3, category: findings.CategoryBug},
+		{id: "deleted", diffRef: diffRef, file: "f1.txt", line: 1, category: findings.CategoryBug},
+		{id: "unresolvable", diffRef: "does-not-exist", file: "f2.txt", line: 1, category: findings.CategoryBug},
+	}
+	got := remapRestorableDismissals(ctx, repo, dismissals, head)
+	ids := collectIDs(got)
+	if len(got) != 1 {
+		t.Fatalf("remapRestorableDismissals kept = %d, want 1; got %v", len(got), got)
+	}
+	if _, ok := ids["edited"]; ok {
+		t.Error("dismissal whose own line was edited: want dropped")
+	}
+	if _, ok := ids["deleted"]; ok {
+		t.Error("dismissal for a deleted file: want dropped")
 	}
 	if _, ok := ids["unresolvable"]; ok {
 		t.Error("dismissal with unresolvable DiffRef: want dropped")
 	}
+	if _, ok := ids["survivor"]; !ok {
+		t.Error("dismissal below the edit: want kept")
+	}
 }
 
-func TestFilterUnchangedFiles_empty(t *testing.T) {
+func TestRemapRestorableDismissals_empty(t *testing.T) {
 	t.Parallel()
-	if got := filterUnchangedFiles(context.Background(), t.TempDir(), nil, "HEAD"); got != nil {
+	if got := remapRestorableDismissals(context.Background(), t.TempDir(), nil, "HEAD"); got != nil {
 		t.Errorf("empty input: want nil, got %v", got)
 	}
 }
@@ -489,7 +546,10 @@ func TestStart_restoresDismissals_sameBaseline(t *testing.T) {
 	}
 }
 
-func TestStart_noRestore_fileChangedSinceDismissal(t *testing.T) {
+// Renamed premise under SP-072: a file change below the dismissal no longer
+// drops it (the span survives the shift); only an edit to the dismissed lines
+// themselves does.
+func TestStart_noRestore_dismissedLinesEdited(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	repo := initRepo(t)
@@ -508,9 +568,9 @@ func TestStart_noRestore_fileChangedSinceDismissal(t *testing.T) {
 		t.Fatalf("Finish: %v", err)
 	}
 
-	// Change the finding's file in a new commit: the dismissal must not be
-	// restored, its recorded location no longer applies.
-	writeFile(t, repo, "f2.txt", "b\nchanged\n")
+	// Edit the finding's own line (line 1 of f2.txt) in a new commit: the
+	// dismissal must not be restored, its code changed.
+	writeFile(t, repo, "f2.txt", "b2\nchanged\n")
 	runGit(t, repo, "git", "add", "f2.txt")
 	runGit(t, repo, "git", "commit", "-m", "c3")
 
@@ -522,7 +582,7 @@ func TestStart_noRestore_fileChangedSinceDismissal(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(s2.DismissedIDs) != 0 {
-		t.Errorf("DismissedIDs = %v, want empty (file changed since dismissal)", s2.DismissedIDs)
+		t.Errorf("DismissedIDs = %v, want empty (dismissed lines were edited)", s2.DismissedIDs)
 	}
 }
 
