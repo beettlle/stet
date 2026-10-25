@@ -16,6 +16,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -507,6 +508,19 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 						opts.TraceOut.Printf("Evidence (added lines ±3): %d -> %d\n", beforeEvidence, len(batch))
 					}
 				}
+				// Existence-claim filter (issue #33): drop findings claiming a symbol
+				// is missing/unused/undefined when the post-change file disproves it.
+				// Runs before the critic in every strictness mode; on a read error the
+				// empty content makes the filter keep everything.
+				var fileContent string
+				if data, readErr := os.ReadFile(filepath.Join(opts.RepoRoot, p.Hunk.FilePath)); readErr == nil {
+					fileContent = string(data)
+				}
+				beforeExistence := len(batch)
+				batch = findings.FilterExistenceClaims(batch, fileContent)
+				if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+					opts.TraceOut.Printf("Existence claims: %d -> %d\n", beforeExistence, len(batch))
+				}
 				kept, cerr := applyCritic(ctx, opts, p, batch)
 				if cerr != nil {
 					return nil, nil, 0, 0, 0, cerr
@@ -592,6 +606,19 @@ func runReviewPipeline(ctx context.Context, opts reviewPipelineOpts) (collected 
 				if opts.TraceOut != nil && opts.TraceOut.Enabled() {
 					opts.TraceOut.Printf("Evidence (added lines ±3): %d -> %d\n", beforeEvidence, len(batch))
 				}
+			}
+			// Existence-claim filter (issue #33): drop findings claiming a symbol
+			// is missing/unused/undefined when the post-change file disproves it.
+			// Runs before the critic in every strictness mode; on a read error the
+			// empty content makes the filter keep everything.
+			var fileContent string
+			if data, readErr := os.ReadFile(filepath.Join(opts.RepoRoot, p.Hunk.FilePath)); readErr == nil {
+				fileContent = string(data)
+			}
+			beforeExistence := len(batch)
+			batch = findings.FilterExistenceClaims(batch, fileContent)
+			if opts.TraceOut != nil && opts.TraceOut.Enabled() {
+				opts.TraceOut.Printf("Existence claims: %d -> %d\n", beforeExistence, len(batch))
 			}
 			kept, cerr := applyCritic(ctx, opts, p, batch)
 			if cerr != nil {

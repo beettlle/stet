@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"stet/cli/internal/diff"
@@ -2315,6 +2316,84 @@ func TestRunReviewPipeline_evidenceAddedLines(t *testing.T) {
 	}
 	if !strings.Contains(traceBuf.String(), "Evidence (added lines ±3): 2 -> 1") {
 		t.Errorf("trace missing evidence label; trace = %q", traceBuf.String())
+	}
+}
+
+// existenceClaimResp is a canned reviewer response whose single finding claims
+// `compareTaskIds` is not defined — the SP-831 pattern from issue #33.
+const existenceClaimResp = `[ {"file":"a.go","line":2,"severity":"error","category":"correctness","message":"` + "`compareTaskIds` is not defined." + `","confidence":0.95} ]`
+
+// TestRunReviewPipeline_existenceFilterBeforeCritic asserts the existence-claim
+// filter runs before the critic in every strictness mode (ApplyFP on and off): a
+// finding whose claim the post-change file disproves is dropped without a critic
+// request (the critic model receives nothing), and the trace logs
+// "Existence claims: 1 -> 0".
+func TestRunReviewPipeline_existenceFilterBeforeCritic(t *testing.T) {
+	t.Parallel()
+	const existenceFileContent = "const x = 1;\nlet compareTaskIds = (a, b) => a === b;\nconst y = 2;\n"
+	for _, tc := range []struct {
+		name    string
+		applyFP bool
+	}{
+		{name: "fp_off_strictness_plus", applyFP: false},
+		{name: "fp_on_strictness_default", applyFP: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var criticRequests atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var body struct {
+					Model string `json:"model"`
+				}
+				_ = json.NewDecoder(r.Body).Decode(&body)
+				if body.Model == "critic-model" {
+					criticRequests.Add(1)
+				}
+				w.WriteHeader(http.StatusOK)
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": existenceClaimResp, "done": true})
+			}))
+			defer srv.Close()
+
+			client, err := llm.NewClient("ollama", srv.URL, srv.Client())
+			if err != nil {
+				t.Fatalf("NewClient: %v", err)
+			}
+			systemBase, err := prompt.SystemPrompt(t.TempDir(), "")
+			if err != nil {
+				t.Fatalf("SystemPrompt: %v", err)
+			}
+			repo := t.TempDir()
+			if err := os.WriteFile(filepath.Join(repo, "a.go"), []byte(existenceFileContent), 0o644); err != nil {
+				t.Fatalf("WriteFile: %v", err)
+			}
+			raw := "@@ -1,2 +1,3 @@\n const x = 1;\n+let compareTaskIds = (a, b) => a === b;\n const y = 2;\n"
+			hunk := diff.Hunk{FilePath: "a.go", RawContent: raw, Context: raw}
+			var traceBuf bytes.Buffer
+			collected, _, _, _, _, err := runReviewPipeline(context.Background(), reviewPipelineOpts{
+				Client:        client,
+				Model:         "m",
+				Hunks:         []diff.Hunk{hunk},
+				GenOpts:       &ollama.GenerateOptions{},
+				SystemBase:    systemBase,
+				RepoRoot:      repo,
+				ApplyFP:       tc.applyFP,
+				CriticEnabled: true,
+				CriticModel:   "critic-model",
+				TraceOut:      trace.New(&traceBuf),
+			})
+			if err != nil {
+				t.Fatalf("runReviewPipeline: %v", err)
+			}
+			if len(collected) != 0 {
+				t.Errorf("collected = %+v; want the disproven existence claim dropped", collected)
+			}
+			if got := criticRequests.Load(); got != 0 {
+				t.Errorf("critic received %d requests; want 0 (existence filter must run before the critic)", got)
+			}
+			if !strings.Contains(traceBuf.String(), "Existence claims: 1 -> 0") {
+				t.Errorf("trace missing \"Existence claims: 1 -> 0\"; trace = %q", traceBuf.String())
+			}
+		})
 	}
 }
 
