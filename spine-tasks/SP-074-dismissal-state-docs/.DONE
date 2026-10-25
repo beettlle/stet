@@ -1,0 +1,6 @@
+SP-074 complete.
+
+- docs/cli-extension-contract.md: stet dismiss entry now describes line re-mapping (dismissal dropped only when its own lines changed), the stet run skip at re-mapped locations, and rerun full review; "Keeping dismissals across cleanups" note documents the `git clean -fdX -- .review` hazard with the state_dir/STET_STATE_DIR option and gitignore exception lines verified via `git check-ignore -v` + `git clean -nfdX` in a scratch repo (including `-e '!.review/history.jsonl*'` for one-off cleans).
+- Contract rg checks pass: 'for unchanged files' gone, 'git clean' present, re-map + run skip present.
+- rg -l 'cli-extension-contract.md' cli/ scripts/ → no references (noted in STATUS).
+- Commits: f571b67 (docs), b7ccd39 (STATUS).
