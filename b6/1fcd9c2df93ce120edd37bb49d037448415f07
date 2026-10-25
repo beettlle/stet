@@ -1,0 +1,14 @@
+spine-tasks/SP-076-review-internals-v1-4-docs/.DONE
+  h_ae151c586ac6c5 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b61fcd9c2df93ce120edd37bb49d037448415f07",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
