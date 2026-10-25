@@ -1,0 +1,16 @@
+spine-tasks/_authoring/release-v1.4.0/manifest.md
+  h_ae151c586ac6c5 125,153,195-196,201
+spine-tasks/_authoring/release-v1.4.0/release-notes.md
+  h_ae151c586ac6c5 1-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2ac87d0588a9811c9bce79df766925870f2c042c",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
