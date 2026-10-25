@@ -85,37 +85,29 @@ func declarationPatterns(q string) []string {
 	}
 }
 
-// compileAll compiles every pattern; patterns are static strings so
-// MustCompile cannot panic.
-func compileAll(patterns []string) []*regexp.Regexp {
-	res := make([]*regexp.Regexp, len(patterns))
+// combinedPattern joins patterns into one alternation, wrapping each in a
+// passive group so inline flags (e.g. (?i), (?m)) keep their per-pattern
+// scope. A single combined regex matches content in one scan instead of one
+// scan per pattern.
+func combinedPattern(patterns []string) string {
+	parts := make([]string, len(patterns))
 	for i, p := range patterns {
-		res[i] = regexp.MustCompile(p)
+		parts[i] = "(?:" + p + ")"
 	}
-	return res
-}
-
-// matchesAny reports whether s matches any of res.
-func matchesAny(res []*regexp.Regexp, s string) bool {
-	for _, re := range res {
-		if re.MatchString(s) {
-			return true
-		}
-	}
-	return false
+	return "(?:" + strings.Join(parts, "|") + ")"
 }
 
 // identImported reports whether ident appears in an import/require form in
 // content.
 func identImported(content, ident string) bool {
-	return matchesAny(compileAll(importPatterns(regexp.QuoteMeta(ident))), content)
+	return regexp.MustCompile(combinedPattern(importPatterns(regexp.QuoteMeta(ident)))).MatchString(content)
 }
 
 // identDeclared reports whether ident is declared in content: a
 // function/const/let/var/class/type/interface/enum (JS/TS), func/var/const/
 // type including methods (Go), or def/class (Python).
 func identDeclared(content, ident string) bool {
-	return matchesAny(compileAll(declarationPatterns(regexp.QuoteMeta(ident))), content)
+	return regexp.MustCompile(combinedPattern(declarationPatterns(regexp.QuoteMeta(ident)))).MatchString(content)
 }
 
 // identParameter reports whether ident occurs inside a parameter (or
@@ -147,18 +139,18 @@ func identProvenInFile(content, ident string) bool {
 
 // identUsedTwiceOutsideDecl reports whether ident occurs at least twice as a
 // whole word in content outside lines that declare or import it — the proof
-// required to drop an "unused" claim.
+// required to drop an "unused" claim. One combined decl-or-import regex keeps
+// the scan at two regex matches per identifier-containing line.
 func identUsedTwiceOutsideDecl(content, ident string) bool {
 	q := regexp.QuoteMeta(ident)
 	wordRe := regexp.MustCompile(`\b` + q + `\b`)
-	declRes := compileAll(declarationPatterns(q))
-	importRes := compileAll(importPatterns(q))
+	declOrImportRe := regexp.MustCompile(combinedPattern(append(declarationPatterns(q), importPatterns(q)...)))
 	count := 0
 	for _, line := range strings.Split(content, "\n") {
 		if !wordRe.MatchString(line) {
 			continue
 		}
-		if matchesAny(declRes, line) || matchesAny(importRes, line) {
+		if declOrImportRe.MatchString(line) {
 			continue
 		}
 		count += len(wordRe.FindAllString(line, -1))
@@ -182,7 +174,7 @@ func identExported(content, ident string) bool {
 		// CommonJS: module.exports = { ident } / exports.ident = ...
 		`(?im)\b(?:module\.)?exports\b[^;\n]*\b` + q + `\b`,
 	}
-	if matchesAny(compileAll(patterns), content) {
+	if regexp.MustCompile(combinedPattern(patterns)).MatchString(content) {
 		return true
 	}
 	r, _ := utf8.DecodeRuneInString(ident)
