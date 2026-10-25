@@ -64,6 +64,10 @@ Round 2 (2 findings → 1 fixed, 1 dismissed):
 Round 3 (1 finding → dismissed):
 - `2a039c8` false_positive: claimed the test's diff merges into one hunk; verified with real git — `git diff HEAD~2..HEAD` emits `@@ -1,5 +1,7 @@` and `@@ -14,3 +16,5 @@` (7 unchanged lines > 2×U3 keep them separate); the test's assertions pass.
 
+Round 4 (3 findings → dismissed; triggered by committing criterion-(a) test):
+- `973f56b` / `cde6b0b` false_positive: claimed `f1.txt` is never created so tests fail/`git rm` aborts — `initRepo` (shared run_test.go helper) creates and commits f1.txt; all four named tests pass (`-run` evidence in triage).
+- `3dfb441` false_positive: miscounted the c4 file (placed l4 on line 5; it is line 6), concluding the finding must land on line 5 — actual hunk `@@ -4,6 +4,7 @@` puts the canned finding on line 4, inside the remapped span [4,5]; `TestStart_restoresDismissal_afterLineShift` asserts Line == 4 and passes.
+
 ---
 
 ## Reviews
