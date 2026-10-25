@@ -1,0 +1,20 @@
+cli/internal/run/restore_dismissals.go
+  h_ae151c586ac6c5 118-125,129-135,137-152,156,160-169
+cli/internal/run/restore_dismissals_test.go
+  h_ae151c586ac6c5 232,236-239,241-281,284-290,293-296,298,300-301,303-307,312-314,317,319,549-552,571-573,585
+cli/internal/run/run.go
+  h_ae151c586ac6c5 1324,1335
+spine-tasks/SP-072-dismissals-follow-line-shifts/STATUS.md
+  h_ae151c586ac6c5 3-5,14,42-48,53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8a6d6fa0b62e89d2e7268438bf2fffdd40afadbd",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
