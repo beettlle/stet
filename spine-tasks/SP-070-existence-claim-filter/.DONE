@@ -1,0 +1,20 @@
+Task SP-070 complete.
+
+All completion criteria met:
+- Step 1: FilterExistenceClaims library (cli/internal/findings/existence.go) + table tests
+- Step 2: Wired into both runReviewPipeline post-filter branches (after FilterByAddedLines, before applyCritic) with trace line
+- Step 3: #33 fixture tests, critic-ordering run test, full Contract testCommand green
+
+Verification evidence (2026-10-25, this session):
+- bash scripts/check-gofmt.sh: pass
+- go vet ./cli/...: pass
+- go test ./cli/internal/findings/... ./cli/internal/run/... -count=1: ok (findings 0.207s, run 11.160s)
+- bash scripts/spine-stet-contract-run.sh default: exit 0, 0 active findings (2 reviewer false positives dismissed: 5d805ab unused-import claim disproven by usage+vet; 3a3de32 speculative test-style critique)
+
+REVISE feedback from .reviews/1-20261025T001544.md addressed:
+- Implementation plan added to STATUS.md (per-step approach sections)
+- Work committed at step boundaries; contract green before .DONE
+
+Commits: 47fee95 (step 1), 80217a1 (step 2), 7429696 (step 3), 8418a51 (triage fix), 589393b (revise feedback).
+
+File scope: only existence.go, existence_test.go, run.go, run_test.go (+ task bookkeeping). No fileScopeMustNotChange paths touched.
