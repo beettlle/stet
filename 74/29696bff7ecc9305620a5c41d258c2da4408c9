@@ -1,0 +1,16 @@
+cli/internal/run/run_test.go
+  h_ae151c586ac6c5 17,2322-2399
+spine-tasks/SP-070-existence-claim-filter/STATUS.md
+  h_ae151c586ac6c5 3-4,28-35,37-38,53-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7429696bff7ecc9305620a5c41d258c2da4408c9",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
