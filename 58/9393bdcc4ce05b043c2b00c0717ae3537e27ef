@@ -1,0 +1,16 @@
+spine-tasks/SP-070-existence-claim-filter/.reviews/1-20261025T001544.md
+  h_ae151c586ac6c5 1-13
+spine-tasks/SP-070-existence-claim-filter/STATUS.md
+  h_ae151c586ac6c5 5,13-39,73-75,89-90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "589393bdcc4ce05b043c2b00c0717ae3537e27ef",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
