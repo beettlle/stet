@@ -1,0 +1,14 @@
+spine-tasks/SP-074-dismissal-state-docs/STATUS.md
+  h_ae151c586ac6c5 3-5,14,16-17,22,24-25,40-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b7ccd39b59b0f63eda59bf4c0468ae43de7f096a",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
