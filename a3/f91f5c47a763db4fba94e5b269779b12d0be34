@@ -1,0 +1,14 @@
+spine-tasks/SP-072-dismissals-follow-line-shifts/STATUS.md
+  h_ae151c586ac6c5 3-4,28-62,64-65,88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a3f91f5c47a763db4fba94e5b269779b12d0be34",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
