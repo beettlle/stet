@@ -1,0 +1,14 @@
+cli/internal/findings/existence.go
+  h_ae151c586ac6c5 88-93,95,97,103,110,142-143,147,153,177
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8418a51da2feea4f7ee2e97298acc55d6006f45c",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
