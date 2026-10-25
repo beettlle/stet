@@ -1,6 +1,6 @@
 # SP-072: Dismissals follow line shifts in `stet start` and `stet run` — Status
 
-**Current Step:** Step 1
+**Current Step:** Step 3
 **Status:** 🔄 In Progress
 **Last Updated:** 2026-10-25
 **Review Level:** 2
@@ -11,16 +11,16 @@
 ---
 
 ### Step 1: Start-time restore re-maps instead of dropping
-**Status:** 🔄 In Progress
+**Status:** ✅ Complete (commit 8a6d6fa)
 
-- [ ] Re-map per `diffRef`; edited spans dropped; `Start` call site updated
+- [x] Re-map per `diffRef`; edited spans dropped; `Start` call site updated
 
 ---
 
 ### Step 2: Run-time skip re-maps from `LastReviewedAt`
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] Dismissed spans re-mapped before the overlap check; fallback when unavailable
+- [x] Dismissed spans re-mapped before the overlap check; fallback when unavailable
 
 ---
 

@@ -1328,7 +1328,7 @@ func TestFilterHunksWithDismissedFindings(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, skipped := filterHunksWithDismissedFindings(tt.toReview, tt.s, tt.forceFullReview)
+			got, skipped := filterHunksWithDismissedFindings(context.Background(), t.TempDir(), tt.toReview, tt.s, "", tt.forceFullReview)
 			if len(got) != tt.wantLen {
 				t.Errorf("filterHunksWithDismissedFindings() len = %d, want %d", len(got), tt.wantLen)
 			}
@@ -1336,6 +1336,93 @@ func TestFilterHunksWithDismissedFindings(t *testing.T) {
 				t.Errorf("filterHunksWithDismissedFindings() skipped = %d, want %d", skipped, tt.wantSkipped)
 			}
 		})
+	}
+}
+
+// TestFilterHunksWithDismissedFindings_remapsDismissedSpans: dismissed spans
+// recorded at LastReviewedAt are re-mapped to the ref under review before the
+// overlap check, so a hunk covering the shifted dismissed lines is skipped
+// even though the stored line no longer points at it. Unavailable re-mapping
+// (empty LastReviewedAt, LastReviewedAt == targetRef, or git failure) keeps
+// today's behavior: stored spans as-is.
+func TestFilterHunksWithDismissedFindings_remapsDismissedSpans(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	// State at LastReviewedAt: "l4" sits on line 4 of f2.txt.
+	writeFile(t, repo, "f2.txt", "b\nl2\nl3\nl4\nl5\n")
+	runGit(t, repo, "git", "add", "f2.txt")
+	runGit(t, repo, "git", "commit", "-m", "c3")
+	fromRef := runOut(t, repo, "git", "rev-parse", "HEAD")
+	// Edit above: delete line 2 ("l2"), shifting "l4" from line 4 to line 3.
+	writeFile(t, repo, "f2.txt", "b\nl3\nl4\nl5\n")
+	runGit(t, repo, "git", "add", "f2.txt")
+	runGit(t, repo, "git", "commit", "-m", "c4")
+	toRef := runOut(t, repo, "git", "rev-parse", "HEAD")
+
+	// -U2-shaped hunk for the deletion: new-file range (1,3). The remapped
+	// span (3,3) falls inside it; the stored span (4,4) does not.
+	hunkNearShift := diff.Hunk{FilePath: "f2.txt", RawContent: "@@ -1,4 +1,3 @@\n b\n-l2\n l3\n l4\n l5"}
+	hunkOther := diff.Hunk{FilePath: "f1.txt", RawContent: "@@ -1 +1,2 @@\n a\n+edited"}
+	s := &session.Session{
+		LastReviewedAt: fromRef,
+		DismissedIDs:   []string{"f1"},
+		Findings:       []findings.Finding{{ID: "f1", File: "f2.txt", Line: 4}},
+	}
+
+	// Remapped span (3,3) is inside the hunk at the shifted lines: skipped.
+	got, skipped := filterHunksWithDismissedFindings(ctx, repo, []diff.Hunk{hunkNearShift, hunkOther}, s, toRef, false)
+	if len(got) != 1 || got[0].FilePath != "f1.txt" || skipped != 1 {
+		t.Errorf("remapped: got %d hunks (want 1, f1.txt), skipped = %d (want 1)", len(got), skipped)
+	}
+
+	// Empty LastReviewedAt: no re-mapping, stored span (4,4) misses the hunk.
+	s.LastReviewedAt = ""
+	got, skipped = filterHunksWithDismissedFindings(ctx, repo, []diff.Hunk{hunkNearShift, hunkOther}, s, toRef, false)
+	if len(got) != 2 || skipped != 0 {
+		t.Errorf("empty LastReviewedAt: got %d hunks (want 2), skipped = %d (want 0)", len(got), skipped)
+	}
+
+	// LastReviewedAt == targetRef: no re-mapping, stored span applies.
+	s.LastReviewedAt = fromRef
+	got, skipped = filterHunksWithDismissedFindings(ctx, repo, []diff.Hunk{hunkNearShift}, s, fromRef, false)
+	if len(got) != 1 || skipped != 0 {
+		t.Errorf("LastReviewedAt == targetRef: got %d hunks (want 1), skipped = %d (want 0)", len(got), skipped)
+	}
+
+	// Git failure (repoRoot is not a repository): fallback to stored spans.
+	got, skipped = filterHunksWithDismissedFindings(ctx, t.TempDir(), []diff.Hunk{hunkNearShift}, s, toRef, false)
+	if len(got) != 1 || skipped != 0 {
+		t.Errorf("git failure fallback: got %d hunks (want 1), skipped = %d (want 0)", len(got), skipped)
+	}
+}
+
+// TestFilterHunksWithDismissedFindings_editedDismissedSpanReviewed: when the
+// dismissed lines themselves changed since LastReviewedAt, the re-mapped span
+// is dropped so the hunk containing the edit is reviewed again.
+func TestFilterHunksWithDismissedFindings_editedDismissedSpanReviewed(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	writeFile(t, repo, "f2.txt", "b\nl2\nl3\n")
+	runGit(t, repo, "git", "add", "f2.txt")
+	runGit(t, repo, "git", "commit", "-m", "c3")
+	fromRef := runOut(t, repo, "git", "rev-parse", "HEAD")
+	// Edit the dismissed line itself (line 2).
+	writeFile(t, repo, "f2.txt", "b\nL2\nl3\n")
+	runGit(t, repo, "git", "add", "f2.txt")
+	runGit(t, repo, "git", "commit", "-m", "c4")
+	toRef := runOut(t, repo, "git", "rev-parse", "HEAD")
+
+	hunk := diff.Hunk{FilePath: "f2.txt", RawContent: "@@ -2 +2 @@\n-l2\n+L2"}
+	s := &session.Session{
+		LastReviewedAt: fromRef,
+		DismissedIDs:   []string{"f1"},
+		Findings:       []findings.Finding{{ID: "f1", File: "f2.txt", Line: 2}},
+	}
+	got, skipped := filterHunksWithDismissedFindings(ctx, repo, []diff.Hunk{hunk}, s, toRef, false)
+	if len(got) != 1 || skipped != 0 {
+		t.Errorf("edited dismissed span: got %d hunks (want 1, reviewed), skipped = %d (want 0)", len(got), skipped)
 	}
 }
 
