@@ -586,6 +586,78 @@ func TestStart_noRestore_dismissedLinesEdited(t *testing.T) {
 	}
 }
 
+// TestStart_restoresDismissal_afterLineShift: a dismissal recorded at an older
+// HEAD whose lines shifted by N after an edit above them is re-mapped to the
+// shifted span and restored against a reworded finding reported at the shifted
+// lines (SP-072 contract criterion a).
+func TestStart_restoresDismissal_afterLineShift(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := initRepo(t)
+	stateDir := filepath.Join(repo, ".review")
+
+	// File state at the dismissal's DiffRef: "l2"-"l3" on lines 2-3 of f2.txt.
+	writeFile(t, repo, "f2.txt", "b\nl2\nl3\nl4\nl5\nl6\nl7\n")
+	runGit(t, repo, "git", "add", "f2.txt")
+	runGit(t, repo, "git", "commit", "-m", "c3")
+	diffRef := runOut(t, repo, "git", "rev-parse", "HEAD")
+
+	crafted := findings.Finding{
+		ID:         "old-id",
+		File:       "f2.txt",
+		Line:       2,
+		Range:      &findings.LineRange{Start: 2, End: 3},
+		Severity:   findings.SeverityWarning,
+		Category:   findings.CategoryMaintainability,
+		Confidence: 1.0,
+		Message:    "msg old",
+	}
+	writeHistoryRecords(t, stateDir, []history.Record{
+		dismissalRecord(diffRef, "old-id", crafted, history.ReasonFalsePositive),
+	})
+
+	// Edit ABOVE the dismissed lines: insert two lines after line 1, shifting
+	// "l2"/"l3" from lines 2-3 to lines 4-5.
+	writeFile(t, repo, "f2.txt", "b\nx1\nx2\nl2\nl3\nl4\nl5\nl6\nl7\n")
+	runGit(t, repo, "git", "add", "f2.txt")
+	runGit(t, repo, "git", "commit", "-m", "c4")
+	// A second edit three lines below the shifted span so the reviewed hunk's
+	// context starts inside it: the canned finding lands on line 4.
+	writeFile(t, repo, "f2.txt", "b\nx1\nx2\nl2\nl3\nl4\ny1\nl5\nl6\nl7\n")
+	runGit(t, repo, "git", "add", "f2.txt")
+	runGit(t, repo, "git", "commit", "-m", "c5")
+
+	// Start reviews c4..c5 (Ref = HEAD~1 = c4): its hunk (@@ -4,6 +4,7 @@)
+	// reports a reworded finding at line 4, inside the shifted span [4,5].
+	if _, err := Start(ctx, startOpts(repo, stateDir)); err != nil {
+		t.Fatalf("second Start: %v", err)
+	}
+	s2, err := session.Load(stateDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s2.Findings) != 1 {
+		t.Fatalf("second session findings = %d, want 1", len(s2.Findings))
+	}
+	newID := s2.Findings[0].ID
+	if newID == "" || newID == "old-id" {
+		t.Fatalf("reworded finding ID = %q, want a new non-empty ID", newID)
+	}
+	if s2.Findings[0].Line != 4 {
+		t.Errorf("reworded finding line = %d, want 4 (the shifted lines)", s2.Findings[0].Line)
+	}
+	if len(s2.DismissedIDs) != 1 || s2.DismissedIDs[0] != newID {
+		t.Errorf("DismissedIDs = %v, want [%q] (restored at the shifted lines)", s2.DismissedIDs, newID)
+	}
+	active, err := ActiveFindingCount(stateDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if active != 0 {
+		t.Errorf("active finding count = %d, want 0", active)
+	}
+}
+
 // Not parallel: captures os.Stderr so must run alone to avoid races.
 func TestStart_historyReadError_warnsAndContinues(t *testing.T) {
 	ctx := context.Background()
