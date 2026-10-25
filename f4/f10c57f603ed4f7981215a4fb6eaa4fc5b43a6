@@ -1,0 +1,18 @@
+cli/internal/run/run.go
+  h_ae151c586ac6c5 920-928,950,973-1005,1826
+cli/internal/run/run_test.go
+  h_ae151c586ac6c5 1331,1342-1428
+spine-tasks/SP-072-dismissals-follow-line-shifts/STATUS.md
+  h_ae151c586ac6c5 3,14,16,21,23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f4f10c57f603ed4f7981215a4fb6eaa4fc5b43a6",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
