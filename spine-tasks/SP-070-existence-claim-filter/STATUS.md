@@ -1,6 +1,6 @@
 # SP-070: Drop "unused / undefined / not imported" findings the file disproves — Status
 
-**Current Step:** Step 2
+**Current Step:** Step 3
 **Status:** 🔄 In Progress
 **Last Updated:** 2026-10-24
 **Review Level:** 2
@@ -18,9 +18,9 @@
 ---
 
 ### Step 2: Wire into both pipeline branches
-**Status:** 🔄 In Progress
+**Status:** ✅ Complete
 
-- [ ] Runs after the evidence filter and before the critic in both branches; trace line
+- [x] Runs after the evidence filter and before the critic in both branches; trace line
 
 ---
 
