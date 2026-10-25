@@ -1,0 +1,20 @@
+spine-tasks/SP-070-existence-claim-filter/.DONE
+  h_ae151c586ac6c5 1-20
+spine-tasks/SP-070-existence-claim-filter/.reviews/1-20261025T002144.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-070-existence-claim-filter/.reviews/3-20261025T002206.md
+  h_ae151c586ac6c5 1-26
+spine-tasks/SP-070-existence-claim-filter/.reviews/final-20261025T003101.md
+  h_ae151c586ac6c5 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "96225cf6bb90479ecf0fdfae10e090be68031045",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
