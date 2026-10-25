@@ -1,0 +1,14 @@
+spine-tasks/SP-076-review-internals-v1-4-docs/STATUS.md
+  h_ae151c586ac6c5 3-4,21,23,28,30-31,42-54,59-62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "defc77549c76595175aa122f24af9758fa07066e",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
