@@ -121,6 +121,7 @@ Wave 3 · 2 tasks · 2 lanes in parallel
 |------|----------|--------------|------------------------------------|-------------------|------|--------|---------------|
 | 0 | 20261024T211835-d201 | SP-067, SP-068, SP-069, SP-071, SP-073 (integrate `42b70dc`) | 15 (advisory; mostly partial-hunk hallucinations; byte-slice truncation is pre-existing → deferred) | `/tmp/stet-release-check-wave-0.log` | 0 | `6de2150`, CI run 40143711668 green | #36, #19, #37, #25 closed; #18 progress comment |
 | 1 | 20261024T234250-4dc8 | SP-070, SP-075 (integrate `8f3c31f`) | 5 (advisory; unguarded file read in SP-070 → deferred; rest test-behavior claims refuted by release-check) | `/tmp/stet-release-check-wave-1.log` | 0 | `8f3c31f`, CI run 40148670317 green | #33 closed |
+| 2 | 20261025T005829-0587 | SP-072 (integrate `baafab9`) | 12 (advisory; range-dismissal claim refuted by code read; compile/test claims refuted by release-check) | `/tmp/stet-release-check-wave-2.log` | 0 | `baafab9`, CI run 40158259407 green | #38 progress comment |
 
 **Wave 0 recovery notes:**
 
