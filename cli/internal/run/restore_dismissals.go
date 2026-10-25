@@ -15,12 +15,9 @@ package run
 
 import (
 	"context"
-	"os/exec"
 	"sort"
-	"strings"
 
 	"stet/cli/internal/findings"
-	"stet/cli/internal/git"
 	"stet/cli/internal/history"
 	"stet/cli/internal/session"
 )
@@ -118,56 +115,62 @@ func collectRestorableDismissals(stateDir string) ([]restorableDismissal, error)
 	return out, nil
 }
 
-// filterUnchangedFiles keeps only dismissals whose file is unchanged between
-// the dismissal's DiffRef and headRef, so its line numbers still apply. One
-// `git diff --name-only` runs per distinct DiffRef; dismissals whose DiffRef
-// no longer resolves are dropped.
-func filterUnchangedFiles(ctx context.Context, repoRoot string, dismissals []restorableDismissal, headRef string) []restorableDismissal {
+// remapRestorableDismissals re-maps each dismissal's line span from its DiffRef
+// to headRef so dismissals survive edits above them: a span recorded at DiffRef
+// is translated to headRef coordinates with loadLineRemaps/remapSpan, and the
+// translated span replaces the stored line/range. One loadLineRemaps call (one
+// git diff) runs per distinct DiffRef, never per dismissal. Dismissals whose
+// translated span no longer exists (their own lines changed, or their file was
+// deleted) and dismissals whose DiffRef no longer resolves are dropped.
+func remapRestorableDismissals(ctx context.Context, repoRoot string, dismissals []restorableDismissal, headRef string) []restorableDismissal {
 	if len(dismissals) == 0 {
 		return nil
 	}
-	type refState struct {
-		changed map[string]struct{}
-		ok      bool
+	// Group dismissal indices by DiffRef and collect each ref's distinct file
+	// set, so each ref costs exactly one git call no matter how many
+	// dismissals share it.
+	idxsByRef := make(map[string][]int)
+	for i, d := range dismissals {
+		idxsByRef[d.diffRef] = append(idxsByRef[d.diffRef], i)
 	}
-	byRef := make(map[string]refState)
+	type refState struct {
+		remaps lineRemaps
+		ok     bool
+	}
+	stateByRef := make(map[string]refState, len(idxsByRef))
+	for ref, idxs := range idxsByRef {
+		files := make([]string, 0, len(idxs))
+		seen := make(map[string]struct{}, len(idxs))
+		for _, i := range idxs {
+			if _, dup := seen[dismissals[i].file]; dup {
+				continue
+			}
+			seen[dismissals[i].file] = struct{}{}
+			files = append(files, dismissals[i].file)
+		}
+		remaps, err := loadLineRemaps(ctx, repoRoot, ref, headRef, files)
+		stateByRef[ref] = refState{remaps: remaps, ok: err == nil}
+	}
 	out := make([]restorableDismissal, 0, len(dismissals))
 	for _, d := range dismissals {
-		st, seen := byRef[d.diffRef]
-		if !seen {
-			paths, err := changedFilesSince(ctx, repoRoot, d.diffRef, headRef)
-			st = refState{changed: paths, ok: err == nil}
-			byRef[d.diffRef] = st
-		}
+		st := stateByRef[d.diffRef]
 		if !st.ok {
 			continue // DiffRef no longer resolves; skip its dismissals
 		}
-		if _, changed := st.changed[d.file]; changed {
-			continue // file changed since the record; line numbers may not apply
+		start, end := dismissalSpan(d)
+		newStart, newEnd, ok := st.remaps.remapSpan(d.file, start, end)
+		if !ok {
+			continue // the dismissed lines themselves changed (or file deleted)
+		}
+		d.line = newStart
+		// Only rewrite the range when a meaningful one was recorded, mirroring
+		// dismissalSpan's fallback so the span shape is preserved.
+		if (d.rangeStart > 0 || d.rangeEnd > 0) && d.rangeStart <= d.rangeEnd {
+			d.rangeStart, d.rangeEnd = newStart, newEnd
 		}
 		out = append(out, d)
 	}
 	return out
-}
-
-// changedFilesSince returns the set of repo-relative paths that differ between
-// ref and headRef.
-func changedFilesSince(ctx context.Context, repoRoot, ref, headRef string) (map[string]struct{}, error) {
-	cmd := exec.CommandContext(ctx, "git", "diff", "--no-color", "--name-only", ref, headRef)
-	cmd.Dir = repoRoot
-	cmd.Env = git.MinimalEnv()
-	out, err := cmd.Output()
-	if err != nil {
-		return nil, err
-	}
-	files := make(map[string]struct{})
-	for _, line := range strings.Split(string(out), "\n") {
-		line = strings.TrimSpace(line)
-		if line != "" {
-			files[line] = struct{}{}
-		}
-	}
-	return files, nil
 }
 
 // dismissalSpan returns the 1-based inclusive line span of a restorable

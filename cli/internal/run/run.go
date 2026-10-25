@@ -917,8 +917,15 @@ type dismissedLocation struct {
 }
 
 // filterHunksWithDismissedFindings returns hunks from toReview that do not contain
-// any dismissed finding. When forceFullReview is true, returns toReview unchanged.
-func filterHunksWithDismissedFindings(toReview []diff.Hunk, s *session.Session, forceFullReview bool) (filtered []diff.Hunk, skipped int) {
+// any dismissed finding. Dismissed spans were recorded at s.LastReviewedAt; when
+// that ref differs from targetRef, each span is re-mapped to targetRef
+// coordinates first (one loadLineRemaps call for all dismissed files), so edits
+// above a dismissed finding move the skip range and edits to the dismissed lines
+// themselves drop it (the hunk is reviewed again). When re-mapping is
+// unavailable — LastReviewedAt empty or equal to targetRef, or the git call
+// fails — the stored spans are used as-is. When forceFullReview is true, returns
+// toReview unchanged.
+func filterHunksWithDismissedFindings(ctx context.Context, repoRoot string, toReview []diff.Hunk, s *session.Session, targetRef string, forceFullReview bool) (filtered []diff.Hunk, skipped int) {
 	if forceFullReview || s == nil || len(s.DismissedIDs) == 0 {
 		return toReview, 0
 	}
@@ -940,6 +947,7 @@ func filterHunksWithDismissedFindings(toReview []diff.Hunk, s *session.Session, 
 		}
 		locs = append(locs, dismissedLocation{file: f.File, startLine: start, endLine: end})
 	}
+	locs = remapDismissedLocations(ctx, repoRoot, s.LastReviewedAt, targetRef, locs)
 	for _, h := range toReview {
 		hStart, hEnd, ok := expand.HunkLineRange(h)
 		if !ok {
@@ -960,6 +968,39 @@ func filterHunksWithDismissedFindings(toReview []diff.Hunk, s *session.Session, 
 		}
 	}
 	return filtered, skipped
+}
+
+// remapDismissedLocations translates dismissed spans recorded at fromRef into
+// toRef coordinates. It is the identity when fromRef is empty or equals toRef,
+// or when the git diff fails (e.g. the ref no longer resolves): the stored
+// spans keep applying. Spans whose own lines changed under the re-map (or whose
+// file was deleted) are dropped so the edited code is reviewed again.
+func remapDismissedLocations(ctx context.Context, repoRoot, fromRef, toRef string, locs []dismissedLocation) []dismissedLocation {
+	if fromRef == "" || fromRef == toRef || len(locs) == 0 {
+		return locs
+	}
+	files := make([]string, 0, len(locs))
+	seen := make(map[string]struct{}, len(locs))
+	for _, loc := range locs {
+		if _, dup := seen[loc.file]; dup {
+			continue
+		}
+		seen[loc.file] = struct{}{}
+		files = append(files, loc.file)
+	}
+	remaps, err := loadLineRemaps(ctx, repoRoot, fromRef, toRef, files)
+	if err != nil {
+		return locs
+	}
+	out := make([]dismissedLocation, 0, len(locs))
+	for _, loc := range locs {
+		start, end, ok := remaps.remapSpan(loc.file, loc.startLine, loc.endLine)
+		if !ok {
+			continue
+		}
+		out = append(out, dismissedLocation{file: loc.file, startLine: start, endLine: end})
+	}
+	return out
 }
 
 // StartOptions configures Start. All fields are required except Ref (default "HEAD" by caller).
@@ -1321,7 +1362,7 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 	part = scope.PromotePendingExcluded(part, pending)
 
 	// Restore dismissals from recent history so they survive stet finish (FR-3).
-	// Collection and the changed-file check run before the review; matching
+	// Collection and line re-mapping to HEAD run before the review; matching
 	// against the new findings happens after the review loop. History problems
 	// never fail Start.
 	var restorable []restorableDismissal
@@ -1332,7 +1373,7 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 			fmt.Fprintf(os.Stderr, "warning: could not restore dismissals: %v\n", restoreErr)
 			restorable = nil
 		} else {
-			restorable = filterUnchangedFiles(ctx, opts.RepoRoot, restorable, headSHA)
+			restorable = remapRestorableDismissals(ctx, opts.RepoRoot, restorable, headSHA)
 		}
 	}
 
@@ -1782,7 +1823,7 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 	toReview := part.ToReview
 	skippedDismissed := 0
 	if !opts.ForceFullReview && len(s.DismissedIDs) > 0 {
-		toReview, skippedDismissed = filterHunksWithDismissedFindings(part.ToReview, &s, opts.ForceFullReview)
+		toReview, skippedDismissed = filterHunksWithDismissedFindings(ctx, opts.RepoRoot, part.ToReview, &s, headSHA, opts.ForceFullReview)
 		if trRun.Enabled() && skippedDismissed > 0 {
 			trRun.Printf("SkippedDismissed=%d\n", skippedDismissed)
 		}
