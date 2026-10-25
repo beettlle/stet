@@ -1616,7 +1616,7 @@ func TestRun_reviewsHunkWhenDismissedLinesEdited(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(s1.Findings) != len(s0.Findings)+1 {
-		t.Errorf("findings = %d, want %d (new finding from the re-reviewed hunk)", len(s1.Findings), len(s0.Findings)+1)
+		t.Fatalf("findings = %d, want %d (new finding from the re-reviewed hunk)", len(s1.Findings), len(s0.Findings)+1)
 	}
 }
 
