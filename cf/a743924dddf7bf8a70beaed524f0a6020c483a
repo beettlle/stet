@@ -1,0 +1,18 @@
+spine-tasks/SP-072-dismissals-follow-line-shifts/.reviews/1-20261025T014720.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-072-dismissals-follow-line-shifts/.reviews/3-20261025T014747.md
+  h_ae151c586ac6c5 1-16
+spine-tasks/SP-072-dismissals-follow-line-shifts/.reviews/final-20261025T014956.md
+  h_ae151c586ac6c5 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cfa743924dddf7bf8a70beaed524f0a6020c483a",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
