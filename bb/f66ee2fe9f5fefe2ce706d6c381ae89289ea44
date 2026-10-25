@@ -1,0 +1,14 @@
+cli/internal/run/restore_dismissals_test.go
+  h_ae151c586ac6c5 589-660
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bbf66ee2fe9f5fefe2ce706d6c381ae89289ea44",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
