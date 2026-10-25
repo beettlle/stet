@@ -122,6 +122,7 @@ Wave 3 · 2 tasks · 2 lanes in parallel
 | 0 | 20261024T211835-d201 | SP-067, SP-068, SP-069, SP-071, SP-073 (integrate `42b70dc`) | 15 (advisory; mostly partial-hunk hallucinations; byte-slice truncation is pre-existing → deferred) | `/tmp/stet-release-check-wave-0.log` | 0 | `6de2150`, CI run 40143711668 green | #36, #19, #37, #25 closed; #18 progress comment |
 | 1 | 20261024T234250-4dc8 | SP-070, SP-075 (integrate `8f3c31f`) | 5 (advisory; unguarded file read in SP-070 → deferred; rest test-behavior claims refuted by release-check) | `/tmp/stet-release-check-wave-1.log` | 0 | `8f3c31f`, CI run 40148670317 green | #33 closed |
 | 2 | 20261025T005829-0587 | SP-072 (integrate `baafab9`) | 12 (advisory; range-dismissal claim refuted by code read; compile/test claims refuted by release-check) | `/tmp/stet-release-check-wave-2.log` | 0 | `baafab9`, CI run 40158259407 green | #38 progress comment |
+| 3 | 20261025T032844-a005 | SP-074, SP-076 (integrate `e4fda13`) | n/a (docs-only; diff read by operator) | `/tmp/stet-release-check-wave-3.log` (exit 1: flaky `TestDecide_deadlineExceededReturnsImmediately`), rerun `/tmp/stet-release-check-wave-3-rerun.log` | 0 (rerun) | pending | #38 pending push |
 
 **Wave 0 recovery notes:**
 
@@ -149,6 +150,7 @@ Wave 3 · 2 tasks · 2 lanes in parallel
 | Extension npm drift | deps | Extension not shipped |
 | Critic byte-slice truncation | bug | `review/critic.go` and `critic_systemone.go` truncate with `s[:n]`, which can split a UTF-8 rune (pre-existing in `critic.go`; flagged by the wave 0 review). Candidate XS task |
 | Existence filter file read | bug | SP-070 reads `filepath.Join(opts.RepoRoot, p.Hunk.FilePath)` with `os.ReadFile` in both `runReviewPipeline` branches, bypassing the repo-root and size guards of `expand.loadRepoSourceFile` (flagged by the wave 1 review). Paths come from the local git diff and the content can only drop findings. Candidate XS task: export a guarded reader from `expand` and use it |
+| Flaky systemone deadline test | test | `TestDecide_deadlineExceededReturnsImmediately` (`cli/internal/systemone/client_test.go` ~line 494) uses a 20 ms deadline and asserts the server saw exactly 1 call; under full-suite load the deadline can expire before the request reaches the server (`calls = 0`). Failed once in the wave 3 release-check; passed 50/50 in isolation and on rerun. Code unchanged this release. Candidate XS task: accept 0 or 1 calls, or assert "not retried" as `calls <= 1` |
 
 ---
 
@@ -190,13 +192,13 @@ curl -fsSL https://raw.githubusercontent.com/beettlle/stet/main/install.sh | STE
 
 ## Publish checklist (Phases 5–6)
 
-- [ ] All release-scoped tasks `.DONE` on `main`
-- [ ] Post-integrate `scripts/release-check.sh` exit 0 after every wave (logs above)
+- [x] All release-scoped tasks `.DONE` on `main`
+- [x] Post-integrate `scripts/release-check.sh` exit 0 after every wave (logs above)
 - [ ] `scripts/release-check.sh` exit 0 on final `HEAD` ({sha}) — log: {path}
 - [ ] `ci.yml` green on final `HEAD` — run: {url}
 - [ ] `git status` clean; `main` equals `origin/main`
 - [ ] Release-scoped `Closes #NNN` issues all CLOSED (#19, #25, #33, #36, #37, #38)
-- [ ] Release notes written and reviewed
+- [x] Release notes written (`release-notes.md`); operator review pending
 - [ ] Operator approved publish ({date})
 - [ ] `git tag -a v1.4.0 --cleanup=verbatim -F release-notes.md` + `git push origin v1.4.0`
 - [ ] `release.yml` run green (publish + verify-install ×3) — run: {url}
