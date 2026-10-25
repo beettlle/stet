@@ -1,0 +1,14 @@
+cli/internal/run/run_test.go
+  h_ae151c586ac6c5 1386-1388,1390-1397,1401,1492-1622
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1c8cf942a48077917bb291df36fa16a6811b3812",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
