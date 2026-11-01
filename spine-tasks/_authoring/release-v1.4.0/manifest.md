@@ -199,9 +199,9 @@ curl -fsSL https://raw.githubusercontent.com/beettlle/stet/main/install.sh | STE
 - [x] `main` equals `origin/main` at `2ac87d0` (re-confirm after this manifest commit)
 - [x] Release-scoped `Closes #NNN` issues all CLOSED (#19, #25, #33, #36, #37, #38)
 - [x] Release notes written (`release-notes.md`); operator review pending
-- [ ] Operator approved publish ({date})
-- [ ] `git tag -a v1.4.0 --cleanup=verbatim -F release-notes.md` + `git push origin v1.4.0`
-- [ ] `release.yml` run green (publish + verify-install ×3) — run: {url}
-- [ ] `scripts/post-release-smoke.sh v1.4.0` exit 0
-- [ ] Local `stet` replaced: `stet --version` reports `v1.4.0` (path: {command -v stet})
-- [ ] `spine-tasks/CONTEXT.md` release note added
+- [x] Operator approved publish (2026-11-01); `release-check.sh` re-run exit 0 on a clean worktree of `14d6969` (`/tmp/stet-release-check-v1.4.0.log`)
+- [x] `git tag -a v1.4.0 --cleanup=verbatim -F release-notes.md` at `14d6969` + `git push origin v1.4.0`
+- [x] `release.yml` run green (publish + verify-install ×3, go1.27.3) — run: https://github.com/beettlle/stet/actions/runs/41336052310
+- [x] `scripts/post-release-smoke.sh v1.4.0` exit 0 (9 assets; installed `stet version v1.4.0`)
+- [x] Local `stet` replaced: `stet --version` reports `v1.4.0` (path: `/Users/cdelgado/.local/bin/stet`)
+- [x] `spine-tasks/CONTEXT.md` release note added

@@ -205,18 +205,20 @@ Manifest: `spine-tasks/_authoring/release-v1.4.0/manifest.md`. Scope approved 20
 
 | Task | Summary | Size | Status | Deps |
 |------|---------|------|--------|------|
-| SP-067 | JS/TS import block reaches top-level and test-callback hunks (#36) | S | Ready | — |
-| SP-068 | JS RAG resolves imported names in the `from` module (#19) | M | Ready | — |
-| SP-069 | Critic sees the reviewer's expanded context and RAG (#18, partial) | M | Ready | — |
-| SP-070 | Existence-claim filter before the critic (#33) | M | Ready | SP-069 |
-| SP-071 | Line re-mapping library for dismissals (#38, partial) | S | Ready | — |
-| SP-072 | Dismissals follow line shifts in `stet start` / `stet run` (#38, partial) | S | Ready | SP-070, SP-071 |
-| SP-073 | Contract gates on `stet list --min-severity warning --min-confidence 0.8` (#37, #25) | S | Ready | — |
-| SP-074 | Docs: dismissal re-mapping and history across `.review` cleanup (#38) | S | Ready | SP-072 |
-| SP-075 | Docs: README `stet list` thresholds and contract gating | S | Ready | SP-073 |
-| SP-076 | Docs: `review-process-internals.md` for v1.4.0 | S | Ready | SP-067, SP-068, SP-069, SP-070, SP-072 |
+| SP-067 | JS/TS import block reaches top-level and test-callback hunks (#36) | S | Done | — |
+| SP-068 | JS RAG resolves imported names in the `from` module (#19) | M | Done | — |
+| SP-069 | Critic sees the reviewer's expanded context and RAG (#18, partial) | M | Done | — |
+| SP-070 | Existence-claim filter before the critic (#33) | M | Done | SP-069 |
+| SP-071 | Line re-mapping library for dismissals (#38, partial) | S | Done | — |
+| SP-072 | Dismissals follow line shifts in `stet start` / `stet run` (#38, partial) | S | Done | SP-070, SP-071 |
+| SP-073 | Contract gates on `stet list --min-severity warning --min-confidence 0.8` (#37, #25) | S | Done | — |
+| SP-074 | Docs: dismissal re-mapping and history across `.review` cleanup (#38) | S | Done | SP-072 |
+| SP-075 | Docs: README `stet list` thresholds and contract gating | S | Done | SP-073 |
+| SP-076 | Docs: `review-process-internals.md` for v1.4.0 | S | Done | SP-067, SP-068, SP-069, SP-070, SP-072 |
 
 Edges are shared-file serialization (`run.go`: SP-069 → SP-070 → SP-072) and data deps (SP-072 uses SP-071's `line_remap.go`); the docs tasks document their dependencies' behavior.
+
+**Released:** v1.4.0 on 2026-11-01, tagged at `14d6969` (closes #19, #25, #33, #36, #37, #38; #18 partial). Release: https://github.com/beettlle/stet/releases/tag/v1.4.0
 
 ### Completed (wave 0 + follow-on)
 
