@@ -1,0 +1,40 @@
+.agents/skills/gitnexus-cli/SKILL.md
+  h_ae151c586ac6c5 1-110
+.agents/skills/gitnexus-debugging/SKILL.md
+  h_ae151c586ac6c5 1-131
+.agents/skills/gitnexus-exploring/SKILL.md
+  h_ae151c586ac6c5 1-100
+.agents/skills/gitnexus-guide/SKILL.md
+  h_ae151c586ac6c5 1-138
+.agents/skills/gitnexus-impact-analysis/SKILL.md
+  h_ae151c586ac6c5 1-167
+.agents/skills/gitnexus-refactoring/SKILL.md
+  h_ae151c586ac6c5 1-164
+.claude/skills/gitnexus-cli/SKILL.md
+  h_ae151c586ac6c5 1-110
+.claude/skills/gitnexus-debugging/SKILL.md
+  h_ae151c586ac6c5 1-131
+.claude/skills/gitnexus-exploring/SKILL.md
+  h_ae151c586ac6c5 1-100
+.claude/skills/gitnexus-guide/SKILL.md
+  h_ae151c586ac6c5 1-138
+.claude/skills/gitnexus-impact-analysis/SKILL.md
+  h_ae151c586ac6c5 1-167
+.claude/skills/gitnexus-refactoring/SKILL.md
+  h_ae151c586ac6c5 1-164
+AGENTS.md
+  h_ae151c586ac6c5 194,196,200-204,209-210,212,217,226-232
+CLAUDE.md
+  h_ae151c586ac6c5 4,6,10-14,19-20,22,27,36-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7e0bb2b3ec6675b9ac5a1a39c22abd5daebede07",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
