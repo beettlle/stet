@@ -1,0 +1,16 @@
+docs/research/rules-budget-ab/preflight.txt
+  h_ae151c586ac6c5 1-72
+spine-tasks/SP-083-rule-budget-ab-eval/STATUS.md
+  h_ae151c586ac6c5 3-5,14,16-17,63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "66719676683e7179b7abaee2895bde50b4fbe84e",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
