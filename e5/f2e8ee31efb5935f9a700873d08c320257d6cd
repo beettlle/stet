@@ -1,0 +1,19 @@
+spine-tasks/_authoring/release-v1.5.0/manifest.md
+  s_492205e36b7649::t_46c5a8c596facd 105-106
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e5f2e8ee31efb5935f9a700873d08c320257d6cd",
+  "prompts": {},
+  "sessions": {
+    "s_492205e36b7649": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "1273fe28-48d3-4cba-8506-381f825e357e",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
