@@ -1,0 +1,28 @@
+spine-tasks/SP-077-wave-review-session-isolation/.DONE
+  h_ae151c586ac6c5 1-7
+spine-tasks/SP-077-wave-review-session-isolation/.reviews/1-20261102T101620.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-077-wave-review-session-isolation/.reviews/4-20261102T101651.md
+  h_ae151c586ac6c5 1-33
+spine-tasks/SP-077-wave-review-session-isolation/.reviews/4-20261102T111629.md
+  h_ae151c586ac6c5 1-15
+spine-tasks/SP-077-wave-review-session-isolation/.reviews/final-20261102T111927.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-082-rule-targeted-eval-cases/.reviews/1-20261102T094120.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-082-rule-targeted-eval-cases/.reviews/contract-fail-2026-11-02T09-51-46-484Z.log
+  h_ae151c586ac6c5 1-16
+spine-tasks/SP-082-rule-targeted-eval-cases/.reviews/contract-fail-2026-11-02T10-01-51-544Z.log
+  h_ae151c586ac6c5 1-15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6a4cb37fe0cc30805362741878cf39a0fcc7050e",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
