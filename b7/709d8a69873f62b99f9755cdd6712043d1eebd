@@ -1,0 +1,16 @@
+spine-tasks/SP-082-rule-targeted-eval-cases/.DONE
+  h_ae151c586ac6c5 1-5
+spine-tasks/SP-082-rule-targeted-eval-cases/.reviews/final-20261102T115405.md
+  h_ae151c586ac6c5 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b7709d8a69873f62b99f9755cdd6712043d1eebd",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
