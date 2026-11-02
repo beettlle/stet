@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -136,18 +137,71 @@ func activeFindingsInSession(s *session.Session) []findings.Finding {
 	return active
 }
 
-// activeFindings loads session from stateDir and returns findings not in DismissedIDs.
-func activeFindings(stateDir string) ([]findings.Finding, error) {
+// sessionReviewedFiles returns the repo-relative file paths in the session's
+// reviewed diff (git diff --name-only BaselineRef..LastReviewedAt). ok is false
+// when the session has no completed review (either ref empty) or git fails;
+// callers then keep all findings (fail-open).
+func sessionReviewedFiles(ctx context.Context, repoRoot string, s *session.Session) (map[string]struct{}, bool) {
+	if s == nil || s.BaselineRef == "" || s.LastReviewedAt == "" {
+		return nil, false
+	}
+	cmd := exec.CommandContext(ctx, "git", "diff", "--name-only", s.BaselineRef+".."+s.LastReviewedAt)
+	cmd.Dir = repoRoot
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: could not compute the session diff (%s); keeping all findings: %v\n", strings.TrimSpace(stderr.String()), err)
+		return nil, false
+	}
+	files := make(map[string]struct{})
+	for _, line := range strings.Split(stdout.String(), "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			files[line] = struct{}{}
+		}
+	}
+	return files, true
+}
+
+// filterToSessionDiff keeps only findings whose File is inside the session's
+// reviewed diff (issue #5). The evidence filters (findings.FilterByAddedLines /
+// FilterByHunkLines) keep findings for files other than the reviewed hunk's, so
+// reviewer output can anchor in files the prompt only showed via RAG symbol
+// definitions; those foreign-file findings are outside this session's diff and
+// made wave-review counts untrustworthy. Fail-open: when the session diff is
+// unknown (no completed review, or git failed), all findings are kept.
+func filterToSessionDiff(ctx context.Context, repoRoot string, s *session.Session, list []findings.Finding) []findings.Finding {
+	files, ok := sessionReviewedFiles(ctx, repoRoot, s)
+	if !ok {
+		return list
+	}
+	out := make([]findings.Finding, 0, len(list))
+	for _, f := range list {
+		if f.File == "" {
+			out = append(out, f)
+			continue
+		}
+		if _, in := files[f.File]; in {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
+// activeFindings loads session from stateDir and returns findings not in DismissedIDs,
+// filtered to the session's reviewed diff (issue #5).
+func activeFindings(ctx context.Context, repoRoot, stateDir string) ([]findings.Finding, error) {
 	s, err := session.Load(stateDir)
 	if err != nil {
 		return nil, erruser.New("Could not load session.", err)
 	}
-	return activeFindingsInSession(&s), nil
+	return filterToSessionDiff(ctx, repoRoot, &s, activeFindingsInSession(&s)), nil
 }
 
-// writeFindingsJSON writes {"findings": [...]} to w. Uses activeFindings so dismissed are excluded.
-func writeFindingsJSON(w io.Writer, stateDir string) error {
-	active, err := activeFindings(stateDir)
+// writeFindingsJSON writes {"findings": [...]} to w. Uses activeFindings so dismissed are excluded
+// and findings outside the session's reviewed diff are hidden (issue #5).
+func writeFindingsJSON(ctx context.Context, w io.Writer, repoRoot, stateDir string) error {
+	active, err := activeFindings(ctx, repoRoot, stateDir)
 	if err != nil {
 		return err
 	}
@@ -169,8 +223,8 @@ func writeFindingsJSON(w io.Writer, stateDir string) error {
 
 // writeFindingsHuman writes a human-readable summary to w: one line per finding (id  file:line  severity  message), then a summary line.
 // When stats is non-nil and EvalDurationNs > 0, the summary line includes " at Y tokens/sec.".
-func writeFindingsHuman(w io.Writer, stateDir string, stats *run.RunStats) error {
-	active, err := activeFindings(stateDir)
+func writeFindingsHuman(ctx context.Context, w io.Writer, repoRoot, stateDir string, stats *run.RunStats) error {
+	active, err := activeFindings(ctx, repoRoot, stateDir)
 	if err != nil {
 		return err
 	}
@@ -213,8 +267,8 @@ func writeFindingsHuman(w io.Writer, stateDir string, stats *run.RunStats) error
 
 // writeFindingsWithIDs writes one line per active finding: id  file:line  severity  message.
 // Used by status --ids and list commands.
-func writeFindingsWithIDs(w io.Writer, stateDir string) error {
-	active, err := activeFindings(stateDir)
+func writeFindingsWithIDs(ctx context.Context, w io.Writer, repoRoot, stateDir string) error {
+	active, err := activeFindings(ctx, repoRoot, stateDir)
 	if err != nil {
 		return err
 	}
@@ -495,11 +549,11 @@ func runStart(cmd *cobra.Command, args []string) error {
 	}
 	w := findingsWriter()
 	if output == "json" {
-		if err := writeFindingsJSON(w, stateDir); err != nil {
+		if err := writeFindingsJSON(cmd.Context(), w, repoRoot, stateDir); err != nil {
 			return err
 		}
 	} else {
-		if err := writeFindingsHuman(w, stateDir, &stats); err != nil {
+		if err := writeFindingsHuman(cmd.Context(), w, repoRoot, stateDir, &stats); err != nil {
 			return err
 		}
 	}
@@ -974,11 +1028,11 @@ func runRun(cmd *cobra.Command, args []string) error {
 	}
 	w := findingsWriter()
 	if output == "json" {
-		if err := writeFindingsJSON(w, stateDir); err != nil {
+		if err := writeFindingsJSON(cmd.Context(), w, repoRoot, stateDir); err != nil {
 			return err
 		}
 	} else {
-		if err := writeFindingsHuman(w, stateDir, &stats); err != nil {
+		if err := writeFindingsHuman(cmd.Context(), w, repoRoot, stateDir, &stats); err != nil {
 			return err
 		}
 	}
@@ -1176,11 +1230,11 @@ func runRerun(cmd *cobra.Command, args []string) error {
 	}
 	w := findingsWriter()
 	if output == "json" {
-		if err := writeFindingsJSON(w, stateDir); err != nil {
+		if err := writeFindingsJSON(cmd.Context(), w, repoRoot, stateDir); err != nil {
 			return err
 		}
 	} else {
-		if err := writeFindingsHuman(w, stateDir, &stats); err != nil {
+		if err := writeFindingsHuman(cmd.Context(), w, repoRoot, stateDir, &stats); err != nil {
 			return err
 		}
 	}
@@ -1379,7 +1433,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(os.Stdout, "baseline: %s\n", s.BaselineRef)
 	fmt.Fprintf(os.Stdout, "last_reviewed_at: %s\n", s.LastReviewedAt)
 	fmt.Fprintf(os.Stdout, "worktree: %s\n", worktreePath)
-	activeCount := len(activeFindingsInSession(&s))
+	activeCount := len(filterToSessionDiff(cmd.Context(), repoRoot, &s, activeFindingsInSession(&s)))
 	fmt.Fprintf(os.Stdout, "findings: %d\n", activeCount)
 	fmt.Fprintf(os.Stdout, "dismissed: %d\n", len(s.DismissedIDs))
 	if s.Strictness != "" {
@@ -1393,13 +1447,13 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	}
 	showIDs, _ := cmd.Flags().GetBool("ids")
 	if showIDs {
-		active, err := activeFindings(stateDir)
+		active, err := activeFindings(cmd.Context(), repoRoot, stateDir)
 		if err != nil {
 			return err
 		}
 		if len(active) > 0 {
 			fmt.Fprintln(os.Stdout, "---")
-			if err := writeFindingsWithIDs(os.Stdout, stateDir); err != nil {
+			if err := writeFindingsWithIDs(cmd.Context(), os.Stdout, repoRoot, stateDir); err != nil {
 				return err
 			}
 		}
@@ -1415,7 +1469,12 @@ func newListCmd() *cobra.Command {
 
 --min-severity and --min-confidence hide findings below a threshold, so a
 script can gate only on actionable findings (e.g. --min-severity warning
---min-confidence 0.8). Hidden findings stay active; stet status still counts them.`,
+--min-confidence 0.8). Hidden findings stay active; stet status still counts them.
+
+Findings whose file is outside the session's reviewed diff (baseline to the
+last reviewed commit) are hidden: reviewer output can anchor in files the
+prompt only showed as context (issue #5), and those leftovers must not change
+wave-review counts.`,
 		RunE: runList,
 	}
 	cmd.Flags().String("min-severity", "", "Only list findings at or above this severity: error, warning, info, or nitpick")
@@ -1467,7 +1526,8 @@ func runList(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(os.Stderr, "No active session. Run 'stet start' to begin a review.")
 		return errExit(1)
 	}
-	return writeFindingLines(os.Stdout, findings.FilterAtLeast(activeFindingsInSession(&s), minSeverity, minConfidence))
+	active := filterToSessionDiff(cmd.Context(), repoRoot, &s, activeFindingsInSession(&s))
+	return writeFindingLines(os.Stdout, findings.FilterAtLeast(active, minSeverity, minConfidence))
 }
 
 func newDismissCmd() *cobra.Command {
@@ -1812,7 +1872,7 @@ func runCommitMsg(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	w := findingsWriter()
-	if err := writeFindingsHuman(w, stateDir, &runStats); err != nil {
+	if err := writeFindingsHuman(cmd.Context(), w, repoRoot, stateDir, &runStats); err != nil {
 		return err
 	}
 	return tryAutoFinishZero(cmd.Context(), cfg, repoRoot, stateDir, false)
