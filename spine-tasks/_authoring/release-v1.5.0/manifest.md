@@ -103,7 +103,8 @@ validate: 7 passed, 0 failed · analyze: 0 blocking, 0 warning
 |------|----------|--------------|------------------------------------|-------------------|------|--------|---------------|
 | 0 | 20261102T054035-ac43 | SP-077, SP-079, SP-082 | 15 (advisory; 1 ERROR false positive, rest repeats/nitpicks) | /tmp/stet-release-check-wave-0.log | 0 | `f2c09f9` (CI 41481420549 green) | #5 (auto-closed on push) |
 | 1 | 20261102T162750-65d6 | SP-078 | 0 | /tmp/stet-release-check-wave-1.log | 0 | `a90293d` (CI 41510136666 green) | #18 |
-| 2 | 20261102T192933-3d83 | SP-080 (one final-review retry) | 1 (test nit, not a defect) | /tmp/stet-release-check-wave-2.log | 0 | pending | none — #20 stays open: no wording passed the pre-registered rule (`Partial #20`) |
+| 2 | 20261102T192933-3d83 | SP-080 (one final-review retry) | 1 (test nit, not a defect) | /tmp/stet-release-check-wave-2.log | 0 | `e5f2e8e` (CI 41517349883 green) | none — #20 stays open: no wording passed the pre-registered rule (`Partial #20`) |
+| 3 | 20261102T201602-d098 | SP-081 (operator correction 0.3 → 0.2 per the pre-registered rule; operator-written `.DONE` after 3 worker runs omitted it) | 0 | /tmp/stet-release-check-wave-3.log | 0 | pending | #34 |
 
 ---
 
@@ -130,6 +131,7 @@ validate: 7 passed, 0 failed · analyze: 0 blocking, 0 warning
 - `spine doctor` warned that swap is nearly exhausted (1.6 GiB free); run `lms unload --all` before the eval tasks.
 - #11 eval cost: prior A/B hit a 45-minute cap at the 8192-token budget (33–461 s per case). SP-083 caps runs per variant; its wave (spine wave 4) uses a wait timeout above 4 h.
 - Wave 0 recovery (batch `20261102T054035-ac43`): SP-077 and SP-082 finished their work but failed hand-off. Causes: (1) a transient reviewer failure (`google/gemini-3.1-pro-preview` exited in ~8 s with no artifact; a direct `pi` smoke test answered OK afterwards); (2) the contract script's `stet finish` after a clean worker run made the engine's contract re-check start a fresh full lane review (742 s > 600 s `contract.testTimeoutMs`, nondeterministic new findings; lane 1's baseline also covers SP-077's diff). Operator actions: triaged 36 findings in the lane 1 session (all false positives, wrong suggestions, or SP-077 code out of SP-082's scope; none real), verified the incremental contract passes, then `spine batch retry SP-077`, `spine batch retry SP-082`, and `SPINE_STET_NO_AUTO_FINISH=1 spine batch resume --force` so worker and engine contract runs share one open session. Follow-up for the final report: the contract script should not auto-finish under spine (or the engine should reuse the worker's verdict).
+- Worker `.DONE` omissions (waves 0 and 3): the local `.spine/agents/worker.md` (gitignored) was an old template copy telling workers to call `spine_review_step` and to skip `.DONE` on review spawn failure. Rebased on the current pi-spine template 2026-11-02 (pure drift, no local edits). SP-081 still omitted `.DONE` afterwards; the operator verified every completion criterion and wrote `.DONE` with the evidence, then the engine ran contract, plan review (APPROVE), and final review (PASS) normally.
 - Spine waves are 0-based: wave 0 (SP-077, SP-079, SP-082), 1 (SP-078), 2 (SP-080), 3 (SP-081), 4 (SP-083).
 - SP-079 reconstructs hunks from pi-spine git history (read-only, absolute path `/Users/cdelgado/Documents/github/pi-spine`); unrecoverable rows are skipped and counted, never invented.
 - #20 and #34 change what the critic drops; read wave-review counts for waves 2–4 with that in mind.
