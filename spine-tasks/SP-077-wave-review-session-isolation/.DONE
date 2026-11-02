@@ -1,0 +1,7 @@
+SP-077 complete.
+
+Root cause (issue #5): session state was never shared — the SP-039 wave branch's own diff contained committed model-eval run1.json results (recorded SP-033/SP-034 findings with cli/ paths); the review model echoed those paths as new findings, and `stet list` printed every session finding with no diff scoping.
+
+Fix: `stet list` (cli/cmd/stet/main.go runList) now scopes output to the session's reviewed diff (BaselineRef..HEAD via sessionDiffFiles/filterFindingsInDiffFiles); fails open with a warning when the diff cannot be computed.
+
+Tests: TestRunCLI_listScopesFindingsToSessionDiff (e2e, review range 1 in repo + disjoint range in clone, echoed out-of-diff finding hidden in both; fails before fix, passes after) + TestFilterFindingsInDiffFiles. Contract testCommand green: gofmt, go vet, go test (session + cmd/stet), spine-stet-contract-run.sh default exit 0 (1 real finding fixed: ctx threading; 3 dismissed false positives/stale, recorded in STATUS Discoveries).

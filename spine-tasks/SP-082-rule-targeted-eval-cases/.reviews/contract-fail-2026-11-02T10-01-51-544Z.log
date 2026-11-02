@@ -1,0 +1,15 @@
+Contract testCommand failure log
+Command: python3 -m pytest scripts/tests/test_model_eval.py scripts/tests/test_model_eval_cases.py -q && python3 scripts/model_eval.py run --cases scripts/model-eval-cases --out /tmp/sp082-dry --runs 1 --dry-run --rules-dir .cursor/rules --rules-max-tokens 2000 --max-minutes 10 && bash scripts/spine-stet-contract-run.sh default
+Exit code: 1
+Attempt: 2 of 2
+Timestamp: 2026-11-02T10:01:51.544Z
+Buffer overflow: no
+---
+........................................................................ [ 31%]
+........................................................................ [ 62%]
+.......s....s.......s..s....ssss.sssssss.ss.sss......................... [ 93%]
+...............                                                          [100%]
+211 passed, 20 skipped in 2.09s
+model_eval: done; remaining=0
+
+stet: rule budget of 8192 tokens dropped 126 rule section(s) from review prompts (e.g. ["general-llm-anti-patterns.mdc: 10.1 Reasoning Mode Misuse (CRIT)" "general-llm-anti-patterns.mdc: 10.2 Long Context Waste (CRIT)" "general-llm-anti-patterns.mdc: 10.3 Multimodal Misuse (CRIT)"]); raise rules_max_tokens to include more
