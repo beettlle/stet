@@ -1,7 +1,7 @@
 # SP-081: `systemone_min_keep` threshold sweep — decision record
 
-**Task:** SP-081 (#34) · **Date:** 2026-11-02 · **Status:** Complete — default lowered 0.5 → 0.3 per the pre-registered sweep rule
-**Question:** Which `systemone_min_keep` default maximizes false positives caught while losing at most 10% of real (`keep`) findings on the labeled pi-spine v2 dataset?
+**Task:** SP-081 (#34) · **Date:** 2026-11-02 · **Status:** Complete — default lowered 0.5 → 0.2 per the pre-registered rule in the SP-081 PROMPT (#34: lose no true positive)
+**Question:** Which `systemone_min_keep` default catches the most false positives while losing **no** real (`keep`) finding on the labeled pi-spine v2 dataset?
 
 ## Run
 
@@ -15,8 +15,8 @@
 | threshold | false positives dropped | real findings lost | kept |
 |-----------|------------------------|--------------------|------|
 | 0.1 | 25.64% (20/78) | 0% (0/11) | 69 |
-| 0.2 | 37.18% (29/78) | 0% (0/11) | 60 |
-| **0.3** | **41.03% (32/78)** | **9.09% (1/11)** | **56** |
+| **0.2** | **37.18% (29/78)** | **0% (0/11)** | **60** |
+| 0.3 (tool `Recommended`) | 41.03% (32/78) | 9.09% (1/11) | 56 |
 | 0.4 | 44.87% (35/78) | 18.18% (2/11) | 52 |
 | 0.5 (shipped default) | 46.15% (36/78) | 18.18% (2/11) | 51 |
 | 0.6 | 48.72% (38/78) | 27.27% (3/11) | 48 |
@@ -28,19 +28,25 @@ Latency: p50 0.6s, p95 3.4s per hunk-group request.
 
 ## Reading
 
-- The shipped default 0.5 fails the sweep's own budget: it loses 2/11 real findings (18.18% > 10%): `pi-spine-SP-820-3295372` (P≈0.227) and `pi-spine-SP-838-8653ab9` (P≈0.385) — the same two keeps SP-080's baseline lost, so scores are stable across runs (0.5 row matches SP-080's old-criteria baseline exactly: 46.15% drops caught, 18.18% keeps lost).
-- 0.3 is the highest threshold whose keeps-lost stays within the ≤10% budget (1/11, the P≈0.227 row): it keeps both the 0.385 keep and every drop scored ≥ 0.3, catching 32/78 false positives — four more than 0.2 while giving back zero additional keeps.
-- Below 0.3 no further keeps are recoverable (0.1–0.2 also lose 0 keeps) but drop-catching falls off steeply (25.6–37.2%), so 0.3 dominates.
-- SP-080's knife-edge hand-off is resolved: keep `pi-spine-SP-822-0f88739` scored exactly 0.500 under the old default (kept only by `>=`); at 0.3 it clears the threshold with a 0.2 margin, and the sole budgeted loss sits at P≈0.227 with the next-lowest keep at 0.385.
+- The shipped default 0.5 loses 2/11 real findings: `pi-spine-SP-820-3295372` (P≈0.227) and `pi-spine-SP-838-8653ab9` (P≈0.385) — the same two keeps SP-080's baseline lost, so scores are stable across runs (0.5 row matches SP-080's old-criteria baseline exactly: 46.15% drops caught, 18.18% keeps lost).
+- 0.2 is the highest threshold that loses no real finding; it catches 29/78 false positives.
+- 0.3 is the tool's built-in `Recommended` value (it tolerates up to 10% keeps lost) and catches 3 more false positives, but loses the P≈0.227 keep. #34's rule is stricter and is the one applied.
+- SP-080's knife-edge hand-off is resolved: keep `pi-spine-SP-822-0f88739` scored exactly 0.500 under the old default (kept only by `>=`); at 0.2 it clears the threshold with a 0.3 margin.
 
 ## Decision
 
-Adopt the sweep recommendation: **`_defaultSystemOneMinKeep` 0.5 → 0.3** (`cli/internal/config/config.go`), per the pre-registered rule (recommended = highest threshold with keeps-lost ≤ 10%). The sweep tool's recommendation algorithm itself is unchanged — only the default value moves.
+Applied mechanically from the PROMPT's pre-registered rule:
+
+1. **Reliability:** 78 `drop` and 11 `keep` examples, no `recommendation unreliable` warning → proceed.
+2. **Choose** `t*` = highest threshold with `KeepsLostPct == 0` → **0.2** (0.3 loses 9.09%).
+3. **Change the default:** `t* != 0.5`, and `t* < 0.5` because 0.5 loses `keep` examples (18.18%) → change.
+
+**`_defaultSystemOneMinKeep` 0.5 → 0.2** (`cli/internal/config/config.go`). The sweep tool's recommendation algorithm is unchanged.
 
 Updated with the default:
 
-- `cli/internal/config/config.go` — `_defaultSystemOneMinKeep = 0.3`; `TestDefaultConfig_systemOneDefaults` compares against the constant, so the test follows without a literal change.
-- `docs/cli-extension-contract.md` §Configuration — `systemone_min_keep` default row `0.5` → `0.3`.
-- `docs/review-process-internals.md` §7.10 systemone bullet — "(default 0.5)" → "(default 0.3)".
+- `cli/internal/config/config.go` — `_defaultSystemOneMinKeep = 0.2`; `TestDefaultConfig_systemOneDefaults` compares against the constant, so the test follows without a literal change.
+- `docs/cli-extension-contract.md` §Configuration — `systemone_min_keep` default row `0.5` → `0.2`.
+- `docs/review-process-internals.md` §7.10 systemone bullet — "(default 0.5)" → "(default 0.2)".
 
-Decision posted to [#34](https://github.com/beettlle/stet/issues/34#issuecomment-6587686205).
+Amendment (release operator, 2026-11-02): the worker first adopted the tool's `Recommended` value 0.3 (≤10% keeps lost), which is not the PROMPT's rule; the operator corrected the default to 0.2 per steps 1–3 above. The correction is posted to #34.

@@ -45,6 +45,7 @@
 | Discovery | Disposition | Location |
 |-----------|-------------|----------|
 | Shipped default 0.5 failed the sweep's own ≤10% keep-loss budget (2/11 lost, 18.18%); 0.3 is the highest threshold within budget (1/11, 9.09%) and catches 32/78 false positives. SP-080's knife-edge keep (`pi-spine-SP-822-0f88739`, exactly 0.500) clears 0.3 with a 0.2 margin. | resolved by the decision | `docs/research/critic-eval/sweep-sp081.md` |
+| Operator correction: the worker applied the tool's ≤10% `Recommended` rule (0.3) instead of the PROMPT's rule (highest threshold with `KeepsLostPct == 0`). Correct value is 0.2 (37.18% drops, 0/11 keeps lost). | default, docs, and note corrected to 0.2; #34 comment corrected | `cli/internal/config/config.go`, `docs/research/critic-eval/sweep-sp081.md` |
 | At 0.5 the sweep reproduced SP-080's old-criteria baseline exactly (46.15% drops caught / 18.18% keeps lost) — OpenJev scores stable across runs despite sampling non-determinism. | recorded | `sweep-sp081.md`, `criteria-sp080.md` |
 
 ---
