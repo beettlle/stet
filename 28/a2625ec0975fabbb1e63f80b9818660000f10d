@@ -1,0 +1,18 @@
+spine-tasks/SP-081-systemone-min-keep-sweep/.DONE
+  h_ae151c586ac6c5 1-6
+spine-tasks/SP-081-systemone-min-keep-sweep/.reviews/1-20261102T211902.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-081-systemone-min-keep-sweep/.reviews/final-20261102T212028.md
+  h_ae151c586ac6c5 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "28a2625ec0975fabbb1e63f80b9818660000f10d",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
