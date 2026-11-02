@@ -101,6 +101,7 @@ validate: 7 passed, 0 failed · analyze: 0 blocking, 0 warning
 
 | Wave | Batch ID | Tasks landed | stet wave review (active findings) | release-check log | Exit | Pushed | Issues closed |
 |------|----------|--------------|------------------------------------|-------------------|------|--------|---------------|
+| 0 | 20261102T054035-ac43 | SP-077, SP-079, SP-082 | 15 (advisory; 1 ERROR false positive, rest repeats/nitpicks) | /tmp/stet-release-check-wave-0.log | 0 | pending | #5 |
 
 ---
 
@@ -126,6 +127,7 @@ validate: 7 passed, 0 failed · analyze: 0 blocking, 0 warning
 - Live models: SP-078, SP-081, and SP-083 need LM Studio (and OpenJev for the critic). If unavailable, record here; #18, #34, #11 stay Partial and the release ships without them.
 - `spine doctor` warned that swap is nearly exhausted (1.6 GiB free); run `lms unload --all` before the eval tasks.
 - #11 eval cost: prior A/B hit a 45-minute cap at the 8192-token budget (33–461 s per case). SP-083 caps runs per variant; its wave (spine wave 4) uses a wait timeout above 4 h.
+- Wave 0 recovery (batch `20261102T054035-ac43`): SP-077 and SP-082 finished their work but failed hand-off. Causes: (1) a transient reviewer failure (`google/gemini-3.1-pro-preview` exited in ~8 s with no artifact; a direct `pi` smoke test answered OK afterwards); (2) the contract script's `stet finish` after a clean worker run made the engine's contract re-check start a fresh full lane review (742 s > 600 s `contract.testTimeoutMs`, nondeterministic new findings; lane 1's baseline also covers SP-077's diff). Operator actions: triaged 36 findings in the lane 1 session (all false positives, wrong suggestions, or SP-077 code out of SP-082's scope; none real), verified the incremental contract passes, then `spine batch retry SP-077`, `spine batch retry SP-082`, and `SPINE_STET_NO_AUTO_FINISH=1 spine batch resume --force` so worker and engine contract runs share one open session. Follow-up for the final report: the contract script should not auto-finish under spine (or the engine should reuse the worker's verdict).
 - Spine waves are 0-based: wave 0 (SP-077, SP-079, SP-082), 1 (SP-078), 2 (SP-080), 3 (SP-081), 4 (SP-083).
 - SP-079 reconstructs hunks from pi-spine git history (read-only, absolute path `/Users/cdelgado/Documents/github/pi-spine`); unrecoverable rows are skipped and counted, never invented.
 - #20 and #34 change what the critic drops; read wave-review counts for waves 2–4 with that in mind.
