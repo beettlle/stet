@@ -1,0 +1,7 @@
+SP-078 complete 2026-11-02T16:56Z.
+
+- Preflight: all operator checklist items OK (LM Studio qwen/qwen3.8-27b loaded, smoke HTTP 200; OpenJev /health 200; pi-spine ref 37f22c1 present).
+- Step 1: 3 critic-off runs (12/13/14 findings) and 3 critic-on runs (13/11/13 findings), all `ok` first attempt, no retries needed.
+- Step 2: labels.tsv (76 findings, all false, 44 out-of-view) committed before the rule; decision rule applied mechanically — drops 3.0/run avg (>=1, holds; 2.0 loosest), no-real-loss holds vacuously (0 real) -> #18 resolved; table posted: https://github.com/beettlle/stet/issues/18#issuecomment-6583249208
+- Step 3: Contract testCommand exit 0; nothing outside File Scope changed.
+- Commits: 63394d4 (preflight), 332f83a (results + labels), 6806bf3 (doc), final status commit.
