@@ -1,0 +1,50 @@
+docs/research/critic-context-sp831/labels.tsv
+  h_ae151c586ac6c5 1-77
+docs/research/critic-context-sp831/results-off/qwen__qwen3.8-27b/real/37f22c1d854cf6e31520bf69b62c5eef2153811e/run1.json
+  h_ae151c586ac6c5 1-135
+docs/research/critic-context-sp831/results-off/qwen__qwen3.8-27b/real/37f22c1d854cf6e31520bf69b62c5eef2153811e/run1.meta.json
+  h_ae151c586ac6c5 1-29
+docs/research/critic-context-sp831/results-off/qwen__qwen3.8-27b/real/37f22c1d854cf6e31520bf69b62c5eef2153811e/run1.stderr.log
+  h_ae151c586ac6c5 1
+docs/research/critic-context-sp831/results-off/qwen__qwen3.8-27b/real/37f22c1d854cf6e31520bf69b62c5eef2153811e/run2.json
+  h_ae151c586ac6c5 1-146
+docs/research/critic-context-sp831/results-off/qwen__qwen3.8-27b/real/37f22c1d854cf6e31520bf69b62c5eef2153811e/run2.meta.json
+  h_ae151c586ac6c5 1-29
+docs/research/critic-context-sp831/results-off/qwen__qwen3.8-27b/real/37f22c1d854cf6e31520bf69b62c5eef2153811e/run2.stderr.log
+  h_ae151c586ac6c5 1
+docs/research/critic-context-sp831/results-off/qwen__qwen3.8-27b/real/37f22c1d854cf6e31520bf69b62c5eef2153811e/run3.json
+  h_ae151c586ac6c5 1-156
+docs/research/critic-context-sp831/results-off/qwen__qwen3.8-27b/real/37f22c1d854cf6e31520bf69b62c5eef2153811e/run3.meta.json
+  h_ae151c586ac6c5 1-29
+docs/research/critic-context-sp831/results-off/qwen__qwen3.8-27b/real/37f22c1d854cf6e31520bf69b62c5eef2153811e/run3.stderr.log
+  h_ae151c586ac6c5 1
+docs/research/critic-context-sp831/results-on/qwen__qwen3.8-27b/real/37f22c1d854cf6e31520bf69b62c5eef2153811e/run1.json
+  h_ae151c586ac6c5 1-146
+docs/research/critic-context-sp831/results-on/qwen__qwen3.8-27b/real/37f22c1d854cf6e31520bf69b62c5eef2153811e/run1.meta.json
+  h_ae151c586ac6c5 1-33
+docs/research/critic-context-sp831/results-on/qwen__qwen3.8-27b/real/37f22c1d854cf6e31520bf69b62c5eef2153811e/run1.stderr.log
+  h_ae151c586ac6c5 1
+docs/research/critic-context-sp831/results-on/qwen__qwen3.8-27b/real/37f22c1d854cf6e31520bf69b62c5eef2153811e/run2.json
+  h_ae151c586ac6c5 1-125
+docs/research/critic-context-sp831/results-on/qwen__qwen3.8-27b/real/37f22c1d854cf6e31520bf69b62c5eef2153811e/run2.meta.json
+  h_ae151c586ac6c5 1-33
+docs/research/critic-context-sp831/results-on/qwen__qwen3.8-27b/real/37f22c1d854cf6e31520bf69b62c5eef2153811e/run2.stderr.log
+  h_ae151c586ac6c5 1
+docs/research/critic-context-sp831/results-on/qwen__qwen3.8-27b/real/37f22c1d854cf6e31520bf69b62c5eef2153811e/run3.json
+  h_ae151c586ac6c5 1-147
+docs/research/critic-context-sp831/results-on/qwen__qwen3.8-27b/real/37f22c1d854cf6e31520bf69b62c5eef2153811e/run3.meta.json
+  h_ae151c586ac6c5 1-33
+docs/research/critic-context-sp831/results-on/qwen__qwen3.8-27b/real/37f22c1d854cf6e31520bf69b62c5eef2153811e/run3.stderr.log
+  h_ae151c586ac6c5 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "332f83acbd4908deb58fd4e91d07ee5327a9a256",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
