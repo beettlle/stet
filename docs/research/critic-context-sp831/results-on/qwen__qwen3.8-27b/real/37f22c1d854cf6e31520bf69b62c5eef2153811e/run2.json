@@ -1,0 +1,125 @@
+{
+  "findings": [
+    {
+      "category": "design",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-dutok52s/src/cli/deps.mjs#L15",
+      "file": "src/cli/deps.mjs",
+      "id": "8c1f549c72fa50b5d1897038c90b15e0aabf4267c26e28dd337f4f6886a30750",
+      "line": 15,
+      "message": "Importing `compareTaskIds` from `../tasks/packet/discover.mjs` into the CLI layer creates a cross-layer dependency. The `discover` module is part of the task packet discovery subsystem, while `deps.mjs` is a CLI command. This violates the principle of minimal surface area and layer boundaries. If `compareTaskIds` is a general utility for sorting task IDs, it should be extracted to a shared utility module (e.g., `../tasks/id.mjs` or `../utils/taskIds.mjs`) rather than being imported from a discovery-specific module.",
+      "severity": "warning",
+      "suggestion": "Move `compareTaskIds` to a shared utility module like `src/tasks/id.mjs` or `src/utils/taskIds.mjs` and import from there in both `discover.mjs` and `deps.mjs`."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-dutok52s/src/cli/deps.mjs#L46",
+      "file": "src/cli/deps.mjs",
+      "id": "4a71eb15cf2b3cace4153f6e476662b6b2452d21d1dcad2b9a6d1cf70816c448",
+      "line": 46,
+      "message": "The sort comparator `compareTaskIds(a.from, b.from) || compareTaskIds(a.to, b.to)` is not a valid total order if `compareTaskIds` returns 0 for non-matching or unparseable task IDs. If two edges have the same `from` but different `to` values that `compareTaskIds` cannot distinguish (returns 0), the sort will not order them by `to`, violating the intended lexicographic tie-breaking. The original `localeCompare` always returns a non-zero value for different strings, guaranteeing a total order. If `compareTaskIds` returns 0 for unparseable IDs, edges with the same `from` but different `to` will remain in arbitrary order, breaking deterministic output.",
+      "severity": "warning",
+      "suggestion": "Ensure `compareTaskIds` returns a non-zero value for any two different strings (e.g., fall back to `localeCompare` or string comparison when regex doesn't match), or add a fallback: `compareTaskIds(a.from, b.from) || compareTaskIds(a.to, b.to) || a.to.localeCompare(b.to)`."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-dutok52s/src/cli/deps.mjs#L59",
+      "file": "src/cli/deps.mjs",
+      "id": "d1ed6009ddc299a47a82849214a0a33fddc4cf8fbdd2a1ba7bf15f148d55ee4f",
+      "line": 59,
+      "message": "The sort comparator `compareTaskIds` may return 0 for task IDs that don't match the expected pattern (e.g., non-standard IDs). When the comparator returns 0 for distinct elements, the sort order is implementation-defined and may not be stable or predictable. This could lead to inconsistent cycle node ordering in edge cases where task IDs don't conform to the expected format.",
+      "severity": "warning",
+      "suggestion": "Ensure `compareTaskIds` has a deterministic fallback (e.g., lexicographic comparison) when the regex doesn't match, or verify that all task IDs in the system always match `TASK_ID_PARTS_RE`."
+    },
+    {
+      "category": "performance",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-dutok52s/src/planner/graph.mjs#L42",
+      "file": "src/planner/graph.mjs",
+      "id": "633dea2f2d283572bf8ec8db25721879e2d3e1310f8a64b5294d6bded54a653d",
+      "line": 42,
+      "message": "The `compareTaskIds` comparator is called O(n log n) times during sorting, and each invocation runs a regex (`TASK_ID_PARTS_RE.exec`) on both arguments. For large task graphs, this results in repeated regex parsing of the same strings. Consider pre-computing sort keys (e.g., numeric prefix) and sorting by those keys instead.",
+      "severity": "warning",
+      "suggestion": "Pre-compute a numeric sort key for each task ID (e.g., extract the numeric portion once) and use a simple numeric comparator on the pre-computed keys to avoid repeated regex execution during sort."
+    },
+    {
+      "category": "design",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-dutok52s/src/planner/pending.mjs#L7",
+      "file": "src/planner/pending.mjs",
+      "id": "5114a600930d60790e895d9f44f72c5509c41af1f991db518ebc9d1feba681b8",
+      "line": 7,
+      "message": "Importing `compareTaskIds` from `../tasks/packet/discover.mjs` creates a cross-layer dependency from the planner to the task discovery module. This violates the principle of minimal surface area and can lead to tight coupling between unrelated subsystems. If `compareTaskIds` is a general utility, it should be moved to a shared utility module rather than being imported from a specific feature module.",
+      "severity": "warning",
+      "suggestion": "Move `compareTaskIds` to a shared utility module (e.g., `src/utils/taskIds.mjs`) and import from there in both `pending.mjs` and `discover.mjs`."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-dutok52s/src/planner/pending.mjs#L26",
+      "file": "src/planner/pending.mjs",
+      "id": "b0f6a4a96f5dfc062c91f9ca00dc56811dbeb80f8ad0957c026f4ebc7bd75093",
+      "line": 26,
+      "message": "The `compareTaskIds` function is not a valid comparator for `Array.prototype.sort`. It returns `null` when the task IDs do not match the expected format (e.g., `pa` or `pb` is null). `Array.prototype.sort` expects a number (negative, zero, or positive). Returning `null` is coerced to `0`, which incorrectly signals that the elements are equal, leading to an unstable and incorrect sort order for non-matching IDs.",
+      "severity": "warning",
+      "suggestion": "Ensure `compareTaskIds` returns a valid number (e.g., `0`, `1`, or `-1`) for all cases, or handle the `null` return value in `filterPendingTaskIds` by falling back to a standard string comparison if `compareTaskIds` returns `null`."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-dutok52s/src/planner/scope.mjs#L77",
+      "file": "src/planner/scope.mjs",
+      "id": "ff47739c646c050c7c0e08aafe32cc8dbdef10382e365ace6421c25332f22615",
+      "line": 77,
+      "message": "The `compareTaskIds` function may return 0 for non-matching task IDs (e.g., when `TASK_ID_PARTS_RE` fails to match), which would cause `Array.prototype.sort` to treat them as equal and preserve their original order. This means task IDs that don't match the expected pattern will not be sorted numerically, potentially leading to inconsistent ordering. The commit message says \"sort planner task IDs numerically\", but this only works for IDs matching the regex pattern.",
+      "severity": "warning",
+      "suggestion": "Ensure `compareTaskIds` provides a deterministic fallback for non-matching IDs (e.g., fall back to lexicographic comparison) so that all task IDs are sorted consistently regardless of whether they match the expected pattern."
+    },
+    {
+      "category": "performance",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-dutok52s/src/planner/scope.mjs#L137",
+      "file": "src/planner/scope.mjs",
+      "id": "5e22fa51f53b60216d015a69f319c404d7a594bbc7021c672b5924b1aa95ee3d",
+      "line": 137,
+      "message": "Using Array.prototype.includes() inside a filter loop results in O(n*m) complexity. For large task sets, this is inefficient.",
+      "severity": "warning",
+      "suggestion": "Convert allTaskIds to a Set for O(1) lookups: const allTaskIdSet = new Set(allTaskIds); then use .filter((id) => allTaskIdSet.has(id))"
+    },
+    {
+      "category": "testing",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-dutok52s/tests/planner/graph.test.mjs#L14",
+      "file": "tests/planner/graph.test.mjs",
+      "id": "a37ead00b298e8f46a9209b8ea3a5272d27a788bcc37ce4b62d8f020b4665439",
+      "line": 14,
+      "message": "The test asserts a specific order [\"SP-999\", \"SP-1000\"] for tasks in the same wave. If the underlying implementation uses a Set or Map to collect tasks for a wave, the order is determined by insertion order (which depends on the order of keys in the input object). While this works for the specific test case, it makes the test brittle to changes in how the graph is built or how tasks are iterated. If the goal is to ensure numeric sorting, the test should verify that the sorting logic is applied, or the implementation should guarantee a stable sort order independent of input object key order.",
+      "severity": "warning",
+      "suggestion": "Ensure the implementation explicitly sorts tasks within a wave (e.g., using a comparator that handles numeric IDs) rather than relying on insertion order, or update the test to check that the set of tasks is correct and the order is stable/deterministic based on a defined rule."
+    },
+    {
+      "category": "testing",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-dutok52s/tests/planner/pending-scope.test.mjs#L53",
+      "file": "tests/planner/pending-scope.test.mjs",
+      "id": "03062d8640efa4703ad175fc4330c65b7ab4577f2acd207669f9eda4059dc208",
+      "line": 53,
+      "message": "The test asserts a specific order [\"SP-999\", \"SP-1000\"], but the implementation of filterPendingTaskIds (in src/planner/pending.mjs) does not perform any sorting. It simply iterates over the discovered tasks and appends them to the pending array. The test will only pass if discoverTasks happens to return the tasks in the correct order (e.g., due to filesystem readdirSync ordering), which is not guaranteed. The test should either sort the result before asserting or the implementation should be updated to sort.",
+      "severity": "warning",
+      "suggestion": "Sort the pending array in the test before asserting, or update filterPendingTaskIds to sort the task IDs numerically."
+    },
+    {
+      "category": "testing",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-dutok52s/tests/planner/scope.test.mjs#L80",
+      "file": "tests/planner/scope.test.mjs",
+      "id": "ecdc4bf64d09446383ea65d30fbf76022d9390a10533a4f91bc987c09bcb0f18",
+      "line": 80,
+      "message": "The test writes task folders in a specific order (SP-1000 before SP-999) to verify that the sorting logic in parseScope correctly orders them numerically. However, the test relies on discoverTasks returning tasks in filesystem order, which may vary across platforms. If discoverTasks already sorts, the test might not be testing the intended behavior. Consider verifying that discoverTasks returns unsorted results or that the test is specifically testing parseScope's sorting.",
+      "severity": "info",
+      "suggestion": "Add a comment explaining that the test relies on discoverTasks returning tasks in filesystem order (unsorted), or verify that discoverTasks does not sort before parseScope does."
+    }
+  ]
+}
