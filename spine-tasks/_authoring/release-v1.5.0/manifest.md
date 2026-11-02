@@ -102,7 +102,8 @@ validate: 7 passed, 0 failed · analyze: 0 blocking, 0 warning
 | Wave | Batch ID | Tasks landed | stet wave review (active findings) | release-check log | Exit | Pushed | Issues closed |
 |------|----------|--------------|------------------------------------|-------------------|------|--------|---------------|
 | 0 | 20261102T054035-ac43 | SP-077, SP-079, SP-082 | 15 (advisory; 1 ERROR false positive, rest repeats/nitpicks) | /tmp/stet-release-check-wave-0.log | 0 | `f2c09f9` (CI 41481420549 green) | #5 (auto-closed on push) |
-| 1 | 20261102T162750-65d6 | SP-078 | 0 | /tmp/stet-release-check-wave-1.log | 0 | pending | #18 |
+| 1 | 20261102T162750-65d6 | SP-078 | 0 | /tmp/stet-release-check-wave-1.log | 0 | `a90293d` (CI 41510136666 green) | #18 |
+| 2 | 20261102T192933-3d83 | SP-080 (one final-review retry) | 1 (test nit, not a defect) | /tmp/stet-release-check-wave-2.log | 0 | pending | none — #20 stays open: no wording passed the pre-registered rule (`Partial #20`) |
 
 ---
 
