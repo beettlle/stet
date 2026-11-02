@@ -47,6 +47,100 @@ func sampleFinding(id, msg string) findings.Finding {
 	}
 }
 
+// TestVerifyFindingsSystemOne_everyQuestionCarriesShippedCriteria pins the
+// exact criteria strings every System One question must carry. SP-080
+// validated three rewordings and none passed the pre-registered rule
+// (docs/research/critic-eval/criteria-sp080.md), so these remain the shipped
+// strings; the literals are asserted verbatim so a silent criteria rewording
+// cannot ship without updating this test (and re-running the criteria-sp080
+// validation).
+func TestVerifyFindingsSystemOne_everyQuestionCarriesShippedCriteria(t *testing.T) {
+	const wantTrue = "The finding is correct and actionable for this code."
+	const wantFalse = "The finding is incorrect, unsupported by this code, or not actionable."
+	if systemOneCriteriaTrue != wantTrue || systemOneCriteriaFalse != wantFalse {
+		t.Fatalf("SP-080 criteria changed; re-run the critic-eval validation before shipping:\n true = %q\n false = %q", systemOneCriteriaTrue, systemOneCriteriaFalse)
+	}
+	const n = systemOneMaxQuestionsPerRequest + 1
+	batch := make([]findings.Finding, 0, n)
+	for i := 0; i < n; i++ {
+		batch = append(batch, sampleFinding(fmt.Sprintf("id-%d", i), "msg"))
+	}
+	fake := &fakeDecider{probs: map[string]float64{"f0": 0.9, "f1": 0.9}}
+	if _, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", batch, "code", 0.5, 0); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(fake.requests) != 2 {
+		t.Fatalf("expected 2 chunked requests, got %d", len(fake.requests))
+	}
+	for ri, req := range fake.requests {
+		for key, q := range req.Questions {
+			if q.Criteria.True != wantTrue {
+				t.Errorf("request %d question %q criteria true = %q, want the SP-080 wording", ri, key, q.Criteria.True)
+			}
+			if q.Criteria.False != wantFalse {
+				t.Errorf("request %d question %q criteria false = %q, want the SP-080 wording", ri, key, q.Criteria.False)
+			}
+		}
+	}
+}
+
+// TestVerifyFindingsSystemOne_criteriaStayShortAndHunkFree guards the criteria
+// wording contract: both criteria strings stay short and carry no code/hunk
+// text (the finding fields and hunk ride in the instructions/state instead).
+func TestVerifyFindingsSystemOne_criteriaStayShortAndHunkFree(t *testing.T) {
+	if len(systemOneCriteriaTrue) > 200 || len(systemOneCriteriaFalse) > 200 {
+		t.Errorf("criteria strings must stay short (true %d, false %d chars, want <= 200)", len(systemOneCriteriaTrue), len(systemOneCriteriaFalse))
+	}
+	const hunk = "SECRET_HUNK_BODY := open()"
+	fake := &fakeDecider{probs: map[string]float64{"f0": 0.9}}
+	if _, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{sampleFinding("f-a", "x")}, hunk, 0.5, 0); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for key, q := range fake.requests[0].Questions {
+		if strings.Contains(q.Criteria.True, hunk) || strings.Contains(q.Criteria.False, hunk) {
+			t.Errorf("question %q criteria must not echo hunk content", key)
+		}
+	}
+}
+
+// TestAnnotateRuleConflicts_criteriaUnchangedByCriticReword (SP-080) proves the
+// rules-annotation request is untouched by the critic-criteria rewording: its
+// choice questions still carry the section options plus the none option, and
+// the shared annotate instructions suffix is unchanged.
+func TestAnnotateRuleConflicts_criteriaUnchangedByCriticReword(t *testing.T) {
+	if annotateNoneDescription != "Applying the suggestion conflicts with none of these guidelines." {
+		t.Errorf("annotate none option description changed: %q", annotateNoneDescription)
+	}
+	if !strings.HasSuffix(annotateInstructionsSuffix, "Choose the one conflicting section, or none if applying the suggestion conflicts with none of the listed guidelines.") {
+		t.Errorf("annotate instructions suffix changed: %q", annotateInstructionsSuffix)
+	}
+	sections := annotateSections(2)
+	fake := &fakeChoiceDecider{respond: annotateAnswer(func(string) (string, float64) {
+		return annotateNoneOption, 1.0
+	})}
+	batch := []findings.Finding{sampleFinding("f-a", "msg with a suggestion")}
+	if _, err := AnnotateRuleConflicts(context.Background(), fake, "m", batch, "hunk", sections); err != nil {
+		t.Fatalf("AnnotateRuleConflicts: %v", err)
+	}
+	if len(fake.reqs) != 1 {
+		t.Fatalf("expected 1 annotate request, got %d", len(fake.reqs))
+	}
+	q := fake.reqs[0].Questions["q0"]
+	want := map[string]string{
+		"s0":               "rule-00.mdc: Section 00",
+		"s1":               "rule-01.mdc: Section 01",
+		annotateNoneOption: annotateNoneDescription,
+	}
+	if len(q.Criteria) != len(want) {
+		t.Fatalf("annotate criteria options = %v, want %v", q.Criteria, want)
+	}
+	for key, desc := range want {
+		if q.Criteria[key] != desc {
+			t.Errorf("annotate criteria[%q] = %q, want %q", key, q.Criteria[key], desc)
+		}
+	}
+}
+
 func TestVerifyFindingsSystemOne_allKept(t *testing.T) {
 	batch := []findings.Finding{
 		sampleFinding("f-a", "leak"),

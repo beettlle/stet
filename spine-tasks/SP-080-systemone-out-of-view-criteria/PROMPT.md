@@ -17,6 +17,9 @@ The System One critic asks one yes/no question per finding (`cli/internal/review
 - true: `"The finding is correct and actionable for this code."`
 - false: `"The finding is incorrect, unsupported by this code, or not actionable."`
 
+**Mission (amended 2026-11-02): `Partial #20`** — none of the three validated
+wordings passed the pre-registered rule; see Amendments.
+
 Claims such as "X is not defined / not imported / not exported / unused" about code outside the shown context are hard for the model to call false, so the critic keeps them (pi-spine release: SP-823, SP-826, SP-829, SP-830, SP-831, SP-832, SP-837, SP-843). SP-069 (#18) gave the critic the reviewer's expanded context; SP-070 (#33) drops existence claims the file itself disproves. This task rewords the criteria so that **a claim that something is absent, undefined, or wrong in code the shown context does not include counts as unsupported (false)**, and validates the wording on labeled data before shipping it.
 
 ### Inputs from wave 1
@@ -135,3 +138,20 @@ Build two stet binaries, `old` (current `main`) and `new` (this branch), and run
 ---
 
 ## Amendments (Added During Execution)
+
+**Amendment 1 (2026-11-02) — Mission is `Partial #20`:** the pre-registered
+validation rule (docs/research/critic-eval/criteria-sp080.md) was applied
+mechanically to three wordings (initial + two more, each recorded before its
+run), at threshold 0.5 against `stet-old` = main `a90293d`:
+
+| Wording | cond 1 (≥ drops, strictly more out-of-view) | cond 2 (no new keep loss) |
+|---|---|---|
+| 1 ("verifiable from the code shown") | ✓ 38≥36, OOV 8>7 | ✗ loses SP-822-7ac810c, SP-835-bf03c29 |
+| 2 ("correctness depends on code not shown") | ✓ 49≥36, OOV 13>7 | ✗ loses SP-821-n7, SP-822-7ac810c, SP-835-bf03c29 |
+| 3 ("symbol asserted undefined/unused/… that the excerpt cannot decide") | ✗ OOV 7→7 | ✗ loses SP-822-7ac810c |
+
+None passes → per the rule, the current criteria stay and this task delivers
+the validated baseline, the recorded rewording attempts, and drift-guard tests
+pinning the shipped criteria. #20's premise is confirmed on the labeled
+dataset (12 of 19 out-of-view rows score 0.79–0.999 under the shipped
+criteria); the remaining lever is the SP-081 `systemone_min_keep` sweep.
