@@ -1,0 +1,16 @@
+docs/research/critic-eval/criteria-sp080.md
+  h_ae151c586ac6c5 3
+spine-tasks/SP-080-systemone-out-of-view-criteria/STATUS.md
+  h_ae151c586ac6c5 3-4,44,46-60,69-70,77-80,91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3facb9f29dbbb0ed441cb712286fc7c9da89b2cf",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
