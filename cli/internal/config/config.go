@@ -205,7 +205,7 @@ const (
 	_defaultCriticBackend           = "llm"
 	_defaultSystemOneBaseURL        = "http://127.0.0.1:8080"
 	_defaultSystemOneModel          = "openjev-latest"
-	_defaultSystemOneMinKeep        = 0.5
+	_defaultSystemOneMinKeep        = 0.2
 	_defaultSystemOneSamples        = 1
 	_defaultSystemOneTimeout        = 10 * time.Second
 )
