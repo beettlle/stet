@@ -1,7 +1,7 @@
 # SP-077: Wave review shows only findings from the reviewed session — Status
 
-**Current Step:** 4 (Testing & Verification)
-**Status:** 🔄 In Progress
+**Current Step:** Complete
+**Status:** ✅ Done
 **Last Updated:** 2026-11-01
 **Review Level:** 2
 **Review Counter:** 0
@@ -34,11 +34,11 @@
 ---
 
 ### Step 4: Testing & Verification
-**Status:** 🔄 In Progress
+**Status:** ✅ Done
 
-- [ ] Completion-criteria tests
+- [x] Completion-criteria tests
 - [x] Repro shows 0 leaked findings (dry-run shell repro, pre-fix 1 leaked → post-fix 0)
-- [ ] Contract `testCommand` passes
+- [x] Contract `testCommand` passes (gofmt + vet + session/cmd-stet tests + `spine-stet-contract-run.sh default` exit 0)
 
 ---
 
@@ -68,6 +68,8 @@
 | 2026-11-01 | Step 1: dry-run repro + lead-by-lead root cause investigation | Leak path found (evidence filters keep foreign-file findings; RAG supplies foreign file content) |
 | 2026-11-01 | Step 2: `filterToSessionDiff` wired into `activeFindings`, all report writers, `runList`, `runStatus` | `go build ./cli/...` clean |
 | 2026-11-01 | Step 3: regression tests + CONTEXT #5 row resolved | New tests pass; pre-fix binary shows the leak, post-fix does not |
+| 2026-11-01 | Step 4: contract round 1 — 19 findings triaged | 1 real fixed (double filterToSessionDiff in runStatus), 18 dismissed with reasons (hunk-blind compile-error claims, fail-open misreads, `--` semantics, test naming) |
+| 2026-11-01 | Step 4: contract round 2 — 1 finding (`b09073c`) | Dismissed false_positive (finding itself concludes "no obvious bug"); full testCommand exits 0 |
 
 ---
 
