@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import difflib
 import json
+import re
 from collections import defaultdict
 from pathlib import Path
 
@@ -18,7 +19,7 @@ import pytest
 CASES_DIR = Path(__file__).resolve().parents[1] / "model-eval-cases"
 
 LANGUAGES = {"go", "typescript", "python"}
-CATEGORIES = {"correctness", "security", "performance"}
+CATEGORIES = {"correctness", "security", "performance", "rule"}
 
 REQUIRED_EXPECTED_KEYS = {"id", "language", "clean", "bugs"}
 REQUIRED_BUG_KEYS = {"file", "lines", "category", "description"}
@@ -37,11 +38,20 @@ EXPECTED_IDS = {
     "py-mutable-default": ("python", False),
     "py-bare-except": ("python", False),
     "py-int-division": ("python", False),
+    "go-rule-context": ("go", False),
+    "go-rule-global-prefix": ("go", False),
+    "py-rule-membership": ("python", False),
+    "py-rule-naming": ("python", False),
     "go-clean-refactor": ("go", True),
     "ts-clean-rename": ("typescript", True),
+    "go-rule-clean": ("go", True),
+    "py-rule-clean": ("python", True),
 }
 
 HINT_MARKERS = ("bug", "todo", "fixme", "xxx", "hack", "unsafe")
+
+# "rule" key of rule-category bugs: <rule file>.mdc#<section number>.
+RULE_ID_PATTERN = re.compile(r"[\w.-]+\.mdc#\d+(?:\.\d+)*$")
 
 MIN_FILE_LINES = 30
 MAX_FILE_LINES = 120
@@ -104,8 +114,8 @@ def test_exactly_the_expected_case_ids():
 def test_buggy_clean_split():
     expected = {case.name: load_expected(case) for case in case_dirs()}
     clean = [entry["clean"] for entry in expected.values()]
-    assert clean.count(True) == 2
-    assert clean.count(False) == 12
+    assert clean.count(True) == 4
+    assert clean.count(False) == 16
     for entry in expected.values():
         assert entry["clean"] == (entry["bugs"] == [])
 
@@ -128,6 +138,10 @@ def test_expected_json_schema_and_values(case_dir):
         assert isinstance(bug["lines"], list) and len(bug["lines"]) == 2
         assert all(isinstance(n, int) and not isinstance(n, bool) for n in bug["lines"])
         assert isinstance(bug["description"], str) and bug["description"]
+        if bug["category"] == "rule":
+            assert isinstance(bug.get("rule"), str) and RULE_ID_PATTERN.fullmatch(bug["rule"]), (
+                f"{case_dir.name}: rule-category bugs must name 'rule file>#<section>'"
+            )
 
 
 @pytest.mark.parametrize("case_dir", case_dirs(), ids=lambda p: p.name)

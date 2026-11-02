@@ -1,0 +1,50 @@
+package ratelimit
+
+import (
+	"sync"
+	"time"
+)
+
+// Window tracks request timestamps per client key.
+type Window struct {
+	mu      sync.Mutex
+	entries map[string][]time.Time
+}
+
+// NewWindow returns an empty Window.
+func NewWindow() *Window {
+	return &Window{entries: make(map[string][]time.Time)}
+}
+
+// Allow records a hit for key and reports whether it is within limit
+// for the window ending now.
+func (w *Window) Allow(key string, limit int, span time.Duration) bool {
+	now := time.Now()
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	hits := w.prune(key, now.Add(-span))
+	if len(hits) >= limit {
+		w.entries[key] = hits
+		return false
+	}
+	w.entries[key] = append(hits, now)
+	return true
+}
+
+// prune drops entries older than cutoff and returns the kept slice.
+func (w *Window) prune(key string, cutoff time.Time) []time.Time {
+	kept := w.entries[key][:0]
+	for _, at := range w.entries[key] {
+		if at.After(cutoff) {
+			kept = append(kept, at)
+		}
+	}
+	return kept
+}
+
+// Reset clears all recorded hits.
+func (w *Window) Reset() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.entries = make(map[string][]time.Time)
+}

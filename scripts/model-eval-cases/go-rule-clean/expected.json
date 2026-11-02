@@ -1,0 +1,6 @@
+{
+  "id": "go-rule-clean",
+  "language": "go",
+  "clean": true,
+  "bugs": []
+}

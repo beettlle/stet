@@ -1,0 +1,33 @@
+"""Render invoice totals as aligned text tables."""
+
+from __future__ import annotations
+
+CURRENCY = "USD"
+COLUMN_WIDTH = 18
+SEPARATOR = "-" * (COLUMN_WIDTH + 12)
+
+
+def format_row(label: str, amount: float) -> str:
+    """Return one aligned table row."""
+    return f"{label:<{COLUMN_WIDTH}}{amount:>12,.2f}"
+
+
+def render_invoice(invoice: dict) -> str:
+    """Return the full invoice table as a string."""
+    lines = [f"Invoice {invoice['number']} ({CURRENCY})"]
+    lines.append(SEPARATOR)
+    for item in invoice["items"]:
+        lines.append(format_row(item["label"], item["amount"]))
+    lines.append(SEPARATOR)
+    lines.append(format_row("Total", total_for(invoice)))
+    return "\n".join(lines)
+
+
+def total_for(invoice: dict) -> float:
+    """Return the summed item amount for invoice."""
+    return sum(item["amount"] for item in invoice["items"])
+
+
+def render_batch(invoices: list[dict]) -> str:
+    """Render several invoices separated by blank lines."""
+    return "\n\n".join(render_invoice(invoice) for invoice in invoices)

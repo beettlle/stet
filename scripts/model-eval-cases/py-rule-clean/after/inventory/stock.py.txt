@@ -1,0 +1,34 @@
+"""Track stock levels for the storeroom."""
+
+from __future__ import annotations
+
+
+class StockBook:
+    """Record deliveries and shipments per SKU."""
+
+    def __init__(self) -> None:
+        self.counts: dict[str, int] = {}
+
+    def add_delivery(self, sku: str, count: int) -> None:
+        """Record count more units of sku received."""
+        self.counts[sku] = self.counts.get(sku, 0) + count
+
+    def remove_shipment(self, sku: str, count: int) -> None:
+        """Remove count units of sku or raise when short."""
+        current = self.counts.get(sku, 0)
+        if current < count:
+            raise ValueError(f"not enough stock for {sku}")
+        self.counts[sku] = current - count
+
+    def low_stock_skus(self, threshold: int) -> list[str]:
+        """Return SKUs at or below threshold, sorted."""
+        return [sku for sku in sorted(self.counts) if self.counts[sku] <= threshold]
+
+
+def merge_books(books: list[StockBook]) -> StockBook:
+    """Combine several books into one new book."""
+    merged = StockBook()
+    for book in books:
+        for sku, count in book.counts.items():
+            merged.add_delivery(sku, count)
+    return merged
