@@ -1,7 +1,7 @@
 # SP-079: Critic-eval dataset from pi-spine release dismissals — Status
 
-**Current Step:** Step 4
-**Status:** 🔄 In Progress
+**Current Step:** Complete
+**Status:** ✅ Complete (2026-11-02)
 **Last Updated:** 2026-11-02
 **Review Level:** 1
 **Review Counter:** 0
@@ -32,11 +32,11 @@
 ---
 
 ### Step 4: Testing & Verification
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete (2026-11-02)
 
-- [ ] `LoadDataset` check recorded
-- [ ] Contract `testCommand` passes
-- [ ] Nothing outside File Scope changed
+- [x] `LoadDataset` check recorded
+- [x] Contract `testCommand` passes
+- [x] Nothing outside File Scope changed
 
 ---
 
@@ -62,6 +62,7 @@
 
 | Timestamp | Action | Outcome |
 |-----------|--------|---------|
+| 2026-11-02 | Step 4: `LoadDataset` via throwaway program at /tmp/sp079-build/loaddataset-check (module `stet/cli/sp079check`, outside the repo): `OK LoadDataset: keep=11 drop=78 groups=82 conflict=0`. Contract testCommand: jq OK; grep keep=11, drop=78; `go test ./cli/internal/criticeval/... -count=1 -run TestLoadDataset` → `ok stet/cli/internal/criticeval 0.173s`. `git status` clean — only docs/research/critic-eval/* and this STATUS.md changed | All green |
 | 2026-11-02 | Step 3: provenance TSV (89 rows: id/label/repo/task/commit/status_file/status_line/reason) and README (sources, row rules, counts 78 drop / 11 keep, 139-finding skip ledger by reason, threats to validity) | Written |
 | 2026-11-02 | Step 2: keeps harvested from fix commits (b8deb92a, 1ba31c36, 5a1024a0, f14fb499, 2ed04a88, e7abf035, d8b531d3, 80ca9e3d, b61b9fbb); ids for e7abf035/80ca9e3d/b61b9fbb keeps recovered from contract-fail logs (7e9057f, 360352d, 8653ab9, 85d0dd4) | 11 keep rows, each with pre-fix hunk from cumulative diff up to fix-commit^; no WARN needed |
 | 2026-11-02 | Step 1: mined 46 `.reviews/contract-fail-*.log` files + SP-820..SP-845 STATUS triage records; reconstructed hunks via cumulative task diffs | 77 drop rows written (60 log-mined, 17 manual); skip ledger computed (120 findings skipped with reasons); dataset committed |
