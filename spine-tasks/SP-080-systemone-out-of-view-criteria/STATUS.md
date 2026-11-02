@@ -1,6 +1,6 @@
 # SP-080: System One critic rejects out-of-view "missing / undefined" claims — Status
 
-**Current Step:** Step 2
+**Current Step:** Step 3
 **Status:** 🟨 In Progress
 **Last Updated:** 2026-11-02
 **Review Level:** 2
@@ -20,10 +20,12 @@
 ---
 
 ### Step 2: New criteria wording
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] New true/false criteria
-- [ ] Unit test (criteria on questions; annotation unchanged)
+- [x] New true/false criteria (wording v1 in `critic_systemone.go`; absence claims
+  about code the shown context does not include count as unsupported)
+- [x] Unit test (criteria pinned on every chunked request question; short + hunk-free
+  guard; rules-annotation request unchanged)
 
 ---
 
@@ -62,6 +64,7 @@
 | Timestamp | Action | Outcome |
 |-----------|--------|---------|
 | 2026-11-02 | Step 1 | Built `stet-old` from unchanged main (`a90293d`); `critic-eval --json` + per-example harness run vs OpenJev (82 groups, 89 examples); baseline recorded in `criteria-sp080.md` with pre-registered OOV classifier |
+| 2026-11-02 | Step 2 | Reworded critic criteria (wording v1); added criteria-pinning, hunk-free guard, and annotation-unchanged tests; `go test ./cli/...` green |
 
 ---
 
