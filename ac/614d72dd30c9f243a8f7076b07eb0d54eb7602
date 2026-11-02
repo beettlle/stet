@@ -1,0 +1,14 @@
+spine-tasks/SP-077-wave-review-session-isolation/STATUS.md
+  h_ae151c586ac6c5 59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ac614d72dd30c9f243a8f7076b07eb0d54eb7602",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
