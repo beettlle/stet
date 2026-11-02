@@ -1,6 +1,6 @@
 # SP-080: System One criteria wording — validation record
 
-**Task:** SP-080 (#20) · **Date:** 2026-11-02 · **Status:** In progress
+**Task:** SP-080 (#20) · **Date:** 2026-11-02 · **Status:** Complete — no wording passed; shipped criteria unchanged (Mission `Partial #20`)
 **Question:** Does rewording the System One critic's true/false criteria so that
 absence claims about code outside the shown context count as unsupported raise
 precision on `drop` examples without losing any `keep` example the old criteria
