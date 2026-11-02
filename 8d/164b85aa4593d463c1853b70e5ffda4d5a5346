@@ -1,0 +1,50 @@
+scripts/model-eval-cases/go-rule-clean/after/internal/notice/dispatch.go.txt
+  h_ae151c586ac6c5 1-55
+scripts/model-eval-cases/go-rule-clean/before/internal/notice/dispatch.go.txt
+  h_ae151c586ac6c5 1-49
+scripts/model-eval-cases/go-rule-clean/expected.json
+  h_ae151c586ac6c5 1-6
+scripts/model-eval-cases/go-rule-context/after/internal/track/submit.go.txt
+  h_ae151c586ac6c5 1-61
+scripts/model-eval-cases/go-rule-context/before/internal/track/submit.go.txt
+  h_ae151c586ac6c5 1-61
+scripts/model-eval-cases/go-rule-context/expected.json
+  h_ae151c586ac6c5 1-14
+scripts/model-eval-cases/go-rule-global-prefix/after/internal/ratelimit/window.go.txt
+  h_ae151c586ac6c5 1-56
+scripts/model-eval-cases/go-rule-global-prefix/before/internal/ratelimit/window.go.txt
+  h_ae151c586ac6c5 1-50
+scripts/model-eval-cases/go-rule-global-prefix/expected.json
+  h_ae151c586ac6c5 1-14
+scripts/model-eval-cases/py-rule-clean/after/inventory/stock.py.txt
+  h_ae151c586ac6c5 1-34
+scripts/model-eval-cases/py-rule-clean/before/inventory/stock.py.txt
+  h_ae151c586ac6c5 1-34
+scripts/model-eval-cases/py-rule-clean/expected.json
+  h_ae151c586ac6c5 1-6
+scripts/model-eval-cases/py-rule-membership/after/auditlog/redact.py.txt
+  h_ae151c586ac6c5 1-52
+scripts/model-eval-cases/py-rule-membership/before/auditlog/redact.py.txt
+  h_ae151c586ac6c5 1-32
+scripts/model-eval-cases/py-rule-membership/expected.json
+  h_ae151c586ac6c5 1-14
+scripts/model-eval-cases/py-rule-naming/after/invoicing/render.py.txt
+  h_ae151c586ac6c5 1-33
+scripts/model-eval-cases/py-rule-naming/before/invoicing/render.py.txt
+  h_ae151c586ac6c5 1-33
+scripts/model-eval-cases/py-rule-naming/expected.json
+  h_ae151c586ac6c5 1-14
+scripts/tests/test_model_eval_cases.py
+  h_ae151c586ac6c5 13,22,41-44,47-48,53-55,117-118,141-144
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8d164b85aa4593d463c1853b70e5ffda4d5a5346",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
