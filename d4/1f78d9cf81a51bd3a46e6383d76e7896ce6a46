@@ -1,0 +1,20 @@
+spine-tasks/SP-080-systemone-out-of-view-criteria/.DONE
+  h_ae151c586ac6c5 1-11
+spine-tasks/SP-080-systemone-out-of-view-criteria/.reviews/1-20261102T200321.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-080-systemone-out-of-view-criteria/.reviews/4-20261102T200354.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-080-systemone-out-of-view-criteria/.reviews/final-20261102T201009.md
+  h_ae151c586ac6c5 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d41f78d9cf81a51bd3a46e6383d76e7896ce6a46",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
