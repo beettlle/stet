@@ -1,0 +1,6 @@
+SP-079 complete 2026-11-02.
+
+Dataset: docs/research/critic-eval/pi-spine-v2-dataset.jsonl — 89 rows (78 drop, 11 keep), both labels >= minReliableExamples (10).
+Verification: jq parses every line; criticeval.LoadDataset via throwaway program outside the repo -> OK keep=11 drop=78 groups=82 conflict=0; Contract testCommand green (jq + grep counts + go test ./cli/internal/criticeval/... -count=1 -run TestLoadDataset -> ok 0.173s).
+Provenance: pi-spine-v2-provenance.tsv (one row per dataset line); README documents sources, row rules, counts per label and source, 139-finding skip ledger by reason, and threats to validity.
+pi-spine repo used read-only; working tree clean; no changes outside File Scope.

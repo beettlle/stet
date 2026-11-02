@@ -1,0 +1,90 @@
+id	label	repo	task	commit	status_file	status_line	reason
+pi-spine-SP-820-40aec61	drop	pi-spine	SP-820	48b50791	spine-tasks/SP-820-*/STATUS.md	66	dismissed false_positive (round 2); no contract-fail log for this round
+pi-spine-SP-820-414714f	drop	pi-spine	SP-820	48b50791	spine-tasks/SP-820-*/STATUS.md	66	dismissed false_positive (round 2); no contract-fail log for this round
+pi-spine-SP-821-n1	drop	pi-spine	SP-821	92189a94	spine-tasks/SP-821-*/STATUS.md	66	one of 4 findings dismissed as wrong about local-symbol binding; no log round
+pi-spine-SP-821-n2	drop	pi-spine	SP-821	92189a94	spine-tasks/SP-821-*/STATUS.md	66	one of 4 findings dismissed as wrong about control flow; no log round
+pi-spine-SP-821-n3	drop	pi-spine	SP-821	92189a94	spine-tasks/SP-821-*/STATUS.md	66	one of 4 findings dismissed as wrong about local-symbol binding; no log round
+pi-spine-SP-821-n4	drop	pi-spine	SP-821	92189a94	spine-tasks/SP-821-*/STATUS.md	66	one of 3 findings dismissed as verified-correct behavior; no log round
+pi-spine-SP-821-n5	drop	pi-spine	SP-821	92189a94	spine-tasks/SP-821-*/STATUS.md	66	one of 3 findings dismissed as verified-correct behavior; no log round
+pi-spine-SP-821-n6	drop	pi-spine	SP-821	92189a94	spine-tasks/SP-821-*/STATUS.md	66	dismissed as pre-existing pattern; no log round
+pi-spine-SP-822-7ac810c	keep	pi-spine	SP-822	00105642	spine-tasks/SP-822-*/STATUS.md	45	fixed in 5a1024a0 (bound entry reads at open time)
+pi-spine-SP-822-0f88739	keep	pi-spine	SP-822	5a1024a0	spine-tasks/SP-822-*/STATUS.md	67	fixed in f14fb499 (package-dir containment check)
+pi-spine-SP-824-348bd12	drop	pi-spine	SP-824	b518dba6	spine-tasks/SP-824-*/STATUS.md	64	dismissed false_positive (stet reviewer bug); no log round
+pi-spine-SP-824-f00ea66	drop	pi-spine	SP-824	b518dba6	spine-tasks/SP-824-*/STATUS.md	64	dismissed false_positive (stet reviewer bug); no log round
+pi-spine-SP-824-0fb67ff	drop	pi-spine	SP-824	b518dba6	spine-tasks/SP-824-*/STATUS.md	64	dismissed wrong_suggestion; no log round
+pi-spine-SP-824-207d475	drop	pi-spine	SP-824	b518dba6	spine-tasks/SP-824-*/STATUS.md	64	dismissed out_of_scope; no log round
+pi-spine-SP-824-c8565a5	drop	pi-spine	SP-824	b518dba6	spine-tasks/SP-824-*/STATUS.md	64	dismissed out_of_scope (second finding, same claim family); no log round
+pi-spine-SP-824-802c06f	drop	pi-spine	SP-824	b518dba6	spine-tasks/SP-824-*/STATUS.md	64	dismissed already_correct; no log round
+pi-spine-SP-826-036cb03	drop	pi-spine	SP-826	05093f62	spine-tasks/SP-826-*/STATUS.md	55	dismissed false_positive; no log round
+pi-spine-SP-826-06d4730	drop	pi-spine	SP-826	05093f62	spine-tasks/SP-826-*/STATUS.md	55	dismissed false_positive (stet reviewer bug: stale/split hunks); no log round
+pi-spine-SP-826-9dafa80	drop	pi-spine	SP-826	05093f62	spine-tasks/SP-826-*/STATUS.md	55	dismissed false_positive (stet reviewer bug: stale/split hunks); no log round
+pi-spine-SP-826-d4b35ec	drop	pi-spine	SP-826	05093f62	spine-tasks/SP-826-*/STATUS.md	55	dismissed wrong_suggestion; no log round
+pi-spine-SP-826-a626749	drop	pi-spine	SP-826	05093f62	spine-tasks/SP-826-*/STATUS.md	55	dismissed false_positive; no log round
+pi-spine-SP-826-5da158d	drop	pi-spine	SP-826	05093f62	spine-tasks/SP-826-*/STATUS.md	55	dismissed false_positive; no log round
+pi-spine-SP-827-f9ed448	drop	pi-spine	SP-827	06aa5966	spine-tasks/SP-827-*/STATUS.md	60	dismissed false_positive (round 1); no log for this round
+pi-spine-SP-827-41b25c4	drop	pi-spine	SP-827	06aa5966	spine-tasks/SP-827-*/STATUS.md	60	dismissed wrong_suggestion (round 1); no log for this round
+pi-spine-SP-827-139da22	drop	pi-spine	SP-827	06aa5966	spine-tasks/SP-827-*/STATUS.md	60	dismissed wrong_suggestion (round 1, same claim family); no log for this round
+pi-spine-SP-827-d7b530c	drop	pi-spine	SP-827	06aa5966	spine-tasks/SP-827-*/STATUS.md	60	dismissed false_positive (round 1); no log for this round
+pi-spine-SP-827-bdb1949	drop	pi-spine	SP-827	06aa5966	spine-tasks/SP-827-*/STATUS.md	63	dismissed false_positive (round 2); message quoted from contract-fail log [message truncated from log]
+pi-spine-SP-827-cc988af	drop	pi-spine	SP-827	06aa5966	spine-tasks/SP-827-*/STATUS.md	63	dismissed false_positive (round 2); message quoted from contract-fail log [message truncated from log]
+pi-spine-SP-827-32debb9	drop	pi-spine	SP-827	06aa5966	spine-tasks/SP-827-*/STATUS.md	63	dismissed false_positive (round 2); message quoted from contract-fail log [message truncated from log]
+pi-spine-SP-827-77a3d93	drop	pi-spine	SP-827	06aa5966	spine-tasks/SP-827-*/STATUS.md	63	dismissed false_positive (round 2); message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-827-d83272a	drop	pi-spine	SP-827	06aa5966	spine-tasks/SP-827-*/STATUS.md	63	dismissed already_correct (round 2); message quoted from contract-fail log [message truncated from log]
+pi-spine-SP-827-ddb95e7	drop	pi-spine	SP-827	06aa5966	spine-tasks/SP-827-*/STATUS.md	63	dismissed wrong_suggestion (round 2); message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-827-57dde22	keep	pi-spine	SP-827	8f6c2a4a	spine-tasks/SP-827-*/STATUS.md	60	fixed in 2ed04a88 (clean up temp dirs in review-level-execute tests)
+pi-spine-SP-828-n1	drop	pi-spine	SP-828	cd03cda1	spine-tasks/SP-828-*/STATUS.md	75	dismissed false_positive; no per-finding id recorded in STATUS and no log round
+pi-spine-SP-828-n2	drop	pi-spine	SP-828	cd03cda1	spine-tasks/SP-828-*/STATUS.md	75	dismissed false_positive; no per-finding id recorded in STATUS and no log round
+pi-spine-SP-828-n3	drop	pi-spine	SP-828	cd03cda1	spine-tasks/SP-828-*/STATUS.md	75	dismissed false_positive; no per-finding id recorded in STATUS and no log round
+pi-spine-SP-829-5f9106b	drop	pi-spine	SP-829	712b3037	spine-tasks/SP-829-*/STATUS.md	51	dismissed false_positive (stet reviewer bug: context truncation at file top); file/line/severity from contract-fail log
+pi-spine-SP-831-74dc631	drop	pi-spine	SP-831	1576bf94	spine-tasks/SP-831-*/STATUS.md	54	dismissed (id named in STATUS triage); message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-831-d6f6677	drop	pi-spine	SP-831	1576bf94	spine-tasks/SP-831-*/STATUS.md	54	dismissed (id named in STATUS triage); message quoted from contract-fail log [message truncated from log]
+pi-spine-SP-831-131e1ec	drop	pi-spine	SP-831	1576bf94	spine-tasks/SP-831-*/STATUS.md	54	dismissed (id named in STATUS triage); message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-831-4594035	drop	pi-spine	SP-831	1576bf94	spine-tasks/SP-831-*/STATUS.md	54	dismissed (id named in STATUS triage); message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-831-0404db1	drop	pi-spine	SP-831	1576bf94	spine-tasks/SP-831-*/STATUS.md	54	dismissed (id named in STATUS triage); message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-831-3ebc640	drop	pi-spine	SP-831	1576bf94	spine-tasks/SP-831-*/STATUS.md	54	dismissed (id named in STATUS triage); message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-831-1757410	drop	pi-spine	SP-831	1576bf94	spine-tasks/SP-831-*/STATUS.md	54	dismissed (id named in STATUS triage); message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-831-a0e4121	drop	pi-spine	SP-831	1576bf94	spine-tasks/SP-831-*/STATUS.md	54	dismissed (id named in STATUS triage); message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-831-7cfc4f4	drop	pi-spine	SP-831	1576bf94	spine-tasks/SP-831-*/STATUS.md	54	dismissed (id named in STATUS triage); message quoted from contract-fail log [message truncated from log]
+pi-spine-SP-831-c728d55	drop	pi-spine	SP-831	1576bf94	spine-tasks/SP-831-*/STATUS.md	54	dismissed (id named in STATUS triage); message quoted from contract-fail log [message truncated from log]
+pi-spine-SP-831-aee6cc5	drop	pi-spine	SP-831	1576bf94	spine-tasks/SP-831-*/STATUS.md	54	dismissed (id named in STATUS triage); message quoted from contract-fail log [message truncated from log]
+pi-spine-SP-832-2276846	drop	pi-spine	SP-832	8e46930b	spine-tasks/SP-832-*/STATUS.md	72	dismissed false_positive; matches STATUS claim: model-family parsing vs `cursor/gemini-3.1-pro` (has a single slash); message quoted from contract-fail log [message truncated from log]
+pi-spine-SP-832-829370b	drop	pi-spine	SP-832	8e46930b	spine-tasks/SP-832-*/STATUS.md	72	dismissed false_positive; matches STATUS claim: `cursor/gemini-3.1-pro` test case (has a single slash); message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-832-4e2d22c	drop	pi-spine	SP-832	8e46930b	spine-tasks/SP-832-*/STATUS.md	72	dismissed false_positive; matches STATUS claim: doctor `issueCount` counted once (checks.push, not record); message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-832-d6889f5	drop	pi-spine	SP-832	8e46930b	spine-tasks/SP-832-*/STATUS.md	72	dismissed false_positive; matches STATUS claim: settings-fields order is correct ('.' < 'P'); message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-832-7721b41	drop	pi-spine	SP-832	8e46930b	spine-tasks/SP-832-*/STATUS.md	72	dismissed false_positive; matches STATUS claim: settings-fields order is correct ('.' < 'P'); message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-832-4e406f4	drop	pi-spine	SP-832	8e46930b	spine-tasks/SP-832-*/STATUS.md	72	dismissed false_positive; matches STATUS claim family: hunk-limited unused-import/dead-code claims (symbols are used); message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-834-n1	drop	pi-spine	SP-834	604a9f2b	spine-tasks/SP-834-*/STATUS.md	74	dismissed false_positive; no per-finding id recorded in STATUS; no log record
+pi-spine-SP-834-n2	drop	pi-spine	SP-834	604a9f2b	spine-tasks/SP-834-*/STATUS.md	74	dismissed false_positive; no per-finding id recorded in STATUS; no log record
+pi-spine-SP-834-fede908	drop	pi-spine	SP-834	604a9f2b	spine-tasks/SP-834-*/STATUS.md	74	dismissed; matches STATUS claim (c): plan/final phases receive reviewConfig; message quoted from contract-fail log [message truncated from log]
+pi-spine-SP-834-52b96fc	drop	pi-spine	SP-834	604a9f2b	spine-tasks/SP-834-*/STATUS.md	74	dismissed; matches STATUS claim (d): `warnings` is populated and the test passes; message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-834-c36e55c	drop	pi-spine	SP-834	604a9f2b	spine-tasks/SP-834-*/STATUS.md	74	dismissed; matches STATUS claim (e): single-line re-exports required for the ≤500 LOC cap (FR-SHIP-02); message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-835-4396a10	drop	pi-spine	SP-835	015e05d9	spine-tasks/SP-835-*/STATUS.md	76	dismissed; id named in STATUS: child-ignores-override claim dismissed false_positive (STATUS Location column says env-overrides.mjs; the contract-fail log records task-agent-profile.mjs:130 — log is authoritative); message quoted from contract-fail log [message truncated from log]
+pi-spine-SP-835-4b4b746	drop	pi-spine	SP-835	015e05d9	spine-tasks/SP-835-*/STATUS.md	76	dismissed; matches STATUS noise claim: used imports (resolveWorkerBackend is used); message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-835-6cc7bd9	drop	pi-spine	SP-835	015e05d9	spine-tasks/SP-835-*/STATUS.md	76	dismissed; matches STATUS noise claim: used imports (prepareWorkerAttempt is used); message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-835-d90947c	drop	pi-spine	SP-835	015e05d9	spine-tasks/SP-835-*/STATUS.md	76	dismissed; matches STATUS noise claim: wrong sticky-hop claim; message quoted from contract-fail log [message truncated from log]
+pi-spine-SP-835-1a0c033	drop	pi-spine	SP-835	015e05d9	spine-tasks/SP-835-*/STATUS.md	76	dismissed; matches STATUS noise claim: env already restored in `finally`; message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-835-7e9057f	keep	pi-spine	SP-835	d33e9933	spine-tasks/SP-835-*/STATUS.md	76	fixed in e7abf035 (clear stale workerModel); id/message from contract-fail log; hunk pre-fix [message truncated from log]
+pi-spine-SP-835-360352d	keep	pi-spine	SP-835	d33e9933	spine-tasks/SP-835-*/STATUS.md	76	fixed in e7abf035 (always clean runPrepare temp dir); id/message from contract-fail log; hunk pre-fix [message verbatim from log]
+pi-spine-SP-835-bf03c29	keep	pi-spine	SP-835	a3489f2d	spine-tasks/SP-835-*/STATUS.md	76	fixed by rewording the retry comment (commit d8b531d3; stet id bf03c29 named in STATUS execution log); duplicate d9de1c5 (same claim, line 289) merged into this row [message truncated from log]
+pi-spine-SP-837-n1	drop	pi-spine	SP-837	8c269742	spine-tasks/SP-837-*/STATUS.md	65	dismissed false_positive; no per-finding id recorded in STATUS and no log round
+pi-spine-SP-837-n2	drop	pi-spine	SP-837	8c269742	spine-tasks/SP-837-*/STATUS.md	65	dismissed false_positive; no per-finding id recorded in STATUS and no log round
+pi-spine-SP-837-n3	drop	pi-spine	SP-837	8c269742	spine-tasks/SP-837-*/STATUS.md	65	dismissed out_of_scope; no per-finding id recorded in STATUS and no log round
+pi-spine-SP-838-c4e402f	drop	pi-spine	SP-838	bcadee3b	spine-tasks/SP-838-*/STATUS.md	54	dismissed false_positive (id named in STATUS); no log record under this id
+pi-spine-SP-838-27f9724	drop	pi-spine	SP-838	bcadee3b	spine-tasks/SP-838-*/STATUS.md	54	dismissed false_positive (id named in STATUS); no log record under this id
+pi-spine-SP-838-7005bc1	drop	pi-spine	SP-838	bcadee3b	spine-tasks/SP-838-*/STATUS.md	54	dismissed false_positive (id named in STATUS); message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-838-8653ab9	keep	pi-spine	SP-838	a2838970	spine-tasks/SP-838-*/STATUS.md	54	fixed in 80ca9e3d (providerCode JSDoc grammar (stet)); id/message from contract-fail log; hunk pre-fix [message verbatim from log]
+pi-spine-SP-842-n1	drop	pi-spine	SP-842	8dbf7fcf	spine-tasks/SP-842-*/STATUS.md	47	dismissed false_positive/already_correct; claims not itemized by id in STATUS; no log record for this claim
+pi-spine-SP-842-e7cf35a	drop	pi-spine	SP-842	8dbf7fcf	spine-tasks/SP-842-*/STATUS.md	47	matches STATUS claim: closure capture claim wrong for JS (`let` capture); message quoted from contract-fail log [message truncated from log]
+pi-spine-SP-842-n3	drop	pi-spine	SP-842	8dbf7fcf	spine-tasks/SP-842-*/STATUS.md	47	dismissed false_positive/already_correct; claims not itemized by id in STATUS; no log record for this claim
+pi-spine-SP-845-56c4b0f	drop	pi-spine	SP-845	dc79f9ab	spine-tasks/SP-845-*/STATUS.md	72	dismissed false_positive; matches STATUS claim: `verifyContract` IS exported (contract-verify.mjs:59 and contract-exec.mjs:288); message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-845-93671e9	drop	pi-spine	SP-845	dc79f9ab	spine-tasks/SP-845-*/STATUS.md	72	dismissed false_positive; matches STATUS claim: `contractTimedOut === "review"` IS handled in the headline/command builders; message quoted from contract-fail log [message truncated from log]
+pi-spine-SP-845-8e13031	drop	pi-spine	SP-845	dc79f9ab	spine-tasks/SP-845-*/STATUS.md	72	dismissed false_positive; matches STATUS claim: `reviewCommand` IS implemented in parse-prompt; message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-845-8587745	drop	pi-spine	SP-845	dc79f9ab	spine-tasks/SP-845-*/STATUS.md	72	dismissed false_positive; matches STATUS claim: review-timeout suggestion 1200000 sits inside the fixed 1000–14400000 bounds; message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-845-215e3cb	drop	pi-spine	SP-845	dc79f9ab	spine-tasks/SP-845-*/STATUS.md	72	dismissed false_positive; matches STATUS claim (round 2): timeout-label regex preserves `0.5 min` (only trailing zeros strip); message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-845-2ea8fbe	drop	pi-spine	SP-845	dc79f9ab	spine-tasks/SP-845-*/STATUS.md	72	dismissed false_positive; matches STATUS claim (round 2): sole `isContractTimeoutFailure` caller uses `&&` assignment with an explicit `=== "review"` branch; message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-845-b21a9d2	drop	pi-spine	SP-845	dc79f9ab	spine-tasks/SP-845-*/STATUS.md	72	dismissed false_positive; matches STATUS claim (round 2): min bound 1000 makes the `1000` fixture valid; message quoted from contract-fail log [message verbatim from log]
+pi-spine-SP-845-n8	drop	pi-spine	SP-845	dc79f9ab	spine-tasks/SP-845-*/STATUS.md	72	representative row for the review-wiring claim family (round 2); remaining sibling ids skipped
+pi-spine-SP-845-85d0dd4	keep	pi-spine	SP-845	b61b9fbb^	spine-tasks/SP-845-*/STATUS.md	69	cosmetic fix applied during round-1 triage (EXPECTED_PATHS re-alphabetized, commit b61b9fbb); id/message from contract-fail log; duplicate a715e61 merged; hunk pre-fix [message verbatim from log]
+pi-spine-SP-820-3295372	keep	pi-spine	SP-820	a4796b49	spine-tasks/SP-820-*/STATUS.md	65	fixed in b8deb92a (payload-scoped provider message fallback); id from fix-commit comment (stet 3295372)
+pi-spine-SP-820-n2	keep	pi-spine	SP-820	a4796b49	spine-tasks/SP-820-*/STATUS.md	65	fixed in b8deb92a (drop redundant test import); no per-finding id recorded in STATUS
+pi-spine-SP-821-n7	keep	pi-spine	SP-821	1ba31c36^	spine-tasks/SP-821-*/STATUS.md	66	fixed in 1ba31c36 (stet triage — fix hardcoded task id); no per-finding id recorded in STATUS
