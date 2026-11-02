@@ -1,0 +1,16 @@
+docs/research/critic-context-sp831.md
+  h_ae151c586ac6c5 1-143
+spine-tasks/SP-078-critic-context-measurement/STATUS.md
+  h_ae151c586ac6c5 3-5,14,16-18,23,25-27,32,34-35,58-62,70-78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6806bf38bdf158bc48e364569263db13965d130f",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
