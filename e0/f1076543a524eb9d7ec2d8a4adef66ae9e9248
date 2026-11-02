@@ -1,0 +1,18 @@
+cli/cmd/stet/main_test.go
+  h_ae151c586ac6c5 555-672
+spine-tasks/CONTEXT.md
+  h_ae151c586ac6c5 327
+spine-tasks/SP-077-wave-review-session-isolation/STATUS.md
+  h_ae151c586ac6c5 3,22,24,29,31-32,60-62,83-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e0f1076543a524eb9d7ec2d8a4adef66ae9e9248",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
