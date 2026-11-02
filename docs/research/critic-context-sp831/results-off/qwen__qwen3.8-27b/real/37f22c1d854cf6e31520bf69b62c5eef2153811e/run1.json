@@ -1,0 +1,135 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-iok0tgbn/src/cli/deps.mjs#L46",
+      "file": "src/cli/deps.mjs",
+      "id": "afb57af1f0ab478e03d4e7ff7662738eb002f1a88099710311d08f4f1d082412",
+      "line": 46,
+      "message": "The sort comparator `compareTaskIds(a.from, b.from) || compareTaskIds(a.to, b.to)` is incorrect. `compareTaskIds` returns 0 when the IDs are equal. In JavaScript, `0` is falsy, so if `a.from` equals `b.from`, the expression evaluates to `0 || compareTaskIds(a.to, b.to)`, which correctly falls through to the second comparison. However, if `a.from` is strictly less than `b.from` (returning -1), the expression evaluates to `-1 || ...`, which is `-1` (truthy), correctly short-circuiting. BUT, if `a.from` is strictly greater than `b.from` (returning 1), the expression evaluates to `1 || ...`, which is `1` (truthy), correctly short-circuiting. Wait, the issue is when `compareTaskIds` returns 0. `0 || x` evaluates to `x`. This is actually correct behavior for a lexicographic sort. Let me re-evaluate. \n\nActually, the standard pattern for multi-key sorting is `(a, b) => cmp1(a, b) || cmp2(a, b)`. This works because if `cmp1` returns 0 (falsy), it evaluates `cmp2`. If `cmp1` returns non-zero (truthy), it returns that value. \n\nHowever, `compareTaskIds` might return `NaN` or other non-numeric values if the regex fails? The definition shows `if (pa && pb) { ... }`. If the regex fails, what does it return? If it returns `undefined` or `NaN`, `NaN` is falsy, so `NaN || cmp2` would evaluate `cmp2`. But `NaN` is not a valid sort return value. \n\nLet's look at `compareTaskIds` again. It uses `TASK_ID_PARTS_RE`. If the IDs are valid, it returns -1, 0, or 1. If they are invalid, it likely returns 0 or undefined. If it returns `undefined`, `undefined || cmp2` evaluates `cmp2`. This is safe. \n\nIs there a bug? The previous code used `localeCompare`. The new code uses `compareTaskIds`. The intent is to sort numerically. The logic `cmp1 || cmp2` is standard. \n\nWait, is there a case where `compareTaskIds` returns a value that is truthy but not a valid comparison result? No, it returns -1, 0, 1. \n\nLet's check if `compareTaskIds` is consistent. If `a.from` is \"1\" and `b.from` is \"10\", `localeCompare` would say \"1\" < \"10\" (lexicographically). `compareTaskIds` should say 1 < 10 (numerically). This is the fix. \n\nIs there a defect? \nIf `compareTaskIds` returns 0 for equal strings, `0 || cmp2` works. \nIf `compareTaskIds` returns -1, `-1 || cmp2` returns -1. \nIf `compareTaskIds` returns 1, `1 || cmp2` returns 1. \n\nThis logic is correct. \n\nHowever, I must check if `compareTaskIds` handles the case where one ID is a prefix of another or if the regex fails. If the regex fails, it might return 0. If it returns 0 for invalid IDs, they are treated as equal, and then `cmp2` is used. This is acceptable. \n\nI will not report a bug if the logic is sound. The change is an improvement. \n\nWait, I need to look closer at `compareTaskIds`. \n`const pa = TASK_ID_PARTS_RE.exec(String(a ?? \"\"));` \nIf `a` is \"1\" and `b` is \"10\", and the regex captures the number, it compares numbers. \n\nIs there any scenario where `compareTaskIds` returns a value that breaks the sort contract? \nIf `compareTaskIds` is not a total order (e.g. inconsistent), the sort might be unstable. But `localeCompare` was also a total order. \n\nI will discard the finding as the code appears correct and is an intended fix.",
+      "severity": "warning",
+      "suggestion": "No change needed."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-iok0tgbn/src/cli/deps.mjs#L59",
+      "file": "src/cli/deps.mjs",
+      "id": "b63f278625cb8d71ff999eafd17c649e1879662bd62a915138f84aea4055882a",
+      "line": 59,
+      "message": "The sort comparator `compareTaskIds` is not guaranteed to be a total order. If `TASK_ID_PARTS_RE` fails to match one or both IDs (e.g., non-standard or malformed task IDs), the comparator may return 0 for unequal values, causing `Array.prototype.sort` to produce an inconsistent or non-deterministic order. The previous lexicographic `.sort()` was a total order. Consider falling back to a lexicographic comparison when the regex does not match both inputs.",
+      "severity": "warning",
+      "suggestion": "const pa = TASK_ID_PARTS_RE.exec(String(a ?? \"\"));\nconst pb = TASK_ID_PARTS_RE.exec(String(b ?? \"\"));\nif (pa && pb) {\n  // numeric comparison of parts\n} else {\n  return String(a ?? \"\").localeCompare(String(b ?? \"\"));\n}"
+    },
+    {
+      "category": "performance",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-iok0tgbn/src/planner/graph.mjs#L42",
+      "file": "src/planner/graph.mjs",
+      "id": "2f4cb1ecc7e1c943d5211f0ef5183be391e00c86fa3a0df03c7f948133730f0b",
+      "line": 42,
+      "message": "The `compareTaskIds` comparator is called O(n log n) times during sorting, and each call executes a regex (`TASK_ID_PARTS_RE.exec`) on both arguments. For large task graphs, this results in redundant regex parsing. Consider pre-parsing task IDs into numeric components once and sorting by those, or using a cached comparator.",
+      "severity": "warning",
+      "suggestion": "Pre-compute sort keys: `const nodes = Array.from(nodesSet).map(id => ({ id, key: parseTaskIdKey(id) })).sort((a, b) => a.key - b.key).map(x => x.id);` where `parseTaskIdKey` extracts numeric parts once per ID."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-iok0tgbn/src/planner/graph.mjs#L74",
+      "file": "src/planner/graph.mjs",
+      "id": "b5965ad2d4b2bad4b363e56825133f5d1c89b048ff99e222da680532f2369cfb",
+      "line": 74,
+      "message": "The `zero` array is mutated in-place by `next.sort(compareTaskIds)` inside the while loop (line 89). Since `current` is assigned to `zero` initially, the first iteration of the loop sorts the `zero` array in place, which also mutates the `waves[0]` reference that was pushed earlier. This causes the first wave to be re-sorted on every subsequent iteration, leading to inconsistent ordering and potential performance issues. The fix is to create a new sorted array instead of mutating in place.",
+      "severity": "warning",
+      "suggestion": "Change `current = next.sort(compareTaskIds);` to `current = [...next].sort(compareTaskIds);` to avoid mutating the `zero` array that is referenced by `waves[0]`."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-iok0tgbn/src/planner/graph.mjs#L100",
+      "file": "src/planner/graph.mjs",
+      "id": "a72d9ff4de07a7895bb42c9ba567ca412359d13eaaf5d7b4ffbecc89c718951f",
+      "line": 100,
+      "message": "The `next` array can contain duplicate task IDs if a task has multiple dependencies within the same wave. When a dependent's indegree is decremented to 0, it is pushed to `next`, but if another predecessor in the same wave also decrements it (or if the graph structure allows multiple edges), the same ID can be pushed again. This causes the task to appear multiple times in the same wave and be processed multiple times in the next iteration, leading to incorrect indegree decrements (going negative) and potential infinite loops or incorrect wave structures.",
+      "severity": "warning",
+      "suggestion": "Track which dependents have already been added to `next` in the current wave iteration (e.g., using a Set) to prevent duplicates, or ensure the graph construction guarantees no duplicate edges."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-iok0tgbn/src/planner/pending.mjs#L26",
+      "file": "src/planner/pending.mjs",
+      "id": "83f61289c8c73259903bfea23fdfe704543560c8e63e553719e6763a7134dbd8",
+      "line": 26,
+      "message": "The `compareTaskIds` function is not a valid comparator for `Array.prototype.sort()`. It returns `null` when either ID fails to match `TASK_ID_PARTS_RE` (e.g., for malformed IDs or `null`/`undefined` inputs). `Array.prototype.sort()` expects a number; returning `null` is coerced to `0`, which tells the sort algorithm that the two elements are equal. This results in an unstable sort order for any elements that fail the regex match, potentially leaving them in their original (unsorted) order or causing inconsistent ordering across runs.",
+      "severity": "warning",
+      "suggestion": "Ensure `compareTaskIds` always returns a number. For example, treat non-matching IDs as greater than matching ones (or vice versa) and return `1` or `-1` instead of `null` when a match fails. Alternatively, filter out non-matching IDs before sorting."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-iok0tgbn/src/planner/scope.mjs#L77",
+      "file": "src/planner/scope.mjs",
+      "id": "f714b74d71ea46dea0b292c06ccf01fdaf0163127919d37c6dc1f47cbe337225",
+      "line": 77,
+      "message": "The sort comparator `compareTaskIds` is not guaranteed to be a total order. If `TASK_ID_PARTS_RE` fails to match one or both IDs (e.g., non-standard formats), the comparator may return 0 or undefined, causing `Array.prototype.sort` to leave the array in an unspecified order. This can lead to non-deterministic task ordering in the planner output.",
+      "severity": "warning",
+      "suggestion": "Ensure `compareTaskIds` provides a deterministic fallback (e.g., lexicographic comparison) when the regex does not match, or validate that all task IDs conform to the expected format before sorting."
+    },
+    {
+      "category": "performance",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-iok0tgbn/src/planner/scope.mjs#L137",
+      "file": "src/planner/scope.mjs",
+      "id": "20323587187c49588af5ae1f4aed233923cc25332d4e9143ef5c005b961f99c9",
+      "line": 137,
+      "message": "Using Array.prototype.includes() inside a filter results in O(n*m) complexity. For large task sets, this is inefficient.",
+      "severity": "warning",
+      "suggestion": "Convert allTaskIds to a Set for O(1) lookups: const allTaskIdSet = new Set(allTaskIds); then use .filter((id) => allTaskIdSet.has(id))"
+    },
+    {
+      "category": "testing",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-iok0tgbn/tests/planner/graph.test.mjs#L14",
+      "file": "tests/planner/graph.test.mjs",
+      "id": "0047bc8998ea552f9d4daf9099b1bec0cf4688768167959f3c522a2005f4ae87",
+      "line": 14,
+      "message": "The test asserts a specific order [\"SP-999\", \"SP-1000\"] for independent tasks in the same wave. If the underlying implementation uses a Set or Map to collect wave members, the order is determined by insertion order (which depends on object key enumeration order in buildGraph). This makes the test brittle: it will fail if the implementation is refactored to use a different data structure or if the input object key order changes, even though the logical set of tasks in the wave is correct. For independent tasks, the order within a wave is typically not semantically significant unless the downstream consumer relies on it.",
+      "severity": "warning",
+      "suggestion": "If the order of independent tasks within a wave is not semantically required, use a set-based comparison or sort the expected/actual arrays before comparing. If the order IS required (e.g., for deterministic output), ensure the implementation explicitly sorts the wave members and document that requirement."
+    },
+    {
+      "category": "best_practice",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-iok0tgbn/tests/planner/pending-scope.test.mjs#L40",
+      "file": "tests/planner/pending-scope.test.mjs",
+      "id": "4fd2dea73ac77bc0c624a31464c74c000a1519c8292709d13c918492e95cb9e4",
+      "line": 40,
+      "message": "The test uses synchronous fs.mkdirSync and fs.writeFileSync instead of the async fs/promises versions (mkdir, writeFile) already imported in the file. This is inconsistent with the rest of the test file and blocks the event loop.",
+      "severity": "warning",
+      "suggestion": "Replace fs.mkdirSync with await mkdir and fs.writeFileSync with await writeFile from node:fs/promises."
+    },
+    {
+      "category": "testing",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-iok0tgbn/tests/planner/scope.test.mjs#L38",
+      "file": "tests/planner/scope.test.mjs",
+      "id": "0eec076795bf2587dd50db406a98005df2d70c0969c0618523bdf1474b116bb4",
+      "line": 38,
+      "message": "The test creates task folders with names that do not match the task IDs (e.g., folder 'SP-1000-test' for task 'SP-1000'). If `discoverTasks` derives the `taskId` from the folder name rather than parsing the `PROMPT.md` content, the discovered tasks will have IDs like 'SP-1000-test' and 'SP-999-test', causing the assertion `assert.deepEqual(res.taskIds, [\"SP-999\", \"SP-1000\"])` to fail. The folder names should match the task IDs (e.g., 'SP-1000' and 'SP-999') to ensure the test validates the intended behavior.",
+      "severity": "warning",
+      "suggestion": "Change the folder names to match the task IDs: `writeTask(\"SP-1000\", \"SP-1000\");` and `writeTask(\"SP-999\", \"SP-999\");`"
+    },
+    {
+      "category": "bug",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-iok0tgbn/tests/planner/scope.test.mjs#L80",
+      "file": "tests/planner/scope.test.mjs",
+      "id": "3482961275f4123b1c65e614e2edd241792c0e8b8dc23684c99a4ab3af8abcf9",
+      "line": 80,
+      "message": "The test writes the task ID into the PROMPT.md file content, but the `discoverTasks` function likely derives the `taskId` from the folder name (e.g., `SP-1000-test`), not the file content. If `discoverTasks` extracts the ID from the folder name, the resulting `taskId` will be `SP-1000-test` instead of `SP-1000`, causing the glob `SP-*` to match `SP-1000-test` and `SP-999-test`, which will fail the `assert.deepEqual` expecting `SP-1000` and `SP-999`.",
+      "severity": "warning"
+    }
+  ]
+}

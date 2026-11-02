@@ -1,0 +1,146 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-q0htvw38/src/cli/deps.mjs#L46",
+      "file": "src/cli/deps.mjs",
+      "id": "f83fcec8306f529ad0b37aa4638382320b2d848528a71c0098a780c7bd389d65",
+      "line": 46,
+      "message": "The sort comparator `compareTaskIds(a.from, b.from) || compareTaskIds(a.to, b.to)` is not a valid total ordering if `compareTaskIds` returns 0 for non-matching or unparseable task IDs. If two edges have the same `from` but different `to` values that `compareTaskIds` cannot distinguish (returns 0), the sort is unstable and the relative order of `to` is not guaranteed. The previous `localeCompare` always returned a non-zero value for different strings, guaranteeing a total order. If `compareTaskIds` returns 0 for unparseable IDs, edges with the same `from` but different `to` may be ordered arbitrarily.",
+      "severity": "warning",
+      "suggestion": "Ensure `compareTaskIds` returns a non-zero value for different strings, or add a fallback: `compareTaskIds(a.from, b.from) || compareTaskIds(a.to, b.to) || a.to.localeCompare(b.to)`."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-q0htvw38/src/cli/deps.mjs#L59",
+      "file": "src/cli/deps.mjs",
+      "id": "de01086ade2ff16f30b12065841379be46135faf657fff7b557885ed7de10768",
+      "line": 59,
+      "message": "compareTaskIds may return 0 for non-matching task IDs, causing Array.prototype.sort to fall back to lexicographic ordering for mixed or non-standard IDs. This can produce inconsistent sort results depending on the input set.",
+      "severity": "warning",
+      "suggestion": "Ensure compareTaskIds provides a total ordering by falling back to a deterministic comparison (e.g., localeCompare or numeric comparison) when TASK_ID_PARTS_RE does not match both inputs."
+    },
+    {
+      "category": "performance",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-q0htvw38/src/planner/graph.mjs#L42",
+      "file": "src/planner/graph.mjs",
+      "id": "77bcd85dd9da6a05a99474be7c568492b1469a466f2dc45fe8069ceee910bc97",
+      "line": 42,
+      "message": "Sorting `dependentsByTask[id]` for every key in the object is redundant. The `for (const id of nodesSet)` loop above already ensures that every node in `nodesSet` has a corresponding key in `dependentsByTask` (initialized to `[]` if missing). Since `Object.keys(dependentsByTask)` will contain exactly the same set of IDs as `nodesSet`, you can simply iterate over `nodes` (which is already sorted) to sort the dependents arrays, or iterate over `nodesSet` directly. This avoids the overhead of `Object.keys` and ensures you are only sorting arrays for nodes that are actually part of the graph, though the current logic is functionally correct, it is slightly less direct than iterating the known node list.",
+      "severity": "warning"
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-q0htvw38/src/planner/graph.mjs#L74",
+      "file": "src/planner/graph.mjs",
+      "id": "ee88809dcb7be465f4a11d352aa6ec3f29d2515a09efd16d6f90be7be64aa8a5",
+      "line": 74,
+      "message": "The `zero` array is sorted in-place with `compareTaskIds`, but `zero` is the same array reference as `current` (assigned via `let current = zero`). Inside the while loop, `current = next.sort(compareTaskIds)` reassigns `current` to a new array, so the original `zero` array is not mutated by the loop. However, the initial `zero` array is pushed into `waves` via `waves.push(current)`. Since `current` is reassigned each iteration, `waves[0]` holds the reference to the original `zero` array. This is fine because `zero` is never mutated after the initial sort. No defect here. Re-evaluating: the code is correct. The sort is applied consistently to all waves. No issue.",
+      "severity": "warning",
+      "suggestion": "No change needed."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-q0htvw38/src/planner/graph.mjs#L93",
+      "file": "src/planner/graph.mjs",
+      "id": "0a29dc161eab82a23b0818f02ed7b2547934d13911278a7410bdcabf706ce9f5",
+      "line": 93,
+      "message": "`next.sort(compareTaskIds)` mutates the `next` array in place. Since `next` is the same array reference that was pushed into `waves` in the previous iteration, the in-place sort reorders the already-recorded wave, breaking the intended numeric ordering of prior waves. The initial `zero` sort is safe because it is a fresh array, but the in-loop sort is not.",
+      "severity": "warning",
+      "suggestion": "Sort a copy before assigning to `current` to avoid mutating the wave already stored in `waves`: `current = [...next].sort(compareTaskIds);`"
+    },
+    {
+      "category": "design",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-q0htvw38/src/planner/pending.mjs#L7",
+      "file": "src/planner/pending.mjs",
+      "id": "a89ef1705daaa37a0318d96b2369a40e8a58cb15d5bddcede52f0a28acf9e72c",
+      "line": 7,
+      "message": "Importing `compareTaskIds` from `../tasks/packet/discover.mjs` into `src/planner/pending.mjs` creates a cross-module dependency from the planner to the task discovery module. This violates the principle of minimal surface area and may introduce circular dependencies or tight coupling between unrelated subsystems. Consider extracting `compareTaskIds` to a shared utility module (e.g., `src/utils/taskIds.mjs`) that both `planner` and `tasks/packet/discover` can import without creating a direct dependency between them.",
+      "severity": "warning",
+      "suggestion": "Move `compareTaskIds` to a shared utility module like `src/utils/taskIds.mjs` and import from there in both `src/planner/pending.mjs` and `src/tasks/packet/discover.mjs`."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-q0htvw38/src/planner/pending.mjs#L26",
+      "file": "src/planner/pending.mjs",
+      "id": "0aef9ad7b1c1dc2b97f4a12a32aaad4e2a3b63bd60c2411783f10a5e77641790",
+      "line": 26,
+      "message": "The `compareTaskIds` function is not a valid comparator for `Array.prototype.sort` because it returns `null` when either ID fails to match `TASK_ID_PARTS_RE`. In JavaScript, `null` is coerced to `0`, which tells the sort algorithm that the two elements are equal. This results in an unstable sort order for any task IDs that do not match the expected format, potentially causing non-deterministic ordering.",
+      "severity": "warning",
+      "suggestion": "Ensure `compareTaskIds` returns a non-zero value (e.g., `1` or `-1`) when the IDs cannot be parsed, or filter out non-matching IDs before sorting."
+    },
+    {
+      "category": "maintainability",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-q0htvw38/src/planner/scope.mjs#L16",
+      "file": "src/planner/scope.mjs",
+      "id": "a0253244006cc94b011cc31c55cb107e8ded7039ca3d99f4019baa24755c6e07",
+      "line": 16,
+      "message": "Imported `compareTaskIds` is not re-exported. If the intent is to make it available to consumers of `scope.mjs` (similar to `TASK_ID_RE`), it should be re-exported. If it is only used internally, the import is fine, but the comment above only mentions `TASK_ID_RE` as the single source of truth, which might be misleading if `compareTaskIds` is also expected to be part of the public API.",
+      "severity": "warning",
+      "suggestion": "If `compareTaskIds` is meant to be part of the public API of `scope.mjs`, add it to the export statement: `export { TASK_ID_RE, compareTaskIds };`"
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-q0htvw38/src/planner/scope.mjs#L77",
+      "file": "src/planner/scope.mjs",
+      "id": "5924aacbf104818ea4892764ac764d0fa7b7cdd0abc01b0e8767197e3973f5ff",
+      "line": 77,
+      "message": "The `compareTaskIds` comparator may return 0 for task IDs that do not match `TASK_ID_PARTS_RE` (e.g., malformed or non-standard IDs). Since `Array.prototype.sort` is not guaranteed to be stable in all environments, equal elements may be reordered arbitrarily, potentially changing the output order for non-standard task IDs compared to the previous lexicographic sort.",
+      "severity": "warning",
+      "suggestion": "Ensure `compareTaskIds` provides a deterministic tie-breaker (e.g., fall back to lexicographic comparison) when the regex does not match, or verify that the runtime guarantees stable sort and that all task IDs conform to the expected format."
+    },
+    {
+      "category": "performance",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-q0htvw38/src/planner/scope.mjs#L137",
+      "file": "src/planner/scope.mjs",
+      "id": "103fea31adc65a544ad0bacb42a92795520e13915977444c6f8b4b2cf8af4d34",
+      "line": 137,
+      "message": "Using Array.prototype.includes() inside a filter loop results in O(n*m) complexity. For large numbers of discovered tasks, this is inefficient.",
+      "severity": "warning",
+      "suggestion": "Convert allTaskIds to a Set for O(1) lookups: const allTaskIdSet = new Set(allTaskIds); then use .filter((id) => allTaskIdSet.has(id))."
+    },
+    {
+      "category": "testing",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-q0htvw38/tests/planner/graph.test.mjs#L14",
+      "file": "tests/planner/graph.test.mjs",
+      "id": "6efac2c1ef528d2c0ee1a32c8470f4999fc49e8f4a1bdfdcb816d6335ee32c37",
+      "line": 14,
+      "message": "The test asserts a specific order (SP-999 before SP-1000) for tasks with no dependencies. If the underlying `topoWaves` implementation does not explicitly sort independent tasks (e.g., using a numeric-aware comparator), this test will fail or be flaky depending on the iteration order of the underlying data structure (e.g., `Map` or `Object.keys`).",
+      "severity": "warning",
+      "suggestion": "Ensure that `topoWaves` in `src/planner/graph.mjs` explicitly sorts the tasks within each wave (and `remainingWithDeps`) using a numeric-aware comparator (e.g., extracting the numeric part of the ID) to guarantee deterministic ordering, or update the test to use `assert.deepStrictEqual` with a sorted expectation if the implementation is not guaranteed to be ordered."
+    },
+    {
+      "category": "testing",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-q0htvw38/tests/planner/pending-scope.test.mjs#L51",
+      "file": "tests/planner/pending-scope.test.mjs",
+      "id": "5a6f10701f6dd1c6165596874374752de2929c61fa8a9713d12c3f9a5f81b344",
+      "line": 51,
+      "message": "The test relies on the filesystem's directory enumeration order (via discoverTasks) to verify sorting behavior. If the underlying filesystem returns entries in a different order (e.g., alphabetical vs. creation order), the test may be flaky or fail to properly test the sorting logic if the implementation relies on input order. It is better to explicitly sort the discovered tasks or ensure the test is independent of filesystem enumeration order.",
+      "severity": "warning",
+      "suggestion": "Consider sorting the `discovered` array before passing it to `filterPendingTaskIds` if the function is expected to handle unsorted input, or verify that `discoverTasks` returns a consistent order. Alternatively, if `filterPendingTaskIds` is responsible for sorting, ensure the test explicitly checks that it sorts regardless of input order by passing a known unsorted array."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-q0htvw38/tests/planner/scope.test.mjs#L80",
+      "file": "tests/planner/scope.test.mjs",
+      "id": "6afb1752dbe5557cb91a214e6b7736ab3ee27d46a1bc7708f4d2c380910a104e",
+      "line": 80,
+      "message": "The test writes the task ID into the PROMPT.md file content, but the task ID is derived from the folder name. If the folder name and the file content do not match, the test will fail. The test should ensure the folder name and the task ID in the file are consistent, or the test should be updated to reflect how the task ID is actually derived.",
+      "severity": "warning",
+      "suggestion": "Ensure the folder name and the task ID in the PROMPT.md file are consistent, or update the test to reflect how the task ID is actually derived."
+    }
+  ]
+}
