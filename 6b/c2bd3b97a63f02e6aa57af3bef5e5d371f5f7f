@@ -1,0 +1,18 @@
+spine-tasks/SP-078-critic-context-measurement/.DONE
+  h_ae151c586ac6c5 1-7
+spine-tasks/SP-078-critic-context-measurement/.reviews/0-20261102T170731.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-078-critic-context-measurement/.reviews/final-20261102T170919.md
+  h_ae151c586ac6c5 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6bc2bd3b97a63f02e6aa57af3bef5e5d371f5f7f",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
