@@ -1,0 +1,18 @@
+docs/research/critic-eval/README.md
+  h_ae151c586ac6c5 1-137
+docs/research/critic-eval/pi-spine-v2-provenance.tsv
+  h_ae151c586ac6c5 1-90
+spine-tasks/SP-079-critic-eval-dataset/STATUS.md
+  h_ae151c586ac6c5 3,28,30,65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "01c7b52b4342d40765d068b7e1d0456f212f44c2",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
