@@ -1,0 +1,18 @@
+cli/internal/review/critic_systemone.go
+  h_ae151c586ac6c5 27-32,34-35
+cli/internal/review/critic_systemone_test.go
+  h_ae151c586ac6c5 50-142
+spine-tasks/SP-080-systemone-out-of-view-criteria/STATUS.md
+  h_ae151c586ac6c5 3,23,25-28,67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b424e17de35118173518ba5195ffd9e38705fb05",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
