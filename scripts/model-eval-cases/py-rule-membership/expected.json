@@ -1,0 +1,14 @@
+{
+  "id": "py-rule-membership",
+  "language": "python",
+  "clean": false,
+  "bugs": [
+    {
+      "file": "auditlog/redact.py",
+      "lines": [29, 29],
+      "category": "rule",
+      "rule": "python-3-development-standards.mdc#2.3",
+      "description": "membership is tested against a 14-entry list for every key of every record in redact_batch; a frozenset would give O(1) lookups"
+    }
+  ]
+}

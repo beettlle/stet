@@ -1,0 +1,52 @@
+"""Redact sensitive values before audit records are persisted."""
+
+from __future__ import annotations
+
+PLACEHOLDER = "***"
+
+SENSITIVE_FIELDS = [
+    "authorization",
+    "backup_codes",
+    "card_number",
+    "cvv",
+    "otp",
+    "password",
+    "phone_home",
+    "phone_work",
+    "recovery_key",
+    "session_key",
+    "ssn",
+    "token",
+    "wallet_id",
+    "webhook_secret",
+]
+
+
+def redact_record(record: dict[str, str]) -> dict[str, str]:
+    """Return a copy of record with sensitive values replaced."""
+    clean: dict[str, str] = {}
+    for key in sorted(record):
+        if key in SENSITIVE_FIELDS:
+            clean[key] = PLACEHOLDER
+        else:
+            clean[key] = record[key]
+    return clean
+
+
+def redact_batch(records: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Redact every record, skipping entries that are not mappings."""
+    out: list[dict[str, str]] = []
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        out.append(redact_record(record))
+    return out
+
+
+def summarize(batch: list[dict[str, str]]) -> dict[str, int]:
+    """Count how many records each submitter produced."""
+    tally: dict[str, int] = {}
+    for record in batch:
+        submitter = record.get("submitter", "unattributed")
+        tally[submitter] = tally.get(submitter, 0) + 1
+    return tally

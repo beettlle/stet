@@ -1,0 +1,6 @@
+{
+  "id": "py-rule-clean",
+  "language": "python",
+  "clean": true,
+  "bugs": []
+}

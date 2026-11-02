@@ -292,15 +292,24 @@ def _load_bug(case_id: str, index: int, raw: object) -> Bug:
 # ---------------------------------------------------------------------------
 
 
-def pinned_env(model: str, base_url: str, critic_base_url: str | None = None) -> dict[str, str]:
+def pinned_env(
+    model: str,
+    base_url: str,
+    critic_base_url: str | None = None,
+    rules_max_tokens: int | None = None,
+) -> dict[str, str]:
     """Pinned STET_* environment for one stet subprocess (sorted keys).
 
     When critic_base_url is set, the System One critic is enabled against that
     server so runs measure the critic-on configuration used in .review/config.toml.
+    When rules_max_tokens is set, STET_RULES_MAX_TOKENS pins the Cursor rule
+    digest budget; left unset, stet scales its own default from context_limit.
     """
     env = dict(PINNED_ENV)
     env["STET_OPENAI_BASE_URL"] = base_url
     env["STET_MODEL"] = model
+    if rules_max_tokens is not None:
+        env["STET_RULES_MAX_TOKENS"] = str(rules_max_tokens)
     if critic_base_url is not None:
         env.update(CRITIC_ENV)
         env["STET_SYSTEMONE_BASE_URL"] = critic_base_url
@@ -336,10 +345,35 @@ def _git(argv: list[str], cwd: str | Path, what: str) -> None:
         raise HarnessError(f"{what} failed (exit {returncode}): {stderr.strip()}")
 
 
-def materialize_case_repo(case: Case, tmp: str) -> None:
-    """Turn a fixture case into a two-commit git repo inside tmp."""
+def _copy_rules(rules_dir: Path | None, dest_root: Path, case_id: str) -> None:
+    """Copy ``rules_dir/*.mdc`` into ``dest_root/.cursor/rules/``.
+
+    Runs before the before-commit, so the rules are present in the reviewed
+    tree but absent from the reviewed diff. Top-level ``*.mdc`` files only;
+    anything else in rules_dir is ignored.
+    """
+    if rules_dir is None:
+        return
+    if not rules_dir.is_dir():
+        raise HarnessError(f"case {case_id}: --rules-dir not found: {rules_dir}")
+    dest = dest_root / ".cursor" / "rules"
+    dest.mkdir(parents=True, exist_ok=True)
+    copied = 0
+    for src in sorted(rules_dir.glob("*.mdc")):
+        shutil.copyfile(src, dest / src.name)
+        copied += 1
+    if copied == 0:
+        raise HarnessError(f"case {case_id}: --rules-dir contains no .mdc files: {rules_dir}")
+
+
+def materialize_case_repo(case: Case, tmp: str, rules_dir: Path | None = None) -> None:
+    """Turn a fixture case into a two-commit git repo inside tmp.
+
+    When rules_dir is set, its ``*.mdc`` files are part of the before commit.
+    """
     _git(["git", *GIT_IDENTITY, "init", "--quiet"], cwd=tmp, what=f"git init for case {case.case_id}")
     _copy_fixture_tree(case.path / "before", Path(tmp))
+    _copy_rules(rules_dir, Path(tmp), case.case_id)
     _git(["git", *GIT_IDENTITY, "add", "-A"], cwd=tmp, what=f"git add (before) for case {case.case_id}")
     _git(
         ["git", *GIT_IDENTITY, "commit", "--quiet", "--allow-empty", "-m", "model-eval: before"],
@@ -434,6 +468,8 @@ class RunOptions:
     out_dir: Path
     stet_version: str
     critic_base_url: str | None = None  # None means critic off
+    rules_dir: Path | None = None  # None means no rules are copied into case repos
+    rules_max_tokens: int | None = None  # None means stet's scaled default budget
 
 
 @dataclass(frozen=True)
@@ -485,7 +521,7 @@ def perform_review(item: WorkItem, opts: RunOptions, clock=time.monotonic) -> Re
     try:
         if item.kind == "case":
             assert item.case is not None
-            materialize_case_repo(item.case, tmp)
+            materialize_case_repo(item.case, tmp, rules_dir=opts.rules_dir)
             ref = "HEAD~1"
         else:
             _validate_real_ref(item.target)  # option-looking refs could add stet arguments
@@ -495,7 +531,10 @@ def perform_review(item: WorkItem, opts: RunOptions, clock=time.monotonic) -> Re
         if opts.dry_run:
             argv.append("--dry-run")
         _validate_base_url(opts.base_url)  # only http(s) endpoints may be pinned
-        env = {**os.environ, **pinned_env(opts.model, opts.base_url, opts.critic_base_url)}
+        env = {
+            **os.environ,
+            **pinned_env(opts.model, opts.base_url, opts.critic_base_url, rules_max_tokens=opts.rules_max_tokens),
+        }
         started = clock()
         result = run_stream(argv, cwd=tmp, env=env, timeout_secs=opts.review_timeout_secs)
         wall_seconds = clock() - started
@@ -531,12 +570,14 @@ def perform_review(item: WorkItem, opts: RunOptions, clock=time.monotonic) -> Re
 def _build_meta(item: WorkItem, opts: RunOptions, outcome: ReviewOutcome) -> dict:
     return {
         "critic": opts.critic_base_url is not None,
-        "env": pinned_env(opts.model, opts.base_url, opts.critic_base_url),
+        "env": pinned_env(opts.model, opts.base_url, opts.critic_base_url, rules_max_tokens=opts.rules_max_tokens),
         "exit_code": outcome.exit_code,
         "findings_count": len(outcome.findings),
         "hunks_total": outcome.hunks_total,
         "kind": item.kind,
         "model": opts.model,
+        "rules_dir": str(opts.rules_dir) if opts.rules_dir is not None else None,
+        "rules_max_tokens": opts.rules_max_tokens,
         "run": item.run_n,
         "status": outcome.status,
         "stet_version": opts.stet_version,
@@ -607,6 +648,15 @@ def _run_options_from_args(args: argparse.Namespace) -> RunOptions:
     critic_base_url = None
     if args.critic:
         critic_base_url = _validate_base_url(args.systemone_base_url, flag="--systemone-base-url")
+    rules_dir: Path | None = None
+    if args.rules_dir is not None:
+        rules_dir = args.rules_dir
+        if not rules_dir.is_dir():
+            raise HarnessError(f"--rules-dir not found: {rules_dir}")
+        if not any(rules_dir.glob("*.mdc")):
+            raise HarnessError(f"--rules-dir contains no .mdc files: {rules_dir}")
+    if args.rules_max_tokens is not None and args.rules_max_tokens < 1:
+        raise HarnessError("--rules-max-tokens must be >= 1")
     real_refs = tuple(_validate_real_ref(sha) for sha in args.real_refs)
     return RunOptions(
         model=model,
@@ -623,6 +673,8 @@ def _run_options_from_args(args: argparse.Namespace) -> RunOptions:
         out_dir=Path(args.out),
         stet_version=_stet_version(),
         critic_base_url=critic_base_url,
+        rules_dir=rules_dir,
+        rules_max_tokens=args.rules_max_tokens,
     )
 
 def _work_items(opts: RunOptions, cases: list[Case]) -> list[WorkItem]:
@@ -1247,6 +1299,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--systemone-base-url",
         default=DEFAULT_SYSTEMONE_BASE_URL,
         help=f"System One critic server URL, used with --critic (default {DEFAULT_SYSTEMONE_BASE_URL})",
+    )
+    run_parser.add_argument(
+        "--rules-dir",
+        type=Path,
+        default=None,
+        help="Copy DIR/*.mdc into each case repo's before commit (fixture cases only; default: none)",
+    )
+    run_parser.add_argument(
+        "--rules-max-tokens",
+        type=int,
+        default=None,
+        help="Set STET_RULES_MAX_TOKENS for stet (default: stet's scaled budget)",
     )
 
     score_parser = sub.add_parser("score", help="Score recorded runs against fixture ground truth")

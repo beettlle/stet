@@ -112,6 +112,8 @@ def make_run_args(tmp_path: Path, **overrides) -> argparse.Namespace:
         dry_run=False,
         critic=False,
         systemone_base_url=model_eval.DEFAULT_SYSTEMONE_BASE_URL,
+        rules_dir=None,
+        rules_max_tokens=None,
     )
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
@@ -265,6 +267,12 @@ class TestPinnedEnv:
         assert env["STET_SYSTEMONE_TIMEOUT"] == "90s"
         assert env["STET_MODEL"] == "m"
 
+    def test_pinned_env_rules_budget_only_when_set(self) -> None:
+        env = model_eval.pinned_env("m", "http://x/v1")
+        assert "STET_RULES_MAX_TOKENS" not in env
+        env = model_eval.pinned_env("m", "http://x/v1", rules_max_tokens=2000)
+        assert env["STET_RULES_MAX_TOKENS"] == "2000"
+
     def test_model_tag(self) -> None:
         assert model_eval.model_tag("qwen/qwen3-coder-next") == "qwen__qwen3-coder-next"
         assert model_eval.model_tag("dry-run") == "dry-run"
@@ -369,6 +377,54 @@ class TestMaterializeCaseRepo:
         with pytest.raises(model_eval.HarnessError, match="git init"):
             model_eval.materialize_case_repo(case, str(tmp_path / "repo"))
 
+    def test_no_rules_dir_leaves_repo_without_cursor_dir(self, tmp_path: Path) -> None:
+        case = model_eval.load_cases(make_case(tmp_path / "cases").parent)[0]
+        tmp_repo = tmp_path / "repo"
+        tmp_repo.mkdir()
+        model_eval.materialize_case_repo(case, str(tmp_repo))
+        assert not (tmp_repo / ".cursor").exists()
+
+    def test_rules_dir_copies_mdc_into_before_commit_only(self, tmp_path: Path) -> None:
+        rules = tmp_path / "rules"
+        rules.mkdir()
+        (rules / "go-standards.mdc").write_text("### 1.3 Context\n\n❌ Bad: blocking IO without ctx\n", encoding="utf-8")
+        (rules / "py-standards.mdc").write_text("### 3.4 Naming\n\n**Detect:** camelCase functions\n", encoding="utf-8")
+        (rules / "README.md").write_text("not a rule", encoding="utf-8")
+        case = model_eval.load_cases(make_case(tmp_path / "cases").parent)[0]
+        tmp_repo = tmp_path / "repo"
+        tmp_repo.mkdir()
+        model_eval.materialize_case_repo(case, str(tmp_repo), rules_dir=rules)
+
+        assert (tmp_repo / ".cursor" / "rules" / "go-standards.mdc").is_file()
+        assert (tmp_repo / ".cursor" / "rules" / "py-standards.mdc").is_file()
+        assert not (tmp_repo / ".cursor" / "rules" / "README.md").exists()
+        before_files = subprocess.run(
+            ["git", "show", "HEAD~1", "--name-only", "--format="], cwd=tmp_repo, capture_output=True, text=True, check=True
+        ).stdout.split()
+        after_files = subprocess.run(
+            ["git", "diff", "HEAD~1", "HEAD", "--name-only"], cwd=tmp_repo, capture_output=True, text=True, check=True
+        ).stdout.split()
+        assert ".cursor/rules/go-standards.mdc" in before_files
+        assert ".cursor/rules/py-standards.mdc" in before_files
+        assert not any(f.startswith(".cursor/") for f in after_files)
+
+    def test_rules_dir_missing_raises(self, tmp_path: Path) -> None:
+        case = model_eval.load_cases(make_case(tmp_path / "cases").parent)[0]
+        tmp_repo = tmp_path / "repo"
+        tmp_repo.mkdir()
+        with pytest.raises(model_eval.HarnessError, match="--rules-dir not found"):
+            model_eval.materialize_case_repo(case, str(tmp_repo), rules_dir=tmp_path / "nope")
+
+    def test_rules_dir_without_mdc_raises(self, tmp_path: Path) -> None:
+        rules = tmp_path / "rules"
+        rules.mkdir()
+        (rules / "notes.md").write_text("markdown but not a rule", encoding="utf-8")
+        case = model_eval.load_cases(make_case(tmp_path / "cases").parent)[0]
+        tmp_repo = tmp_path / "repo"
+        tmp_repo.mkdir()
+        with pytest.raises(model_eval.HarnessError, match=r"no \.mdc files"):
+            model_eval.materialize_case_repo(case, str(tmp_repo), rules_dir=rules)
+
 
 # ---------------------------------------------------------------------------
 # run subcommand (faked subprocesses)
@@ -465,6 +521,40 @@ class TestCmdRunHappyPath:
         )
         assert meta["critic"] is True
         assert meta["env"]["STET_CRITIC_BACKEND"] == "systemone"
+
+    def test_rules_flags_reach_subprocess_and_meta(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        rules = tmp_path / "rules"
+        rules.mkdir()
+        (rules / "standards.mdc").write_text("### 2.1 Globals\n\n**Detect:** unexported globals\n", encoding="utf-8")
+        make_case(tmp_path / "cases")
+        monkeypatch.setattr(model_eval, "run_simple", FakeSimple())
+        runner = FakeRunner()
+        monkeypatch.setattr(model_eval, "run_stream", runner)
+        args = make_run_args(tmp_path, rules_dir=rules, rules_max_tokens=2000)
+        assert model_eval.cmd_run(args, clock=FakeClock()) == model_eval.EXIT_OK
+        env = runner.calls[0]["env"]
+        assert env["STET_RULES_MAX_TOKENS"] == "2000"
+        meta = json.loads(
+            (tmp_path / "out" / "test__model-a" / "cases" / "go-off-by-one" / "run1.meta.json").read_text()
+        )
+        assert meta["rules_dir"] == str(rules)
+        assert meta["rules_max_tokens"] == 2000
+        assert meta["env"]["STET_RULES_MAX_TOKENS"] == "2000"
+
+    def test_rules_default_off_keeps_subprocess_and_meta_unchanged(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        make_case(tmp_path / "cases")
+        monkeypatch.setattr(model_eval, "run_simple", FakeSimple())
+        runner = FakeRunner()
+        monkeypatch.setattr(model_eval, "run_stream", runner)
+        assert model_eval.cmd_run(make_run_args(tmp_path), clock=FakeClock()) == model_eval.EXIT_OK
+        assert "STET_RULES_MAX_TOKENS" not in runner.calls[0]["env"]
+        meta = json.loads(
+            (tmp_path / "out" / "test__model-a" / "cases" / "go-off-by-one" / "run1.meta.json").read_text()
+        )
+        assert meta["rules_dir"] is None
+        assert meta["rules_max_tokens"] is None
 
     def test_review_timeout_reaches_subprocess(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         make_case(tmp_path / "cases")
@@ -643,6 +733,33 @@ class TestCmdRunSetupErrors:
         monkeypatch.setattr(model_eval, "run_stream", FakeRunner())
         args = make_run_args(tmp_path, systemone_base_url="file:///etc/passwd")
         assert model_eval.cmd_run(args, clock=FakeClock()) == model_eval.EXIT_OK
+
+    def test_rules_dir_missing_exits_1(
+        self, tmp_path: Path, fake_tools: FakeSimple, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        make_case(tmp_path / "cases")
+        args = make_run_args(tmp_path, rules_dir=tmp_path / "nope")
+        assert model_eval.cmd_run(args, clock=FakeClock()) == model_eval.EXIT_ERROR
+        assert "--rules-dir not found" in capsys.readouterr().err
+
+    def test_rules_dir_without_mdc_exits_1(
+        self, tmp_path: Path, fake_tools: FakeSimple, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        rules = tmp_path / "rules"
+        rules.mkdir()
+        (rules / "notes.md").write_text("markdown but not a rule", encoding="utf-8")
+        make_case(tmp_path / "cases")
+        args = make_run_args(tmp_path, rules_dir=rules)
+        assert model_eval.cmd_run(args, clock=FakeClock()) == model_eval.EXIT_ERROR
+        assert "no .mdc files" in capsys.readouterr().err
+
+    def test_rules_max_tokens_must_be_positive_exits_1(
+        self, tmp_path: Path, fake_tools: FakeSimple, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        make_case(tmp_path / "cases")
+        args = make_run_args(tmp_path, rules_max_tokens=0)
+        assert model_eval.cmd_run(args, clock=FakeClock()) == model_eval.EXIT_ERROR
+        assert "--rules-max-tokens must be >= 1" in capsys.readouterr().err
 
 
 # ---------------------------------------------------------------------------

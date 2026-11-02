@@ -1,0 +1,14 @@
+{
+  "id": "py-rule-naming",
+  "language": "python",
+  "clean": false,
+  "bugs": [
+    {
+      "file": "invoicing/render.py",
+      "lines": [9, 15],
+      "category": "rule",
+      "rule": "python-3-development-standards.mdc#3.4",
+      "description": "the renderer helpers formatRow and renderInvoice use camelCase names where the rule requires snake_case for functions"
+    }
+  ]
+}

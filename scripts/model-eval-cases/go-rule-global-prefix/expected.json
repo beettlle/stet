@@ -1,0 +1,14 @@
+{
+  "id": "go-rule-global-prefix",
+  "language": "go",
+  "clean": false,
+  "bugs": [
+    {
+      "file": "internal/ratelimit/window.go",
+      "lines": [9, 9],
+      "category": "rule",
+      "rule": "go-1-21-development-standards.mdc#2.1",
+      "description": "package-level unexported variable minSpan lacks the leading underscore the style rule requires for unexported globals"
+    }
+  ]
+}

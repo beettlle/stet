@@ -1,0 +1,14 @@
+{
+  "id": "go-rule-context",
+  "language": "go",
+  "clean": false,
+  "bugs": [
+    {
+      "file": "internal/track/submit.go",
+      "lines": [37, 37],
+      "category": "rule",
+      "rule": "go-1-21-development-standards.mdc#1.3",
+      "description": "the request is built with context.Background() inside a request-path method, so caller cancellation and deadlines never reach the blocking call"
+    }
+  ]
+}

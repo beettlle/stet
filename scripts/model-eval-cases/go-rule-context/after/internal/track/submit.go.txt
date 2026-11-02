@@ -1,0 +1,61 @@
+package track
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"time"
+)
+
+// Event is one usage record queued for the collector.
+type Event struct {
+	Kind    string    `json:"kind"`
+	User    string    `json:"user"`
+	At      time.Time `json:"at"`
+	Payload []string  `json:"payload"`
+}
+
+// Collector batches events to a remote endpoint.
+type Collector struct {
+	Endpoint string
+	Client   *http.Client
+}
+
+// NewCollector returns a Collector that posts to endpoint.
+func NewCollector(endpoint string) *Collector {
+	return &Collector{Endpoint: endpoint, Client: http.DefaultClient}
+}
+
+// Submit posts one event, ignoring the caller's cancellation signals.
+func (c *Collector) Submit(ctx context.Context, event Event) error {
+	body, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("marshal event: %w", err)
+	}
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, c.Endpoint, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.Client.Do(req)
+	if err != nil {
+		return fmt.Errorf("post event: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= http.StatusBadRequest {
+		return fmt.Errorf("collector rejected event: %s", resp.Status)
+	}
+	return nil
+}
+
+// SubmitBatch posts every event, stopping at the first failure.
+func (c *Collector) SubmitBatch(ctx context.Context, events []Event) error {
+	for _, event := range events {
+		if err := c.Submit(ctx, event); err != nil {
+			return fmt.Errorf("submit batch entry: %w", err)
+		}
+	}
+	return nil
+}

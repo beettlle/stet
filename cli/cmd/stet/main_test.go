@@ -2095,7 +2095,7 @@ func TestWriteFindingsJSON_filtersDismissed(t *testing.T) {
 	dir := t.TempDir()
 	s := session.Session{
 		BaselineRef:    "abc",
-		LastReviewedAt: "def",
+		LastReviewedAt: "", // no completed review: reviewed-diff filter fails open
 		Findings: []findings.Finding{
 			{ID: "f1", File: "a.go", Line: 1, Severity: findings.SeverityInfo, Category: findings.CategoryStyle, Confidence: 1.0, Message: "m1"},
 			{ID: "f2", File: "b.go", Line: 2, Severity: findings.SeverityWarning, Category: findings.CategoryBug, Confidence: 1.0, Message: "m2"},
@@ -2106,7 +2106,7 @@ func TestWriteFindingsJSON_filtersDismissed(t *testing.T) {
 		t.Fatalf("save session: %v", err)
 	}
 	var buf bytes.Buffer
-	if err := writeFindingsJSON(&buf, dir); err != nil {
+	if err := writeFindingsJSON(context.Background(), &buf, dir, dir); err != nil {
 		t.Fatalf("writeFindingsJSON: %v", err)
 	}
 	var out struct {
@@ -2128,7 +2128,7 @@ func TestWriteFindingsJSON_emptyFindingsEmitsArray(t *testing.T) {
 	dir := t.TempDir()
 	s := session.Session{
 		BaselineRef:    "abc",
-		LastReviewedAt: "def",
+		LastReviewedAt: "", // no completed review: reviewed-diff filter fails open
 		Findings:       nil,
 		DismissedIDs:   nil,
 	}
@@ -2136,7 +2136,7 @@ func TestWriteFindingsJSON_emptyFindingsEmitsArray(t *testing.T) {
 		t.Fatalf("save session: %v", err)
 	}
 	var buf bytes.Buffer
-	if err := writeFindingsJSON(&buf, dir); err != nil {
+	if err := writeFindingsJSON(context.Background(), &buf, dir, dir); err != nil {
 		t.Fatalf("writeFindingsJSON: %v", err)
 	}
 	raw := buf.String()
@@ -2668,7 +2668,7 @@ func TestWriteFindingsHuman_singleFinding(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	if err := writeFindingsHuman(&buf, dir, nil); err != nil {
+	if err := writeFindingsHuman(context.Background(), &buf, dir, dir, nil); err != nil {
 		t.Fatalf("writeFindingsHuman: %v", err)
 	}
 	out := buf.String()
@@ -2692,7 +2692,7 @@ func TestWriteFindingsHuman_withStats(t *testing.T) {
 	}
 	var buf bytes.Buffer
 	stats := &run.RunStats{EvalDurationNs: 1_000_000_000, PromptTokens: 100, CompletionTokens: 50}
-	if err := writeFindingsHuman(&buf, dir, stats); err != nil {
+	if err := writeFindingsHuman(context.Background(), &buf, dir, dir, stats); err != nil {
 		t.Fatalf("writeFindingsHuman: %v", err)
 	}
 	if !strings.Contains(buf.String(), "tokens/sec") {
@@ -2733,7 +2733,7 @@ func TestWriteFindingsHuman_openAIStatsShowTokensPerSec(t *testing.T) {
 		EvalDurationNs:   res.EvalDuration,
 	}
 	var buf bytes.Buffer
-	if err := writeFindingsHuman(&buf, dir, stats); err != nil {
+	if err := writeFindingsHuman(context.Background(), &buf, dir, dir, stats); err != nil {
 		t.Fatalf("writeFindingsHuman: %v", err)
 	}
 	if !strings.Contains(buf.String(), "tokens/sec") {
@@ -2755,7 +2755,7 @@ func TestWriteFindingsHuman_singleFindingWithStats(t *testing.T) {
 	}
 	var buf bytes.Buffer
 	stats := &run.RunStats{EvalDurationNs: 2_000_000_000, PromptTokens: 200, CompletionTokens: 100}
-	if err := writeFindingsHuman(&buf, dir, stats); err != nil {
+	if err := writeFindingsHuman(context.Background(), &buf, dir, dir, stats); err != nil {
 		t.Fatalf("writeFindingsHuman: %v", err)
 	}
 	out := buf.String()
@@ -2764,7 +2764,7 @@ func TestWriteFindingsHuman_singleFindingWithStats(t *testing.T) {
 	}
 }
 
-func TestWriteFindingsWithIDs_usesRangeStart(t *testing.T) {
+func TestWriteFindingLines_usesRangeStart(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	start := 5
@@ -2778,11 +2778,158 @@ func TestWriteFindingsWithIDs_usesRangeStart(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	if err := writeFindingsWithIDs(&buf, dir); err != nil {
-		t.Fatalf("writeFindingsWithIDs: %v", err)
+	if err := writeFindingLines(&buf, s.Findings); err != nil {
+		t.Fatalf("writeFindingLines: %v", err)
 	}
 	if !strings.Contains(buf.String(), "a.go:5") {
 		t.Errorf("output = %q", buf.String())
+	}
+}
+
+// gitRevParseOut returns the full object name for ref in dir.
+func gitRevParseOut(t *testing.T, dir, ref string) string {
+	t.Helper()
+	cmd := exec.Command("git", "rev-parse", ref)
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("git rev-parse %s in %s: %v", ref, dir, err)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func TestFilterToSessionDiff_dropsFindingsOutsideReviewedDiff(t *testing.T) {
+	t.Parallel()
+	repo := initRepo(t) // HEAD=c2 (f2.txt), HEAD~1=c1 (f1.txt)
+	base := gitRevParseOut(t, repo, "HEAD~1")
+	head := gitRevParseOut(t, repo, "HEAD")
+	s := session.Session{
+		BaselineRef:    base,
+		LastReviewedAt: head,
+		Findings: []findings.Finding{
+			{ID: "in-diff", File: "f2.txt", Line: 1, Severity: findings.SeverityInfo, Category: findings.CategoryStyle, Confidence: 1.0, Message: "in diff"},
+			{ID: "foreign", File: "f1.txt", Line: 1, Severity: findings.SeverityInfo, Category: findings.CategoryStyle, Confidence: 1.0, Message: "outside the diff"},
+			{ID: "nofile", File: "", Line: 0, Severity: findings.SeverityInfo, Category: findings.CategoryStyle, Confidence: 1.0, Message: "no location"},
+		},
+	}
+	got := filterToSessionDiff(context.Background(), repo, &s, s.Findings)
+	ids := make([]string, 0, len(got))
+	for _, f := range got {
+		ids = append(ids, f.ID)
+	}
+	if len(got) != 2 || got[0].ID != "in-diff" || got[1].ID != "nofile" {
+		t.Errorf("filterToSessionDiff = %v; want [in-diff nofile] (foreign f1.txt dropped)", ids)
+	}
+}
+
+func TestFilterToSessionDiff_failOpenWithoutCompletedReview(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	s := session.Session{BaselineRef: "abc"} // LastReviewedAt empty: session diff unknown
+	list := []findings.Finding{{ID: "f1", File: "a.go", Line: 1, Severity: findings.SeverityInfo, Category: findings.CategoryStyle, Confidence: 1.0, Message: "m"}}
+	got := filterToSessionDiff(context.Background(), dir, &s, list)
+	if len(got) != 1 || got[0].ID != "f1" {
+		t.Errorf("filterToSessionDiff with unknown session diff = %v; want unchanged (fail-open)", got)
+	}
+}
+
+func TestFilterToSessionDiff_failOpenOnNonSHARefs(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	// stet only writes RevParse SHAs; a hand-edited session with option-style
+	// refs must not reach git (fail-open instead).
+	s := session.Session{BaselineRef: "--upload-pack=x", LastReviewedAt: "deadbeef"}
+	list := []findings.Finding{{ID: "f1", File: "a.go", Line: 1, Severity: findings.SeverityInfo, Category: findings.CategoryStyle, Confidence: 1.0, Message: "m"}}
+	got := filterToSessionDiff(context.Background(), dir, &s, list)
+	if len(got) != 1 || got[0].ID != "f1" {
+		t.Errorf("filterToSessionDiff with non-SHA refs = %v; want unchanged (fail-open)", got)
+	}
+}
+
+func TestRunCLI_listHidesFindingsFromOtherSessionDiff(t *testing.T) {
+	// Issue #5 (SP-077): findings reviewed in one worktree/clone (the model-eval
+	// harness leg) must not surface in a disjoint wave-review session's list.
+	// The evidence filters keep foreign-file findings (FilterByAddedLines keeps
+	// File mismatches), so reviewer output anchored in files the prompt only saw
+	// via RAG definitions lands in the session — the 2026-10-11 wave review
+	// listed 21 cli/ findings for a branch whose cli/ diff was empty. Reproduced
+	// with dry-run: review range A (f1.txt) in one worktree, record its finding
+	// into the disjoint session B (exactly what a foreign-file reviewer finding
+	// does), then assert session B's list shows no finding from review A.
+	repo := initRepo(t)
+	wtRoot := t.TempDir()
+	wtA := filepath.Join(wtRoot, "wtA")
+	wtB := filepath.Join(wtRoot, "wtB")
+	runGit(t, repo, "git", "worktree", "add", "--detach", wtA, "HEAD~1") // c1: f1.txt
+	runGit(t, repo, "git", "worktree", "add", "--detach", wtB, "HEAD")   // c2: f2.txt
+
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	origOut := getFindingsOut
+	t.Cleanup(func() { getFindingsOut = origOut })
+
+	// Leg 1 (harness clone analog): review the f1.txt range in wtA.
+	if err := os.Chdir(wtA); err != nil {
+		t.Fatal(err)
+	}
+	var startBufA bytes.Buffer
+	getFindingsOut = func() io.Writer { return &startBufA }
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
+		t.Fatalf("runCLI(start) in wtA = %d, want 0", got)
+	}
+	var outA struct {
+		Findings []findings.Finding `json:"findings"`
+	}
+	if err := json.Unmarshal(startBufA.Bytes(), &outA); err != nil || len(outA.Findings) != 1 || outA.Findings[0].File != "f1.txt" {
+		t.Fatalf("wtA start --json findings = %v (err=%v); want exactly the f1.txt finding", outA.Findings, err)
+	}
+
+	// Leg 2 (wave-review analog): review the disjoint f2.txt range in wtB.
+	if err := os.Chdir(wtB); err != nil {
+		t.Fatal(err)
+	}
+	var startBufB bytes.Buffer
+	getFindingsOut = func() io.Writer { return &startBufB }
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
+		t.Fatalf("runCLI(start) in wtB = %d, want 0", got)
+	}
+	var outB struct {
+		Findings []findings.Finding `json:"findings"`
+	}
+	if err := json.Unmarshal(startBufB.Bytes(), &outB); err != nil || len(outB.Findings) == 0 {
+		t.Fatalf("wtB start --json findings = %v (err=%v); want the f2.txt finding", outB.Findings, err)
+	}
+
+	// Plant the leak: session B records session A's finding, which is what a
+	// foreign-file reviewer finding produces (the evidence filters keep it).
+	cfgB, err := config.Load(context.Background(), config.LoadOptions{RepoRoot: wtB})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stateDirB := cfgB.EffectiveStateDir(wtB)
+	sB, err := session.Load(stateDirB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sB.Findings = append(sB.Findings, outA.Findings...)
+	if err := session.Save(stateDirB, &sB); err != nil {
+		t.Fatal(err)
+	}
+
+	var code int
+	var stdout string
+	stdout, _ = captureOutput(t, func() { code = runCLI([]string{"list"}) })
+	if code != 0 {
+		t.Fatalf("runCLI(list) in wtB = %d, want 0", code)
+	}
+	if strings.Contains(stdout, "f1.txt") {
+		t.Errorf("list shows a finding from the first review (outside this session's diff); got:\n%s", stdout)
+	}
+	if !strings.Contains(stdout, "f2.txt") {
+		t.Errorf("list must keep this session's f2.txt finding; got:\n%s", stdout)
 	}
 }
 
@@ -2972,7 +3119,7 @@ func TestRunCLI_rerunAfterStartDryRun(t *testing.T) {
 
 func TestWriteFindingsJSON_writeError(t *testing.T) {
 	t.Parallel()
-	err := writeFindingsJSON(&failWriteCloser{}, t.TempDir())
+	err := writeFindingsJSON(context.Background(), &failWriteCloser{}, t.TempDir(), t.TempDir())
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -3001,7 +3148,7 @@ func TestWriteFindingsHuman_multipleFindingsNoStats(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	if err := writeFindingsHuman(&buf, dir, nil); err != nil {
+	if err := writeFindingsHuman(context.Background(), &buf, dir, dir, nil); err != nil {
 		t.Fatalf("writeFindingsHuman: %v", err)
 	}
 	if !strings.Contains(buf.String(), "2 finding(s).") {

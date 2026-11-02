@@ -1,0 +1,5 @@
+SP-082 complete.
+
+- Harness flags `--rules-dir` and `--rules-max-tokens` on `scripts/model_eval.py run` (rules in before commit only, budget only when set, both recorded in meta.json; defaults unchanged) — fc0ccce
+- 4 seeded rule cases (go-rule-context, go-rule-global-prefix, py-rule-membership, py-rule-naming) with `"category": "rule"` + `"rule": "<file>#<section>"` per bug, plus go-rule-clean / py-rule-clean controls; EXPECTED_IDS/CATEGORIES extended — 8d164b8
+- Re-verified this session: pytest 211 passed / 20 skipped; dry-run harness pass with `--rules-dir .cursor/rules --rules-max-tokens 2000` exit 0; stet contract re-run at HEAD 6a4cb37 regenerated 19 findings — all triaged (6 out_of_scope SP-077 cli/**/.DONE, 13 verified false_positive/already_correct against code) and dismissed; re-run gates 0, exit 0 — db15438

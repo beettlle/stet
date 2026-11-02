@@ -1,0 +1,55 @@
+package notice
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"strings"
+	"time"
+)
+
+// _timeout bounds every outbound notice request.
+var _timeout = 5 * time.Second
+
+// Sender delivers notice text to a webhook endpoint.
+type Sender struct {
+	Endpoint string
+	Client   *http.Client
+}
+
+// NewSender returns a Sender posting to endpoint.
+func NewSender(endpoint string) *Sender {
+	return &Sender{Endpoint: endpoint, Client: &http.Client{Timeout: _timeout}}
+}
+
+// Send posts text to the endpoint, honoring ctx cancellation.
+func (s *Sender) Send(ctx context.Context, text string) error {
+	if len(text) > 4096 {
+		text = text[:4096]
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.Endpoint, strings.NewReader(text))
+	if err != nil {
+		return fmt.Errorf("build notice request: %w", err)
+	}
+	req.Header.Set("Content-Type", "text/plain")
+	resp, err := s.Client.Do(req)
+	if err != nil {
+		return fmt.Errorf("send notice: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= http.StatusBadRequest {
+		return fmt.Errorf("notice rejected: %s", resp.Status)
+	}
+	return nil
+}
+
+// Dispatch sends every notice and stops at the first failure.
+func Dispatch(ctx context.Context, endpoint string, messages []string) error {
+	sender := NewSender(endpoint)
+	for _, message := range messages {
+		if err := sender.Send(ctx, message); err != nil {
+			return fmt.Errorf("dispatch: %w", err)
+		}
+	}
+	return nil
+}
