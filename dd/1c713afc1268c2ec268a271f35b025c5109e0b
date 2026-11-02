@@ -1,0 +1,16 @@
+docs/research/critic-eval/pi-spine-v2-dataset.jsonl
+  h_ae151c586ac6c5 9-10,32,64-66,73,85-88
+spine-tasks/SP-079-critic-eval-dataset/STATUS.md
+  h_ae151c586ac6c5 3,21,23,65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dd1c713afc1268c2ec268a271f35b025c5109e0b",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
