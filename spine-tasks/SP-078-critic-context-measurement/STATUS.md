@@ -1,7 +1,7 @@
 # SP-078: Measure the critic with the reviewer's expanded context (SP-831 off/on re-run) — Status
 
-**Current Step:** 3
-**Status:** 🟨 In Progress (Step 3 — verification)
+**Current Step:** Complete
+**Status:** ✅ Complete
 **Last Updated:** 2026-11-02
 **Review Level:** 1
 **Review Counter:** 0
@@ -37,10 +37,10 @@
 ---
 
 ### Step 3: Testing & Verification
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] Contract `testCommand` passes
-- [ ] Nothing outside File Scope changed
+- [x] Contract `testCommand` passes (exit 0: labels.tsv non-empty, `## Decision` and `## Out-of-view claims still kept` present)
+- [x] Nothing outside File Scope changed (`git status` clean after commits; only File Scope files + task STATUS.md touched)
 
 ---
 
@@ -76,6 +76,7 @@
 | 2026-11-02T16:47Z | labels.tsv (76 rows, all false; 44 out-of-view) committed before applying the rule | OK (332f83a) |
 | 2026-11-02T16:52Z | Decision rule applied: condition 1 holds (3.0 absent false findings/run avg ≥ 1), condition 2 holds vacuously (0 real) → #18 resolved | OK |
 | 2026-11-02T16:53Z | Result table posted to #18 | https://github.com/beettlle/stet/issues/18#issuecomment-6583249208 |
+| 2026-11-02T16:55Z | Contract testCommand exit 0; git status clean; doc committed (6806bf3) | OK |
 
 ---
 
