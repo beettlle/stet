@@ -1445,7 +1445,8 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(os.Stdout, "baseline: %s\n", s.BaselineRef)
 	fmt.Fprintf(os.Stdout, "last_reviewed_at: %s\n", s.LastReviewedAt)
 	fmt.Fprintf(os.Stdout, "worktree: %s\n", worktreePath)
-	activeCount := len(filterToSessionDiff(cmd.Context(), repoRoot, &s, activeFindingsInSession(&s)))
+	active := filterToSessionDiff(cmd.Context(), repoRoot, &s, activeFindingsInSession(&s))
+	activeCount := len(active)
 	fmt.Fprintf(os.Stdout, "findings: %d\n", activeCount)
 	fmt.Fprintf(os.Stdout, "dismissed: %d\n", len(s.DismissedIDs))
 	if s.Strictness != "" {
@@ -1459,7 +1460,6 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	}
 	showIDs, _ := cmd.Flags().GetBool("ids")
 	if showIDs {
-		active := filterToSessionDiff(cmd.Context(), repoRoot, &s, activeFindingsInSession(&s))
 		if len(active) > 0 {
 			fmt.Fprintln(os.Stdout, "---")
 			if err := writeFindingLines(os.Stdout, active); err != nil {
