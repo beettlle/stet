@@ -62,6 +62,8 @@
 | `python3` in this environment lacked pytest; installed pytest 9.2.0 into the user site so the contract's literal `python3 -m pytest` works (environment setup, no repo change) | Log | shell env |
 | Fresh stet session (prior `stet finish` reset dismissals) regenerated 36 findings at head 1b49b3b; all re-triaged this session: 17 on `scripts/**` dismissed false_positive after code verification (str() conversion at :311, `>= 1` validation at :664 + test :756, `type=Path` parser, try/finally propagation at :524-561, short-circuit `and` at :141, 16/4 counts, conditional rule-key validation at :140, positive-value tests at :273/:533), 19 on SP-077's `cli/**` dismissed out_of_scope (fileScopeMustNotChange; `go build ./...` OK disproves the bytes-import claim) | Dismissed (gate 0 active) | `stet list` history |
 | Contract re-run: `stet run` saw no new hunks (review state covers diff), gating list 0, `stet finish` succeeded, session closed, script exit 0 | Resolved | .review/history.jsonl |
+| Stet finding IDs do not survive review-state advances: after the batch engine committed SP-077's `.DONE` (6a4cb37), the next `stet run` re-reviewed and regenerated 19 findings — including claims already dismissed under earlier IDs (e.g. pinned_env TypeError). Dismissals are per-review-state, not per-diff; expect re-triage whenever new commits land between contract runs | Log; re-triaged this round | `stet list` history |
+| New reviewer claims verified false this round: afcc52a says `pinned_env("m", "http://x/v1")` passes the URL to `critic_base_url` (signature is `(model, base_url, critic_base_url=None, ...)` — second positional IS base_url); 316830c says HEAD~1 may not be the before commit (`materialize_case_repo` creates exactly before+after by construction); 76b4b29 says `None` helper defaults mask validation (None IS the parser default; `>= 1` checked at :663); 97ca580 path-traversal on `--rules-dir` (local operator flag, `is_dir()` + `.mdc` checks, no security boundary); 64699e6 (INFO) rules-content utilization unverified (covered by `test_rules_dir_copies_mdc_into_before_commit_only`) | Dismissed false_positive / already_correct (triage verified) | scripts/model_eval.py:295, scripts/tests/test_model_eval.py:271,399 |
 
 ---
 
@@ -74,6 +76,7 @@
 | 2026-11-02 | Step 3 | `test(SP-082)` 8d164b8 (part): go-rule-clean / py-rule-clean controls; `EXPECTED_IDS` extended, `rule` category + rule-key validation added; 211 tests green |
 | 2026-11-02 | Step 4 | Contract testCommand: pytest 211 passed; dry-run pass over 20 cases with `--rules-dir .cursor/rules --rules-max-tokens 2000` exit 0; stet contract exit 0 after fixing 0 and dismissing 31 (16 out_of_scope on SP-077 `cli/**` re-review, 15 false_positive with triage notes) |
 | 2026-11-02 | Re-verification (resume) | Re-ran full contract testCommand after session reset: pytest 211 passed / 20 skipped; dry-run exit 0; stet review 36 findings triaged and dismissed, contract re-run gates 0 and exits 0 |
+| 2026-11-02 | Re-verification (resume, post 6a4cb37) | Full contract testCommand re-run at HEAD 6a4cb37: pytest 211 passed / 20 skipped; dry-run with `--rules-dir .cursor/rules --rules-max-tokens 2000` exit 0; stet re-review regenerated 19 findings (13 re-surfaced claims, 6 on SP-077 `cli/**`/`.DONE`); all triaged and dismissed; re-run gates 0, `stet finish` OK, exit 0 |
 
 ---
 
