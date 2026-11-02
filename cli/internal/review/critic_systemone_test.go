@@ -47,15 +47,16 @@ func sampleFinding(id, msg string) findings.Finding {
 	}
 }
 
-// TestVerifyFindingsSystemOne_everyQuestionCarriesSP080Criteria pins the exact
-// SP-080 criteria strings: absence claims (missing / undefined / unused / not
-// imported / not exported) about code the shown context does not include count
-// as unsupported. The literals are asserted verbatim so a silent criteria
-// rewording cannot ship without updating this test (and re-running the
-// criteria-sp080 validation).
-func TestVerifyFindingsSystemOne_everyQuestionCarriesSP080Criteria(t *testing.T) {
-	const wantTrue = "The finding is correct and actionable, and every claim it makes is verifiable from the code shown."
-	const wantFalse = "The finding is incorrect, not actionable, or claims that code is missing, undefined, unused, not imported, or not exported in code the shown context does not include."
+// TestVerifyFindingsSystemOne_everyQuestionCarriesShippedCriteria pins the
+// exact criteria strings every System One question must carry. SP-080
+// validated three rewordings and none passed the pre-registered rule
+// (docs/research/critic-eval/criteria-sp080.md), so these remain the shipped
+// strings; the literals are asserted verbatim so a silent criteria rewording
+// cannot ship without updating this test (and re-running the criteria-sp080
+// validation).
+func TestVerifyFindingsSystemOne_everyQuestionCarriesShippedCriteria(t *testing.T) {
+	const wantTrue = "The finding is correct and actionable for this code."
+	const wantFalse = "The finding is incorrect, unsupported by this code, or not actionable."
 	if systemOneCriteriaTrue != wantTrue || systemOneCriteriaFalse != wantFalse {
 		t.Fatalf("SP-080 criteria changed; re-run the critic-eval validation before shipping:\n true = %q\n false = %q", systemOneCriteriaTrue, systemOneCriteriaFalse)
 	}
@@ -83,7 +84,7 @@ func TestVerifyFindingsSystemOne_everyQuestionCarriesSP080Criteria(t *testing.T)
 	}
 }
 
-// TestVerifyFindingsSystemOne_criteriaStayShortAndHunkFree guards the SP-080
+// TestVerifyFindingsSystemOne_criteriaStayShortAndHunkFree guards the criteria
 // wording contract: both criteria strings stay short and carry no code/hunk
 // text (the finding fields and hunk ride in the instructions/state instead).
 func TestVerifyFindingsSystemOne_criteriaStayShortAndHunkFree(t *testing.T) {

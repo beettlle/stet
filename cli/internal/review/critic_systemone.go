@@ -24,15 +24,15 @@ const systemOneFindingPrefix = "Finding claimed by a code reviewer:"
 // systemOneStatePrefix prefixes the request state that carries the code under review.
 const systemOneStatePrefix = "Code under review:\n"
 
-// Criteria text shared by every System One noul question. SP-080: claims that
-// something is absent — missing, undefined, unused, not imported, not exported
-// — in code the shown context does not include count as unsupported (false),
-// because the decider cannot verify them (validated on
-// docs/research/critic-eval/pi-spine-v2-dataset.jsonl; see
-// docs/research/critic-eval/criteria-sp080.md).
+// Criteria text shared by every System One noul question. SP-080 validated
+// three rewordings against docs/research/critic-eval/pi-spine-v2-dataset.jsonl
+// (see docs/research/critic-eval/criteria-sp080.md): none passed the
+// pre-registered rule (each either dropped real findings the old criteria kept
+// or failed to move the out-of-view absence claims), so these strings stay —
+// the pinned-literal tests in critic_systemone_test.go guard them.
 const (
-	systemOneCriteriaTrue  = "The finding is correct and actionable, and every claim it makes is verifiable from the code shown."
-	systemOneCriteriaFalse = "The finding is incorrect, not actionable, or claims that code is missing, undefined, unused, not imported, or not exported in code the shown context does not include."
+	systemOneCriteriaTrue  = "The finding is correct and actionable for this code."
+	systemOneCriteriaFalse = "The finding is incorrect, unsupported by this code, or not actionable."
 )
 
 // SystemOneDecider is satisfied by *systemone.Client; tests use a fake.
