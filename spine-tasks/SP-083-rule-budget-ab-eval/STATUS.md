@@ -1,8 +1,8 @@
 # SP-083: Rule-budget A/B eval and data-driven default — Status
 
-**Current Step:** Not Started
-**Status:** ⬜ Not Started
-**Last Updated:** 2026-11-01
+**Current Step:** Step 1
+**Status:** 🔄 Step 1 running (variant 1000)
+**Last Updated:** 2026-11-02
 **Review Level:** 1
 **Review Counter:** 0
 **Iteration:** 0
@@ -11,10 +11,10 @@
 ---
 
 ### Step 0: Preflight
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete (2026-11-02)
 
-- [ ] Versions, cases, rules count recorded
-- [ ] LM Studio smoke request OK
+- [x] Versions, cases, rules count recorded (`docs/research/rules-budget-ab/preflight.txt`)
+- [x] LM Studio smoke request OK (HTTP 200, "OK", finish_reason stop)
 
 ---
 
@@ -60,6 +60,7 @@
 
 | Timestamp | Action | Outcome |
 |-----------|--------|---------|
+| 2026-11-02 | Preflight: 7 cases copied to /tmp/sp083-cases; 41 rule files; model reloaded per fixed conditions; smoke HTTP 200 | Recorded in preflight.txt |
 
 ---
 

@@ -1,0 +1,72 @@
+# SP-083 preflight — rule-budget A/B eval
+
+Date: 2026-11-02 (run day)
+
+## Versions
+
+- stet: `stet version v1.4.0` (`/Users/cdelgado/.local/bin/stet`, built 2026-11-01 10:21 from tag
+  v1.4.0 = `14d6969`). cli/ changes after the tag (`git log v1.4.0..HEAD -- cli/`: SP-077 status
+  filtering, SP-080 criteria-doc wording, SP-081 systemone_min_keep critic default) do not touch the
+  review-prompt rules path, so the installed binary measures this task's `ReviewRuleBudget` code.
+- Repo HEAD at preflight: `61301aa82e2612468e8ea292584f3690592ba008` (worktree lane-1,
+  branch task/spine-lane-1-20261102T232226-95c6)
+- Harness: `scripts/model_eval.py` at HEAD.
+- LM Studio: `lms` CLI at /Users/cdelgado/.lmstudio/bin/lms; server http://127.0.0.1:1234.
+
+## Model load
+
+`lms unload --all` then
+`lms load qwen/qwen3.8-27b -c 65536 --parallel 1 --no-speculative-draft-mtp -y`
+→ "Model loaded successfully in 46.73s. (14.98 GiB)". Nothing else was loaded afterwards.
+
+`lms ps` after load:
+
+```
+IDENTIFIER          MODEL               STATUS    SIZE        CONTEXT    PARALLEL    LOAD CONFIG    DEVICE    TTL
+qwen/qwen3.8-27b    qwen/qwen3.8-27b    IDLE      16.08 GB    65536      1           LM Studio      Local
+```
+
+## Smoke request
+
+POST http://127.0.0.1:1234/v1/chat/completions, model qwen/qwen3.8-27b,
+messages [{"role":"user","content":"Reply with OK."}], max_tokens 64 → **HTTP 200**,
+content `OK`, finish_reason `stop`.
+
+## Cases
+
+Temporary cases dir: `/tmp/sp083-cases` (copies of the SP-082 rule-targeted cases plus
+go-clean-refactor, from `scripts/model-eval-cases/` at HEAD):
+
+```
+cp -R scripts/model-eval-cases/{go-rule-context,go-rule-global-prefix,go-rule-clean,py-rule-membership,py-rule-naming,py-rule-clean,go-clean-refactor} /tmp/sp083-cases/
+```
+
+Exact list (7):
+
+- go-clean-refactor (clean control, generic)
+- go-rule-clean (clean control, rule-targeted)
+- go-rule-context (seeded: go-1-21-development-standards.mdc#1.3, context.Background() in request path)
+- go-rule-global-prefix (seeded: go-1-21-development-standards.mdc#2.1, unexported global without `_`)
+- py-rule-clean (clean control, rule-targeted)
+- py-rule-membership (seeded: python-3-development-standards.mdc#2.3, list membership in a loop)
+- py-rule-naming (seeded: python-3-development-standards.mdc#3.4, camelCase function names)
+
+## Rules
+
+`--rules-dir .cursor/rules` (copied verbatim from the main checkout at HEAD — `.cursor/` is
+gitignored, so worktrees do not carry it):
+
+- `ls .cursor/rules | wc -l` → **41**
+- Top-level `*.mdc` files the harness copies into each case repo's before commit: 41
+
+## Variants
+
+Run order: `1000`, `2000`, default (unset). `--runs 3`, `--max-minutes 25` per invocation,
+`--retry-failed` once per variant, per Fixed run conditions in PROMPT.md. Outputs:
+
+- `docs/research/rules-budget-ab/results-1000/` (STET_RULES_MAX_TOKENS=1000)
+- `docs/research/rules-budget-ab/results-2000/` (STET_RULES_MAX_TOKENS=2000)
+- `docs/research/rules-budget-ab/results-default/` (unset → stet scaled default = 8192 at context 65536)
+
+Pinned env otherwise unchanged (harness `PINNED_ENV`: context 65536, temperature 0.1, provider
+openai, critic/selector/annotate off, strictness default, timeout 30m, max completion tokens 4096).
