@@ -1,0 +1,6 @@
+SP-081 complete 2026-11-02.
+
+Sweep: docs/research/critic-eval/sweep-sp081.json (unedited critic-eval --json; 78 drop / 11 keep, no reliability warning).
+Decision: pre-registered rule (highest threshold with KeepsLostPct == 0) -> 0.2; _defaultSystemOneMinKeep 0.5 -> 0.2, contract row and review-process-internals updated; #34 decision and correction posted.
+Verification (release operator, lane HEAD d90ebdb): check-gofmt OK; go vet ./cli/... OK; go test ./cli/internal/config/... ok; jq -e .Thresholds OK; grep '## Decision' OK; spine-stet-contract-run.sh default exit 0 (0 findings).
+.DONE written by the release operator: three worker runs reported completion and exited without creating it.
