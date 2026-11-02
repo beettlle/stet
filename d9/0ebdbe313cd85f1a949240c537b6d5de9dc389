@@ -1,0 +1,27 @@
+cli/internal/config/config.go
+  s_492205e36b7649::t_347d1eb7d9da67 208
+docs/cli-extension-contract.md
+  s_492205e36b7649::t_7a8d8b1ee5876a 145
+docs/research/critic-eval/sweep-sp081.md
+  s_492205e36b7649::t_fe5137ca6ca845 3-4,18-19,31-34,38-44,48-50,52
+docs/review-process-internals.md
+  s_492205e36b7649::t_c09c5fa67f9f10 268
+spine-tasks/SP-081-systemone-min-keep-sweep/STATUS.md
+  s_492205e36b7649::t_049a567c6e15a0 48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d90ebdbe313cd85f1a949240c537b6d5de9dc389",
+  "prompts": {},
+  "sessions": {
+    "s_492205e36b7649": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "1273fe28-48d3-4cba-8506-381f825e357e",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
