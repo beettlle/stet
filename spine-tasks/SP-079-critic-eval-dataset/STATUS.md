@@ -1,6 +1,6 @@
 # SP-079: Critic-eval dataset from pi-spine release dismissals — Status
 
-**Current Step:** Step 3
+**Current Step:** Step 4
 **Status:** 🔄 In Progress
 **Last Updated:** 2026-11-02
 **Review Level:** 1
@@ -25,9 +25,9 @@
 ---
 
 ### Step 3: Provenance and README
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete (2026-11-02)
 
-- [ ] Provenance TSV and README
+- [x] Provenance TSV and README
 
 ---
 
@@ -62,6 +62,7 @@
 
 | Timestamp | Action | Outcome |
 |-----------|--------|---------|
+| 2026-11-02 | Step 3: provenance TSV (89 rows: id/label/repo/task/commit/status_file/status_line/reason) and README (sources, row rules, counts 78 drop / 11 keep, 139-finding skip ledger by reason, threats to validity) | Written |
 | 2026-11-02 | Step 2: keeps harvested from fix commits (b8deb92a, 1ba31c36, 5a1024a0, f14fb499, 2ed04a88, e7abf035, d8b531d3, 80ca9e3d, b61b9fbb); ids for e7abf035/80ca9e3d/b61b9fbb keeps recovered from contract-fail logs (7e9057f, 360352d, 8653ab9, 85d0dd4) | 11 keep rows, each with pre-fix hunk from cumulative diff up to fix-commit^; no WARN needed |
 | 2026-11-02 | Step 1: mined 46 `.reviews/contract-fail-*.log` files + SP-820..SP-845 STATUS triage records; reconstructed hunks via cumulative task diffs | 77 drop rows written (60 log-mined, 17 manual); skip ledger computed (120 findings skipped with reasons); dataset committed |
 
