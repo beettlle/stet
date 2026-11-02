@@ -1,0 +1,22 @@
+cli/internal/config/config.go
+  h_ae151c586ac6c5 208
+docs/cli-extension-contract.md
+  h_ae151c586ac6c5 145
+docs/research/critic-eval/sweep-sp081.md
+  h_ae151c586ac6c5 1-46
+docs/review-process-internals.md
+  h_ae151c586ac6c5 268
+spine-tasks/SP-081-systemone-min-keep-sweep/STATUS.md
+  h_ae151c586ac6c5 3-5,14,16,21,23-25,30,32,47-48,56-58,65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7c9babae298288114ef275f97c8bb883f1fc5e8a",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
