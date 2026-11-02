@@ -1,0 +1,26 @@
+cli/internal/review/critic_systemone.go
+  h_ae151c586ac6c5 27-32,34-35
+cli/internal/review/critic_systemone_test.go
+  h_ae151c586ac6c5 50-59,87
+docs/cli-extension-contract.md
+  h_ae151c586ac6c5 11
+docs/research/critic-eval/criteria-sp080.md
+  h_ae151c586ac6c5 81-101,105-129
+docs/review-process-internals.md
+  h_ae151c586ac6c5 268
+spine-tasks/SP-080-systemone-out-of-view-criteria/PROMPT.md
+  h_ae151c586ac6c5 20-22,141-157
+spine-tasks/SP-080-systemone-out-of-view-criteria/STATUS.md
+  h_ae151c586ac6c5 3,33,35-39,71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "74b640ca3c7971b54cafbc9cf9d48da9d9a36c2c",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
