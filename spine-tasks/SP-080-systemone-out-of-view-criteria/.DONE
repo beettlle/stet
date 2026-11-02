@@ -1,0 +1,11 @@
+SP-080 complete — Mission: Partial #20 (Amendment 1).
+
+Steps 1–4 done; contract testCommand exit 0; full cli suite green.
+
+Decision (pre-registered rule, applied mechanically at threshold 0.5):
+- wording v1 ("verifiable from the code shown"): cond1 pass (38>=36, OOV 8>7), cond2 FAIL (loses SP-822-7ac810c, SP-835-bf03c29)
+- wording v2 ("correctness depends on code not shown"): cond1 pass (49>=36, OOV 13>7), cond2 FAIL (loses SP-821-n7, SP-822-7ac810c, SP-835-bf03c29)
+- wording v3 ("symbol asserted undefined/unused/... that the excerpt cannot decide"): cond1 FAIL (OOV 7->7), cond2 FAIL (loses SP-822-7ac810c)
+- none passes -> shipped criteria unchanged; baseline + attempts recorded in docs/research/critic-eval/criteria-sp080.md
+
+Discoveries: reviewer false positive 921b358 dismissed (positional question keys misread as finding IDs); knife-edge keep SP-822-0f88739 at exactly 0.500; v2 wording is the best drop-precision candidate for a future task.
