@@ -1,0 +1,14 @@
+docs/research/critic-context-sp831/preflight.txt
+  h_ae151c586ac6c5 1-67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "63394d476dc86358c49a306ce27da4f084b73b58",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
