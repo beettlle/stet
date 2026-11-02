@@ -1,8 +1,8 @@
 # SP-080: System One critic rejects out-of-view "missing / undefined" claims — Status
 
-**Current Step:** Not Started
-**Status:** ⬜ Not Started
-**Last Updated:** 2026-11-01
+**Current Step:** Step 2
+**Status:** 🟨 In Progress
+**Last Updated:** 2026-11-02
 **Review Level:** 2
 **Review Counter:** 0
 **Iteration:** 0
@@ -11,9 +11,11 @@
 ---
 
 ### Step 1: Baseline with the current criteria
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] `stet-old` critic-eval results recorded; out-of-view rows identified
+- [x] `stet-old` critic-eval results recorded; out-of-view rows identified
+  (`docs/research/critic-eval/criteria-sp080.md`: old = 36/78 drops, 2/11 keeps lost,
+  7/19 out-of-view rows dropped; 19 OOV ids fixed by the pre-registered classifier)
 
 ---
 
@@ -59,6 +61,7 @@
 
 | Timestamp | Action | Outcome |
 |-----------|--------|---------|
+| 2026-11-02 | Step 1 | Built `stet-old` from unchanged main (`a90293d`); `critic-eval --json` + per-example harness run vs OpenJev (82 groups, 89 examples); baseline recorded in `criteria-sp080.md` with pre-registered OOV classifier |
 
 ---
 
