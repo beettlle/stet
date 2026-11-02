@@ -1,0 +1,14 @@
+spine-tasks/SP-082-rule-targeted-eval-cases/STATUS.md
+  h_ae151c586ac6c5 63-64,76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3d39c857d8118db77ae112b6bf7e03d34784c413",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
