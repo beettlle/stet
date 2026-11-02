@@ -1,0 +1,51 @@
+spine-tasks/CONTEXT.md
+  s_96477c3d74b96c::t_e0650bf2b34bf2 5,223-238
+spine-tasks/SP-077-wave-review-session-isolation/PROMPT.md
+  s_96477c3d74b96c::t_17a9a537e7e7b3 1-121
+spine-tasks/SP-077-wave-review-session-isolation/STATUS.md
+  s_96477c3d74b96c::t_12b80febc496b7 1-69
+spine-tasks/SP-078-critic-context-measurement/PROMPT.md
+  s_96477c3d74b96c::t_b0dab88291abec 1-142
+spine-tasks/SP-078-critic-context-measurement/STATUS.md
+  s_96477c3d74b96c::t_8e490754e2fdfc 1-70
+spine-tasks/SP-079-critic-eval-dataset/PROMPT.md
+  s_96477c3d74b96c::t_7994951f991d9e 1-124
+spine-tasks/SP-079-critic-eval-dataset/STATUS.md
+  s_96477c3d74b96c::t_ba575ff99e5a19 1-66
+spine-tasks/SP-080-systemone-out-of-view-criteria/PROMPT.md
+  s_96477c3d74b96c::t_5d5e87fd8d9841 1-137
+spine-tasks/SP-080-systemone-out-of-view-criteria/STATUS.md
+  s_96477c3d74b96c::t_1d4ba5634cd711 1-67
+spine-tasks/SP-081-systemone-min-keep-sweep/PROMPT.md
+  s_96477c3d74b96c::t_2a12f4925e39c9 1-118
+spine-tasks/SP-081-systemone-min-keep-sweep/STATUS.md
+  s_96477c3d74b96c::t_e6d88c5f401194 1-59
+spine-tasks/SP-082-rule-targeted-eval-cases/PROMPT.md
+  s_96477c3d74b96c::t_9883039984675b 1-125
+spine-tasks/SP-082-rule-targeted-eval-cases/STATUS.md
+  s_96477c3d74b96c::t_fd0cb218acf482 1-66
+spine-tasks/SP-083-rule-budget-ab-eval/PROMPT.md
+  s_96477c3d74b96c::t_79ce77d0eaff09 1-144
+spine-tasks/SP-083-rule-budget-ab-eval/STATUS.md
+  s_96477c3d74b96c::t_b889bf48674a08 1-68
+spine-tasks/_authoring/release-v1.5.0/manifest.md
+  s_96477c3d74b96c::t_a1b16fa247a51d 1-170
+spine-tasks/dependencies.json
+  s_96477c3d74b96c::t_181b2195492ea7 140-155
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3d10bd4d7788287ef1a2f7cb625ed0835f65dec1",
+  "prompts": {},
+  "sessions": {
+    "s_96477c3d74b96c": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "4baaf7f4-22ec-4bcd-8bb0-57f54155499d",
+        "model": "unknown"
+      },
+      "human_author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
