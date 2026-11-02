@@ -2833,6 +2833,19 @@ func TestFilterToSessionDiff_failOpenWithoutCompletedReview(t *testing.T) {
 	}
 }
 
+func TestFilterToSessionDiff_failOpenOnNonSHARefs(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	// stet only writes RevParse SHAs; a hand-edited session with option-style
+	// refs must not reach git (fail-open instead).
+	s := session.Session{BaselineRef: "--upload-pack=x", LastReviewedAt: "deadbeef"}
+	list := []findings.Finding{{ID: "f1", File: "a.go", Line: 1, Severity: findings.SeverityInfo, Category: findings.CategoryStyle, Confidence: 1.0, Message: "m"}}
+	got := filterToSessionDiff(context.Background(), dir, &s, list)
+	if len(got) != 1 || got[0].ID != "f1" {
+		t.Errorf("filterToSessionDiff with non-SHA refs = %v; want unchanged (fail-open)", got)
+	}
+}
+
 func TestRunCLI_listHidesFindingsFromOtherSessionDiff(t *testing.T) {
 	// Issue #5 (SP-077): findings reviewed in one worktree/clone (the model-eval
 	// harness leg) must not surface in a disjoint wave-review session's list.

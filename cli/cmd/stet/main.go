@@ -145,7 +145,14 @@ func sessionReviewedFiles(ctx context.Context, repoRoot string, s *session.Sessi
 	if s == nil || s.BaselineRef == "" || s.LastReviewedAt == "" {
 		return nil, false
 	}
-	cmd := exec.CommandContext(ctx, "git", "diff", "--name-only", s.BaselineRef, s.LastReviewedAt, "--")
+	base, head := s.BaselineRef, s.LastReviewedAt
+	// stet stores RevParse SHAs here; anything else is a corrupt or hand-edited
+	// session. Refuse to pass non-SHA values to git (they could be option-style
+	// strings) and fail open instead.
+	if !isGitObjectSHA(base) || !isGitObjectSHA(head) {
+		return nil, false
+	}
+	cmd := exec.CommandContext(ctx, "git", "diff", "--name-only", base, head, "--")
 	cmd.Dir = repoRoot
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -161,6 +168,20 @@ func sessionReviewedFiles(ctx context.Context, repoRoot string, s *session.Sessi
 		}
 	}
 	return files, true
+}
+
+// isGitObjectSHA reports whether ref looks like a git object name (full or
+// abbreviated hex SHA) that is safe to pass to a git command.
+func isGitObjectSHA(ref string) bool {
+	if len(ref) < 4 || len(ref) > 40 {
+		return false
+	}
+	for _, c := range ref {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
+			return false
+		}
+	}
+	return true
 }
 
 // filterToSessionDiff keeps only findings whose File is inside the session's
@@ -1438,10 +1459,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	}
 	showIDs, _ := cmd.Flags().GetBool("ids")
 	if showIDs {
-		active, err := activeFindings(cmd.Context(), repoRoot, stateDir)
-		if err != nil {
-			return err
-		}
+		active := filterToSessionDiff(cmd.Context(), repoRoot, &s, activeFindingsInSession(&s))
 		if len(active) > 0 {
 			fmt.Fprintln(os.Stdout, "---")
 			if err := writeFindingLines(os.Stdout, active); err != nil {
