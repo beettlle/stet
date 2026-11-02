@@ -145,7 +145,7 @@ func sessionReviewedFiles(ctx context.Context, repoRoot string, s *session.Sessi
 	if s == nil || s.BaselineRef == "" || s.LastReviewedAt == "" {
 		return nil, false
 	}
-	cmd := exec.CommandContext(ctx, "git", "diff", "--name-only", s.BaselineRef+".."+s.LastReviewedAt)
+	cmd := exec.CommandContext(ctx, "git", "diff", "--name-only", s.BaselineRef, s.LastReviewedAt, "--")
 	cmd.Dir = repoRoot
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -265,17 +265,8 @@ func writeFindingsHuman(ctx context.Context, w io.Writer, repoRoot, stateDir str
 	return nil
 }
 
-// writeFindingsWithIDs writes one line per active finding: id  file:line  severity  message.
-// Used by status --ids and list commands.
-func writeFindingsWithIDs(ctx context.Context, w io.Writer, repoRoot, stateDir string) error {
-	active, err := activeFindings(ctx, repoRoot, stateDir)
-	if err != nil {
-		return err
-	}
-	return writeFindingLines(w, active)
-}
-
 // writeFindingLines writes one line per finding: id  file:line  severity  message.
+// Used by status --ids and list commands.
 func writeFindingLines(w io.Writer, list []findings.Finding) error {
 	for _, f := range list {
 		line := f.Line
@@ -1453,7 +1444,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		}
 		if len(active) > 0 {
 			fmt.Fprintln(os.Stdout, "---")
-			if err := writeFindingsWithIDs(cmd.Context(), os.Stdout, repoRoot, stateDir); err != nil {
+			if err := writeFindingLines(os.Stdout, active); err != nil {
 				return err
 			}
 		}

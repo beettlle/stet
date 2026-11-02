@@ -2764,7 +2764,7 @@ func TestWriteFindingsHuman_singleFindingWithStats(t *testing.T) {
 	}
 }
 
-func TestWriteFindingsWithIDs_usesRangeStart(t *testing.T) {
+func TestWriteFindingLines_usesRangeStart(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	start := 5
@@ -2778,8 +2778,8 @@ func TestWriteFindingsWithIDs_usesRangeStart(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	if err := writeFindingsWithIDs(context.Background(), &buf, dir, dir); err != nil {
-		t.Fatalf("writeFindingsWithIDs: %v", err)
+	if err := writeFindingLines(&buf, s.Findings); err != nil {
+		t.Fatalf("writeFindingLines: %v", err)
 	}
 	if !strings.Contains(buf.String(), "a.go:5") {
 		t.Errorf("output = %q", buf.String())
