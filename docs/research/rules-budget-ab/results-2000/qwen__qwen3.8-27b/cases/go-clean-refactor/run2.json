@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-v_5p0oh6/internal/units/parse.go#L18",
+      "file": "internal/units/parse.go",
+      "id": "df01f3fb1292df949b05257d8ecafec784ee554ae4dee7ac6726c1f17f0efc79",
+      "line": 18,
+      "message": "The refactored code calls `splitNumberUnit` to extract `numPart` and `unitPart`, but the `if !hasUnit` branch incorrectly parses the entire `normalized` string instead of `numPart`. While `numPart` equals `normalized` when `hasUnit` is false, using `normalized` is inconsistent with the logic in the `else` branch (which uses `numPart`) and defeats the purpose of the helper function. More critically, if `splitNumberUnit` returns `hasUnit=false` for a string that contains non-numeric characters (e.g., if the logic for detecting a unit is flawed or if the string is just a number with a trailing dot like \"10.\"), parsing `normalized` might behave differently than expected or fail in a way that is harder to debug. It is safer and more consistent to always use `numPart` for the numeric parsing step.",
+      "severity": "warning",
+      "suggestion": "Change `size, err := strconv.ParseFloat(normalized, 64)` to `size, err := strconv.ParseFloat(numPart, 64)` in the `if !hasUnit` branch."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-v_5p0oh6/internal/units/parse.go#L37",
+      "file": "internal/units/parse.go",
+      "id": "f4f307a128737fe78dd646da8788290c5471c886eb19f4fcc704700f2733b940",
+      "line": 37,
+      "message": "splitNumberUnit returns an empty numeric prefix when the input starts with a non-digit character (e.g., \".5GB\" or \"1.5.2GB\"). This causes strconv.ParseFloat to fail with an 'invalid syntax' error, rejecting valid inputs like \".5GB\" that should be parsed as 0.5GB.",
+      "severity": "warning",
+      "suggestion": "Check if i == 0 and the character is a decimal point, and return \"0\" as the numeric prefix instead of an empty string. For example: if i == 0 && s[i] == '.' { return \"0\", strings.TrimSpace(s[i:]), true }"
+    }
+  ]
+}

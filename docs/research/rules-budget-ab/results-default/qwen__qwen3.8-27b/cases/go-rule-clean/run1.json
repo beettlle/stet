@@ -1,0 +1,37 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-pljyyx0q/internal/notice/dispatch.go#L10",
+      "file": "internal/notice/dispatch.go",
+      "id": "2ad2bfd6aba6acc1b7bea8d04ac7ef5a8818e15964a213494a757725e62f221f",
+      "line": 10,
+      "message": "The variable was renamed to `_timeout` (unexported with underscore prefix) but the `Sender` struct and its methods likely still reference the old name `timeout`. This will cause a compilation error.",
+      "severity": "warning",
+      "suggestion": "Either rename all usages of `timeout` to `_timeout` throughout the file, or revert the variable name back to `timeout` if the underscore prefix was an accidental style change."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-pljyyx0q/internal/notice/dispatch.go#L22",
+      "file": "internal/notice/dispatch.go",
+      "id": "4d03eebb4decdecfdeeecaac2f7fde0cb5d7284dce11a90e2a53539e95212fce",
+      "line": 22,
+      "message": "The variable `timeout` was renamed to `_timeout` in the `NewSender` function. In Go, a variable name starting with an underscore is not a valid identifier and will cause a compilation error. This appears to be a typo or an incorrect application of a linter rule (which usually suggests prefixing *unused* variables with `_`, not renaming used ones).",
+      "severity": "warning",
+      "suggestion": "Revert the variable name back to `timeout`."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-pljyyx0q/internal/notice/dispatch.go#L47",
+      "file": "internal/notice/dispatch.go",
+      "id": "4a00eb2ae9879305f6020445a4cd25187d1eb36aadef882216df958377c60464",
+      "line": 47,
+      "message": "The `ctx` parameter is accepted but never used. The `Sender` struct holds an `*http.Client` with a fixed timeout, and the `Send` method signature does not include a context, so the passed context is silently ignored. This means callers cannot cancel or time out the dispatch via context, which is a common expectation when a `context.Context` is the first parameter.",
+      "severity": "warning",
+      "suggestion": "Either use the context in the HTTP request (e.g., `s.Client.Do(req.WithContext(ctx))` inside `Send`) or remove the `ctx` parameter if it is not intended to be used."
+    }
+  ]
+}

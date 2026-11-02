@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "security",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-o8dfye_j/auditlog/redact.py#L28",
+      "file": "auditlog/redact.py",
+      "id": "4540eade9fd5c5f2423e661174a0240b0f416e69ee8e52fd001086153148b296",
+      "line": 28,
+      "message": "The redaction logic uses an allowlist of sensitive fields, meaning any sensitive data not explicitly listed (e.g., 'api_key', 'secret', 'email', 'address') will be logged in plaintext. This is a security risk if the record contains unlisted sensitive fields.",
+      "severity": "warning",
+      "suggestion": "Consider using a denylist approach (redact everything by default, allowlist specific safe fields) or expanding the SENSITIVE_FIELDS list to cover all potential sensitive data types."
+    },
+    {
+      "category": "security",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-o8dfye_j/auditlog/redact.py#L50",
+      "file": "auditlog/redact.py",
+      "id": "7f5593ef0f80670476cbb118edd712d37e780bbb6acee7c09cb25f2ebc19df97",
+      "line": 50,
+      "message": "The default value 'unattributed' is a hardcoded string that may be used as a key in the tally dictionary. If the 'submitter' field is missing or empty, it will be counted under this default. This is a minor issue, but it's better to use a more explicit sentinel or handle missing/empty values explicitly to avoid conflating truly unattributed records with those that have an empty string.",
+      "severity": "warning",
+      "suggestion": "Consider checking if the submitter is None or empty string and handling it explicitly, or use a more descriptive default like 'N/A' or 'missing_submitter'."
+    }
+  ]
+}

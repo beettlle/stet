@@ -1,0 +1,37 @@
+{
+  "findings": [
+    {
+      "category": "style",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-drw671lg/invoicing/render.py#L10",
+      "file": "invoicing/render.py",
+      "id": "ae320a8abc9d43f845b22333791b4c983977520c24ed25f64e3ffc0b2aafabc8",
+      "line": 10,
+      "message": "Function name `formatRow` uses camelCase, violating Python PEP 8 naming conventions which require snake_case for functions.",
+      "severity": "warning",
+      "suggestion": "Rename `formatRow` to `format_row`."
+    },
+    {
+      "category": "style",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-drw671lg/invoicing/render.py#L15",
+      "file": "invoicing/render.py",
+      "id": "7a8c8d69be7bd6f8a1f75a5f8d42dd7f5cc4d8e07ec62e4d4fd14a89a5857d14",
+      "line": 15,
+      "message": "Function name `renderInvoice` uses camelCase, violating Python PEP 8 naming conventions which require snake_case for functions.",
+      "severity": "warning",
+      "suggestion": "Rename `renderInvoice` to `render_invoice`."
+    },
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-drw671lg/invoicing/render.py#L33",
+      "file": "invoicing/render.py",
+      "id": "8b4f1a2bfe5a014e68ff2da8e7338a52ca7a4bc5acba42f5a129fe0f7f19d104",
+      "line": 33,
+      "message": "The function `render_invoice` was renamed to `renderInvoice` in the diff, but the provided symbol definitions indicate that `renderInvoice` is defined on line 15. If the original function was `render_invoice` and the diff changes the call to `renderInvoice`, this will cause a `NameError` at runtime if `renderInvoice` is not actually defined in the module. Please verify that the function definition was also updated to `renderInvoice` in the same file. If the definition is still `render_invoice`, this is a critical bug.",
+      "severity": "error",
+      "suggestion": "Ensure the function definition matches the call. If the function is defined as `def render_invoice(...)`, the call should be `render_invoice(invoice)`. If it was renamed to `renderInvoice`, ensure the definition is also `def renderInvoice(...)`."
+    }
+  ]
+}

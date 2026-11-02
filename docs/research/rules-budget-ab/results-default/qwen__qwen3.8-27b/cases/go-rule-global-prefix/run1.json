@@ -1,0 +1,37 @@
+{
+  "findings": [
+    {
+      "category": "best_practice",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1u3q8xdb/internal/ratelimit/window.go#L8",
+      "file": "internal/ratelimit/window.go",
+      "id": "e22b9f0410da1e1f8bdbad5365bcd0c5f455ac148c33ae3f94b74f86df6e4d5f",
+      "line": 8,
+      "message": "`minSpan` is a constant value and should be declared as `const` rather than `var` to avoid unnecessary heap allocation and signal immutability.",
+      "severity": "warning",
+      "suggestion": "const minSpan = 100 * time.Millisecond"
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1u3q8xdb/internal/ratelimit/window.go#L25",
+      "file": "internal/ratelimit/window.go",
+      "id": "e4f0054b6d56e5255318d4f967f8ae3a63bd1700365f7f45153cbac2e65ad049",
+      "line": 25,
+      "message": "The `span` parameter is being mutated to enforce a minimum value. This is a side effect on a parameter that may be confusing to callers who expect the original value to be preserved. It is better to use a local variable for the clamped value to avoid mutating the input parameter.",
+      "severity": "warning",
+      "suggestion": "Use a local variable for the clamped span: `effectiveSpan := span; if effectiveSpan < minSpan { effectiveSpan = minSpan }; hits := w.prune(key, now.Add(-effectiveSpan))`"
+    },
+    {
+      "category": "documentation",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1u3q8xdb/internal/ratelimit/window.go#L51",
+      "file": "internal/ratelimit/window.go",
+      "id": "5e54175fbe9f61bb07908fe80fc2f14577b83cc93e6fec587407c04126423f22",
+      "line": 51,
+      "message": "The comment claims Reset affects the 'whole process', but the method is defined on a *Window instance and only clears the entries map for that specific instance. If multiple Window instances exist, this comment is misleading.",
+      "severity": "nitpick",
+      "suggestion": "Change the comment to: \"Reset clears all recorded hits for this window.\""
+    }
+  ]
+}

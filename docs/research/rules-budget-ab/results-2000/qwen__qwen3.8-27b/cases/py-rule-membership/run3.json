@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "security",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-dul0gol8/auditlog/redact.py#L28",
+      "file": "auditlog/redact.py",
+      "id": "989236a395ac08cbb0eb5b281f01b2d6d5789583fe22a5f200d4eacb55b37cc2",
+      "line": 28,
+      "message": "The redaction logic uses a strict allowlist (denylist) of sensitive fields. If a record contains a sensitive key not explicitly listed in SENSITIVE_FIELDS (e.g., 'api_key', 'secret', 'private_key', 'credit_card'), its value will be copied directly into the output and logged. This defeats the purpose of the redaction function and leads to sensitive data exposure in audit logs.",
+      "severity": "error",
+      "suggestion": "Invert the logic to a denylist approach: redact all fields by default, and only allow specific known-safe fields to pass through. Alternatively, use a regex pattern to match common sensitive keywords (e.g., 'key', 'secret', 'token', 'password', 'card') to catch variations."
+    },
+    {
+      "category": "security",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-dul0gol8/auditlog/redact.py#L50",
+      "file": "auditlog/redact.py",
+      "id": "1baefd523b43668c744ae2591d41abe1892a9ceda5d1959f4d1f0f6285b3da83",
+      "line": 50,
+      "message": "The default value 'unattributed' is a hardcoded string that may be used in downstream aggregation or reporting. If the 'submitter' field is user-controlled and the default is used for missing values, ensure that any downstream consumers (e.g., dashboards, logs) treat this as a safe, non-sensitive label. More importantly, verify that the 'submitter' value itself is not being logged or exposed in a way that could leak PII. The change from 'unknown' to 'unattributed' is semantically clearer, but confirm that no downstream code relies on the literal string 'unknown' for filtering or alerting.",
+      "severity": "warning",
+      "suggestion": "If downstream code filters on the literal string 'unknown', update those references to 'unattributed' to maintain consistency. Additionally, ensure that the 'submitter' field is properly redacted or validated before being used in any output or log statement."
+    }
+  ]
+}

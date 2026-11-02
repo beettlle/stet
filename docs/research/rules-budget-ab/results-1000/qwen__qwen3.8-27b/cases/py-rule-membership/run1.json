@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "security",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-052m7wni/auditlog/redact.py#L29",
+      "file": "auditlog/redact.py",
+      "id": "7d127ea03b80e55a0c57303260274332ecc1be8927801e4ff7a06008d019a5d0",
+      "line": 29,
+      "message": "The redaction logic uses a strict allowlist of sensitive fields. If a record contains a sensitive field not explicitly listed in SENSITIVE_FIELDS (e.g., 'api_key', 'secret', 'private_key', 'credit_card'), its value will be logged in plaintext. This is a fail-open design that risks leaking sensitive data.",
+      "severity": "warning",
+      "suggestion": "Consider a fail-closed approach where all fields are redacted by default, or use a denylist of known non-sensitive fields. Alternatively, ensure SENSITIVE_FIELDS is comprehensive and maintained."
+    }
+  ]
+}

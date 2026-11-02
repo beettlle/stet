@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.98,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7hdk3ne6/internal/track/submit.go#L35",
+      "file": "internal/track/submit.go",
+      "id": "484a76317ce604f4914d7f874ad4deac2d13bcb354a99d828ff2d3cddc13c54c",
+      "line": 35,
+      "message": "The change replaces the caller-provided context with context.Background(), which disables cancellation and deadline propagation. The function signature still accepts a context, but it is now ignored, leading to potential resource leaks and inability to stop in-flight requests when the caller cancels.",
+      "severity": "error",
+      "suggestion": "Revert to using the provided ctx parameter: http.NewRequestWithContext(ctx, http.MethodPost, c.Endpoint, bytes.NewReader(body))"
+    },
+    {
+      "category": "performance",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7hdk3ne6/internal/track/submit.go#L56",
+      "file": "internal/track/submit.go",
+      "id": "4f88087c018f16e5eed4efac1b09d54c231d7555b324c57eff677a8bf35943f4",
+      "line": 56,
+      "message": "Submitting events one-by-one in a loop is an O(N) I/O bottleneck. If `Submit` performs a network request per event, `SubmitBatch` will be extremely slow for large batches and does not leverage batching.",
+      "severity": "warning",
+      "suggestion": "Modify `Submit` or create a new method to accept `[]Event` and send them in a single HTTP request (e.g., JSON array body) to reduce network round-trips."
+    }
+  ]
+}

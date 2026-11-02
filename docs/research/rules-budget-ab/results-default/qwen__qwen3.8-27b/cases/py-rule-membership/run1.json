@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "performance",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-pw7kcfnd/auditlog/redact.py#L7",
+      "file": "auditlog/redact.py",
+      "id": "e5fe902d846e857956bbf13a7d2ad3ead6cfe381b664618d3166789f880b45ff",
+      "line": 7,
+      "message": "Using a list for membership testing in a loop is O(n). For a list of 14 items, this is inefficient compared to a set, which is O(1).",
+      "severity": "warning",
+      "suggestion": "Change SENSITIVE_FIELDS to a set: SENSITIVE_FIELDS = { ... }"
+    }
+  ]
+}

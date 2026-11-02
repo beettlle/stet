@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-xhiqqbv7/internal/units/parse.go#L37",
+      "file": "internal/units/parse.go",
+      "id": "d6335cdea05857def05aef1c5c13e2a88a892f08ac6f0f08538c395e21a8c603",
+      "line": 37,
+      "message": "The function `splitNumberUnit` is defined but never called in the provided context. The `ParseByteSize` function appears to use a different parsing mechanism (likely `strconv.ParseFloat` or similar) and does not invoke this helper. This is dead code.",
+      "severity": "warning",
+      "suggestion": "Remove the `splitNumberUnit` function if it is not used, or update `ParseByteSize` to use it if it was intended to replace the current parsing logic."
+    }
+  ]
+}

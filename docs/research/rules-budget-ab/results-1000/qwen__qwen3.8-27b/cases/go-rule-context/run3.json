@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-utz5znpn/internal/track/submit.go#L35",
+      "file": "internal/track/submit.go",
+      "id": "9944e2173ceb1e63e694e3248c736d7d606d6ee64e1fdac8faec3d01c500f557",
+      "line": 35,
+      "message": "The change replaces the caller-provided context with context.Background(), which disables cancellation and deadline propagation. This violates the function signature's contract (which accepts a context) and can lead to resource leaks if the caller expects the request to be aborted when their context is cancelled.",
+      "severity": "error",
+      "suggestion": "Revert to using the provided ctx parameter: req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.Endpoint, bytes.NewReader(body))"
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-utz5znpn/internal/track/submit.go#L57",
+      "file": "internal/track/submit.go",
+      "id": "0783a7a30d0a37fd9d7d785c75faddd3c623319740dee0d625a2f41bf8db90f1",
+      "line": 57,
+      "message": "The error message 'submit batch entry' is misleading because it does not indicate which event in the batch failed. Since the loop returns on the first error, callers cannot tell which event caused the failure without additional context.",
+      "severity": "warning",
+      "suggestion": "Include the event index or a unique identifier in the error message, e.g., fmt.Errorf(\"submit batch entry %d: %w\", i, err)"
+    }
+  ]
+}

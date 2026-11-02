@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-wcxlgegh/inventory/stock.py#L14",
+      "file": "inventory/stock.py",
+      "id": "23d0ea4cbc5bc695bf4cfb4f0a0b5fd50a55aa49b136d595add6348ce9b0f1c2",
+      "line": 14,
+      "message": "add_delivery allows negative counts, which can corrupt inventory levels if a negative count is passed (e.g., via merge_books or direct call).",
+      "severity": "warning",
+      "suggestion": "Add a check to ensure count is non-negative: if count < 0: raise ValueError(\"count must be non-negative\")"
+    }
+  ]
+}

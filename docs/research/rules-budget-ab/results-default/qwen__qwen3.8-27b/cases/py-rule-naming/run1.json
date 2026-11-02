@@ -1,0 +1,37 @@
+{
+  "findings": [
+    {
+      "category": "style",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7nrs70j3/invoicing/render.py#L10",
+      "file": "invoicing/render.py",
+      "id": "b55544578f837b06ae887ab7dddd4f496471097ab5bb93d45936b0b520f0cf8f",
+      "line": 10,
+      "message": "Function name `formatRow` uses camelCase, which violates PEP 8 naming conventions for Python functions. The original `format_row` was correct.",
+      "severity": "warning",
+      "suggestion": "Rename `formatRow` back to `format_row`."
+    },
+    {
+      "category": "style",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7nrs70j3/invoicing/render.py#L15",
+      "file": "invoicing/render.py",
+      "id": "d93726be2b71d7e82f157fc708eaa97d14df317cf2f5ee3bfda55151826af96b",
+      "line": 15,
+      "message": "Function name `renderInvoice` uses camelCase, which violates PEP 8 naming conventions for Python functions. The original `render_invoice` was correct.",
+      "severity": "warning",
+      "suggestion": "Rename `renderInvoice` back to `render_invoice`."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7nrs70j3/invoicing/render.py#L33",
+      "file": "invoicing/render.py",
+      "id": "51402b6d0840cca259aa4347822274b1743c4d60f2eee373fd100a6d5bdbad67",
+      "line": 33,
+      "message": "Inconsistent naming convention: the function is defined as `renderInvoice` (camelCase) but the rest of the module uses snake_case (e.g., `total_for`, `render_batch`). This violates PEP 8 and the project's naming standards.",
+      "severity": "error",
+      "suggestion": "Rename the function definition from `renderInvoice` to `render_invoice` to match the module's snake_case convention."
+    }
+  ]
+}

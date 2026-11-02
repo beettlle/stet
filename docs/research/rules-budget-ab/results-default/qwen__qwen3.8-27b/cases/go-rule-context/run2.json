@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-lq2lbwox/internal/track/submit.go#L33",
+      "file": "internal/track/submit.go",
+      "id": "67c8928e2d02db8689e5e00f793c308b24a55735aea2b9d4de05688e48f2f8d0",
+      "line": 33,
+      "message": "The change replaces the caller-provided context with context.Background(), which disables cancellation and deadline propagation. The function signature still accepts a context, but it is now ignored, leading to potential resource leaks and inability to stop in-flight requests when the caller cancels.",
+      "severity": "error",
+      "suggestion": "Revert to using the provided ctx: req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.Endpoint, bytes.NewReader(body))"
+    },
+    {
+      "category": "performance",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-lq2lbwox/internal/track/submit.go#L56",
+      "file": "internal/track/submit.go",
+      "id": "198daff180131cf3e3154ffe0b3c6266ddf2c60d1e1b30dc4ce2af7589c62c32",
+      "line": 56,
+      "message": "The `SubmitBatch` function iterates over the events and calls `c.Submit` sequentially, resulting in N network requests (O(N) I/O). This is a performance bottleneck and violates the rule against I/O in loops. It should batch the events into a single HTTP request.",
+      "severity": "warning",
+      "suggestion": "Modify `SubmitBatch` to marshal the entire `events` slice into a single JSON payload and make one HTTP request to the endpoint, rather than looping and calling `Submit` for each event."
+    }
+  ]
+}
