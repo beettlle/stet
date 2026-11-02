@@ -1,0 +1,18 @@
+spine-tasks/SP-079-critic-eval-dataset/.DONE
+  h_ae151c586ac6c5 1-6
+spine-tasks/SP-079-critic-eval-dataset/.reviews/1-20261102T063159.md
+  h_ae151c586ac6c5 1-8
+spine-tasks/SP-079-critic-eval-dataset/.reviews/final-20261102T063818.md
+  h_ae151c586ac6c5 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "74dc687710743c97ae24fbf59ec523ccb93cfbac",
+  "prompts": {},
+  "humans": {
+    "h_ae151c586ac6c5": {
+      "author": "Test User <beettlle@gmail.com>"
+    }
+  }
+}
