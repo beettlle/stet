@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-10-24
 **Status:** Active
-**Next Task ID:** SP-077
+**Next Task ID:** SP-084
 
 ---
 
@@ -219,6 +219,22 @@ Manifest: `spine-tasks/_authoring/release-v1.4.0/manifest.md`. Scope approved 20
 Edges are shared-file serialization (`run.go`: SP-069 → SP-070 → SP-072) and data deps (SP-072 uses SP-071's `line_remap.go`); the docs tasks document their dependencies' behavior.
 
 **Released:** v1.4.0 on 2026-11-01, tagged at `14d6969` (closes #19, #25, #33, #36, #37, #38; #18 partial). Release: https://github.com/beettlle/stet/releases/tag/v1.4.0
+
+### Phase 13 — Release v1.5.0 (2026-11-01)
+
+Manifest: `spine-tasks/_authoring/release-v1.5.0/manifest.md`. Scope approved 2026-11-01 (third enhancement #11 by operator override). Theme: review precision.
+
+| Task | Summary | Size | Status | Deps |
+|------|---------|------|--------|------|
+| SP-077 | Wave review shows only findings from the reviewed session (#5) | S | Pending | — |
+| SP-078 | Measure the critic with expanded context, SP-831 off/on (#18) | S | Pending | SP-077, SP-082 |
+| SP-079 | Critic-eval dataset from pi-spine release dismissals (#34, partial) | S | Pending | — |
+| SP-080 | System One critic rejects out-of-view "missing / undefined" claims (#20) | M | Pending | SP-078, SP-079 |
+| SP-081 | Sweep `systemone_min_keep` on the dataset and set the default (#34) | S | Pending | SP-079, SP-080 |
+| SP-082 | Rule-targeted model-eval cases and harness rule options (#11, partial) | M | Pending | — |
+| SP-083 | Rule-budget A/B eval and data-driven default (#11) | M | Pending | SP-081, SP-082 |
+
+Edges are data deps (SP-080 uses SP-078's baseline and SP-079's dataset; SP-081 measures SP-080's criteria on SP-079's dataset; SP-083 uses SP-082's cases) plus serialization of exclusive LM Studio / OpenJev use (SP-077, SP-082 → SP-078) and `docs/cli-extension-contract.md` (SP-081 → SP-083).
 
 ### Completed (wave 0 + follow-on)
 
