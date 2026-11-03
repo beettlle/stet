@@ -14,7 +14,7 @@ import (
 // room for the hunk, RAG context, and the response.
 const (
 	reviewRuleBudgetPercent = 15
-	maxReviewRuleTokens     = 8192
+	maxReviewRuleTokens     = 1000
 	// minTrimmedSectionTokens is the smallest slice worth keeping of a section
 	// that can never fit whole; smaller slices are dropped instead.
 	minTrimmedSectionTokens = 64

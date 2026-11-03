@@ -1,7 +1,7 @@
 # SP-083: Rule-budget A/B eval and data-driven default — Status
 
-**Current Step:** Step 2
-**Status:** 🔄 Step 2 scoring
+**Current Step:** Step 3
+**Status:** 🔄 Step 3 testing & verification
 **Last Updated:** 2026-11-02
 **Review Level:** 1
 **Review Counter:** 0
@@ -28,11 +28,13 @@
 ---
 
 ### Step 2: Score, decide, and set the default
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete (2026-11-02)
 
-- [ ] Three summaries
-- [ ] Note with `## Decision`; cap and docs updated if the rule says so
-- [ ] Results posted to #11 (URL below)
+- [x] Three summaries (`summary-{1000,2000,default}.json`, each regenerates from its results with `score`)
+- [x] Note with `## Decision` (`docs/research/rules-budget-ab.md`); cap changed: `maxReviewRuleTokens` 8192 → 1000, `TestReviewRuleBudget` row updated, three doc mentions show the new clamp
+- [x] Results posted to #11: https://github.com/beettlle/stet/issues/11#issuecomment-6591663565
+
+Decision trace: R(1000)=3.33, R(2000)=3.33, R(default)=3.00 → R*=3.33, smallest budget within 1 case of best = 1000 → cap := 1000. C(1000)=1.44 (smallest; >1.0 flag not triggered).
 
 ---
 
@@ -55,6 +57,7 @@
 
 | Discovery | Disposition | Location |
 |-----------|-------------|----------|
+| `cli/internal/config/config.go` line 29 comment still says "clamped to [1000, 8192]" — file is outside this task's File Scope (cli/internal/config/** in mustNotChange) | Logged as tech debt | spine-tasks/CONTEXT.md |
 
 ---
 
@@ -66,6 +69,7 @@
 | 2026-11-02 | Variant 1000: 21/21 ok, exit 0, 46.7s max case | results-1000/ committed |
 | 2026-11-02 | Variant 2000: 21/21 ok, exit 0 | results-2000/ committed |
 | 2026-11-02 | Variant default (8192): 21/21 ok, exit 0 | results-default/ committed |
+| 2026-11-02 | Scored all variants; decision rule → v*=1000; cap 8192→1000; docs updated; posted to #11 | comment 6591663565 |
 
 ---
 
