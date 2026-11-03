@@ -1,0 +1,7 @@
+SP-083 complete.
+
+- Step 0: preflight recorded (docs/research/rules-budget-ab/preflight.txt) — stet v1.4.0, HEAD 61301aa, 7 cases, 41 rules, model reloaded per fixed conditions, smoke HTTP 200.
+- Step 1: 21/21 ok per variant (1000, 2000, default), exit 0, single invocations, results committed.
+- Step 2: decision rule applied mechanically — R(1000)=3.33, R(2000)=3.33, R(default)=3.00 → v*=1000 → maxReviewRuleTokens 8192→1000; criteria_test.go pinned; three doc clamps updated; note docs/research/rules-budget-ab.md with ## Decision; results posted to #11 (https://github.com/beettlle/stet/issues/11#issuecomment-6591663565).
+- Step 3: contract testCommand exit 0 (2 review rounds triaged: 1+1 findings fixed, 3 dismissed already_correct with evidence; critic minus-line misreads recorded in STATUS Discoveries); LM Studio restored.
+- Tree clean; no mustNotChange paths touched; stale config.go comment logged as tech debt in spine-tasks/CONTEXT.md.
