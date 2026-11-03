@@ -14,7 +14,7 @@ func TestReviewRuleBudget(t *testing.T) {
 	}{
 		{name: "override_wins", contextLimit: 32768, override: 2500, want: 2500},
 		{name: "no_context_limit_uses_floor", contextLimit: 0, want: MaxRuleTokens},
-		{name: "default_context_capped", contextLimit: 32768, want: maxReviewRuleTokens},
+		{name: "default_context_capped", contextLimit: 32768, want: 1000}, // 15% of 32768 = 4915, capped at the SP-083 measured default (docs/research/rules-budget-ab.md)
 		{name: "small_context_clamped_to_floor", contextLimit: 4096, want: MaxRuleTokens},
 		{name: "large_context_clamped_to_cap", contextLimit: 262144, want: maxReviewRuleTokens},
 	}
