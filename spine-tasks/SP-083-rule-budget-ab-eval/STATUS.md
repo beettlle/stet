@@ -1,7 +1,7 @@
 # SP-083: Rule-budget A/B eval and data-driven default — Status
 
-**Current Step:** Step 3
-**Status:** 🔄 Step 3 testing & verification
+**Current Step:** Complete
+**Status:** ✅ Complete — all steps done, contract green
 **Last Updated:** 2026-11-02
 **Review Level:** 1
 **Review Counter:** 0
@@ -39,10 +39,11 @@ Decision trace: R(1000)=3.33, R(2000)=3.33, R(default)=3.00 → R*=3.33, smalles
 ---
 
 ### Step 3: Testing & Verification
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete (2026-11-02)
 
-- [ ] Contract `testCommand` passes
-- [ ] LM Studio restored
+- [x] Contract `testCommand` passes (exit 0: gofmt, vet, rules tests, summary + Decision present, stet contract review)
+  - Two review rounds triaged: fbf6835 fixed (test row pinned to literal 1000); 9a0f82a / 1cdbef8 dismissed `already_correct` (sufficiency answered by the pre-registered A/B); c85f49d + 694b485 dismissed `already_correct` (critic read removed minus lines — both rows are literal 1000 at HEAD; suite passes)
+- [x] LM Studio restored (`lms unload --all && lms load qwen/qwen3.8-27b -c 65536 --parallel 1 --no-speculative-draft-mtp -y`)
 
 ---
 
@@ -58,6 +59,8 @@ Decision trace: R(1000)=3.33, R(2000)=3.33, R(default)=3.00 → R*=3.33, smalles
 | Discovery | Disposition | Location |
 |-----------|-------------|----------|
 | `cli/internal/config/config.go` line 29 comment still says "clamped to [1000, 8192]" — file is outside this task's File Scope (cli/internal/config/** in mustNotChange) | Logged as tech debt | spine-tasks/CONTEXT.md |
+| stet critic reads removed minus lines as current code: after ad9f7e1 made both test rows literal `1000`, the reviewer re-emitted findings citing `want: maxReviewRuleTokens` (the removed line) and claimed "the test will fail" (it passes) | stet reviewer bug; dismissed `already_correct` with evidence | #11 comment 6591663565; findings 694b485/c85f49d |
+| Dismissal restore did not carry c85f49d across a finished session (re-emitted identical finding id came back active, `dismissed: 0` in the new session) | stet behavior observation for follow-up | this session (.review/history.jsonl) |
 
 ---
 
@@ -70,6 +73,9 @@ Decision trace: R(1000)=3.33, R(2000)=3.33, R(default)=3.00 → R*=3.33, smalles
 | 2026-11-02 | Variant 2000: 21/21 ok, exit 0 | results-2000/ committed |
 | 2026-11-02 | Variant default (8192): 21/21 ok, exit 0 | results-default/ committed |
 | 2026-11-02 | Scored all variants; decision rule → v*=1000; cap 8192→1000; docs updated; posted to #11 | comment 6591663565 |
+| 2026-11-02 | Contract round 1: 2 findings → 1 fixed (fbf6835), 1 dismissed (9a0f82a) | commits 68863c2 |
+| 2026-11-02 | Contract round 2: 2 findings → 1 dismissed (1cdbef8), 1 fixed (c85f49d → ad9f7e1) | commits ad9f7e1 |
+| 2026-11-02 | Contract round 3: stale minus-line findings dismissed; contract re-run exit 0 | CONTRACT_EXIT=0 |
 
 ---
 
