@@ -105,7 +105,7 @@ validate: 7 passed, 0 failed · analyze: 0 blocking, 0 warning
 | 1 | 20261102T162750-65d6 | SP-078 | 0 | /tmp/stet-release-check-wave-1.log | 0 | `a90293d` (CI 41510136666 green) | #18 |
 | 2 | 20261102T192933-3d83 | SP-080 (one final-review retry) | 1 (test nit, not a defect) | /tmp/stet-release-check-wave-2.log | 0 | `e5f2e8e` (CI 41517349883 green) | none — #20 stays open: no wording passed the pre-registered rule (`Partial #20`) |
 | 3 | 20261102T201602-d098 | SP-081 (operator correction 0.3 → 0.2 per the pre-registered rule; operator-written `.DONE` after 3 worker runs omitted it) | 0 | /tmp/stet-release-check-wave-3.log | 0 | `61301aa` (CI 41544653116 green) | #34 |
-| 4 | 20261102T232226-95c6 | SP-083 (v*=1000 per the pre-registered rule; final review retried twice after reviewer exited with no artifact) | 0 | /tmp/stet-release-check-wave-4.log | 0 | pending | #11 |
+| 4 | 20261102T232226-95c6 | SP-083 (v*=1000 per the pre-registered rule; final review retried twice after reviewer exited with no artifact) | 0 | /tmp/stet-release-check-wave-4.log | 0 | `449f71e` (CI 41554019476 green) | #11 |
 
 ---
 
