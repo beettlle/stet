@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-qi30kpsz/internal/track/submit.go#L35",
+      "file": "internal/track/submit.go",
+      "id": "7cd73d180eb024029bb61968a638e12eed5236307913bd72ad9c4a4df8bc5cd4",
+      "line": 35,
+      "message": "The change replaces the caller-provided context with context.Background(), which disables cancellation and deadline propagation. This violates the function signature's contract (which accepts a context) and can lead to resource leaks or unresponsive behavior if the caller expects the request to be cancelled.",
+      "severity": "error",
+      "suggestion": "Revert to using the provided ctx parameter: http.NewRequestWithContext(ctx, http.MethodPost, c.Endpoint, bytes.NewReader(body))"
+    }
+  ]
+}

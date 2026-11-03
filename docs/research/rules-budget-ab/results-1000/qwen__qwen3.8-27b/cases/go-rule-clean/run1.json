@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-o25x3un0/internal/notice/dispatch.go#L22",
+      "file": "internal/notice/dispatch.go",
+      "id": "0a2e5b15347ba5ca84386775851d40cd23f51de8075dddf9be053caea5ba8c99",
+      "line": 22,
+      "message": "The variable `_timeout` is likely a typo for `timeout`. In Go, a leading underscore is not a valid identifier prefix for a standard variable name unless explicitly named so, and `timeout` was used in the previous version. This will cause a compilation error if `_timeout` is not defined.",
+      "severity": "error",
+      "suggestion": "Change `_timeout` to `timeout`."
+    }
+  ]
+}

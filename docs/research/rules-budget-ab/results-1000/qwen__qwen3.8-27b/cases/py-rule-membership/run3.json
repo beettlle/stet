@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "security",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-yg1l62es/auditlog/redact.py#L28",
+      "file": "auditlog/redact.py",
+      "id": "098a4242c6504ee042a0b6997e87c4ee023bb411abd512e44f09c0b71deb171f",
+      "line": 28,
+      "message": "The redaction logic uses a strict allowlist (denylist of sensitive fields) to determine what to mask. This is a security risk because any sensitive field not explicitly listed in SENSITIVE_FIELDS (e.g., 'api_key', 'secret', 'private_key', 'email', 'ip_address') will be logged in plaintext. The previous behavior of redacting everything was safer against data leakage.",
+      "severity": "warning",
+      "suggestion": "Change the logic to a default-deny approach: redact all fields by default, and only include fields explicitly listed in a SAFE_FIELDS allowlist. Alternatively, use a regex pattern to match common sensitive keywords (e.g., 'key', 'secret', 'token', 'password') in addition to the explicit list."
+    }
+  ]
+}

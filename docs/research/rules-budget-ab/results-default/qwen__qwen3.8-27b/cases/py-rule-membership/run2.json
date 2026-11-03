@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "security",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-qybg_juk/auditlog/redact.py#L28",
+      "file": "auditlog/redact.py",
+      "id": "67f514ddef9077ddaad7a760f73a64ec3ab2698e1ca84528e2565023a04add11",
+      "line": 28,
+      "message": "Membership check against a list is O(n) per key. For large records or frequent calls, this becomes a performance bottleneck. Use a set for O(1) lookups.",
+      "severity": "warning",
+      "suggestion": "SENSITIVE_FIELDS = frozenset([...])"
+    }
+  ]
+}

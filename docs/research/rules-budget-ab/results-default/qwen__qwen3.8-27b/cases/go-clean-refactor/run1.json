@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-gf20337f/internal/units/parse.go#L18",
+      "file": "internal/units/parse.go",
+      "id": "a3003f85150bc3dd56e8fbd8d7d1c9b0666f072331e454de681280222c856cdf",
+      "line": 18,
+      "message": "The refactored code uses `numPart` and `unitPart` from `splitNumberUnit`, but the diff does not show the implementation of `splitNumberUnit`. If `splitNumberUnit` does not correctly handle edge cases (e.g., leading/trailing spaces, negative numbers, or multiple dots) that the previous inline logic handled, this could introduce parsing bugs. Additionally, the previous code used `strings.TrimSpace` on `unitPart`, but the new code relies on `splitNumberUnit` to return a trimmed unit. Ensure `splitNumberUnit` trims the unit part to avoid parsing failures for inputs like \"10 GB\".",
+      "severity": "warning",
+      "suggestion": "Verify that `splitNumberUnit` correctly trims whitespace from the unit part and handles all edge cases that the previous inline logic handled."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-gf20337f/internal/units/parse.go#L37",
+      "file": "internal/units/parse.go",
+      "id": "88c17d885e452249d5a4facb63a20b2303113fae5aa05a4e75b01bf30017354d",
+      "line": 37,
+      "message": "The function `splitNumberUnit` is defined but never called in the provided context. The `ParseByteSize` function (shown in the context) does not appear to use this new helper, meaning the new code is dead code and the parsing logic in `ParseByteSize` is likely still using a different (possibly duplicated or incorrect) method to split the number and unit.",
+      "severity": "warning",
+      "suggestion": "Ensure `ParseByteSize` calls `splitNumberUnit` to extract the numeric and unit parts, or remove `splitNumberUnit` if it is not intended to be used."
+    }
+  ]
+}

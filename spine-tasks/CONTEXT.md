@@ -348,3 +348,6 @@ When implementation is **Done** in a lane worktree (`.DONE` present, tests pass)
 **DirtyWorktree** (untracked `extension/coverage/`): run `scripts/check-untracked-coverage.sh`; ensure coverage dirs are gitignored ([#74](https://github.com/beettlle/pi-spine/issues/74)). SP-013 adds the guard.
 
 ---
+## Tech debt (logged by task workers)
+
+- **SP-083 (2026-11-02):** `cli/internal/config/config.go` line 29 doc comment still says the `rules_max_tokens` default is "clamped to [1000, 8192]" after SP-083 changed `maxReviewRuleTokens` to 1000 (clamp now [1000, 1000], i.e. a flat 1000-token default). The file is outside SP-083's File Scope (`cli/internal/config/**` in mustNotChange), so the comment was left stale; behavior and tests are correct. Fix the comment in a follow-up touching config (see `docs/research/rules-budget-ab.md`).

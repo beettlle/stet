@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-rvool04d/internal/notice/dispatch.go#L22",
+      "file": "internal/notice/dispatch.go",
+      "id": "7c2daca11bc03ba1ae5adf0681d55efc41cc384066e6174b6a8247da5289c85e",
+      "line": 22,
+      "message": "The variable `timeout` was renamed to `_timeout` in the `NewSender` function. In Go, a leading underscore is a convention for unexported package-level variables, but it is not a valid identifier for a local variable or a standard naming convention for a package-level constant. If `timeout` was a package-level constant, renaming it to `_timeout` is a style violation. If it was a local variable, it is now a package-level variable with a confusing name. More importantly, if `timeout` was a constant defined elsewhere, this change breaks the code or implies a rename that should be consistent across the package.",
+      "severity": "warning",
+      "suggestion": "Rename `_timeout` back to `timeout` or use a descriptive name like `defaultTimeout`. Ensure the name follows Go naming conventions (unexported package variables should start with a lowercase letter, not an underscore)."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-rvool04d/internal/notice/dispatch.go#L47",
+      "file": "internal/notice/dispatch.go",
+      "id": "5a7d8316bd1ce8b530a93ac76e740cfb12ea70fc6327fc20ad87a3d1eddef1e1",
+      "line": 47,
+      "message": "The `Sender` struct is created with a default `http.Client` that has a fixed timeout but does not use the provided `context.Context`. If `Send` does not explicitly pass `ctx` to the HTTP request (e.g., via `http.NewRequestWithContext`), the `ctx` parameter will be ignored, and the function will not respect context cancellation or deadlines.",
+      "severity": "warning",
+      "suggestion": "Ensure that `Sender.Send` uses `http.NewRequestWithContext(ctx, ...)` or that the `Sender` struct holds a reference to the context or uses a context-aware client."
+    }
+  ]
+}

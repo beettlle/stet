@@ -1,0 +1,1 @@
+stet: rule budget of 1000 tokens dropped 207 rule section(s) from review prompts (e.g. ["critical-rules-quick-reference.mdc: 10. Test-Implementation Mismatch" "critical-rules-quick-reference.mdc: 11. Warning Dismissal Anti-Pattern" "critical-rules-quick-reference.mdc: 12. False Compilation Claims"]); raise rules_max_tokens to include more

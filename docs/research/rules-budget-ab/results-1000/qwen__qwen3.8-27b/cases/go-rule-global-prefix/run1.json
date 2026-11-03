@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-oz263w2e/internal/ratelimit/window.go#L25",
+      "file": "internal/ratelimit/window.go",
+      "id": "5b6293fbc2b7c797807c7ad06135ecc9cee23ea9eee26c0197827b6087b8eead",
+      "line": 25,
+      "message": "The `span` parameter is a `time.Duration` (int64). If a caller passes a negative duration (e.g., due to a bug or malicious input), the condition `span < minSpan` evaluates to true, and `span` is set to `minSpan`. However, if `minSpan` is also negative or zero, the window logic could behave unexpectedly. More importantly, if `minSpan` is a positive constant, this silently changes the caller's intent. If the intent is to enforce a minimum positive span, the check should be `span <= 0` or `span < minSpan` where `minSpan` is guaranteed positive. If `minSpan` is 0, this code does nothing for negative spans. Please verify `minSpan` is a positive constant. If `minSpan` is 0, negative spans will still be passed to `prune`, potentially causing `now.Add(-span)` to move forward in time, which is incorrect for a sliding window.",
+      "severity": "warning",
+      "suggestion": "Ensure `minSpan` is a positive duration. If `minSpan` is 0, consider clamping to 0 explicitly: `if span < 0 { span = 0 }` or `if span < minSpan { span = minSpan }` where `minSpan > 0`."
+    }
+  ]
+}

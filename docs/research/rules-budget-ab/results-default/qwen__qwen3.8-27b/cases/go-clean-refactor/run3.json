@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-vq5vm5oe/internal/units/parse.go#L18",
+      "file": "internal/units/parse.go",
+      "id": "386f76b7f5b023383fa791da18e3af845232a004fb5d6fc6eaccd502cb1b4f2d",
+      "line": 18,
+      "message": "The refactored code calls `splitNumberUnit` to extract `numPart` and `unitPart`, but the `if !hasUnit` branch incorrectly parses the entire `normalized` string instead of `numPart`. While `numPart` equals `normalized` when `hasUnit` is false, using `normalized` directly is inconsistent with the intent of the refactoring and can lead to subtle bugs if `splitNumberUnit` behavior changes. More critically, the code below the `if` block uses `numPart` and `unitPart`, but the `if !hasUnit` branch returns early, so `numPart` and `unitPart` are only used when `hasUnit` is true. However, the `if !hasUnit` branch should use `numPart` for consistency and to avoid parsing the full string if `splitNumberUnit` ever trims or modifies the numeric part.",
+      "severity": "warning",
+      "suggestion": "Change `strconv.ParseFloat(normalized, 64)` to `strconv.ParseFloat(numPart, 64)` in the `if !hasUnit` branch."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-vq5vm5oe/internal/units/parse.go#L37",
+      "file": "internal/units/parse.go",
+      "id": "a853bb048416e7abb84206972e54bab852a7091a28349465030483f1547821a3",
+      "line": 37,
+      "message": "The function `splitNumberUnit` is defined but never called. The `ParseByteSize` function (shown in context) does not use it, and no other callers are visible in the diff. This is dead code.",
+      "severity": "warning",
+      "suggestion": "Either integrate `splitNumberUnit` into `ParseByteSize` to replace the existing parsing logic, or remove the function if it is not needed."
+    }
+  ]
+}

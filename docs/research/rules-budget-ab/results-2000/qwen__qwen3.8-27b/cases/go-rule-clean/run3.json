@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ed4f9n_w/internal/notice/dispatch.go#L22",
+      "file": "internal/notice/dispatch.go",
+      "id": "75bb6d759ee139bfe7a4da73e6673235953493535d8d62e26f7cb8c758c630f9",
+      "line": 22,
+      "message": "The identifier `_timeout` is invalid Go syntax. Variables cannot start with an underscore. This will cause a compilation error.",
+      "severity": "error",
+      "suggestion": "Rename `_timeout` to `timeout` (assuming the constant is defined as `timeout` elsewhere in the package)."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ed4f9n_w/internal/notice/dispatch.go#L47",
+      "file": "internal/notice/dispatch.go",
+      "id": "b564e033e31f456a20b0434210fb294911b6d1a0a3420d329a86d1614298a8f4",
+      "line": 47,
+      "message": "The `ctx` parameter is accepted but never checked for cancellation or deadline. The loop will continue sending messages even if the context is canceled, violating the contract of context propagation.",
+      "severity": "warning",
+      "suggestion": "Add a check for `ctx.Err()` at the start of the loop or before each `Send` call to respect cancellation."
+    }
+  ]
+}

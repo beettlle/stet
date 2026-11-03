@@ -1,0 +1,37 @@
+{
+  "findings": [
+    {
+      "category": "style",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-hitidwzt/invoicing/render.py#L10",
+      "file": "invoicing/render.py",
+      "id": "3e824720aa5520657f35aca8222a7057fbc3ef6e44c8b8a3c39f1ab78724202d",
+      "line": 10,
+      "message": "Function name 'formatRow' uses camelCase, which violates PEP 8 naming conventions for Python functions (should be snake_case).",
+      "severity": "warning",
+      "suggestion": "Rename 'formatRow' to 'format_row'."
+    },
+    {
+      "category": "style",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-hitidwzt/invoicing/render.py#L15",
+      "file": "invoicing/render.py",
+      "id": "251e1ea003c6813c7e657a2dbe92759eca5ea168df66784a72977ff979874cb1",
+      "line": 15,
+      "message": "Function name 'renderInvoice' uses camelCase, which violates PEP 8 naming conventions for Python functions (should be snake_case).",
+      "severity": "warning",
+      "suggestion": "Rename 'renderInvoice' to 'render_invoice'."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-hitidwzt/invoicing/render.py#L33",
+      "file": "invoicing/render.py",
+      "id": "ff18b53a4562626189550b208da6d24c043602dcbf9750ece602ddfc635da282",
+      "line": 33,
+      "message": "Inconsistent naming convention: the function is defined as `renderInvoice` (camelCase) but the module uses snake_case for other functions like `total_for` and `render_batch`. This violates PEP 8 and the project's established style, and will likely cause linting errors or confusion.",
+      "severity": "error",
+      "suggestion": "Rename the function definition `renderInvoice` to `render_invoice` to match the snake_case convention used by `total_for` and `render_batch`."
+    }
+  ]
+}

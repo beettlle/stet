@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-z_k2dshc/internal/units/parse.go#L18",
+      "file": "internal/units/parse.go",
+      "id": "8b8c95ed6b87e7970693ed2f33d8d20aff1751e2a755481b4ba43fc7d473b7f6",
+      "line": 18,
+      "message": "The refactored code calls `splitNumberUnit` to extract `numPart` and `unitPart`, but the subsequent `strconv.ParseFloat` call still uses the full `normalized` string instead of `numPart`. This will cause a parse error for any input containing a unit suffix (e.g., \"10GB\"), as `ParseFloat` cannot parse the unit characters.",
+      "severity": "warning",
+      "suggestion": "Change `strconv.ParseFloat(normalized, 64)` to `strconv.ParseFloat(numPart, 64)`."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-z_k2dshc/internal/units/parse.go#L37",
+      "file": "internal/units/parse.go",
+      "id": "787b3a6651ba8bf59b6fa3a213dc6ae3ff8c2003aca31806d996c26fc70c9ed4",
+      "line": 37,
+      "message": "splitNumberUnit returns an empty numeric prefix when the input starts with a non-digit character (e.g., \".5GB\" or \"1.5.2GB\"). This causes the caller to parse an empty string as 0, silently returning 0 bytes for valid inputs like \".5GB\" instead of an error or the correct value.",
+      "severity": "warning",
+      "suggestion": "Check if i == 0 and return an error or handle the leading dot case explicitly. For example: if i == 0 { return \"\", \"\", false } or return an error indicating invalid format."
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+stet: rule budget of 1000 tokens dropped 205 rule section(s) from review prompts (e.g. ["ai-ml-development-standards.mdc: 2.1 GPU Memory Leaks (CRIT)" "ai-ml-development-standards.mdc: 2.2 Inefficient Data Loading (CRIT)" "ai-ml-development-standards.mdc: 2.3 Missing Memory Management (CRIT)"]); raise rules_max_tokens to include more

@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "security",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-36iisrq5/auditlog/redact.py#L29",
+      "file": "auditlog/redact.py",
+      "id": "971b580fbbe10c48d0606b9473ccb834f66491cb2d5b66f0e377b283d0bc170c",
+      "line": 29,
+      "message": "The redaction logic uses a strict allowlist (denylist) of sensitive fields. If a record contains a sensitive field not explicitly listed in SENSITIVE_FIELDS (e.g., 'api_key', 'secret', 'private_key', 'credit_card'), its value will be logged in plaintext, leading to a data leak.",
+      "severity": "warning",
+      "suggestion": "Invert the logic to a default-deny approach: redact all fields by default, and only include fields explicitly listed in a SAFE_FIELDS allowlist. Alternatively, use a regex to match common sensitive patterns (e.g., keys containing 'key', 'secret', 'token', 'password')."
+    }
+  ]
+}

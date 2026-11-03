@@ -1,0 +1,37 @@
+{
+  "findings": [
+    {
+      "category": "design",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ydv0y9gn/internal/ratelimit/window.go#L8",
+      "file": "internal/ratelimit/window.go",
+      "id": "8c4d39544d73fc3404cd9f3597895ad9d4c4a6f2c1a9b272a2d18e10a284a7d8",
+      "line": 8,
+      "message": "The new `minSpan` variable is declared but not used in the visible code. If it is intended to enforce a minimum window duration, it must be applied in the `NewWindow` constructor or wherever the window duration is set. As it stands, it is dead code.",
+      "severity": "warning",
+      "suggestion": "Use `minSpan` in the `NewWindow` function to clamp the provided window duration, e.g., `if window < minSpan { window = minSpan }`."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ydv0y9gn/internal/ratelimit/window.go#L25",
+      "file": "internal/ratelimit/window.go",
+      "id": "0cea33b03233b75a93ec6dd3f2bb9757f638ee9e6b2c9d2e8809800e77f63350",
+      "line": 25,
+      "message": "The added span clamping logic is placed after time.Now() but before the mutex lock. While the clamping itself is safe, the placement suggests the intent to enforce a minimum window size. However, if minSpan is a package-level variable (not a constant), it could theoretically be modified concurrently, leading to a race condition. More importantly, if minSpan is intended to be a fixed lower bound, it should be a constant to guarantee immutability and avoid any potential data race if it were ever a variable. Assuming minSpan is a constant, the logic is correct. If minSpan is a variable, this is a race condition.",
+      "severity": "warning",
+      "suggestion": "Ensure minSpan is defined as a constant (e.g., const minSpan = 1 * time.Millisecond) rather than a variable to prevent potential race conditions and clarify intent."
+    },
+    {
+      "category": "documentation",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ydv0y9gn/internal/ratelimit/window.go#L51",
+      "file": "internal/ratelimit/window.go",
+      "id": "a493ee2568d9ddaa4e2c840eeccd9b7961e13f68a40ec95cf5ec78e41d022a3d",
+      "line": 51,
+      "message": "The comment 'for the whole process' is misleading. The method is defined on a *Window instance and only clears the entries map for that specific instance, not for the entire process or all Window instances.",
+      "severity": "nitpick",
+      "suggestion": "Change the comment to: 'Reset clears all recorded hits for this window.'"
+    }
+  ]
+}

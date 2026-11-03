@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-26_1gim6/inventory/stock.py#L13",
+      "file": "inventory/stock.py",
+      "id": "78583a8e5258bd7ad365d0422a07e7d92677d2508724b16da7e3e0bfe937ef7a",
+      "line": 13,
+      "message": "add_delivery does not validate that count is non-negative. Passing a negative count will silently reduce inventory, which is semantically incorrect for a delivery and can lead to negative stock levels.",
+      "severity": "warning",
+      "suggestion": "Add a check at the start of add_delivery: if count < 0: raise ValueError(\"count must be non-negative\")"
+    }
+  ]
+}

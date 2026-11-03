@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-t82on2h8/internal/ratelimit/window.go#L8",
+      "file": "internal/ratelimit/window.go",
+      "id": "cd469ab9e68254a3ad1c317f2d0c76ef316f7c8823adcde620b7995ccd09b8d8",
+      "line": 8,
+      "message": "The variable 'minSpan' is declared but never used in the provided code. In Go, unused package-level variables do not cause a compilation error, but this indicates the intended validation logic (clamping the window span to a minimum of 100ms) is missing. Without the enforcement logic, the variable is dead code and the rate limiter may still accept arbitrarily small windows, defeating the purpose of the bound.",
+      "severity": "warning",
+      "suggestion": "Either remove the unused variable or implement the logic that uses it (e.g., in NewWindow or a setter method to ensure the window duration is at least minSpan)."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-t82on2h8/internal/ratelimit/window.go#L25",
+      "file": "internal/ratelimit/window.go",
+      "id": "315640d837d771cfa0d20d63ebfde78acbc658107ac37c7071406290d5c72b00",
+      "line": 25,
+      "message": "The `span` parameter is a `time.Duration` (int64). If a caller passes a negative duration (e.g., due to a bug or malicious input), the condition `span < minSpan` evaluates to true, and `span` is set to `minSpan`. However, if `minSpan` is also negative or zero, or if the intent was to strictly enforce a positive lower bound, this logic might be insufficient depending on the definition of `minSpan`. More critically, if `minSpan` is a positive constant, this correctly clamps negative values. But if `minSpan` is 0, negative spans are clamped to 0, which might lead to `now.Add(-0)` being `now`, potentially causing unexpected behavior in `prune` if it expects a positive window. Assuming `minSpan` is a positive constant (as implied by the name), this is likely correct. However, a more robust check would be `if span <= 0` if the intent is to prevent zero/negative windows, or explicitly `if span < minSpan` is fine if `minSpan` is the absolute minimum. Given the name `minSpan`, it implies a minimum positive value. The logic is sound if `minSpan` > 0. No defect found if `minSpan` is a positive constant.",
+      "severity": "warning",
+      "suggestion": "Ensure `minSpan` is defined as a positive duration constant. If `minSpan` is 0, consider using `if span <= 0` to avoid zero-width windows."
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-cubftceo/internal/ratelimit/window.go#L25",
+      "file": "internal/ratelimit/window.go",
+      "id": "2b12b848cc1ca9613fafbddb977d3c36e325bc6f0c3650ba2abc31c2070f77aa",
+      "line": 25,
+      "message": "The added span clamping logic is placed after time.Now() but before the mutex lock. While the span variable is local and safe from race conditions, the placement is slightly misleading as it suggests it might be part of the critical section. More importantly, if minSpan is a package-level variable that could be modified concurrently (e.g., for testing or configuration), reading it without the lock could lead to inconsistent behavior if the value changes between the read and the prune call. However, since minSpan is likely a constant, this is a minor style/placement issue. The primary concern is that the logic is correct but the placement outside the lock is unnecessary if minSpan is immutable. If minSpan is mutable, it should be read inside the lock or be atomic. Given the context of a rate limiter, minSpan is almost certainly a constant, so this is a nitpick on placement.",
+      "severity": "warning",
+      "suggestion": "Move the span clamping logic inside the mutex lock for consistency, or ensure minSpan is a constant. If minSpan is a constant, the current code is functionally correct but the placement is slightly unconventional."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-cubftceo/internal/ratelimit/window.go#L51",
+      "file": "internal/ratelimit/window.go",
+      "id": "7b924ca8c3a426b00597f6e7a0c08274e63e230da0262b9c0565b4ded62a49eb",
+      "line": 51,
+      "message": "The comment claims Reset drops hits for the 'whole process', but the method is on a *Window instance and only clears that specific instance's entries. If multiple Window instances exist, the comment is misleading and may cause developers to incorrectly assume global state is cleared.",
+      "severity": "warning",
+      "suggestion": "Change the comment to accurately reflect the scope, e.g., 'Reset clears all recorded hits for this window instance.'"
+    }
+  ]
+}

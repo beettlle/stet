@@ -1,0 +1,1 @@
+stet: rule budget of 2000 tokens dropped 189 rule section(s) from review prompts (e.g. ["ai-ml-development-standards.mdc: 2.3 Missing Memory Management (CRIT)" "ai-ml-development-standards.mdc: 3.1 Missing RNG Seeding (CRIT)" "ai-ml-development-standards.mdc: 3.2 Non-Deterministic Operations (CRIT)"]); raise rules_max_tokens to include more

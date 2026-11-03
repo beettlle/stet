@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-z825kful/internal/notice/dispatch.go#L22",
+      "file": "internal/notice/dispatch.go",
+      "id": "8977b06879280c6d14ff3e20ae518140ba3d0e2a6244af3a7d12dd0f85b2d124",
+      "line": 22,
+      "message": "The variable `_timeout` is likely a typo for `timeout`. In Go, a leading underscore is not a valid identifier prefix for a package-level variable unless explicitly named so, and `timeout` was the original name. This will cause a compilation error if `_timeout` is not defined.",
+      "severity": "error",
+      "suggestion": "Change `_timeout` to `timeout`."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-z825kful/internal/notice/dispatch.go#L47",
+      "file": "internal/notice/dispatch.go",
+      "id": "28578e47e426cc0a4e8ce0c4f2ebe4791022272c8b7ae4327448f871102a7df2",
+      "line": 47,
+      "message": "The `Sender` struct's `Client` field is initialized with a fixed `Timeout` in `NewSender`, but the `Send` method now accepts a `context.Context`. If the context is cancelled or times out before the HTTP client's timeout, the request will not be aborted because the `http.Client` does not natively use the context unless the request is created with `http.NewRequestWithContext` or the client is configured to respect it. Ensure `Send` uses `http.NewRequestWithContext(ctx, ...)` to properly propagate cancellation and timeouts.",
+      "severity": "warning"
+    }
+  ]
+}

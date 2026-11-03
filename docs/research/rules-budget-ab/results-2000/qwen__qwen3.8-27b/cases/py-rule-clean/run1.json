@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-isfu4krq/inventory/stock.py#L13",
+      "file": "inventory/stock.py",
+      "id": "feed48b02871628c5ab54b0d2b78703ede4c96f0436731928f8aad7e850fc3cf",
+      "line": 13,
+      "message": "add_delivery allows negative counts, which can corrupt inventory levels if called with invalid input.",
+      "severity": "warning",
+      "suggestion": "Add a guard to reject negative counts: if count < 0: raise ValueError(\"count must be non-negative\")"
+    }
+  ]
+}

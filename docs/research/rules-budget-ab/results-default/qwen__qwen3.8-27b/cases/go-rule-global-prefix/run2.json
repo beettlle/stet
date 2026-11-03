@@ -1,0 +1,37 @@
+{
+  "findings": [
+    {
+      "category": "best_practice",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-_3t_j3_b/internal/ratelimit/window.go#L8",
+      "file": "internal/ratelimit/window.go",
+      "id": "ba2c742b4c5b073bf027302b38997658c4d83d5e6865d28f7a6a04ed7abb80a0",
+      "line": 8,
+      "message": "`minSpan` is a constant value and should be declared as `const` rather than `var` to prevent accidental reassignment and improve clarity.",
+      "severity": "warning",
+      "suggestion": "const minSpan = 100 * time.Millisecond"
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-_3t_j3_b/internal/ratelimit/window.go#L25",
+      "file": "internal/ratelimit/window.go",
+      "id": "e4f0054b6d56e5255318d4f967f8ae3a63bd1700365f7f45153cbac2e65ad049",
+      "line": 25,
+      "message": "The `span` parameter is being mutated to enforce a minimum value. This is a side effect on a parameter that may be confusing to callers who expect the original value to be preserved. It is better to use a local variable for the clamped value to avoid mutating the input parameter.",
+      "severity": "warning",
+      "suggestion": "Use a local variable for the clamped span: `effectiveSpan := span; if effectiveSpan < minSpan { effectiveSpan = minSpan }; hits := w.prune(key, now.Add(-effectiveSpan))`"
+    },
+    {
+      "category": "documentation",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-_3t_j3_b/internal/ratelimit/window.go#L51",
+      "file": "internal/ratelimit/window.go",
+      "id": "5c97e6b2108a940df6dab8ad759fd11c6d65156ee6db6db7ba4c62a410bc450d",
+      "line": 51,
+      "message": "The comment claims Reset affects the 'whole process', which is misleading. The method is on a *Window instance and only clears the entries map for that specific instance. If multiple Window instances exist, they are not affected. The original comment 'clears all recorded hits' was more accurate.",
+      "severity": "nitpick",
+      "suggestion": "// Reset clears all recorded hits for this window instance."
+    }
+  ]
+}

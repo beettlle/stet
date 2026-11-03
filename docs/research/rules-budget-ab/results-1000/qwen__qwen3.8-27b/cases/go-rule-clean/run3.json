@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-yzz33e1w/internal/notice/dispatch.go#L22",
+      "file": "internal/notice/dispatch.go",
+      "id": "8bfa02d6a1322e2f4bcb07b2849cf122f1105dc378cef5af4b56204ac34b2d73",
+      "line": 22,
+      "message": "The variable `_timeout` is likely a typo for `timeout`. In Go, identifiers starting with an underscore are not special (unlike in Python), so `_timeout` is a distinct identifier. If `timeout` is the intended constant, this will cause a compilation error.",
+      "severity": "error",
+      "suggestion": "Change `_timeout` to `timeout`."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-yzz33e1w/internal/notice/dispatch.go#L47",
+      "file": "internal/notice/dispatch.go",
+      "id": "d02ad99129d401832becfbed48468c2bfe0b562e4809486127be77deea482d3b",
+      "line": 47,
+      "message": "The `ctx` parameter is accepted but never used. The `Sender` struct and `NewSender` do not support context, and `sender.Send` is called without it. This means the HTTP request will not respect cancellation or deadlines, violating the intent of adding the parameter.",
+      "severity": "warning",
+      "suggestion": "Update `Sender` to store the context or pass it to the underlying HTTP client call, and ensure `Send` uses `ctx` when making the request."
+    }
+  ]
+}

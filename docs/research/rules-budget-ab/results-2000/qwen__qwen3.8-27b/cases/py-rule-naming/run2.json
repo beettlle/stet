@@ -1,0 +1,37 @@
+{
+  "findings": [
+    {
+      "category": "style",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-zcxi1gg5/invoicing/render.py#L10",
+      "file": "invoicing/render.py",
+      "id": "d8caa8d267d0e65bee5e179f31d1cca9cdf16a958a948f8384c33b4f8dea1664",
+      "line": 10,
+      "message": "Function name 'formatRow' uses camelCase, which violates PEP 8 naming conventions for Python functions. The original snake_case 'format_row' was correct.",
+      "severity": "warning",
+      "suggestion": "Revert to 'def format_row(label: str, amount: float) -> str:' and update all call sites to use 'format_row'."
+    },
+    {
+      "category": "style",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-zcxi1gg5/invoicing/render.py#L15",
+      "file": "invoicing/render.py",
+      "id": "6335b04e692d6ab1cefced0b237ff05ed256284324798ea830f21e6907021b65",
+      "line": 15,
+      "message": "Function name 'renderInvoice' uses camelCase, which violates PEP 8 naming conventions for Python functions. The original snake_case 'render_invoice' was correct.",
+      "severity": "warning",
+      "suggestion": "Revert to 'def render_invoice(invoice: dict) -> str:' and update all call sites to use 'render_invoice'."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-zcxi1gg5/invoicing/render.py#L33",
+      "file": "invoicing/render.py",
+      "id": "9c633b65826a1b1f9200a4d5d7830806cc80a2858b9305ec775815c39c54123d",
+      "line": 33,
+      "message": "The function `renderInvoice` is defined with camelCase naming, which violates the project's Python naming standards (PEP 8 and the provided 'Meaningful and Descriptive Names' rule requiring snake_case). The diff changes the call site to match this non-standard name, propagating the violation. The function should be renamed to `render_invoice` to comply with Python conventions.",
+      "severity": "error",
+      "suggestion": "Rename the function definition `def renderInvoice` to `def render_invoice` and update the call site in `render_batch` to `render_invoice`."
+    }
+  ]
+}

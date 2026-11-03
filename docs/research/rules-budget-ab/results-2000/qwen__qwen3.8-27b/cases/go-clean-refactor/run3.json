@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-d04sw47u/internal/units/parse.go#L18",
+      "file": "internal/units/parse.go",
+      "id": "9ab588412091ec0986325177e90f0b9b9723aa7f458af4245467c815984cb47f",
+      "line": 18,
+      "message": "The refactored code calls `splitNumberUnit` to extract `numPart` and `unitPart`, but the `if !hasUnit` branch incorrectly parses the entire `normalized` string instead of `numPart`. While `numPart` equals `normalized` when `hasUnit` is false, using `normalized` directly is inconsistent with the intent of the helper and could lead to subtle bugs if `splitNumberUnit` behavior changes or if `numPart` is expected to be the canonical numeric representation. More critically, the code below the `if` block uses `numPart` for the unit case, but the `if` branch uses `normalized`. This inconsistency is a code smell and potential source of error.",
+      "severity": "warning",
+      "suggestion": "Change `strconv.ParseFloat(normalized, 64)` to `strconv.ParseFloat(numPart, 64)` in the `if !hasUnit` branch for consistency."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-d04sw47u/internal/units/parse.go#L37",
+      "file": "internal/units/parse.go",
+      "id": "398a3bf79cfae9db70f6989b77a73a031b2d2da30d4485dc31a73e4e97496314",
+      "line": 37,
+      "message": "splitNumberUnit returns an empty numeric prefix when the input starts with a non-digit character (e.g., \".5GB\" or \"1.5.2GB\"). This causes the caller to parse an empty string as 0, silently returning 0 bytes instead of an error for invalid or decimal-leading inputs.",
+      "severity": "warning",
+      "suggestion": "Add a check after the loop or before returning to ensure the numeric prefix is not empty. If `num` is empty, return an error or handle the case where the string starts with a non-digit character."
+    }
+  ]
+}

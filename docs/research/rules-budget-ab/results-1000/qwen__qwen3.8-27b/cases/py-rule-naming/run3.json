@@ -1,0 +1,37 @@
+{
+  "findings": [
+    {
+      "category": "style",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-xn9h84y4/invoicing/render.py#L10",
+      "file": "invoicing/render.py",
+      "id": "901dab5eb0838182b9678df589bed450b320e88554e33211ce094bca3b3e645f",
+      "line": 10,
+      "message": "Function name `formatRow` uses camelCase, which violates PEP 8 naming conventions for Python functions. The previous snake_case `format_row` was correct.",
+      "severity": "warning",
+      "suggestion": "Rename `formatRow` to `format_row`."
+    },
+    {
+      "category": "style",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-xn9h84y4/invoicing/render.py#L15",
+      "file": "invoicing/render.py",
+      "id": "cff0842387f2de5e32881ebae9ffeefd3709658fb63dc691d3826642d1799ac7",
+      "line": 15,
+      "message": "Function name `renderInvoice` uses camelCase, which violates PEP 8 naming conventions for Python functions. The previous snake_case `render_invoice` was correct.",
+      "severity": "warning",
+      "suggestion": "Rename `renderInvoice` to `render_invoice`."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-xn9h84y4/invoicing/render.py#L33",
+      "file": "invoicing/render.py",
+      "id": "98bfa6ee2c6817567a920cbe698683bedd39bb2f1d63c75610d9479baf020a7f",
+      "line": 33,
+      "message": "Inconsistent naming convention: the diff renames the call to `renderInvoice` (camelCase), but the surrounding code uses snake_case (e.g., `total_for`, `render_batch`). This violates PEP 8 and the project's established style, and may indicate a refactoring error if the function was intended to be renamed to `render_invoice` but the definition was missed or the call was changed incorrectly.",
+      "severity": "error",
+      "suggestion": "Ensure the function name matches the project's snake_case convention. If the function definition is `def render_invoice`, use `render_invoice`. If it is `def renderInvoice`, consider renaming the definition to `render_invoice` for consistency."
+    }
+  ]
+}

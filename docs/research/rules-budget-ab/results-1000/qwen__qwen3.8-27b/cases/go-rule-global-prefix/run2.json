@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-abtig43l/internal/ratelimit/window.go#L25",
+      "file": "internal/ratelimit/window.go",
+      "id": "65e6dad6f6e070e461afa876d937f9077bc53a84236495e8a0c659935db1b3c2",
+      "line": 25,
+      "message": "The added span clamping logic is placed before the mutex lock. If `minSpan` is a package-level variable (rather than a constant), reading it without holding the lock creates a data race if it is ever modified concurrently. Additionally, if `minSpan` is intended to be a fixed constant, it should be declared as `const` to avoid unnecessary variable reads and potential race conditions.",
+      "severity": "warning",
+      "suggestion": "Ensure `minSpan` is declared as a `const` (e.g., `const minSpan = 1 * time.Second`) rather than a `var`. If it must be a variable, move the clamping logic inside the critical section after `w.mu.Lock()`."
+    }
+  ]
+}
