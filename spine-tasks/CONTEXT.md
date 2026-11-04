@@ -226,15 +226,17 @@ Manifest: `spine-tasks/_authoring/release-v1.5.0/manifest.md`. Scope approved 20
 
 | Task | Summary | Size | Status | Deps |
 |------|---------|------|--------|------|
-| SP-077 | Wave review shows only findings from the reviewed session (#5) | S | Pending | — |
-| SP-078 | Measure the critic with expanded context, SP-831 off/on (#18) | S | Pending | SP-077, SP-082 |
-| SP-079 | Critic-eval dataset from pi-spine release dismissals (#34, partial) | S | Pending | — |
-| SP-080 | System One critic rejects out-of-view "missing / undefined" claims (#20) | M | Pending | SP-078, SP-079 |
-| SP-081 | Sweep `systemone_min_keep` on the dataset and set the default (#34) | S | Pending | SP-079, SP-080 |
-| SP-082 | Rule-targeted model-eval cases and harness rule options (#11, partial) | M | Pending | — |
-| SP-083 | Rule-budget A/B eval and data-driven default (#11) | M | Pending | SP-081, SP-082 |
+| SP-077 | Wave review shows only findings from the reviewed session (#5) | S | Done | — |
+| SP-078 | Measure the critic with expanded context, SP-831 off/on (#18) | S | Done | SP-077, SP-082 |
+| SP-079 | Critic-eval dataset from pi-spine release dismissals (#34, partial) | S | Done | — |
+| SP-080 | System One critic rejects out-of-view "missing / undefined" claims (#20; no wording passed, #20 stays open) | M | Done | SP-078, SP-079 |
+| SP-081 | Sweep `systemone_min_keep` on the dataset and set the default (#34) | S | Done | SP-079, SP-080 |
+| SP-082 | Rule-targeted model-eval cases and harness rule options (#11, partial) | M | Done | — |
+| SP-083 | Rule-budget A/B eval and data-driven default (#11) | M | Done | SP-081, SP-082 |
 
 Edges are data deps (SP-080 uses SP-078's baseline and SP-079's dataset; SP-081 measures SP-080's criteria on SP-079's dataset; SP-083 uses SP-082's cases) plus serialization of exclusive LM Studio / OpenJev use (SP-077, SP-082 → SP-078) and `docs/cli-extension-contract.md` (SP-081 → SP-083).
+
+**Released:** v1.5.0 on 2026-11-03, tagged at `bc4a47e` (closes #5, #11, #18, #34; #20 measured, stays open). Release: https://github.com/beettlle/stet/releases/tag/v1.5.0
 
 ### Completed (wave 0 + follow-on)
 
