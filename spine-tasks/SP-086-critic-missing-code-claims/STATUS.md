@@ -1,7 +1,7 @@
 # SP-086: critic-missing-code-claims — Status
 
-**Current Step:** Step 2
-**Status:** 🔄 In Progress
+**Current Step:** Complete
+**Status:** ✅ Done — pending batch review
 **Last Updated:** 2026-11-20
 **Review Level:** 1
 **Review Counter:** 0
@@ -35,9 +35,11 @@ With the real SP-081 model scores, shipped `min_keep` 0.2 caught 29/78; the guar
 ---
 
 ### Step 2: Testing & Verification
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] Contract `testCommand` passes
+- [x] Contract `testCommand` passes
+
+`bash scripts/check-gofmt.sh && go vet ./cli/... && go test ./cli/internal/review/... ./cli/internal/criticeval/... -count=1` → all pass (2026-11-20). Full `go test ./cli/... -count=1` also passes (every package `ok`) ahead of the post-integrate release:check.
 
 ---
 
@@ -46,14 +48,7 @@ With the real SP-081 model scores, shipped `min_keep` 0.2 caught 29/78; the guar
 | # | Type | Step | Verdict | File |
 |---|------|------|---------|------|
 
----
-
-## Discoveries
-
-| Discovery | Disposition | Location |
-|-----------|-------------|----------|
-
----
+> Step 0 plan-review checkpoint (override: code review) requested via spine_review_step — engine-owned, skipped in-session; engine reviews run after `.DONE`.
 
 ## Discoveries
 
@@ -70,3 +65,4 @@ With the real SP-081 model scores, shipped `min_keep` 0.2 caught 29/78; the guar
 |------|-------|-------|
 | 2026-11-20 | Step 0 implemented | Guard + predicate + 3 unit/integration tests in `critic_systemone_test.go`; full review package tests pass |
 | 2026-11-20 | Step 1 implemented | Dataset evaluation test added; contract `testCommand` passes (gofmt + vet + review/criticeval tests) |
+| 2026-11-20 | Step 2 verified | Contract command re-run clean; full `go test ./cli/...` also `ok`. PROMPT completion criteria all met (see step sections for evidence). Commits: fed34d6 (Step 0), e83e083 (Step 1) |
