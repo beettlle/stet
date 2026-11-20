@@ -69,7 +69,7 @@ func TestVerifyFindingsSystemOne_everyQuestionCarriesShippedCriteria(t *testing.
 		batch = append(batch, sampleFinding(fmt.Sprintf("id-%d", i), "msg"))
 	}
 	fake := &fakeDecider{probs: map[string]float64{"f0": 0.9, "f1": 0.9}}
-	if _, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", batch, "code", 0.5, 0); err != nil {
+	if _, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", batch, "code", "", 0.5, 0); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(fake.requests) != 2 {
@@ -96,7 +96,7 @@ func TestVerifyFindingsSystemOne_criteriaStayShortAndHunkFree(t *testing.T) {
 	}
 	const hunk = "SECRET_HUNK_BODY := open()"
 	fake := &fakeDecider{probs: map[string]float64{"f0": 0.9}}
-	if _, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{sampleFinding("f-a", "x")}, hunk, 0.5, 0); err != nil {
+	if _, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{sampleFinding("f-a", "x")}, hunk, "", 0.5, 0); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	for key, q := range fake.requests[0].Questions {
@@ -150,7 +150,7 @@ func TestVerifyFindingsSystemOne_allKept(t *testing.T) {
 		sampleFinding("f-b", "nil deref"),
 	}
 	fake := &fakeDecider{probs: map[string]float64{"f0": 0.99, "f1": 0.87}}
-	kept, scores, err := VerifyFindingsSystemOne(context.Background(), fake, "openjev-0.1", batch, "code", 0.5, 3)
+	kept, scores, err := VerifyFindingsSystemOne(context.Background(), fake, "openjev-0.1", batch, "code", "", 0.5, 3)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -187,7 +187,7 @@ func TestVerifyFindingsSystemOne_allKept(t *testing.T) {
 func TestVerifyFindingsSystemOne_allDropped(t *testing.T) {
 	batch := []findings.Finding{sampleFinding("f-a", "x"), sampleFinding("f-b", "y")}
 	fake := &fakeDecider{probs: map[string]float64{"f0": 0.01, "f1": 0.2}}
-	kept, scores, err := VerifyFindingsSystemOne(context.Background(), fake, "m", batch, "code", 0.5, 0)
+	kept, scores, err := VerifyFindingsSystemOne(context.Background(), fake, "m", batch, "code", "", 0.5, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -207,7 +207,7 @@ func TestVerifyFindingsSystemOne_thresholdBoundaryKeeps(t *testing.T) {
 		sampleFinding("keep-above", "c"),
 	}
 	fake := &fakeDecider{probs: map[string]float64{"f0": 0.5, "f1": 0.4999, "f2": 0.9}}
-	kept, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", batch, "code", 0.5, 0)
+	kept, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", batch, "code", "", 0.5, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -229,7 +229,7 @@ func TestVerifyFindingsSystemOne_chunksAt32Questions(t *testing.T) {
 	for i := 0; i < 32; i++ {
 		fake.probs[systemOneQuestionKey(i)] = 0.8
 	}
-	kept, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", batch, "code", 0.5, 0)
+	kept, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", batch, "code", "", 0.5, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -259,7 +259,7 @@ func TestVerifyFindingsSystemOne_duplicateIDsNoCollision(t *testing.T) {
 		sampleFinding("dup", "second claim"),
 	}
 	fake := &fakeDecider{probs: map[string]float64{"f0": 0.9, "f1": 0.1}}
-	kept, scores, err := VerifyFindingsSystemOne(context.Background(), fake, "m", batch, "code", 0.5, 0)
+	kept, scores, err := VerifyFindingsSystemOne(context.Background(), fake, "m", batch, "code", "", 0.5, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -288,7 +288,7 @@ func TestVerifyFindingsSystemOne_duplicateIDsNoCollision(t *testing.T) {
 func TestVerifyFindingsSystemOne_noIDOmittedFromScores(t *testing.T) {
 	f := sampleFinding("", "no id")
 	fake := &fakeDecider{probs: map[string]float64{"f0": 0.9}}
-	kept, scores, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{f}, "code", 0.5, 0)
+	kept, scores, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{f}, "code", "", 0.5, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -305,7 +305,7 @@ func TestVerifyFindingsSystemOne_emptyBatchNilClientEmptyModelNoRequest(t *testi
 
 	// Empty batch: no request even with a live client.
 	fake := &fakeDecider{}
-	kept, scores, err := VerifyFindingsSystemOne(context.Background(), fake, "m", nil, "code", 0.5, 0)
+	kept, scores, err := VerifyFindingsSystemOne(context.Background(), fake, "m", nil, "code", "", 0.5, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -320,7 +320,7 @@ func TestVerifyFindingsSystemOne_emptyBatchNilClientEmptyModelNoRequest(t *testi
 	}
 
 	// Nil client: batch returned unchanged, nothing to call.
-	kept, scores, err = VerifyFindingsSystemOne(context.Background(), nil, "m", batch, "code", 0.5, 0)
+	kept, scores, err = VerifyFindingsSystemOne(context.Background(), nil, "m", batch, "code", "", 0.5, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -333,7 +333,7 @@ func TestVerifyFindingsSystemOne_emptyBatchNilClientEmptyModelNoRequest(t *testi
 
 	// Empty model: no request.
 	fake2 := &fakeDecider{}
-	kept, _, err = VerifyFindingsSystemOne(context.Background(), fake2, "", batch, "code", 0.5, 0)
+	kept, _, err = VerifyFindingsSystemOne(context.Background(), fake2, "", batch, "code", "", 0.5, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -348,7 +348,7 @@ func TestVerifyFindingsSystemOne_emptyBatchNilClientEmptyModelNoRequest(t *testi
 func TestVerifyFindingsSystemOne_decideErrorPropagates(t *testing.T) {
 	sentinel := errors.New("system one server unreachable")
 	fake := &fakeDecider{err: sentinel}
-	kept, scores, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{sampleFinding("f-a", "x")}, "code", 0.5, 0)
+	kept, scores, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{sampleFinding("f-a", "x")}, "code", "", 0.5, 0)
 	if err == nil {
 		t.Fatal("expected Decide error to propagate")
 	}
@@ -365,7 +365,7 @@ func TestVerifyFindingsSystemOne_decideErrorPropagates(t *testing.T) {
 
 func TestVerifyFindingsSystemOne_missingAnswerIsError(t *testing.T) {
 	fake := &fakeDecider{omit: map[string]bool{"f1": true}}
-	kept, scores, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{sampleFinding("a", "x"), sampleFinding("b", "y")}, "code", 0.5, 0)
+	kept, scores, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{sampleFinding("a", "x"), sampleFinding("b", "y")}, "code", "", 0.5, 0)
 	if err == nil {
 		t.Fatal("missing answer must be an error, not a silent skip")
 	}
@@ -380,7 +380,7 @@ func TestVerifyFindingsSystemOne_missingAnswerIsError(t *testing.T) {
 func TestVerifyFindingsSystemOne_truncatesLongHunk(t *testing.T) {
 	hunk := strings.Repeat("x", defaultCriticContextCap+1000)
 	fake := &fakeDecider{probs: map[string]float64{"f0": 0.9}}
-	_, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{sampleFinding("f-a", "x")}, hunk, 0.5, 0)
+	_, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{sampleFinding("f-a", "x")}, hunk, "", 0.5, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -396,7 +396,7 @@ func TestVerifyFindingsSystemOne_keepsContextUnderDefaultCap(t *testing.T) {
 	// untruncated: the critic may see everything the reviewer saw.
 	hunk := strings.Repeat("x", defaultCriticContextCap)
 	fake := &fakeDecider{probs: map[string]float64{"f0": 0.9}}
-	_, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{sampleFinding("f-a", "x")}, hunk, 0.5, 0)
+	_, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{sampleFinding("f-a", "x")}, hunk, "", 0.5, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -404,6 +404,63 @@ func TestVerifyFindingsSystemOne_keepsContextUnderDefaultCap(t *testing.T) {
 	if fake.requests[0].State != want {
 		t.Errorf("state should carry the full %d-char input untruncated (len %d)", defaultCriticContextCap, len(fake.requests[0].State))
 	}
+}
+
+// TestVerifyFindingsSystemOne_taskIntentPrefixesState pins the SP-085 intent
+// wiring: a non-blank task intent (stet run --intent-file) prefixes the request
+// state ("Task objective: …") ahead of the code under review so the critic
+// weighs findings against the change's objective; blank or whitespace-only
+// intent leaves the state byte-identical to the no-intent format, and the
+// intent never leaks into the question instructions.
+func TestVerifyFindingsSystemOne_taskIntentPrefixesState(t *testing.T) {
+	const hunk = "func upload() { retry() }"
+	const intent = "Add retry logic to the upload path."
+
+	t.Run("objective prefixes code under review", func(t *testing.T) {
+		fake := &fakeDecider{probs: map[string]float64{"f0": 0.9}}
+		if _, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{sampleFinding("f-a", "x")}, hunk, intent, 0.5, 0); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		want := "Task objective:\n" + intent + "\n\nCode under review:\n" + hunk
+		if fake.requests[0].State != want {
+			t.Errorf("state = %q, want objective prefix ahead of code under review:\n%q", fake.requests[0].State, want)
+		}
+	})
+
+	t.Run("objective is trimmed", func(t *testing.T) {
+		fake := &fakeDecider{probs: map[string]float64{"f0": 0.9}}
+		if _, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{sampleFinding("f-a", "x")}, hunk, "\n  "+intent+"  \n", 0.5, 0); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !strings.HasPrefix(fake.requests[0].State, "Task objective:\n"+intent+"\n\n") {
+			t.Errorf("state should carry the trimmed objective, got %q", fake.requests[0].State)
+		}
+	})
+
+	t.Run("blank intent leaves state byte-identical", func(t *testing.T) {
+		want := "Code under review:\n" + hunk
+		for _, intent := range []string{"", "   ", "\n\t"} {
+			fake := &fakeDecider{probs: map[string]float64{"f0": 0.9}}
+			if _, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{sampleFinding("f-a", "x")}, hunk, intent, 0.5, 0); err != nil {
+				t.Fatalf("intent %q: unexpected error: %v", intent, err)
+			}
+			if fake.requests[0].State != want {
+				t.Errorf("intent %q: state = %q, want the no-intent format %q", intent, fake.requests[0].State, want)
+			}
+		}
+	})
+
+	t.Run("objective stays out of question instructions", func(t *testing.T) {
+		fake := &fakeDecider{probs: map[string]float64{"f0": 0.9}}
+		if _, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{sampleFinding("f-a", "x")}, hunk, intent, 0.5, 0); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		for key, q := range fake.requests[0].Questions {
+			if strings.Contains(q.Instructions, intent) || strings.Contains(q.Instructions, "Task objective") {
+				t.Errorf("question %q instructions must not echo the task objective; got %q", key, q.Instructions)
+			}
+		}
+	})
 }
 
 func TestVerifyFindingsSystemOne_instructionsCarryFindingFieldsNotHunk(t *testing.T) {
@@ -419,7 +476,7 @@ func TestVerifyFindingsSystemOne_instructionsCarryFindingFieldsNotHunk(t *testin
 	}
 	const hunk = "SECRET_HUNK_BODY := open()"
 	fake := &fakeDecider{probs: map[string]float64{"f0": 0.9}}
-	_, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{f}, hunk, 0.5, 0)
+	_, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{f}, hunk, "", 0.5, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -457,7 +514,7 @@ func TestVerifyFindingsSystemOne_samplesPassedToEveryRequest(t *testing.T) {
 	for i := 0; i < systemOneMaxQuestionsPerRequest; i++ {
 		fake.probs[systemOneQuestionKey(i)] = 0.9
 	}
-	if _, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", batch, "code", 0.5, 5); err != nil {
+	if _, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", batch, "code", "", 0.5, 5); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(fake.requests) != 2 {
@@ -488,7 +545,7 @@ func TestVerifyFindingsSystemOne_demotesCalleeReturnErrorWithoutBodyInContext(t 
 	f := sampleFinding("f-a", sp39CalleeReturnMessage)
 	f.Severity = findings.SeverityError
 	fake := &fakeDecider{probs: map[string]float64{"f0": 0.9}}
-	kept, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{f}, sp39ImportedCalleeContext, 0.5, 0)
+	kept, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{f}, sp39ImportedCalleeContext, "", 0.5, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -512,7 +569,7 @@ func TestVerifyFindingsSystemOne_keepsErrorWhenCalleeDeclaredInContext(t *testin
 	f.Severity = findings.SeverityError
 	const hunk = "function buildStetVersionDoctorCheck() {\n  if (outdated) return { ok: false };\n  return { ok: true };\n}\nconst r = buildStetVersionDoctorCheck();\n"
 	fake := &fakeDecider{probs: map[string]float64{"f0": 0.9}}
-	kept, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{f}, hunk, 0.5, 0)
+	kept, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{f}, hunk, "", 0.5, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -745,7 +802,7 @@ func TestVerifyFindingsSystemOne_rejectsOutOfViewExistenceClaimDespiteHighScore(
 	exist := sampleFinding("f-exist", "The `compareTaskIds` function is used in the sort call but is not defined or imported within the visible context.")
 	inView := sampleFinding("f-inview", "The JSDoc description for `providerCode` is missing a separator between the sources.")
 	fake := &agreeDecider{}
-	kept, scores, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{exist, inView}, "const sorted = tasks.sort(compareTaskIds);\n", 0.2, 0)
+	kept, scores, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{exist, inView}, "const sorted = tasks.sort(compareTaskIds);\n", "", 0.2, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -866,7 +923,7 @@ func TestVerifyFindingsSystemOne_datasetRejectsOutOfViewClaims(t *testing.T) {
 	scores := make(map[string]float64, len(examples))
 	for _, hunk := range groupOrder {
 		batch := groups[hunk]
-		kept, groupScores, err := VerifyFindingsSystemOne(context.Background(), fake, "m", batch, hunk, 0.2, 0)
+		kept, groupScores, err := VerifyFindingsSystemOne(context.Background(), fake, "m", batch, hunk, "", 0.2, 0)
 		if err != nil {
 			t.Fatalf("verify hunk group: %v", err)
 		}

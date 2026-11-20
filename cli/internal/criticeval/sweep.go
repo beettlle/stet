@@ -78,7 +78,7 @@ func Score(ctx context.Context, client review.SystemOneDecider, model string, sa
 			batch[j] = ex.Finding
 		}
 		start := time.Now()
-		_, groupScores, err := review.VerifyFindingsSystemOne(ctx, client, model, batch, group.Hunk, 0, samples)
+		_, groupScores, err := review.VerifyFindingsSystemOne(ctx, client, model, batch, group.Hunk, "", 0, samples)
 		elapsed := time.Since(start)
 		if err != nil {
 			return nil, nil, fmt.Errorf("critic eval: hunk group %d: %w", i, err)

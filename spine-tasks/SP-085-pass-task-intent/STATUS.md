@@ -1,6 +1,6 @@
 # SP-085: pass-task-intent — Status
 
-**Current Step:** Step 2
+**Current Step:** Step 3
 **Status:** 🔄 In Progress
 **Last Updated:** 2026-11-20
 **Review Level:** 1
@@ -25,9 +25,9 @@
 ---
 
 ### Step 2: Update Reviewer and Critic prompts
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] Reviewer and System One critic prompts include intent when present
+- [x] Reviewer and System One critic prompts include intent when present
 
 ---
 
@@ -49,6 +49,8 @@
 
 | Discovery | Disposition | Location |
 |-----------|-------------|----------|
+| `VerifyFindingsSystemOne` is also called by the critic-eval sweep; the new `taskIntent` parameter required a mechanical `""` argument there to keep the build compiling (out-of-file-scope, no behavior change). | Accepted (compile-required) | `cli/internal/criticeval/sweep.go` |
+| `ReviewHunk` (review.go) is test-only; the pipeline path builds reviewer prompts from systemBase in run.go, so intent injection lives in `Run` + `review.AppendTaskIntent` instead of `ReviewHunk`. | Accepted (scope-minimal) | `cli/internal/review/review.go` |
 
 ---
 

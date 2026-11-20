@@ -722,7 +722,7 @@ func applyCriticSystemOne(ctx context.Context, opts reviewPipelineOpts, p *prepa
 	}
 	beforeCritic := len(batch)
 	criticInput := criticInputFor(p)
-	kept, scores, err := review.VerifyFindingsSystemOne(ctx, opts.SystemOneClient, opts.SystemOneModel, batch, criticInput, opts.SystemOneMinKeep, opts.SystemOneSamples)
+	kept, scores, err := review.VerifyFindingsSystemOne(ctx, opts.SystemOneClient, opts.SystemOneModel, batch, criticInput, opts.TaskIntent, opts.SystemOneMinKeep, opts.SystemOneSamples)
 	if err != nil {
 		if opts.TraceOut != nil && opts.TraceOut.Enabled() {
 			opts.TraceOut.Printf("Critic request failed: %v\n", err)
