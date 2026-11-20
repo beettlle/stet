@@ -25,6 +25,11 @@ const systemOneFindingPrefix = "Finding claimed by a code reviewer:"
 // systemOneStatePrefix prefixes the request state that carries the code under review.
 const systemOneStatePrefix = "Code under review:\n"
 
+// systemOneTaskObjectivePrefix prefixes the request state with the task intent
+// (stet run --intent-file) so the critic weighs each finding against the
+// change's stated objective. Empty intent omits the prefix entirely.
+const systemOneTaskObjectivePrefix = "Task objective:\n"
+
 // Callee-return claim detection (issue #39 finding 2). calleeReturnsRegex
 // matches messages that assert a callee's return value or return behavior:
 // "`callee` returns X", "`callee` returning X", "`callee` will/would return
@@ -204,6 +209,12 @@ type SystemOneDecider interface {
 // the batch unchanged with no request. Any Decide error aborts with
 // (nil, nil, err) wrapped with context; the caller decides abort behaviour.
 //
+// taskIntent, when non-blank, is the task objective (mission or PR description
+// from stet run --intent-file): it prefixes the request state
+// ("Task objective: …") ahead of the code under review so verification takes
+// the change's objective into account. Blank or whitespace-only intent leaves
+// the request state byte-identical to the no-intent format.
+//
 // Before verification, findings whose message makes an identifier-anchored
 // existence claim (undefined / not imported / unused / not exported, see
 // dropOutOfViewExistenceClaims) are rejected outright (issue #20): the shown
@@ -217,8 +228,9 @@ type SystemOneDecider interface {
 //
 // Security: hunk content is attacker-influenced input (e.g. diff comments), so
 // it is passed only in the request state and never echoed into question
-// instructions, but a crafted diff could still bias the verdict.
-func VerifyFindingsSystemOne(ctx context.Context, client SystemOneDecider, model string, batch []findings.Finding, hunkContent string, minKeep float64, samples int) (kept []findings.Finding, scores map[string]float64, err error) {
+// instructions, but a crafted diff could still bias the verdict. The task
+// intent is operator-supplied and likewise rides only in the request state.
+func VerifyFindingsSystemOne(ctx context.Context, client SystemOneDecider, model string, batch []findings.Finding, hunkContent string, taskIntent string, minKeep float64, samples int) (kept []findings.Finding, scores map[string]float64, err error) {
 	if client == nil || model == "" || len(batch) == 0 {
 		return batch, map[string]float64{}, nil
 	}
@@ -234,6 +246,9 @@ func VerifyFindingsSystemOne(ctx context.Context, client SystemOneDecider, model
 	batch = demoteUnsupportedCalleeReturnErrors(batch, hunkContent)
 
 	state := buildSystemOneStateCapped(hunkContent, defaultCriticContextCap)
+	if trimmed := strings.TrimSpace(taskIntent); trimmed != "" {
+		state = systemOneTaskObjectivePrefix + trimmed + "\n\n" + state
+	}
 	probs := make([]float64, len(batch))
 	for start := 0; start < len(batch); start += systemOneMaxQuestionsPerRequest {
 		end := start + systemOneMaxQuestionsPerRequest

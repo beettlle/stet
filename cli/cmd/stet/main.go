@@ -644,6 +644,7 @@ func newRunCmd() *cobra.Command {
 		RunE:  runRun,
 	}
 	addRunLikeFlags(cmd)
+	cmd.Flags().String("intent-file", "", "Path to a file whose contents describe the task objective (mission or PR description); injected into the reviewer and critic prompts")
 	return cmd
 }
 
@@ -964,6 +965,18 @@ func runRun(cmd *cobra.Command, args []string) error {
 	if trace {
 		traceOut = os.Stderr
 	}
+	// SP-085: --intent-file carries the task objective (mission or PR description)
+	// into the reviewer and critic prompts. A missing or unreadable file fails the
+	// run loudly instead of silently reviewing without the objective.
+	intentFile, _ := cmd.Flags().GetString("intent-file")
+	var taskIntent string
+	if intentFile != "" {
+		data, readErr := os.ReadFile(intentFile)
+		if readErr != nil {
+			return erruser.New("Could not read intent file "+intentFile+".", readErr)
+		}
+		taskIntent = string(data)
+	}
 	so := systemOneRunOptions(cfg, dryRun)
 	opts := run.RunOptions{
 		RepoRoot:                     repoRoot,
@@ -991,6 +1004,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 		MinConfidenceMaintainability: minMaint,
 		ApplyFPKillList:              &applyFP,
 		Nitpicky:                     effectiveNitpicky,
+		Intent:                       taskIntent,
 		CriticEnabled:                cfg.CriticEnabled,
 		CriticModel:                  cfg.CriticModel,
 		CriticBackend:                cfg.CriticBackend,

@@ -81,6 +81,24 @@ func effectiveRAGTokenCap(contextLimit, basePromptTokens, responseReserve, ragMa
 	return max(0, effective)
 }
 
+// taskIntentSectionHeader is the system-prompt section header under which the
+// task objective (--intent-file content) is injected into the reviewer prompt.
+const taskIntentSectionHeader = "## Task intent\n"
+
+// AppendTaskIntent appends a "## Task intent" section to systemPrompt with the
+// objective of the changes (mission or PR description passed via
+// stet run --intent-file) so the reviewer knows what the change is meant to do
+// and can weigh findings against that objective. The intent is trimmed; empty
+// or whitespace-only intent leaves systemPrompt unchanged so prompts stay
+// byte-identical when no intent is provided.
+func AppendTaskIntent(systemPrompt, intent string) string {
+	intent = strings.TrimSpace(intent)
+	if intent == "" {
+		return systemPrompt
+	}
+	return systemPrompt + "\n\n" + taskIntentSectionHeader + intent
+}
+
 // maxSuppressionExamplesPerHunk caps how many suppression examples can be
 // appended per hunk when using a token budget (per-hunk suppression).
 const maxSuppressionExamplesPerHunk = 30

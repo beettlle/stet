@@ -623,6 +623,48 @@ func TestRunCLI_runWithDryRun(t *testing.T) {
 	}
 }
 
+// TestRunCLI_runIntentFile covers the SP-085 flag plumbing at the CLI layer:
+// a missing intent file fails the run loudly (no silent fallback), and an
+// existing intent file is accepted. Prompt threading is asserted end to end by
+// TestRun_taskIntent_reachesReviewerPromptAndSystemOneCritic in the run package.
+func TestRunCLI_runIntentFile(t *testing.T) {
+	// Do not run in parallel: test changes process cwd and captures stderr.
+	repo := initRepo(t)
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = os.Chdir(orig)
+	}()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatal(err)
+	}
+	if got := runCLI([]string{"start", "HEAD~1", "--dry-run", "--json"}); got != 0 {
+		t.Fatalf("runCLI(start --dry-run) = %d, want 0", got)
+	}
+	var got int
+	_, stderr := captureOutput(t, func() {
+		got = runCLI([]string{"run", "--dry-run", "--intent-file", filepath.Join(repo, "missing-intent.md")})
+	})
+	if got == 0 {
+		t.Errorf("runCLI(run --intent-file missing) = 0, want non-zero")
+	}
+	if !strings.Contains(stderr, "missing-intent.md") {
+		t.Errorf("stderr should name the unreadable intent file; got:\n%s", stderr)
+	}
+	intentPath := filepath.Join(repo, "intent.md")
+	if err := os.WriteFile(intentPath, []byte("Add retry logic to the upload path.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, stderr = captureOutput(t, func() {
+		got = runCLI([]string{"run", "--dry-run", "--intent-file", intentPath})
+	})
+	if got != 0 {
+		t.Errorf("runCLI(run --intent-file) = %d, want 0; stderr:\n%s", got, stderr)
+	}
+}
+
 func TestChangedReviewFlags_stableOrderOnlySetFlags(t *testing.T) {
 	t.Parallel()
 	cmd := newRunCmd()
