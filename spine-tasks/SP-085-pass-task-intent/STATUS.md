@@ -1,7 +1,7 @@
 # SP-085: pass-task-intent — Status
 
-**Current Step:** Step 0
-**Status:** ⬜ Not Started
+**Current Step:** Step 1
+**Status:** 🔄 In Progress
 **Last Updated:** 2026-11-20
 **Review Level:** 1
 **Review Counter:** 0
@@ -11,9 +11,9 @@
 ---
 
 ### Step 0: Add `--intent-file` CLI flag
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] Add `--intent-file` to main.go and pass content into run options
+- [x] Add `--intent-file` to main.go and pass content into run options
 
 ---
 

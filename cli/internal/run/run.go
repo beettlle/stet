@@ -1139,8 +1139,14 @@ type RunOptions struct {
 	MinConfidenceMaintainability float64
 	ApplyFPKillList              *bool
 	Nitpicky                     bool
-	CriticEnabled                bool
-	CriticModel                  string
+	// Intent, when non-empty, is the task objective (mission or PR description
+	// from stet run --intent-file). It is injected as a "## Task intent" section
+	// into the reviewer system prompt and as the "Task objective" prefix of the
+	// System One critic request state, so reviewer and critic judge the changes
+	// against the intended outcome.
+	Intent        string
+	CriticEnabled bool
+	CriticModel   string
 	// CriticBackend selects the critic implementation: "" or "llm" runs the per-finding LLM critic (CriticModel); "systemone" runs the batch System One verifier.
 	CriticBackend string
 	// SystemOneClient verifies findings against a System One decision server; required (non-nil) when CriticBackend == "systemone" and not DryRun.
