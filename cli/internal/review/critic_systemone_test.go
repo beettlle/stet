@@ -1,9 +1,12 @@
 package review
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -592,5 +595,326 @@ func TestDemoteUnsupportedCalleeReturnErrors(t *testing.T) {
 				t.Errorf("input slice was modified: %q, want %q", in[0].Severity, inCopy[0].Severity)
 			}
 		})
+	}
+}
+
+// agreeDecider answers every requested question with 0.99, simulating a
+// System One model that agrees with every finding — the worst case for
+// precision. SP-086 uses it to prove the out-of-view existence-claim guard
+// rejects findings the model would keep (issue #20).
+type agreeDecider struct {
+	requests []systemone.Request
+}
+
+func (a *agreeDecider) Decide(_ context.Context, req systemone.Request) (*systemone.Response, error) {
+	a.requests = append(a.requests, req)
+	answers := make(map[string]systemone.NoulAnswer, len(req.Questions))
+	for key := range req.Questions {
+		answers[key] = systemone.NoulAnswer{Noul: 0.99}
+	}
+	return &systemone.Response{Model: req.Model, Answers: answers}, nil
+}
+
+// TestOutOfViewExistenceClaim covers the issue #20 predicate: identifier-
+// anchored undefined / not-imported / unused / not-exported / ReferenceError
+// claims are out-of-view, while value-uses of "undefined" (including the
+// backticked "returns `null` or `undefined`" form), in-view claims without
+// an identifier anchor, and messages with only module mentions stay. Message
+// shapes are taken from the labeled dataset rows they reproduce.
+func TestOutOfViewExistenceClaim(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		msg  string
+		want bool
+	}{
+		{
+			name: "used_without_importing",
+			// pi-spine-SP-829-5f9106b: import was above the hunk start.
+			msg:  "`createRulesFixture` uses `fs` without importing it; the review hunk started at `@@ -4,102`, so the import lines were outside the reviewer's context.",
+			want: true,
+		},
+		{
+			name: "not_defined_or_imported_with_module_mention",
+			// pi-spine-SP-831-131e1ec: the module mention (`src/cli/deps.mjs`)
+			// must not exempt the claim — the deciding code is still out of view.
+			msg:  "The `compareTaskIds` function is used in the sort call but is not defined or imported within the visible context of `src/cli/deps.mjs`. This will cause a ReferenceError at runtime.",
+			want: true,
+		},
+		{
+			name: "import_unused_in_hunk",
+			// pi-spine-SP-831-74dc631: usage may exist below the hunk.
+			msg:  "The import of `compareTaskIds` is added but the variable is not used anywhere in the provided hunk. This will likely result in a linting error (unused variable).",
+			want: true,
+		},
+		{
+			name: "module_does_not_export",
+			// pi-spine-SP-831-4594035: cross-module export claim.
+			msg:  "Importing `compareTaskIds` from `../tasks/packet/discover.mjs` will cause a runtime error because that module does not export this function.",
+			want: true,
+		},
+		{
+			name: "reference_error_claim",
+			// pi-spine-SP-824-348bd12: reviewer bug on stale hunks.
+			msg:  "Finding claimed a `streakIo` ReferenceError in `approveIntegrateGate`; triage: reviewer bug on stale hunks — `streakIo` is declared before use and tests exercise the path green.",
+			want: true,
+		},
+		{
+			name: "may_be_undefined_not_validated",
+			// pi-spine-SP-827-cc988af: undefined-as-existence claim.
+			msg:  "The function destructures `reviewLevel` but does not validate its type. If `reviewLevel` is `undefined` or `null` (which is common for optional fields), the switch falls through.",
+			want: true,
+		},
+		{
+			name: "value_use_returns_undefined",
+			msg:  "The helper returns undefined when the input array is empty, and the caller does not check for it.",
+			want: false,
+		},
+		{
+			name: "backticked_value_use_returns_null_or_undefined",
+			// pi-spine-SP-831-7cfc4f4: a return-value hypothesis, not an
+			// existence claim — must not be rejected.
+			msg:  "The test asserts that `remainingWithDeps` is an empty array `[]` when there are no cycles. If `topoWaves` returns `null` or `undefined` for the empty case, `assert.deepEqual` will fail.",
+			want: false,
+		},
+		{
+			name: "in_view_missing_separator",
+			// pi-spine-SP-838-8653ab9: labeled keep — punctuation claim about
+			// code shown in the hunk.
+			msg:  "The JSDoc description for `providerCode` is missing a separator between the z.ai and Kimi/Anthropic sources, making it read as a run-on phrase.",
+			want: false,
+		},
+		{
+			name: "in_view_missing_size_bound",
+			msg:  "The read has no size bound, so a malformed file can exhaust memory.",
+			want: false,
+		},
+		{
+			name: "no_identifier_anchor",
+			// pi-spine-SP-821-n1: claim keyword but only a module-ish span.
+			msg:  "Finding claimed an `export { x } from` re-export leaves the symbol unbound or unused locally; triage: re-exports do not bind a local and lint passes.",
+			want: false,
+		},
+		{
+			name: "logic_claim_no_existence_keyword",
+			msg:  "The sort comparator `compareTaskIds(a.from, b.from)` is incorrect because `0` is falsy in JavaScript.",
+			want: false,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := outOfViewExistenceClaim(tc.msg); got != tc.want {
+				t.Errorf("outOfViewExistenceClaim = %v, want %v\nmsg: %s", got, tc.want, tc.msg)
+			}
+		})
+	}
+}
+
+// TestDropOutOfViewExistenceClaims covers the batch guard: only existence-
+// claim findings are removed, order is preserved, the input slice is not
+// modified, and an all-clean batch is returned unchanged.
+func TestDropOutOfViewExistenceClaims(t *testing.T) {
+	t.Parallel()
+	existence := sampleFinding("f-exist", "`fs` is used without importing it.")
+	inView := sampleFinding("f-inview", "The JSDoc description for `providerCode` is missing a separator between the sources.")
+	logic := sampleFinding("f-logic", "The comparator `compareTaskIds` treats equal IDs as unequal because `0` is falsy.")
+	in := []findings.Finding{existence, inView, logic}
+	inCopy := append([]findings.Finding(nil), in...)
+	got := dropOutOfViewExistenceClaims(in)
+	if len(got) != 2 || got[0].ID != "f-inview" || got[1].ID != "f-logic" {
+		t.Fatalf("kept = %+v, want f-inview then f-logic in order", got)
+	}
+	for i := range in {
+		if in[i].ID != inCopy[i].ID || in[i].Message != inCopy[i].Message {
+			t.Errorf("input slice was modified at %d", i)
+		}
+	}
+	if all := dropOutOfViewExistenceClaims([]findings.Finding{inView, logic}); len(all) != 2 {
+		t.Errorf("clean batch should pass through, got %+v", all)
+	}
+}
+
+// TestVerifyFindingsSystemOne_rejectsOutOfViewExistenceClaimDespiteHighScore
+// (issue #20) asserts the end-to-end contract: an identifier-existence finding
+// is rejected before the decider is called even when the model would score it
+// 0.99, while a companion in-view finding on the same hunk is kept and
+// scored.
+func TestVerifyFindingsSystemOne_rejectsOutOfViewExistenceClaimDespiteHighScore(t *testing.T) {
+	t.Parallel()
+	exist := sampleFinding("f-exist", "The `compareTaskIds` function is used in the sort call but is not defined or imported within the visible context.")
+	inView := sampleFinding("f-inview", "The JSDoc description for `providerCode` is missing a separator between the sources.")
+	fake := &agreeDecider{}
+	kept, scores, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{exist, inView}, "const sorted = tasks.sort(compareTaskIds);\n", 0.2, 0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(kept) != 1 || kept[0].ID != "f-inview" {
+		t.Fatalf("kept = %+v, want only the in-view finding f-inview", kept)
+	}
+	if _, ok := scores["f-exist"]; ok {
+		t.Errorf("rejected finding must carry no score, got %v", scores["f-exist"])
+	}
+	if scores["f-inview"] != 0.99 {
+		t.Errorf("in-view score = %v, want 0.99", scores["f-inview"])
+	}
+	if len(fake.requests) != 1 || len(fake.requests[0].Questions) != 1 {
+		t.Fatalf("expected one decider request carrying only the surviving finding, got %d requests", len(fake.requests))
+	}
+	if _, ok := fake.requests[0].Questions["f0"]; !ok {
+		t.Errorf("surviving finding should be re-keyed to the guarded batch index f0, got keys %v", fake.requests[0].Questions)
+	}
+}
+
+// datasetExample mirrors one JSONL line of
+// docs/research/critic-eval/pi-spine-v2-dataset.jsonl, the labeled set the
+// SP-080 criteria and SP-081 threshold decisions were measured on (89 rows:
+// 78 drop, 11 keep, frozen decision-record artifact).
+type datasetExample struct {
+	Finding struct {
+		ID      string `json:"id"`
+		Message string `json:"message"`
+	} `json:"finding"`
+	Hunk  string `json:"hunk"`
+	Label string `json:"label"`
+}
+
+// sp080ModelUncatchableOOVIDs lists the out-of-view existence-claim rows the
+// SP-080 baseline run scored 0.79–0.999 (docs/research/critic-eval/
+// criteria-sp080.md): the model agrees with the absence claim because the
+// refuting code is never shown, so no usable systemone_min_keep can reject
+// them. SP-086's deterministic guard must reject every one of them.
+var sp080ModelUncatchableOOVIDs = map[string]bool{
+	"pi-spine-SP-827-cc988af": true, // reviewLevel may be undefined/null
+	"pi-spine-SP-829-5f9106b": true, // fs used without importing it
+	"pi-spine-SP-831-74dc631": true, // compareTaskIds import unused in the hunk
+	"pi-spine-SP-831-131e1ec": true, // compareTaskIds not defined/imported
+	"pi-spine-SP-831-0404db1": true, // same claim, reworded
+	"pi-spine-SP-831-1757410": true, // same claim, reworded
+	"pi-spine-SP-831-3ebc640": true, // same claim, reworded
+	"pi-spine-SP-832-4e406f4": true, // resolveEffectiveReviewer import unused
+	"pi-spine-SP-835-4b4b746": true, // resolveWorkerBackend import unused
+	"pi-spine-SP-835-6cc7bd9": true, // prepareWorkerAttempt import unused
+	"pi-spine-SP-838-7005bc1": true, // ZAI_1308 not defined in added code
+	"pi-spine-SP-845-8e13031": true, // implementation change not shown in diff
+}
+
+// TestVerifyFindingsSystemOne_datasetRejectsOutOfViewClaims is the SP-086
+// evaluation (issue #20 acceptance: improved precision on out-of-view false
+// positives without losing true positives). It replays the labeled dataset
+// through VerifyFindingsSystemOne grouped by hunk exactly like
+// criticeval.Score, with a worst-case model that scores every finding 0.99 —
+// worse than the real OpenJev baseline, which caught only 29/78 drops at the
+// shipped min_keep 0.2 (SP-081). Under that adversarial model the baseline
+// would keep all 89 examples; the deterministic guard must reject the
+// identifier-existence false positives while keeping every labeled keep.
+func TestVerifyFindingsSystemOne_datasetRejectsOutOfViewClaims(t *testing.T) {
+	t.Parallel()
+	f, err := os.Open("../../../docs/research/critic-eval/pi-spine-v2-dataset.jsonl")
+	if err != nil {
+		t.Fatalf("open labeled dataset: %v", err)
+	}
+	defer func() { _ = f.Close() }()
+	var examples []datasetExample
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" {
+			continue
+		}
+		var ex datasetExample
+		if err := json.Unmarshal([]byte(line), &ex); err != nil {
+			t.Fatalf("invalid dataset JSON: %v", err)
+		}
+		examples = append(examples, ex)
+	}
+	if err := sc.Err(); err != nil {
+		t.Fatalf("read labeled dataset: %v", err)
+	}
+	// The dataset is a frozen decision-record artifact (SP-080/SP-081 measured
+	// exactly these 89 rows: 78 drop / 11 keep). Pin the counts so a truncated
+	// or partially-parsed load fails loudly instead of passing vacuously.
+	if len(examples) != 89 {
+		t.Fatalf("loaded %d dataset examples, want the frozen 89 (78 drop / 11 keep)", len(examples))
+	}
+	keeps, drops := 0, 0
+	for _, ex := range examples {
+		switch ex.Label {
+		case "keep":
+			keeps++
+		case "drop":
+			drops++
+		default:
+			t.Fatalf("unknown dataset label %q", ex.Label)
+		}
+	}
+	if keeps != 11 || drops != 78 {
+		t.Fatalf("dataset labels changed: %d keep / %d drop, want 11 / 78", keeps, drops)
+	}
+
+	// Group by hunk and verify group-by-group, mirroring criticeval.Score
+	// (min_keep = the shipped default 0.2).
+	groupOrder := make([]string, 0, len(examples))
+	groups := make(map[string][]findings.Finding, len(examples))
+	for _, ex := range examples {
+		if _, ok := groups[ex.Hunk]; !ok {
+			groupOrder = append(groupOrder, ex.Hunk)
+		}
+		groups[ex.Hunk] = append(groups[ex.Hunk], findings.Finding{ID: ex.Finding.ID, Message: ex.Finding.Message})
+	}
+	fake := &agreeDecider{}
+	scores := make(map[string]float64, len(examples))
+	for _, hunk := range groupOrder {
+		batch := groups[hunk]
+		kept, groupScores, err := VerifyFindingsSystemOne(context.Background(), fake, "m", batch, hunk, 0.2, 0)
+		if err != nil {
+			t.Fatalf("verify hunk group: %v", err)
+		}
+		for _, k := range kept {
+			if k.ID != "" {
+				if _, ok := groupScores[k.ID]; !ok {
+					t.Errorf("kept finding %s has no score", k.ID)
+				}
+			}
+		}
+		for id, p := range groupScores {
+			scores[id] = p
+		}
+	}
+
+	// No regression: every labeled keep survives with its model score intact.
+	for _, ex := range examples {
+		if ex.Label != "keep" {
+			continue
+		}
+		s, ok := scores[ex.Finding.ID]
+		if !ok {
+			t.Errorf("KEEP %s was deterministically rejected — in-view regression: %q", ex.Finding.ID, ex.Finding.Message)
+			continue
+		}
+		if s < 0.2 {
+			t.Errorf("KEEP %s score = %v, want >= 0.2 (shipped min_keep)", ex.Finding.ID, s)
+		}
+	}
+	// Precision: every SP-080 row the model cannot reject (0.79–0.999) is
+	// deterministically rejected.
+	for id := range sp080ModelUncatchableOOVIDs {
+		if _, ok := scores[id]; ok {
+			t.Errorf("out-of-view drop %s was scored (%v) instead of rejected by the guard", id, scores[id])
+		}
+	}
+	// Overall improvement over the adversarial-model baseline (0 drops
+	// caught): 22 drop examples rejected, all labeled drop. A future detection
+	// improvement may raise this; it must never drop below 22 nor touch keeps.
+	rejectedDrops := 0
+	for _, ex := range examples {
+		if ex.Label == "drop" {
+			if _, ok := scores[ex.Finding.ID]; !ok {
+				rejectedDrops++
+			}
+		}
+	}
+	if rejectedDrops < 22 {
+		t.Errorf("rejected %d drop examples, want >= 22 (SP-086 measured set)", rejectedDrops)
 	}
 }
