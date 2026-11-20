@@ -111,25 +111,6 @@ func parseFile(fset *token.FileSet, name, src string) (*ast.File, error) {
 	return parser.ParseFile(fset, name, src, 0)
 }
 
-func TestParseGrepLine(t *testing.T) {
-	absRepo := t.TempDir()
-	path, line, content, ok := parseGrepLine("pkg/foo.go:10:\tTarget()", absRepo)
-	if !ok {
-		t.Fatal("expected ok")
-	}
-	if line != 10 || content != "\tTarget()" {
-		t.Errorf("line=%d content=%q", line, content)
-	}
-	wantPath := filepath.Join(absRepo, "pkg/foo.go")
-	if path != wantPath {
-		t.Errorf("path = %q, want %q", path, wantPath)
-	}
-	_, _, _, ok = parseGrepLine("badline", absRepo)
-	if ok {
-		t.Error("expected false for bad line")
-	}
-}
-
 func TestCallExprName(t *testing.T) {
 	src := `package p
 func f() { x.M(); y() }

@@ -5,12 +5,9 @@ package goresolver
 import (
 	"context"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
-	"time"
 
 	"go/ast"
 	"go/parser"
@@ -18,11 +15,11 @@ import (
 
 	"stet/cli/internal/diff"
 	"stet/cli/internal/expand"
+	"stet/cli/internal/git"
 	"stet/cli/internal/rag"
 )
 
 const (
-	callGraphGrepTimeout = 5 * time.Second
 	defaultCallersMax    = 3
 	defaultCalleesMax    = 3
 	maxCallGraphFileSize = 1024 * 1024 // 1 MiB, same as expand
@@ -67,7 +64,8 @@ func (r *callGraphResolver) ResolveCallGraph(ctx context.Context, repoRoot, file
 	return &rag.CallGraphResult{Callers: callers, Callees: callees}, nil
 }
 
-// findCallers runs git grep for call sites of funcName and returns up to max definitions.
+// findCallers runs a single git grep for call sites of funcName and returns
+// up to max definitions.
 func findCallers(ctx context.Context, repoRoot, hunkFilePath, funcName string, max int) ([]rag.Definition, error) {
 	absRepo, err := filepath.Abs(repoRoot)
 	if err != nil {
@@ -88,66 +86,27 @@ func findCallers(ctx context.Context, repoRoot, hunkFilePath, funcName string, m
 		// Function: Foo -> match Foo(
 		pattern = regexp.QuoteMeta(funcName) + `[[:space:]]*\(`
 	}
-	ctx, cancel := context.WithTimeout(ctx, callGraphGrepTimeout)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "git", "grep", "-n", "-E", pattern)
-	cmd.Dir = repoRoot
-	cmd.Env = minimalEnv(repoRoot)
-	out, err := cmd.Output()
+	hits, err := git.Grep(ctx, absRepo, []string{pattern})
 	if err != nil {
-		if e, ok := err.(*exec.ExitError); ok && e.ExitCode() == 1 {
-			return nil, nil
-		}
 		return nil, err
 	}
-	trimmed := strings.TrimSpace(string(out))
-	if trimmed == "" {
-		return nil, nil
-	}
-	lines := strings.Split(trimmed, "\n")
 	var defs []rag.Definition
-	for _, line := range lines {
+	for _, h := range hits {
 		if len(defs) >= max {
 			break
 		}
-		path, lineNum, content, ok := parseGrepLine(line, absRepo)
-		if !ok || path == "" {
-			continue
-		}
-		relPath, _ := filepath.Rel(absRepo, path)
-		relPath = filepath.ToSlash(relPath)
-		content = strings.TrimSpace(content)
+		content := strings.TrimSpace(h.Content)
 		if len(content) > 200 {
 			content = content[:200] + "..."
 		}
 		defs = append(defs, rag.Definition{
 			Symbol:    funcName,
-			File:      relPath,
-			Line:      lineNum,
+			File:      h.Path,
+			Line:      h.Line,
 			Signature: content,
 		})
 	}
 	return defs, nil
-}
-
-func parseGrepLine(line, absRepo string) (absPath string, lineNum int, content string, ok bool) {
-	idx := strings.Index(line, ":")
-	if idx == -1 {
-		return "", 0, "", false
-	}
-	path := line[:idx]
-	if path == "" || strings.Contains(path, "..") {
-		return "", 0, "", false
-	}
-	rest := line[idx+1:]
-	idx2 := strings.Index(rest, ":")
-	if idx2 == -1 {
-		return "", 0, "", false
-	}
-	lineno, _ := strconv.Atoi(rest[:idx2])
-	content = rest[idx2+1:]
-	absPath = filepath.Join(absRepo, path)
-	return absPath, lineno, content, true
 }
 
 // findCallees parses the file, finds the enclosing function, collects called names from the body, and looks up each definition.
@@ -190,30 +149,30 @@ func findCallees(ctx context.Context, repoRoot, filePath string, startLine, endL
 	if len(calleeNames) == 0 {
 		return nil, nil
 	}
-	seen := make(map[string]bool)
+	pairs := make([]rag.SymbolPattern, len(calleeNames))
+	for i, name := range calleeNames {
+		pairs[i] = rag.SymbolPattern{Symbol: name, Pattern: symbolPattern(name)}
+	}
+	matches, err := rag.BatchGrepDefinitions(ctx, absRepo, pairs)
+	if err != nil {
+		return nil, err
+	}
 	var defs []rag.Definition
-	for _, name := range calleeNames {
+	for _, m := range matches {
 		if len(defs) >= max {
 			break
 		}
-		if seen[name] {
+		if m == nil {
 			continue
 		}
-		seen[name] = true
-		path, line, content, err := gitGrepSymbol(ctx, absRepo, name)
-		if err != nil || path == "" {
-			continue
-		}
-		relPath, _ := filepath.Rel(absRepo, path)
-		relPath = filepath.ToSlash(relPath)
-		sig, _ := readSignatureAndDoc(path, line, content)
+		sig, _ := readSignatureAndDoc(m.AbsPath, m.Line, m.Content)
 		if sig == "" {
-			sig = strings.TrimSpace(content)
+			sig = strings.TrimSpace(m.Content)
 		}
 		defs = append(defs, rag.Definition{
-			Symbol:    name,
-			File:      relPath,
-			Line:      line,
+			Symbol:    m.Symbol,
+			File:      m.RelPath,
+			Line:      m.Line,
 			Signature: sig,
 		})
 	}

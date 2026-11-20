@@ -6,19 +6,15 @@ import (
 	"bufio"
 	"context"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
-	"time"
 
 	"stet/cli/internal/jsts"
 	"stet/cli/internal/rag"
 )
 
 const (
-	grepTimeout              = 5 * time.Second
 	maxSymbolCandidates      = 30
 	maxPrecedingCommentLines = 5
 )
@@ -469,37 +465,49 @@ func lookupDefinitions(ctx context.Context, repoRoot, fromFile, hunkContent stri
 		return nil, err
 	}
 	bindings := moduleBindings(hunkContent, absRepo, fromFile)
-	seen := make(map[string]bool)
+	// Import-bound names resolve in the module they come from first (plain
+	// file reads, no subprocess); git grep is the fallback for everything
+	// else and every failure. All grep lookups run in one batched process.
+	imported := make(map[string]rag.Definition, len(symbols))
+	pairs := make([]rag.SymbolPattern, 0, len(symbols))
+	for _, sym := range symbols {
+		if def, ok := resolveImportedDefinition(absRepo, fromFile, sym, bindings[sym]); ok {
+			imported[sym] = def
+			continue
+		}
+		pairs = append(pairs, rag.SymbolPattern{Symbol: sym, Pattern: symbolPattern(sym)})
+	}
+	matches, err := rag.BatchGrepDefinitions(ctx, absRepo, pairs)
+	if err != nil {
+		return nil, err
+	}
+	grepped := make(map[string]*rag.SymbolMatch, len(matches))
+	for _, m := range matches {
+		if m != nil {
+			grepped[m.Symbol] = m
+		}
+	}
 	var defs []rag.Definition
 	for _, sym := range symbols {
 		if len(defs) >= maxDefs {
 			break
 		}
-		if seen[sym] {
-			continue
-		}
-		// Import-bound names resolve in the module they come from first;
-		// git grep is the fallback for everything else and every failure.
-		if def, ok := resolveImportedDefinition(absRepo, fromFile, sym, bindings[sym]); ok {
-			seen[sym] = true
+		if def, ok := imported[sym]; ok {
 			defs = append(defs, def)
 			continue
 		}
-		path, line, content, err := gitGrepSymbol(ctx, absRepo, sym)
-		if err != nil || path == "" {
+		m := grepped[sym]
+		if m == nil {
 			continue
 		}
-		seen[sym] = true
-		relPath, _ := filepath.Rel(absRepo, path)
-		relPath = filepath.ToSlash(relPath)
-		sig, doc := readSignatureAndDoc(path, line, content)
+		sig, doc := readSignatureAndDoc(m.AbsPath, m.Line, m.Content)
 		if sig == "" {
-			sig = strings.TrimSpace(content)
+			sig = strings.TrimSpace(m.Content)
 		}
 		defs = append(defs, rag.Definition{
 			Symbol:    sym,
-			File:      relPath,
-			Line:      line,
+			File:      m.RelPath,
+			Line:      m.Line,
 			Signature: sig,
 			Docstring: doc,
 		})
@@ -690,57 +698,11 @@ func findExportedDecl(absPath, source string) (line int, decl string, ok bool) {
 	return 0, "", false
 }
 
-func gitGrepSymbol(ctx context.Context, repoRoot, symbol string) (absPath string, line int, lineContent string, err error) {
+// symbolPattern returns the ERE matching JS/TS definitions of symbol.
+func symbolPattern(symbol string) string {
 	quoted := regexp.QuoteMeta(symbol)
 	// Use POSIX [[:space:]] and [^a-zA-Z0-9_] so git grep -E works on macOS/BSD.
-	pattern := `(function[[:space:]]+` + quoted + `[[:space:]]*\(|const[[:space:]]+` + quoted + `[[:space:]]*=|class[[:space:]]+` + quoted + `[^a-zA-Z0-9_]|interface[[:space:]]+` + quoted + `[^a-zA-Z0-9_])`
-	ctx, cancel := context.WithTimeout(ctx, grepTimeout)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "git", "grep", "-n", "-E", pattern)
-	cmd.Dir = repoRoot
-	cmd.Env = minimalEnv(repoRoot)
-	out, err := cmd.Output()
-	if err != nil {
-		if e, ok := err.(*exec.ExitError); ok && e.ExitCode() == 1 {
-			return "", 0, "", nil
-		}
-		return "", 0, "", err
-	}
-	trimmed := strings.TrimSpace(string(out))
-	if trimmed == "" {
-		return "", 0, "", nil
-	}
-	first := strings.SplitN(trimmed, "\n", 2)[0]
-	idx := strings.Index(first, ":")
-	if idx == -1 {
-		return "", 0, "", nil
-	}
-	path := first[:idx]
-	if path == "" || strings.Contains(path, "..") {
-		return "", 0, "", nil
-	}
-	rest := first[idx+1:]
-	idx2 := strings.Index(rest, ":")
-	if idx2 == -1 {
-		return "", 0, "", nil
-	}
-	lineno, errParse := strconv.Atoi(rest[:idx2])
-	if errParse != nil || lineno < 1 {
-		return "", 0, "", nil
-	}
-	lineContent = rest[idx2+1:]
-	absPath = filepath.Join(repoRoot, path)
-	return absPath, lineno, lineContent, nil
-}
-
-func minimalEnv(repoRoot string) []string {
-	gitDir := filepath.Join(repoRoot, ".git")
-	return []string{
-		"PATH=" + os.Getenv("PATH"),
-		"GIT_TERMINAL_PROMPT=0",
-		"GIT_DIR=" + gitDir,
-		"GIT_WORK_TREE=" + repoRoot,
-	}
+	return `(function[[:space:]]+` + quoted + `[[:space:]]*\(|const[[:space:]]+` + quoted + `[[:space:]]*=|class[[:space:]]+` + quoted + `[^a-zA-Z0-9_]|interface[[:space:]]+` + quoted + `[^a-zA-Z0-9_])`
 }
 
 // readSignatureAndDoc reads the file at path, line (1-based). Signature up to { or =>.
