@@ -1,7 +1,7 @@
 # SP-087: batch-git-grep-rag — Status
 
 **Current Step:** Step 0
-**Status:** ⬜ Not Started
+**Status:** 🔄 In Progress
 **Last Updated:** 2026-11-20
 **Review Level:** 1
 **Review Counter:** 0
@@ -11,7 +11,7 @@
 ---
 
 ### Step 0: Batch git grep RAG queries
-**Status:** ⬜ Not Started
+**Status:** 🔄 In Progress
 
 - [ ] Batch symbol lookups into fewer git grep calls
 
