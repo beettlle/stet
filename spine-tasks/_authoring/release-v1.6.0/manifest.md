@@ -129,14 +129,14 @@ curl -fsSL https://raw.githubusercontent.com/beettlle/stet/main/install.sh | STE
 
 - [x] All release-scoped tasks `.DONE` on `main`
 - [x] Post-integrate `scripts/release-check.sh` exit 0 after every wave (logs above)
-- [x] `scripts/release-check.sh` exit 0 on final `HEAD` (24bf18b) — log: /tmp/stet-release-check-v1.6.0.log
-- [x] `ci.yml` green on final `HEAD` — run: https://github.com/beettlle/stet/actions/runs/44801713560
+- [x] `scripts/release-check.sh` exit 0 on final `HEAD` (cf2c98d) — log: /tmp/stet-release-check-v1.6.0.log
+- [x] `ci.yml` green on final `HEAD` — run: https://github.com/beettlle/stet/actions/runs/44802305380
 - [x] `git status` clean; `main` equals `origin/main`
 - [x] Release-scoped `Closes #NNN` issues all CLOSED (#39, #35, #20, #15)
 - [x] Release notes written and reviewed
-- [ ] Operator approved publish ({date})
-- [ ] `git tag -a v1.6.0 --cleanup=verbatim -F release-notes.md` + `git push origin v1.6.0`
-- [ ] `release.yml` run green (publish + verify-install ×3) — run: {url}
-- [ ] `scripts/post-release-smoke.sh v1.6.0` exit 0
-- [ ] Local `stet` replaced: `stet --version` reports `v1.6.0` (path: {command -v stet})
-- [ ] `spine-tasks/CONTEXT.md` release note added
+- [x] Operator approved publish (2026-11-20)
+- [x] `git tag -a v1.6.0 --cleanup=verbatim -F release-notes.md` + `git push origin v1.6.0`
+- [x] `release.yml` run green (publish + verify-install ×3) — run: https://github.com/beettlle/stet/actions/runs/44802926723
+- [x] `scripts/post-release-smoke.sh v1.6.0` exit 0
+- [x] Local `stet` replaced: `stet --version` reports `v1.6.0` (path: /Users/cdelgado/.local/bin/stet)
+- [x] `spine-tasks/CONTEXT.md` release note added

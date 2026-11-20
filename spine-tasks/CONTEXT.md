@@ -1,8 +1,8 @@
 # stet — Context
 
-**Last Updated:** 2026-10-24
+**Last Updated:** 2026-11-20
 **Status:** Active
-**Next Task ID:** SP-084
+**Next Task ID:** SP-088
 
 ---
 
@@ -237,6 +237,21 @@ Manifest: `spine-tasks/_authoring/release-v1.5.0/manifest.md`. Scope approved 20
 Edges are data deps (SP-080 uses SP-078's baseline and SP-079's dataset; SP-081 measures SP-080's criteria on SP-079's dataset; SP-083 uses SP-082's cases) plus serialization of exclusive LM Studio / OpenJev use (SP-077, SP-082 → SP-078) and `docs/cli-extension-contract.md` (SP-081 → SP-083).
 
 **Released:** v1.5.0 on 2026-11-03, tagged at `bc4a47e` (closes #5, #11, #18, #34; #20 measured, stays open). Release: https://github.com/beettlle/stet/releases/tag/v1.5.0
+
+### Phase 14 — Release v1.6.0 (2026-11-19)
+
+Manifest: `spine-tasks/_authoring/release-v1.6.0/manifest.md`. Scope approved 2026-11-19. Theme: false-positive precision, task intent, critic out-of-view claims, RAG grep batching.
+
+| Task | Summary | Size | Status | Deps |
+|------|---------|------|--------|------|
+| SP-084 | Unused-import existence filter + callee-return ERROR guard (#39) | S | Done | — |
+| SP-087 | Batch RAG symbol `git grep` lookups (#15) | S | Done | — |
+| SP-086 | System One rejects out-of-view missing/undefined claims (#20) | M | Done | SP-084 |
+| SP-085 | Pass task intent via `--intent-file` (#35) | M | Done | SP-086 |
+
+Waves: **W0** SP-084 ∥ SP-087 → **W1** SP-086 → **W2** SP-085.
+
+**Released:** v1.6.0 on 2026-11-20, tagged at `cf2c98d` (closes #39, #35, #20, #15). Release: https://github.com/beettlle/stet/releases/tag/v1.6.0
 
 ### Completed (wave 0 + follow-on)
 
