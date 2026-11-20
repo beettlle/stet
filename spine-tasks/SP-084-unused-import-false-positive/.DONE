@@ -1,0 +1,10 @@
+SP-084 complete.
+
+- Step 0: existence filter drops unused-import claims when the symbol is used
+  anywhere in the file (negated-show claim phrasing + single-use import rule).
+- Step 1: systemone critic demotes ERROR callee-return claims to warning when
+  no claimed callee is declared in the critic context (issue #39 finding 2).
+- Step 2: contract testCommand green (gofmt, vet, findings+review tests);
+  wider go test ./cli/... 37/37 packages ok.
+
+Commits: 9da40d4 (Step 0), 0d882ce (Step 1), 7457ab5 (Step 2).
