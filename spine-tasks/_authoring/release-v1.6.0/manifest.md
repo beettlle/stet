@@ -84,6 +84,7 @@ Wave 2 · 1 task
 |------|----------|--------------|------------------------------------|-------------------|------|--------|---------------|
 | 0 | 20261120T173358-5019 | SP-084, SP-087 | review failed (System One unreachable) | /tmp/stet-release-check-wave-0.log | 0 | yes | #39, #15 |
 | 1 | 20261120T181408-9651 | SP-086 | 3 (WARNINGs, advisory) | /tmp/stet-release-check-wave-1.log | 0 | yes | #20 |
+| 2 | 20261120T184307-64fe | SP-085 | 0 | /tmp/stet-release-check-wave-2.log | 0 | yes | #35 |
 
 ---
 
