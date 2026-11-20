@@ -466,3 +466,131 @@ func TestVerifyFindingsSystemOne_samplesPassedToEveryRequest(t *testing.T) {
 		}
 	}
 }
+
+// sp39CalleeReturnMessage reproduces the ERROR message shape from issue #39
+// finding 2: a specific claim about an imported callee's return value.
+const sp39CalleeReturnMessage = "`buildStetVersionDoctorCheck` returns `ok: false` if the version is below the minimum. This is a logic error."
+
+// sp39ImportedCalleeContext carries the import and a call site but NOT the
+// callee's body: the callee lives in another module (src/doctor/stet-capacity.mjs).
+const sp39ImportedCalleeContext = "import { buildStetVersionDoctorCheck } from \"./stet-capacity.mjs\";\n\nconst checks = [];\nchecks.push(buildStetVersionDoctorCheck());\n"
+
+// TestVerifyFindingsSystemOne_demotesCalleeReturnErrorWithoutBodyInContext
+// (issue #39 finding 2) asserts the critic demotes an ERROR finding that
+// asserts an imported callee's return value when the callee's body is not in
+// the critic context: the finding is kept (still reviewed) but at warning
+// severity, and the request instructions carry the demoted severity.
+func TestVerifyFindingsSystemOne_demotesCalleeReturnErrorWithoutBodyInContext(t *testing.T) {
+	t.Parallel()
+	f := sampleFinding("f-a", sp39CalleeReturnMessage)
+	f.Severity = findings.SeverityError
+	fake := &fakeDecider{probs: map[string]float64{"f0": 0.9}}
+	kept, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{f}, sp39ImportedCalleeContext, 0.5, 0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(kept) != 1 {
+		t.Fatalf("finding should be kept (demoted, not dropped), got %+v", kept)
+	}
+	if kept[0].Severity != findings.SeverityWarning {
+		t.Errorf("kept severity = %q, want warning: an ERROR claim about a callee whose body is not in context is speculation (issue #39)", kept[0].Severity)
+	}
+	if !strings.Contains(fake.requests[0].Questions["f0"].Instructions, "- severity: warning") {
+		t.Errorf("request instructions should carry the demoted severity, got: %q", fake.requests[0].Questions["f0"].Instructions)
+	}
+}
+
+// TestVerifyFindingsSystemOne_keepsErrorWhenCalleeDeclaredInContext asserts
+// the demotion guard does not touch ERROR claims whose callee IS declared in
+// the critic context: the body may support the claim.
+func TestVerifyFindingsSystemOne_keepsErrorWhenCalleeDeclaredInContext(t *testing.T) {
+	t.Parallel()
+	f := sampleFinding("f-a", sp39CalleeReturnMessage)
+	f.Severity = findings.SeverityError
+	const hunk = "function buildStetVersionDoctorCheck() {\n  if (outdated) return { ok: false };\n  return { ok: true };\n}\nconst r = buildStetVersionDoctorCheck();\n"
+	fake := &fakeDecider{probs: map[string]float64{"f0": 0.9}}
+	kept, _, err := VerifyFindingsSystemOne(context.Background(), fake, "m", []findings.Finding{f}, hunk, 0.5, 0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(kept) != 1 || kept[0].Severity != findings.SeverityError {
+		t.Fatalf("severity should stay error when the callee is declared in context, got: %+v", kept)
+	}
+	if !strings.Contains(fake.requests[0].Questions["f0"].Instructions, "- severity: error") {
+		t.Errorf("request instructions should carry the original error severity, got: %q", fake.requests[0].Questions["f0"].Instructions)
+	}
+}
+
+// TestDemoteUnsupportedCalleeReturnErrors covers the guard directly: only
+// ERROR findings with a callee-return claim and no in-context declaration are
+// demoted, the reversed "return value of `x`" form is detected, and the input
+// slice is not modified.
+func TestDemoteUnsupportedCalleeReturnErrors(t *testing.T) {
+	t.Parallel()
+	const emptyCtx = "const checks = [];\n"
+	tests := []struct {
+		name    string
+		sev     findings.Severity
+		msg     string
+		ctx     string
+		wantSev findings.Severity
+	}{
+		{
+			name:    "error_callee_return_no_body_demoted",
+			sev:     findings.SeverityError,
+			msg:     sp39CalleeReturnMessage,
+			ctx:     sp39ImportedCalleeContext,
+			wantSev: findings.SeverityWarning,
+		},
+		{
+			name:    "error_return_value_of_form_demoted",
+			sev:     findings.SeverityError,
+			msg:     "The return value of `loadState` is never checked, so failures vanish.",
+			ctx:     emptyCtx,
+			wantSev: findings.SeverityWarning,
+		},
+		{
+			name:    "error_will_return_form_demoted",
+			sev:     findings.SeverityError,
+			msg:     "`saveConfig` will return nil on failure and the caller cannot tell.",
+			ctx:     emptyCtx,
+			wantSev: findings.SeverityWarning,
+		},
+		{
+			name:    "error_no_return_claim_untouched",
+			sev:     findings.SeverityError,
+			msg:     "`handleUpload` swallows the error, hiding failures.",
+			ctx:     emptyCtx,
+			wantSev: findings.SeverityError,
+		},
+		{
+			name:    "warning_callee_return_untouched",
+			sev:     findings.SeverityWarning,
+			msg:     sp39CalleeReturnMessage,
+			ctx:     emptyCtx,
+			wantSev: findings.SeverityWarning,
+		},
+		{
+			name:    "error_callee_declared_in_context_untouched",
+			sev:     findings.SeverityError,
+			msg:     sp39CalleeReturnMessage,
+			ctx:     "function buildStetVersionDoctorCheck() { return { ok: false }; }\n",
+			wantSev: findings.SeverityError,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			in := []findings.Finding{sampleFinding("f-a", tc.msg)}
+			in[0].Severity = tc.sev
+			inCopy := append([]findings.Finding(nil), in...)
+			got := demoteUnsupportedCalleeReturnErrors(in, tc.ctx)
+			if len(got) != 1 || got[0].Severity != tc.wantSev {
+				t.Fatalf("severity = %q, want %q", got[0].Severity, tc.wantSev)
+			}
+			if in[0].Severity != inCopy[0].Severity {
+				t.Errorf("input slice was modified: %q, want %q", in[0].Severity, inCopy[0].Severity)
+			}
+		})
+	}
+}

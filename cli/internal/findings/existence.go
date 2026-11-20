@@ -119,6 +119,15 @@ func identDeclared(content, ident string) bool {
 	return regexp.MustCompile(combinedPattern(declarationPatterns(regexp.QuoteMeta(ident)))).MatchString(content)
 }
 
+// IdentDeclared reports whether ident is declared in content. Exported for
+// the review package's callee-return severity guard (issue #39 finding 2):
+// an ERROR claim about a callee that is not declared in the critic context
+// has no body evidence and must not stay at ERROR. See identDeclared for the
+// supported declaration forms; imports do not count as declarations.
+func IdentDeclared(content, ident string) bool {
+	return identDeclared(content, ident)
+}
+
 // identParameter reports whether ident occurs inside a parameter (or
 // receiver, or named-result) list of a declaration signature in content.
 // Single-line signatures only; multi-line parameter lists keep the finding
