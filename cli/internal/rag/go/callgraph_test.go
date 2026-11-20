@@ -214,14 +214,16 @@ func TestFindCallers_findsCaller(t *testing.T) {
 
 func TestResolveCallGraph_findsCallersAndCallees(t *testing.T) {
 	repo := initCallGraphRepo(t)
-	hunk := "@@ -7,3 +7,4 @@\n func Target() {\n \thelper()\n+\t// change\n }\n"
+	// Hunk new-file span must be fully inside Target (lines 7–9); a trailing
+	// blank line in the range makes EnclosingFuncName miss the function.
+	hunk := "@@ -7,3 +7,3 @@\n func Target() {\n \thelper()\n }\n"
 	ctx := context.Background()
-	result, err := (&callGraphResolver{}).ResolveCallGraph(ctx, repo, "pkg/code.go", hunk, rag.CallGraphOptions{CallersMax: 3, CalleesMax: 3})
+	result, err := (&callGraphResolver{}).ResolveCallGraph(ctx, repo, "pkg/code.go", hunk, rag.CallGraphOptions{})
 	if err != nil {
 		t.Fatalf("ResolveCallGraph: %v", err)
 	}
 	if result == nil {
-		t.Skip("call graph empty (expand/hunk mismatch); covered by findCallers/findCallees unit tests")
+		t.Fatal("expected non-nil call graph for Target hunk")
 	}
 	if len(result.Callers) == 0 {
 		t.Error("expected at least one caller")
