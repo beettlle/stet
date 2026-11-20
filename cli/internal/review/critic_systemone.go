@@ -7,6 +7,7 @@ package review
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"stet/cli/internal/findings"
@@ -23,6 +24,65 @@ const systemOneFindingPrefix = "Finding claimed by a code reviewer:"
 
 // systemOneStatePrefix prefixes the request state that carries the code under review.
 const systemOneStatePrefix = "Code under review:\n"
+
+// Callee-return claim detection (issue #39 finding 2). calleeReturnsRegex
+// matches messages that assert a callee's return value or return behavior:
+// "`callee` returns X", "`callee` returning X", "`callee` will/would return
+// X". The span between the identifier and the return verb must stay on one
+// line and must not cross another backticked span. calleeReturnOfRegex
+// matches the reversed form: "the return value of `callee`".
+var (
+	calleeReturnsRegex  = regexp.MustCompile("`([A-Za-z_][A-Za-z0-9_]*)`[^`\n]{0,120}?\\b(?:returns?|returning|will\\s+return|would\\s+return)\\b")
+	calleeReturnOfRegex = regexp.MustCompile("\\breturn(?:s|ing)?(?:\\s+value)?\\s+of\\s+`([A-Za-z_][A-Za-z0-9_]*)`")
+)
+
+// claimedReturnCallees returns the backticked identifiers whose return value
+// or return behavior the message asserts, in first-match order, duplicates
+// included.
+func claimedReturnCallees(msg string) []string {
+	var idents []string
+	for _, re := range []*regexp.Regexp{calleeReturnsRegex, calleeReturnOfRegex} {
+		for _, m := range re.FindAllStringSubmatch(msg, -1) {
+			idents = append(idents, m[1])
+		}
+	}
+	return idents
+}
+
+// demoteUnsupportedCalleeReturnErrors downgrades ERROR findings whose message
+// asserts a return value or return behavior for a callee that is not declared
+// in context (issue #39 finding 2): when the callee's body is not in the
+// critic context — e.g. the callee lives in an imported file — the claim is
+// speculation, so the critic must not vouch for ERROR severity. Claims naming
+// at least one callee declared in the context keep their severity (the body
+// may support the claim); non-ERROR findings pass through untouched. Returns
+// a new slice; the input is not modified.
+func demoteUnsupportedCalleeReturnErrors(batch []findings.Finding, context string) []findings.Finding {
+	out := make([]findings.Finding, len(batch))
+	copy(out, batch)
+	for i := range out {
+		f := out[i]
+		if f.Severity != findings.SeverityError {
+			continue
+		}
+		claimed := claimedReturnCallees(f.Message)
+		if len(claimed) == 0 {
+			continue
+		}
+		supported := false
+		for _, id := range claimed {
+			if findings.IdentDeclared(context, id) {
+				supported = true
+				break
+			}
+		}
+		if supported {
+			continue
+		}
+		out[i].Severity = findings.SeverityWarning
+	}
+	return out
+}
 
 // Criteria text shared by every System One noul question. SP-080 validated
 // three rewordings against docs/research/critic-eval/pi-spine-v2-dataset.jsonl
@@ -49,6 +109,13 @@ type SystemOneDecider interface {
 // the batch unchanged with no request. Any Decide error aborts with
 // (nil, nil, err) wrapped with context; the caller decides abort behaviour.
 //
+// Before verification, ERROR findings asserting a return value or return
+// behavior for a callee that is not declared in hunkContent are demoted to
+// warning (issue #39 finding 2): without the callee's body in context — e.g.
+// an imported callee — the claim is speculation and the critic must not keep
+// it at ERROR severity. The demoted severity rides in the request
+// instructions and on the kept findings.
+//
 // Security: hunk content is attacker-influenced input (e.g. diff comments), so
 // it is passed only in the request state and never echoed into question
 // instructions, but a crafted diff could still bias the verdict.
@@ -56,6 +123,11 @@ func VerifyFindingsSystemOne(ctx context.Context, client SystemOneDecider, model
 	if client == nil || model == "" || len(batch) == 0 {
 		return batch, map[string]float64{}, nil
 	}
+
+	// Issue #39 finding 2: demote ERROR callee-return claims with no callee
+	// body in the critic context before verification, so the request
+	// instructions and the kept findings both carry the honest severity.
+	batch = demoteUnsupportedCalleeReturnErrors(batch, hunkContent)
 
 	state := buildSystemOneStateCapped(hunkContent, defaultCriticContextCap)
 	probs := make([]float64, len(batch))

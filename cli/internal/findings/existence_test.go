@@ -55,6 +55,20 @@ class TaskRunner:
         return os.getcwd()
 `
 
+// existenceMJSFixture reproduces issue #39 finding 1: the import is added in
+// one hunk (line 2) and its single call lands in another hunk (line 11); the
+// post-change file contains both, so the claim is disproven.
+const existenceMJSFixture = `import { buildStetCapacityDoctorCheck } from "./stet-capacity.mjs";
+import { buildStetVersionDoctorCheck } from "./stet-capacity.mjs";
+
+export function runDoctorChecks(state) {
+  const checks = [];
+  checks.push(buildStetCapacityDoctorCheck());
+  checks.push(buildStetVersionDoctorCheck());
+  return checks;
+}
+`
+
 func TestFilterExistenceClaims(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -293,6 +307,40 @@ func TestFilterExistenceClaims(t *testing.T) {
 			},
 			content: existenceGoFixture,
 			keep:    false, // two fmt.Println(RateLimit) uses outside the var line
+		},
+
+		// --- unused imports (issue #39) ---
+		{
+			name: "sp39_import_used_in_another_hunk_dropped",
+			input: []Finding{
+				{File: "src/doctor/run-doctor-checks.mjs", Line: 27, Severity: SeverityWarning, Category: CategoryMaintainability, Confidence: 0.9, Message: "The import for `buildStetVersionDoctorCheck` was added, but the diff does not show it being used in the file."},
+			},
+			content: existenceMJSFixture,
+			keep:    false, // imported in one hunk, called once in another (issue #39)
+		},
+		{
+			name: "sp39_unused_import_single_use_dropped",
+			input: []Finding{
+				{File: "a.mjs", Line: 1, Severity: SeverityWarning, Category: CategoryMaintainability, Confidence: 0.9, Message: "The `fs` import is not used."},
+			},
+			content: "import fs from \"node:fs\";\n\nexport function once() { return fs.readFileSync(\"x\"); }\n",
+			keep:    false, // one use disproves an unused-import claim (issue #39)
+		},
+		{
+			name: "sp39_unused_import_with_no_use_kept",
+			input: []Finding{
+				{File: "a.mjs", Line: 1, Severity: SeverityWarning, Category: CategoryMaintainability, Confidence: 0.9, Message: "The `publishResults` import is not used."},
+			},
+			content: "import { publishResults } from \"./publish.mjs\";\n\nexport function done() { return true; }\n",
+			keep:    true, // the only occurrence is the import line itself
+		},
+		{
+			name: "unused_import_claim_without_import_statement_kept",
+			input: []Finding{
+				{File: "main.go", Line: 3, Severity: SeverityWarning, Category: CategoryMaintainability, Confidence: 0.9, Message: "`RateLimit` was imported but is never used."},
+			},
+			content: "package main\n\nvar RateLimit = 10\n\nfunc Report() int { return RateLimit }\n",
+			keep:    true, // no import statement: the single-use import rule needs identImported
 		},
 
 		// --- not exported ---
