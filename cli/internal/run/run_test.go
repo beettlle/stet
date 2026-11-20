@@ -4485,3 +4485,124 @@ func TestRun_dryRun_neverCallsSystemOne(t *testing.T) {
 		t.Errorf("decider calls = %d, want 0 (dry-run must never reach the System One critic)", decider.calls)
 	}
 }
+
+// TestRun_taskIntent_reachesReviewerPromptAndSystemOneCritic asserts the
+// SP-085 wiring end to end: RunOptions.Intent (stet run --intent-file) lands
+// in the reviewer's system prompt as a "## Task intent" section and prefixes
+// the System One critic request state ("Task objective: …"); a control run
+// without Intent keeps both byte-identical to the no-intent format.
+func TestRun_taskIntent_reachesReviewerPromptAndSystemOneCritic(t *testing.T) {
+	t.Parallel()
+
+	// mockLLM serves /api/tags and /api/generate, records every system prompt,
+	// and returns one finding per generate.
+	type mockLLM struct {
+		systems []string
+	}
+	newMock := func() (*httptest.Server, *mockLLM) {
+		m := &mockLLM{}
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/api/tags" {
+				w.WriteHeader(http.StatusOK)
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{"models": []map[string]interface{}{{"name": "m"}}})
+				return
+			}
+			if r.URL.Path != "/api/generate" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			var body struct {
+				System string `json:"system"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			m.systems = append(m.systems, body.System)
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"response": "[{\"file\":\"a.go\",\"line\":1,\"severity\":\"warning\",\"category\":\"style\",\"message\":\"intent-e2e\"}]", "done": true})
+		}))
+		return srv, m
+	}
+
+	const intent = "Add retry logic to the upload path."
+
+	t.Run("intent reaches reviewer prompt and critic state", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+		repo := initRepo(t)
+		stateDir := filepath.Join(repo, ".review")
+		srv, m := newMock()
+		defer srv.Close()
+		if _, err := Start(ctx, StartOptions{RepoRoot: repo, StateDir: stateDir, Ref: "HEAD~1", Model: "m", Provider: "ollama", LLMBaseURL: srv.URL}); err != nil {
+			t.Fatalf("Start: %v", err)
+		}
+		systemsBeforeRun := len(m.systems)
+		decider := &fakeSystemOneDecider{responses: []*systemone.Response{noulResponse(map[string]float64{"f0": 0.9})}}
+		opts := RunOptions{
+			RepoRoot: repo, StateDir: stateDir, Model: "m", Provider: "ollama", LLMBaseURL: srv.URL,
+			ForceFullReview:  true,
+			Intent:           intent,
+			CriticEnabled:    true,
+			CriticBackend:    "systemone",
+			SystemOneClient:  decider,
+			SystemOneBaseURL: srv.URL,
+			SystemOneModel:   "openjev-0.1",
+			SystemOneMinKeep: 0.9,
+		}
+		stats, err := Run(ctx, opts)
+		if err != nil {
+			t.Fatalf("Run: %v", err)
+		}
+		if stats.HunksReviewed == 0 {
+			t.Fatal("HunksReviewed = 0, want at least 1")
+		}
+		if len(m.systems) == systemsBeforeRun {
+			t.Fatal("no generate requests captured for the Run phase")
+		}
+		wantSection := "## Task intent\n" + intent
+		for i, system := range m.systems[systemsBeforeRun:] {
+			if !strings.Contains(system, wantSection) {
+				t.Errorf("reviewer system prompt %d missing task-intent section:\n%s", i, system)
+			}
+		}
+		if decider.calls == 0 {
+			t.Fatal("decider calls = 0, want 1 (System One critic ran)")
+		}
+		if !strings.HasPrefix(decider.requests[0].State, "Task objective:\n"+intent+"\n\nCode under review:\n") {
+			t.Errorf("critic state missing task-objective prefix; got %q", decider.requests[0].State)
+		}
+	})
+
+	t.Run("no intent keeps prompts unchanged", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+		repo := initRepo(t)
+		stateDir := filepath.Join(repo, ".review")
+		srv, m := newMock()
+		defer srv.Close()
+		if _, err := Start(ctx, StartOptions{RepoRoot: repo, StateDir: stateDir, Ref: "HEAD~1", Model: "m", Provider: "ollama", LLMBaseURL: srv.URL}); err != nil {
+			t.Fatalf("Start: %v", err)
+		}
+		systemsBeforeRun := len(m.systems)
+		decider := &fakeSystemOneDecider{responses: []*systemone.Response{noulResponse(map[string]float64{"f0": 0.9})}}
+		opts := RunOptions{
+			RepoRoot: repo, StateDir: stateDir, Model: "m", Provider: "ollama", LLMBaseURL: srv.URL,
+			ForceFullReview:  true,
+			CriticEnabled:    true,
+			CriticBackend:    "systemone",
+			SystemOneClient:  decider,
+			SystemOneBaseURL: srv.URL,
+			SystemOneModel:   "openjev-0.1",
+			SystemOneMinKeep: 0.9,
+		}
+		if _, err := Run(ctx, opts); err != nil {
+			t.Fatalf("Run: %v", err)
+		}
+		for i, system := range m.systems[systemsBeforeRun:] {
+			if strings.Contains(system, "## Task intent") {
+				t.Errorf("reviewer system prompt %d unexpectedly contains task-intent section:\n%s", i, system)
+			}
+		}
+		if decider.calls != 0 && strings.Contains(decider.requests[0].State, "Task objective:") {
+			t.Errorf("critic state unexpectedly contains task-objective prefix; got %q", decider.requests[0].State)
+		}
+	})
+}

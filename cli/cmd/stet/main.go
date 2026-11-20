@@ -644,6 +644,7 @@ func newRunCmd() *cobra.Command {
 		RunE:  runRun,
 	}
 	addRunLikeFlags(cmd)
+	cmd.Flags().String("intent-file", "", "Path to a file whose contents describe the task objective (mission or PR description); injected into the reviewer and critic prompts")
 	return cmd
 }
 
