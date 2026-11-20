@@ -1,9 +1,12 @@
 package review
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -760,5 +763,158 @@ func TestVerifyFindingsSystemOne_rejectsOutOfViewExistenceClaimDespiteHighScore(
 	}
 	if _, ok := fake.requests[0].Questions["f0"]; !ok {
 		t.Errorf("surviving finding should be re-keyed to the guarded batch index f0, got keys %v", fake.requests[0].Questions)
+	}
+}
+
+// datasetExample mirrors one JSONL line of
+// docs/research/critic-eval/pi-spine-v2-dataset.jsonl, the labeled set the
+// SP-080 criteria and SP-081 threshold decisions were measured on (89 rows:
+// 78 drop, 11 keep, frozen decision-record artifact).
+type datasetExample struct {
+	Finding struct {
+		ID      string `json:"id"`
+		Message string `json:"message"`
+	} `json:"finding"`
+	Hunk  string `json:"hunk"`
+	Label string `json:"label"`
+}
+
+// sp080ModelUncatchableOOVIDs lists the out-of-view existence-claim rows the
+// SP-080 baseline run scored 0.79–0.999 (docs/research/critic-eval/
+// criteria-sp080.md): the model agrees with the absence claim because the
+// refuting code is never shown, so no usable systemone_min_keep can reject
+// them. SP-086's deterministic guard must reject every one of them.
+var sp080ModelUncatchableOOVIDs = map[string]bool{
+	"pi-spine-SP-827-cc988af": true, // reviewLevel may be undefined/null
+	"pi-spine-SP-829-5f9106b": true, // fs used without importing it
+	"pi-spine-SP-831-74dc631": true, // compareTaskIds import unused in the hunk
+	"pi-spine-SP-831-131e1ec": true, // compareTaskIds not defined/imported
+	"pi-spine-SP-831-0404db1": true, // same claim, reworded
+	"pi-spine-SP-831-1757410": true, // same claim, reworded
+	"pi-spine-SP-831-3ebc640": true, // same claim, reworded
+	"pi-spine-SP-832-4e406f4": true, // resolveEffectiveReviewer import unused
+	"pi-spine-SP-835-4b4b746": true, // resolveWorkerBackend import unused
+	"pi-spine-SP-835-6cc7bd9": true, // prepareWorkerAttempt import unused
+	"pi-spine-SP-838-7005bc1": true, // ZAI_1308 not defined in added code
+	"pi-spine-SP-845-8e13031": true, // implementation change not shown in diff
+}
+
+// TestVerifyFindingsSystemOne_datasetRejectsOutOfViewClaims is the SP-086
+// evaluation (issue #20 acceptance: improved precision on out-of-view false
+// positives without losing true positives). It replays the labeled dataset
+// through VerifyFindingsSystemOne grouped by hunk exactly like
+// criticeval.Score, with a worst-case model that scores every finding 0.99 —
+// worse than the real OpenJev baseline, which caught only 29/78 drops at the
+// shipped min_keep 0.2 (SP-081). Under that adversarial model the baseline
+// would keep all 89 examples; the deterministic guard must reject the
+// identifier-existence false positives while keeping every labeled keep.
+func TestVerifyFindingsSystemOne_datasetRejectsOutOfViewClaims(t *testing.T) {
+	t.Parallel()
+	f, err := os.Open("../../../docs/research/critic-eval/pi-spine-v2-dataset.jsonl")
+	if err != nil {
+		t.Fatalf("open labeled dataset: %v", err)
+	}
+	defer func() { _ = f.Close() }()
+	var examples []datasetExample
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" {
+			continue
+		}
+		var ex datasetExample
+		if err := json.Unmarshal([]byte(line), &ex); err != nil {
+			t.Fatalf("invalid dataset JSON: %v", err)
+		}
+		examples = append(examples, ex)
+	}
+	if err := sc.Err(); err != nil {
+		t.Fatalf("read labeled dataset: %v", err)
+	}
+	// The dataset is a frozen decision-record artifact (SP-080/SP-081 measured
+	// exactly these 89 rows: 78 drop / 11 keep). Pin the counts so a truncated
+	// or partially-parsed load fails loudly instead of passing vacuously.
+	if len(examples) != 89 {
+		t.Fatalf("loaded %d dataset examples, want the frozen 89 (78 drop / 11 keep)", len(examples))
+	}
+	keeps, drops := 0, 0
+	for _, ex := range examples {
+		switch ex.Label {
+		case "keep":
+			keeps++
+		case "drop":
+			drops++
+		default:
+			t.Fatalf("unknown dataset label %q", ex.Label)
+		}
+	}
+	if keeps != 11 || drops != 78 {
+		t.Fatalf("dataset labels changed: %d keep / %d drop, want 11 / 78", keeps, drops)
+	}
+
+	// Group by hunk and verify group-by-group, mirroring criticeval.Score
+	// (min_keep = the shipped default 0.2).
+	groupOrder := make([]string, 0, len(examples))
+	groups := make(map[string][]findings.Finding, len(examples))
+	for _, ex := range examples {
+		if _, ok := groups[ex.Hunk]; !ok {
+			groupOrder = append(groupOrder, ex.Hunk)
+		}
+		groups[ex.Hunk] = append(groups[ex.Hunk], findings.Finding{ID: ex.Finding.ID, Message: ex.Finding.Message})
+	}
+	fake := &agreeDecider{}
+	scores := make(map[string]float64, len(examples))
+	for _, hunk := range groupOrder {
+		batch := groups[hunk]
+		kept, groupScores, err := VerifyFindingsSystemOne(context.Background(), fake, "m", batch, hunk, 0.2, 0)
+		if err != nil {
+			t.Fatalf("verify hunk group: %v", err)
+		}
+		for _, k := range kept {
+			if k.ID != "" {
+				if _, ok := groupScores[k.ID]; !ok {
+					t.Errorf("kept finding %s has no score", k.ID)
+				}
+			}
+		}
+		for id, p := range groupScores {
+			scores[id] = p
+		}
+	}
+
+	// No regression: every labeled keep survives with its model score intact.
+	for _, ex := range examples {
+		if ex.Label != "keep" {
+			continue
+		}
+		s, ok := scores[ex.Finding.ID]
+		if !ok {
+			t.Errorf("KEEP %s was deterministically rejected — in-view regression: %q", ex.Finding.ID, ex.Finding.Message)
+			continue
+		}
+		if s < 0.2 {
+			t.Errorf("KEEP %s score = %v, want >= 0.2 (shipped min_keep)", ex.Finding.ID, s)
+		}
+	}
+	// Precision: every SP-080 row the model cannot reject (0.79–0.999) is
+	// deterministically rejected.
+	for id := range sp080ModelUncatchableOOVIDs {
+		if _, ok := scores[id]; ok {
+			t.Errorf("out-of-view drop %s was scored (%v) instead of rejected by the guard", id, scores[id])
+		}
+	}
+	// Overall improvement over the adversarial-model baseline (0 drops
+	// caught): 22 drop examples rejected, all labeled drop. A future detection
+	// improvement may raise this; it must never drop below 22 nor touch keeps.
+	rejectedDrops := 0
+	for _, ex := range examples {
+		if ex.Label == "drop" {
+			if _, ok := scores[ex.Finding.ID]; !ok {
+				rejectedDrops++
+			}
+		}
+	}
+	if rejectedDrops < 22 {
+		t.Errorf("rejected %d drop examples, want >= 22 (SP-086 measured set)", rejectedDrops)
 	}
 }
