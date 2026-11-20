@@ -1,7 +1,7 @@
 # SP-084: unused-import-false-positive — Status
 
-**Current Step:** Step 2
-**Status:** 🔄 In Progress
+**Current Step:** Done
+**Status:** ✅ Complete
 **Last Updated:** 2026-11-20
 **Review Level:** 1
 **Review Counter:** 0
@@ -26,11 +26,17 @@
 ---
 
 ### Step 2: Testing & Verification
-**Status:** 🔄 In Progress
+**Status:** ✅ Complete
 
-- [ ] Contract `testCommand` passes
+- [x] Contract `testCommand` passes (`bash scripts/check-gofmt.sh && go vet ./cli/... && go test ./cli/internal/findings/... ./cli/internal/review/... -count=1` — all green; wider `go test ./cli/...` 37/37 packages ok)
 
 ---
+
+## Completion Criteria
+
+- [x] Unused import claims are correctly dropped if the symbol is used elsewhere in the file.
+- [x] Critic correctly avoids raising ERROR for imported callee return claims without evidence.
+- [x] Tests pass via the contract test command.
 
 ## Reviews
 
@@ -55,3 +61,4 @@
 |------|-------|-------|
 | 2026-11-20 | Step 0 complete | `fix(SP-084)` existence filter: negated-show claim phrasing + unused-import single-use rule; 4 new tests |
 | 2026-11-20 | Step 1 complete | `fix(SP-084)` critic demotes ERROR callee-return claims without callee body in context to warning; 3 new tests + 6-case unit table |
+| 2026-11-20 | Step 2 complete | Contract testCommand green (gofmt, vet, findings+review tests); full cli suite 37/37 ok; completion criteria met |
