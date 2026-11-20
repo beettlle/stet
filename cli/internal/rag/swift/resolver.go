@@ -6,18 +6,14 @@ import (
 	"bufio"
 	"context"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
-	"time"
 
 	"stet/cli/internal/rag"
 )
 
 const (
-	grepTimeout              = 5 * time.Second
 	maxSymbolCandidates      = 30
 	maxPrecedingCommentLines = 5
 )
@@ -95,35 +91,37 @@ func extractSymbols(hunkContent string) []string {
 	return list
 }
 
+// lookupDefinitions looks up all symbols with a single batched git grep
+// process and reads signature + docstring for each found definition.
 func lookupDefinitions(ctx context.Context, repoRoot, fromFile string, symbols []string, maxDefs int) ([]rag.Definition, error) {
 	absRepo, err := filepath.Abs(repoRoot)
 	if err != nil {
 		return nil, err
 	}
-	seen := make(map[string]bool)
+	pairs := make([]rag.SymbolPattern, len(symbols))
+	for i, sym := range symbols {
+		pairs[i] = rag.SymbolPattern{Symbol: sym, Pattern: symbolPattern(sym)}
+	}
+	matches, err := rag.BatchGrepDefinitions(ctx, absRepo, pairs)
+	if err != nil {
+		return nil, err
+	}
 	var defs []rag.Definition
-	for _, sym := range symbols {
+	for _, m := range matches {
 		if len(defs) >= maxDefs {
 			break
 		}
-		if seen[sym] {
+		if m == nil {
 			continue
 		}
-		path, line, content, err := gitGrepSymbol(ctx, absRepo, sym)
-		if err != nil || path == "" {
-			continue
-		}
-		seen[sym] = true
-		relPath, _ := filepath.Rel(absRepo, path)
-		relPath = filepath.ToSlash(relPath)
-		sig, doc := readSignatureAndDoc(path, line, content)
+		sig, doc := readSignatureAndDoc(m.AbsPath, m.Line, m.Content)
 		if sig == "" {
-			sig = strings.TrimSpace(content)
+			sig = strings.TrimSpace(m.Content)
 		}
 		defs = append(defs, rag.Definition{
-			Symbol:    sym,
-			File:      relPath,
-			Line:      line,
+			Symbol:    m.Symbol,
+			File:      m.RelPath,
+			Line:      m.Line,
 			Signature: sig,
 			Docstring: doc,
 		})
@@ -131,57 +129,11 @@ func lookupDefinitions(ctx context.Context, repoRoot, fromFile string, symbols [
 	return defs, nil
 }
 
-func gitGrepSymbol(ctx context.Context, repoRoot, symbol string) (absPath string, line int, lineContent string, err error) {
+// symbolPattern returns the ERE matching Swift definitions of symbol.
+func symbolPattern(symbol string) string {
 	quoted := regexp.QuoteMeta(symbol)
 	// Use POSIX [[:space:]] and [^a-zA-Z0-9_] so git grep -E works on macOS/BSD.
-	pattern := `(func[[:space:]]+` + quoted + `[[:space:]]*\(|class[[:space:]]+` + quoted + `[^a-zA-Z0-9_]|struct[[:space:]]+` + quoted + `[^a-zA-Z0-9_]|enum[[:space:]]+` + quoted + `[^a-zA-Z0-9_])`
-	ctx, cancel := context.WithTimeout(ctx, grepTimeout)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "git", "grep", "-n", "-E", pattern)
-	cmd.Dir = repoRoot
-	cmd.Env = minimalEnv(repoRoot)
-	out, err := cmd.Output()
-	if err != nil {
-		if e, ok := err.(*exec.ExitError); ok && e.ExitCode() == 1 {
-			return "", 0, "", nil
-		}
-		return "", 0, "", err
-	}
-	trimmed := strings.TrimSpace(string(out))
-	if trimmed == "" {
-		return "", 0, "", nil
-	}
-	first := strings.SplitN(trimmed, "\n", 2)[0]
-	idx := strings.Index(first, ":")
-	if idx == -1 {
-		return "", 0, "", nil
-	}
-	path := first[:idx]
-	if path == "" || strings.Contains(path, "..") {
-		return "", 0, "", nil
-	}
-	rest := first[idx+1:]
-	idx2 := strings.Index(rest, ":")
-	if idx2 == -1 {
-		return "", 0, "", nil
-	}
-	lineno, errParse := strconv.Atoi(rest[:idx2])
-	if errParse != nil || lineno < 1 {
-		return "", 0, "", nil
-	}
-	lineContent = rest[idx2+1:]
-	absPath = filepath.Join(repoRoot, path)
-	return absPath, lineno, lineContent, nil
-}
-
-func minimalEnv(repoRoot string) []string {
-	gitDir := filepath.Join(repoRoot, ".git")
-	return []string{
-		"PATH=" + os.Getenv("PATH"),
-		"GIT_TERMINAL_PROMPT=0",
-		"GIT_DIR=" + gitDir,
-		"GIT_WORK_TREE=" + repoRoot,
-	}
+	return `(func[[:space:]]+` + quoted + `[[:space:]]*\(|class[[:space:]]+` + quoted + `[^a-zA-Z0-9_]|struct[[:space:]]+` + quoted + `[^a-zA-Z0-9_]|enum[[:space:]]+` + quoted + `[^a-zA-Z0-9_])`
 }
 
 // readSignatureAndDoc reads the file at path, line (1-based). Signature up to {.

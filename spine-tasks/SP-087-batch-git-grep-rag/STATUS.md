@@ -11,16 +11,14 @@
 ---
 
 ### Step 0: Batch git grep RAG queries
-**Status:** 🔄 In Progress
+**Status:** ✅ Complete
 
-- [ ] Batch symbol lookups into fewer git grep calls
-
----
+- [x] Batch symbol lookups into fewer git grep calls
 
 ### Step 1: Parse batched results
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] Map batched grep output back to queried symbols
+- [x] Map batched grep output back to queried symbols
 
 ---
 
