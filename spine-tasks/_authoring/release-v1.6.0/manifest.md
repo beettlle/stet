@@ -127,13 +127,13 @@ curl -fsSL https://raw.githubusercontent.com/beettlle/stet/main/install.sh | STE
 
 ## Publish checklist (Phases 5–6)
 
-- [ ] All release-scoped tasks `.DONE` on `main`
-- [ ] Post-integrate `scripts/release-check.sh` exit 0 after every wave (logs above)
-- [ ] `scripts/release-check.sh` exit 0 on final `HEAD` ({sha}) — log: {path}
-- [ ] `ci.yml` green on final `HEAD` — run: {url}
-- [ ] `git status` clean; `main` equals `origin/main`
-- [ ] Release-scoped `Closes #NNN` issues all CLOSED
-- [ ] Release notes written and reviewed
+- [x] All release-scoped tasks `.DONE` on `main`
+- [x] Post-integrate `scripts/release-check.sh` exit 0 after every wave (logs above)
+- [x] `scripts/release-check.sh` exit 0 on final `HEAD` (24bf18b) — log: /tmp/stet-release-check-v1.6.0.log
+- [x] `ci.yml` green on final `HEAD` — run: https://github.com/beettlle/stet/actions/runs/44801713560
+- [x] `git status` clean; `main` equals `origin/main`
+- [x] Release-scoped `Closes #NNN` issues all CLOSED (#39, #35, #20, #15)
+- [x] Release notes written and reviewed
 - [ ] Operator approved publish ({date})
 - [ ] `git tag -a v1.6.0 --cleanup=verbatim -F release-notes.md` + `git push origin v1.6.0`
 - [ ] `release.yml` run green (publish + verify-install ×3) — run: {url}
