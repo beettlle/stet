@@ -155,6 +155,60 @@ func TestExtractSymbols_deduplicatesAndSkipsKeywords(t *testing.T) {
 	}
 }
 
+func TestResolveSymbols_maxTokens_trimsLaterDefinitions(t *testing.T) {
+	ctx := context.Background()
+	dir := testutil.TempGitDir(t)
+	initGitRepo(t, dir)
+	pkgDir := filepath.Join(dir, "pkg")
+	if err := os.MkdirAll(pkgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := `def A():
+    """aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"""
+    pass
+def B():
+    """bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"""
+    pass
+def C():
+    """cccccccccccccccccccccccccccccccccccccccccccccccc"""
+    pass
+`
+	fooPath := filepath.Join(pkgDir, "foo.py")
+	if err := os.WriteFile(fooPath, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gitAdd(t, dir, "pkg/foo.py")
+
+	r := New()
+	opts := rag.ResolveOptions{MaxDefinitions: 5, MaxTokens: 20}
+	defs, err := r.ResolveSymbols(ctx, dir, "pkg/foo.py", "A(); B(); C()", opts)
+	if err != nil {
+		t.Fatalf("ResolveSymbols: %v", err)
+	}
+	if len(defs) < 1 {
+		t.Fatalf("expected at least 1 definition; got %d", len(defs))
+	}
+	if len(defs) >= 3 {
+		t.Fatalf("expected MaxTokens to trim definitions; got %d", len(defs))
+	}
+}
+
+func TestCapDefinitionsByTokens(t *testing.T) {
+	defs := []rag.Definition{
+		{Symbol: "A", Signature: "def A():", Docstring: "aaaa"},
+		{Symbol: "B", Signature: "def B():", Docstring: "bbbb"},
+		{Symbol: "C", Signature: "def C():", Docstring: "cccc"},
+	}
+	got := capDefinitionsByTokens(defs, 4)
+	if len(got) != 1 {
+		t.Fatalf("capDefinitionsByTokens(..., 4) = %d defs, want 1", len(got))
+	}
+	gotAll := capDefinitionsByTokens(defs, 1000)
+	if len(gotAll) != 3 {
+		t.Fatalf("capDefinitionsByTokens(..., 1000) = %d defs, want 3", len(gotAll))
+	}
+}
+
 func initGitRepo(t *testing.T, dir string) {
 	t.Helper()
 	runGit(t, dir, "init")
