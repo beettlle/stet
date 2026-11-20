@@ -2,9 +2,11 @@
 // implements the existence-claim post-filter (issue #33): findings whose
 // message claims a symbol is unused, undefined, not defined, not imported,
 // not declared, missing an import, or not exported are dropped when the
-// finding's own post-change file content proves otherwise. The filter is pure
-// (no I/O) and conservative: a dropped true positive is worse than a kept
-// false positive, so anything inconclusive keeps the finding.
+// finding's own post-change file content proves otherwise. Unused-import
+// claims (issue #39) are disproven by a single use anywhere in the file.
+// The filter is pure (no I/O) and conservative: a dropped true positive is
+// worse than a kept false positive, so anything inconclusive keeps the
+// finding.
 
 package findings
 
@@ -23,8 +25,15 @@ var (
 	// ReferenceError. Value-uses of "undefined" (e.g. "returns undefined")
 	// are stripped by undefinedValueUseRegex before this check.
 	missingClaimRegex = regexp.MustCompile(`(?i)\b(?:undefined|not\s+defined|never\s+defined|not\s+imported|never\s+imported|not\s+declared|never\s+declared|missing\s+imports?|without\s+importing|referenceerror)\b`)
-	// unusedClaimRegex matches claims that a symbol is unused.
-	unusedClaimRegex = regexp.MustCompile(`(?i)\b(?:unused|not\s+used|never\s+used)\b`)
+	// unusedClaimRegex matches claims that a symbol is unused, including the
+	// "the diff does not show it being used" phrasing from issue #39 finding 1.
+	unusedClaimRegex = regexp.MustCompile(`(?i)\b(?:unused|not\s+used|never\s+used|(?:does\s+not|doesn'?t|did\s+not|didn'?t)\s+(?:show|shown|showing)\s+(?:that\s+|it\s+|is\s+|was\s+|being\s+)*used)\b`)
+	// unusedImportClaimRegex marks an unused-claim message that is specifically
+	// about an import (issue #39): "the import for `X` ... does not show it being
+	// used", "the `X` import is unused", "`X` is imported but never used". Such
+	// claims are disproven by a single use outside decl/import lines: the import
+	// binding is itself the declaration, so any other occurrence is a use.
+	unusedImportClaimRegex = regexp.MustCompile(`(?i)\bimport`)
 	// notExportedClaimRegex matches claims that a symbol is not exported.
 	notExportedClaimRegex = regexp.MustCompile(`(?i)\bnot\s+exported\b`)
 	// undefinedValueUseRegex matches value-uses of "undefined" (a function
@@ -137,11 +146,10 @@ func identProvenInFile(content, ident string) bool {
 	return identImported(content, ident) || identDeclared(content, ident) || identParameter(content, ident)
 }
 
-// identUsedTwiceOutsideDecl reports whether ident occurs at least twice as a
-// whole word in content outside lines that declare or import it — the proof
-// required to drop an "unused" claim. One combined decl-or-import regex keeps
+// countIdentUsesOutsideDecl counts ident's whole-word occurrences on lines
+// that do not declare or import it. One combined decl-or-import regex keeps
 // the scan at two regex matches per identifier-containing line.
-func identUsedTwiceOutsideDecl(content, ident string) bool {
+func countIdentUsesOutsideDecl(content, ident string) int {
 	q := regexp.QuoteMeta(ident)
 	wordRe := regexp.MustCompile(`\b` + q + `\b`)
 	declOrImportRe := regexp.MustCompile(combinedPattern(append(declarationPatterns(q), importPatterns(q)...)))
@@ -155,7 +163,22 @@ func identUsedTwiceOutsideDecl(content, ident string) bool {
 		}
 		count += len(wordRe.FindAllString(line, -1))
 	}
-	return count >= 2
+	return count
+}
+
+// identUsedTwiceOutsideDecl reports whether ident occurs at least twice as a
+// whole word in content outside lines that declare or import it — the proof
+// required to drop a generic "unused" claim.
+func identUsedTwiceOutsideDecl(content, ident string) bool {
+	return countIdentUsesOutsideDecl(content, ident) >= 2
+}
+
+// identUsedOutsideDecl reports whether ident occurs at least once as a whole
+// word in content outside lines that declare or import it — the (weaker,
+// unused-import-only) proof from issue #39: an imported symbol with any other
+// occurrence in the file is used.
+func identUsedOutsideDecl(content, ident string) bool {
+	return countIdentUsesOutsideDecl(content, ident) >= 1
 }
 
 // identExported reports whether content exports ident: a JS/TS export
@@ -197,7 +220,9 @@ func looksLikeModuleRef(span string) bool {
 // otherwise. Per claim type: "not imported / undefined / not defined / not
 // declared / ReferenceError" requires every backticked identifier to be
 // imported, declared, or a parameter of a declaration; "unused" requires at
-// least two whole-word occurrences outside declaration/import lines; "not
+// least two whole-word occurrences outside declaration/import lines (a single
+// such occurrence suffices when the claim is about an import and the file
+// imports the identifier — issue #39); "not
 // exported" requires the file to export the identifier. Findings are kept
 // when the message has no existence claim, no identifier can be extracted,
 // fileContent is empty, or the claim is about another module (e.g. "not
@@ -258,9 +283,17 @@ func existenceClaimDisproven(msg, content string) bool {
 	}
 	if hasUnused {
 		for _, id := range idents {
-			if !identUsedTwiceOutsideDecl(content, id) {
-				return false
+			// Generic "unused" claims need two out-of-decl uses to be disproven
+			// (conservative). An unused-import claim (issue #39) is disproven by
+			// a single use: the import binding is the declaration, so any other
+			// whole-word occurrence in the file is a use of the import.
+			if identUsedTwiceOutsideDecl(content, id) {
+				continue
 			}
+			if unusedImportClaimRegex.MatchString(msg) && identImported(content, id) && identUsedOutsideDecl(content, id) {
+				continue
+			}
+			return false
 		}
 	}
 	if hasNotExported {
