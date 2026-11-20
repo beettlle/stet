@@ -1,0 +1,8 @@
+SP-087 batch-git-grep-rag complete.
+
+All completion criteria met:
+- RAG symbol lookup now issues a single batched `git grep` process (was up to 30 sequential per hunk): git.Grep runs one `git grep -n -E -e p1 -e p2 ...`; rag.BatchGrepDefinitions maps hits back to symbols (per-symbol first hit in git's traversal order = sequential-grep semantics). All six language resolvers + go/callgraph.go rewired.
+- Tests: TestGrep_singleProcessForAllPatterns proves N patterns = 1 process; TestBatchGrepDefinitions_* prove batched results identical to sequential one-grep-per-symbol reference.
+- Contract testCommand passes: bash scripts/check-gofmt.sh && go vet ./cli/... && go test ./cli/internal/rag/... ./cli/internal/git/... -count=1 (all ok). New-code coverage 90-100%.
+
+Commits: 15eb8e9 (Step 0), f303315 (Step 1), 38e0bca (Step 2).
