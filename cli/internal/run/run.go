@@ -231,6 +231,11 @@ type reviewPipelineOpts struct {
 	UseSearchReplaceFormat bool
 	// SuppressionExamples is the list of "do not report" examples from history; applied per-hunk (as many as fit in token budget). Nil when suppression disabled.
 	SuppressionExamples []string
+	// TaskIntent, when non-empty, is the task objective (mission or PR description
+	// from stet run --intent-file). The reviewer's systemBase already carries it
+	// (review.AppendTaskIntent); here it prefixes the System One critic request
+	// state so the critic weighs findings against the change's objective.
+	TaskIntent string
 }
 
 // rulesSelectorState prints at most one fail-open warning per run when the
@@ -1937,6 +1942,7 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 				return RunStats{}, err
 			}
 			systemPrompt = prompt.InjectUserIntent(systemPrompt, branch, commitMsg)
+			systemPrompt = review.AppendTaskIntent(systemPrompt, opts.Intent)
 			if opts.Nitpicky {
 				systemPrompt = prompt.AppendNitpickyInstructions(systemPrompt)
 			}
@@ -1957,6 +1963,7 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 			return RunStats{}, err
 		}
 		systemBase = prompt.InjectUserIntent(systemBase, branch, commitMsg)
+		systemBase = review.AppendTaskIntent(systemBase, opts.Intent)
 		systemBase = prompt.AppendPromptShadows(systemBase, runPromptShadows(&s))
 		if opts.Nitpicky {
 			systemBase = prompt.AppendNitpickyInstructions(systemBase)
@@ -1998,6 +2005,7 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 			SystemOneModel:          opts.SystemOneModel,
 			SystemOneMinKeep:        opts.SystemOneMinKeep,
 			SystemOneSamples:        opts.SystemOneSamples,
+			TaskIntent:              opts.Intent,
 			RulesSelectorClient:     opts.RulesSelectorClient,
 			RulesSelectorBaseURL:    opts.RulesSelectorBaseURL,
 			RulesSelectorModel:      opts.RulesSelectorModel,

@@ -1,6 +1,6 @@
 # SP-085: pass-task-intent — Status
 
-**Current Step:** Step 1
+**Current Step:** Step 2
 **Status:** 🔄 In Progress
 **Last Updated:** 2026-11-20
 **Review Level:** 1
@@ -18,9 +18,9 @@
 ---
 
 ### Step 1: Thread intent through run and review
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] Intent string accepted in run.go and passed to reviewer
+- [x] Intent string accepted in run.go and passed to reviewer
 
 ---
 
