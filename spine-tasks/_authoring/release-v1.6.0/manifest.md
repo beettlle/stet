@@ -82,6 +82,7 @@ Wave 2 · 1 task
 
 | Wave | Batch ID | Tasks landed | stet wave review (active findings) | release-check log | Exit | Pushed | Issues closed |
 |------|----------|--------------|------------------------------------|-------------------|------|--------|---------------|
+| 0 | 20261120T173358-5019 | SP-084, SP-087 | review failed (System One unreachable) | /tmp/stet-release-check-wave-0.log | 0 | yes | #39, #15 |
 
 ---
 
