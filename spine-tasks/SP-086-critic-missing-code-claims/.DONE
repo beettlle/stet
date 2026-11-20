@@ -1,0 +1,5 @@
+Task complete. See STATUS.md for the decision record.
+
+- Step 0: deterministic out-of-view existence-claim rejection in VerifyFindingsSystemOne (dropOutOfViewExistenceClaims); model-facing criteria strings stay pinned per the SP-080 record (docs/research/critic-eval/criteria-sp080.md), which proved wording cannot reject these rows without losing in-view keeps. Commit fed34d6.
+- Step 1: dataset evaluation — TestVerifyFindingsSystemOne_datasetRejectsOutOfViewClaims replays the frozen 89-row dataset with a worst-case always-agree model at shipped min_keep 0.2: 22/78 drops rejected (baseline 0), all 12 SP-080 rows scored 0.79-0.999 rejected, 11/11 keeps preserved. criticeval needed no change (missing score already evaluates as rejected). Commit e83e083.
+- Step 2: contract testCommand (check-gofmt + go vet ./cli/... + go test review+criticeval -count=1) passes; full go test ./cli/... also passes. Commit 59a1db8.
