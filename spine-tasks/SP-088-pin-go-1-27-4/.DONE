@@ -1,0 +1,6 @@
+SP-088 complete.
+
+- .github/workflows/ci.yml:29 and .github/workflows/release.yml:52 pin go-version to "1.27.4" (GO-2026-6859 fix).
+- Contract testCommand exited 0; no remaining 1.27.x go-version lines.
+- Only in-scope files changed; node-version and Actions majors untouched.
+- Commits: 9460688 (Step 0), a5ac104 (Step 1).
