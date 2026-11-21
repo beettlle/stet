@@ -62,7 +62,7 @@ Land `BuildSelectorCandidates` / `NormalizeSelectorCandidates` (`full` | `digest
 Wire `rules_selector_candidates` / `STET_RULES_SELECTOR_CANDIDATES` through config (default `digest_fair`), `reviewPipelineOpts` / `StartOptions` / `RunOptions`, and `cli/cmd/stet/main.go`. In `selectRuleSectionsForHunk`, build candidates via mode, pass `ReviewRuleBudget`, set Detect options for `digest_fair`. In `PrepareHunkPrompt`, honor budget for AppendRuleSections and log `stet: rules_sections kind=…` when `STET_RULES_SECTION_LOG=1` (labels joined with ` | `).
 
 ### Step 2: Testing & Verification
-Run Contract `testCommand`. Ensure selector tests cover digest_fair fairness and Detect option text. Do not enable selector in `.review/config.toml`.
+Run Contract `testCommand`. Ensure selector tests cover digest_fair fairness and Detect option text. Do not enable selector in `.review/config.toml`. Before `.DONE`, `git add` and commit any `spine-tasks/SP-090-protocol-a-selector/worker-usage.json` (and STATUS updates) so the lane is not left dirty — uncommitted in-scope files fail the task.
 
 ## Completion Criteria
 

@@ -49,7 +49,7 @@ Partial #40 — Extend `scripts/model_eval.py` so release/research can reproduce
 Add `--rules-selector` / `--rules-selector-candidates`, pin env (including System One URL when selector on and critic off), parse `stet: rules_sections` stderr into `meta["rules_sections"]`, implement `section_hit` / `parse_rules_sections`, and emit `section_hit_mean` in score summaries. Load optional `rule` on Bug from expected.json.
 
 ### Step 1: Testing & Verification
-Add/adjust unit tests for pinned env and section-hit (exact + continued-file). Run Contract `testCommand`. If pytest path differs on the lane, use an equivalent `python3 -m pytest` with `PYTHONPATH=.` that the worker verifies locally — update STATUS with the command that passed.
+Add/adjust unit tests for pinned env and section-hit (exact + continued-file). Run Contract `testCommand`. If pytest path differs on the lane, use an equivalent `python3 -m pytest` with `PYTHONPATH=.` that the worker verifies locally — update STATUS with the command that passed. Before `.DONE`, `git add` and commit any `spine-tasks/SP-091-protocol-a-harness/worker-usage.json` (and STATUS updates) so the lane is not left dirty.
 
 ## Completion Criteria
 
