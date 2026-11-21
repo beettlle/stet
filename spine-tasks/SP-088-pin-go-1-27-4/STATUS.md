@@ -1,7 +1,7 @@
 # SP-088: pin-go-1-27-4 — Status
 
-**Current Step:** 0
-**Status:** Pending
+**Current Step:** 1
+**Status:** In Progress
 **Last Updated:** 2026-11-21
 **Review Level:** 0
 **Review Counter:** 0
@@ -11,9 +11,9 @@
 ---
 
 ### Step 0: Pin go-version to 1.27.4
-**Status:** Pending
+**Status:** Complete
 
-- [ ] Pin ci.yml and release.yml to 1.27.4
+- [x] Pin ci.yml and release.yml to 1.27.4
 
 ### Step 1: Testing & Verification
 **Status:** Pending
