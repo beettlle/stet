@@ -1,0 +1,9 @@
+{
+	"schemaVersion": 1,
+	"recordType": "worker-usage",
+	"source": "pi-json-stdout",
+	"endedAt": "2026-11-21T23:11:44.756Z",
+	"tokensIn": 155460,
+	"tokensOut": 1982,
+	"estimatedUsd": 0.0084892
+}
