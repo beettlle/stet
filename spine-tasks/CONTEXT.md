@@ -1,8 +1,8 @@
 # stet — Context
 
-**Last Updated:** 2026-11-20
+**Last Updated:** 2026-11-21
 **Status:** Active
-**Next Task ID:** SP-088
+**Next Task ID:** SP-092
 
 ---
 
@@ -252,6 +252,19 @@ Manifest: `spine-tasks/_authoring/release-v1.6.0/manifest.md`. Scope approved 20
 Waves: **W0** SP-084 ∥ SP-087 → **W1** SP-086 → **W2** SP-085.
 
 **Released:** v1.6.0 on 2026-11-20, tagged at `cf2c98d` (closes #39, #35, #20, #15). Release: https://github.com/beettlle/stet/releases/tag/v1.6.0
+
+### Phase 15 — Release v1.7.0 (2026-11-21)
+
+Manifest: `spine-tasks/_authoring/release-v1.7.0/manifest.md`. Scope approved 2026-11-21. Theme: Protocol A (`digest_fair`) rule selection for #40; Go 1.27.4 pin (GO-2026-6859).
+
+| Task | Summary | Size | Status | Deps |
+|------|---------|------|--------|------|
+| SP-088 | Pin Go toolchain to 1.27.4 in CI/release workflows | S | Pending | — |
+| SP-089 | Document Protocol A / rules_selector_candidates (#40 docs) | S | Pending | — |
+| SP-090 | Protocol A selector + wiring (Closes #40) | M | Pending | — |
+| SP-091 | model_eval selector flags + section-hit scoring | S | Pending | SP-090 |
+
+Waves (intended): **W0** SP-088 ∥ SP-089 → **W1** SP-090 → **W2** SP-091.
 
 ### Completed (wave 0 + follow-on)
 
