@@ -86,3 +86,6 @@ extension/coverage
 .claude/skills/gitnexus/gitnexus-guide/SKILL.md
 .claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md
 .claude/skills/gitnexus/gitnexus-refactoring/SKILL.md
+
+# pi-spine worker usage artifacts (written under task folders; must not fail dirty-tree checks)
+spine-tasks/**/worker-usage.json
