@@ -1,0 +1,21 @@
+docs/research/model-comparison-qwen3.8-27b-vs-inkling-2-mini.md
+  s_4b6210e9aae418::t_d2d161705c6e36 1-134
+docs/research/model-eval-inkling-2-mini/summary.json
+  s_4b6210e9aae418::t_4266f5d3710f62 1-163
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "772e2b219edfe2338fa4b5cba779477f2894ce15",
+  "prompts": {},
+  "sessions": {
+    "s_4b6210e9aae418": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "agent-f487dc15-4c8f-4120-bd3e-22bb54f231d9",
+        "model": "unknown"
+      },
+      "human_author": "Cesar Delgado <beettlle@gmail.com>"
+    }
+  }
+}
