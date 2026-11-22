@@ -178,6 +178,8 @@ class Bug:
     end: int
     category: str
     description: str
+    # Optional planted rule id: "<file>.mdc#N.N" (rule-category bugs).
+    rule: str | None = None
 
 
 @dataclass(frozen=True)
@@ -284,7 +286,19 @@ def _load_bug(case_id: str, index: int, raw: object) -> Bug:
         raise HarnessError(f"case {case_id}: {label} lines must be 1-based (got start {start})")
     if not isinstance(raw["category"], str) or not isinstance(raw["description"], str):
         raise HarnessError(f"case {case_id}: {label} category and description must be strings")
-    return Bug(file=file_name, start=start, end=end, category=raw["category"], description=raw["description"])
+    rule_id: str | None = None
+    if "rule" in raw and raw["rule"] is not None:
+        if not isinstance(raw["rule"], str) or not raw["rule"]:
+            raise HarnessError(f"case {case_id}: {label} rule must be a non-empty string when set")
+        rule_id = raw["rule"]
+    return Bug(
+        file=file_name,
+        start=start,
+        end=end,
+        category=raw["category"],
+        description=raw["description"],
+        rule=rule_id,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -297,6 +311,9 @@ def pinned_env(
     base_url: str,
     critic_base_url: str | None = None,
     rules_max_tokens: int | None = None,
+    rules_selector: bool = False,
+    rules_selector_candidates: str | None = None,
+    systemone_base_url: str = DEFAULT_SYSTEMONE_BASE_URL,
 ) -> dict[str, str]:
     """Pinned STET_* environment for one stet subprocess (sorted keys).
 
@@ -304,12 +321,26 @@ def pinned_env(
     server so runs measure the critic-on configuration used in .review/config.toml.
     When rules_max_tokens is set, STET_RULES_MAX_TOKENS pins the Cursor rule
     digest budget; left unset, stet scales its own default from context_limit.
+    When rules_selector is true, STET_RULES_SELECTOR=true (overrides PINNED false)
+    and System One URL/model/timeout are pinned (selector needs OpenJev even if
+    critic is off). rules_selector_candidates pins STET_RULES_SELECTOR_CANDIDATES.
+    STET_RULES_SECTION_LOG=1 is always pinned so section-hit scoring can parse stderr.
     """
     env = dict(PINNED_ENV)
     env["STET_OPENAI_BASE_URL"] = base_url
     env["STET_MODEL"] = model
+    env["STET_RULES_SECTION_LOG"] = "1"
     if rules_max_tokens is not None:
         env["STET_RULES_MAX_TOKENS"] = str(rules_max_tokens)
+    if rules_selector:
+        env["STET_RULES_SELECTOR"] = "true"
+        env["STET_SYSTEMONE_MODEL"] = CRITIC_ENV["STET_SYSTEMONE_MODEL"]
+        env["STET_SYSTEMONE_TIMEOUT"] = CRITIC_ENV["STET_SYSTEMONE_TIMEOUT"]
+        env["STET_SYSTEMONE_BASE_URL"] = (
+            critic_base_url if critic_base_url is not None else systemone_base_url
+        )
+    if rules_selector_candidates is not None:
+        env["STET_RULES_SELECTOR_CANDIDATES"] = rules_selector_candidates
     if critic_base_url is not None:
         env.update(CRITIC_ENV)
         env["STET_SYSTEMONE_BASE_URL"] = critic_base_url
@@ -470,6 +501,10 @@ class RunOptions:
     critic_base_url: str | None = None  # None means critic off
     rules_dir: Path | None = None  # None means no rules are copied into case repos
     rules_max_tokens: int | None = None  # None means stet's scaled default budget
+    rules_selector: bool = False
+    rules_selector_candidates: str | None = None  # None means stet default (full)
+    # When rules_selector is on and critic is off, still need a System One URL.
+    systemone_base_url: str = DEFAULT_SYSTEMONE_BASE_URL
 
 
 @dataclass(frozen=True)
@@ -533,7 +568,15 @@ def perform_review(item: WorkItem, opts: RunOptions, clock=time.monotonic) -> Re
         _validate_base_url(opts.base_url)  # only http(s) endpoints may be pinned
         env = {
             **os.environ,
-            **pinned_env(opts.model, opts.base_url, opts.critic_base_url, rules_max_tokens=opts.rules_max_tokens),
+            **pinned_env(
+                opts.model,
+                opts.base_url,
+                opts.critic_base_url,
+                rules_max_tokens=opts.rules_max_tokens,
+                rules_selector=opts.rules_selector,
+                rules_selector_candidates=opts.rules_selector_candidates,
+                systemone_base_url=opts.systemone_base_url,
+            ),
         }
         started = clock()
         result = run_stream(argv, cwd=tmp, env=env, timeout_secs=opts.review_timeout_secs)
@@ -567,10 +610,63 @@ def perform_review(item: WorkItem, opts: RunOptions, clock=time.monotonic) -> Re
     )
 
 
+_RULES_SECTIONS_RE = re.compile(
+    r"^stet: rules_sections kind=(?P<kind>\w+) count=(?P<count>\d+) labels=(?P<labels>.*)$",
+    re.MULTILINE,
+)
+
+
+def parse_rules_sections(stderr_text: str) -> list[str]:
+    """Collect all section labels from stet rules_sections stderr markers."""
+    labels: list[str] = []
+    for match in _RULES_SECTIONS_RE.finditer(stderr_text or ""):
+        raw = match.group("labels").strip()
+        if not raw:
+            continue
+        labels.extend(part.strip() for part in raw.split(" | ") if part.strip())
+    return labels
+
+
+def section_hit(labels: list[str], rule_id: str) -> bool:
+    """True when a planted expected rule id appears in included/selected labels.
+
+    expected.json uses ``file.mdc#N.N``; two SP-082 plantings live in
+    ``*-continued.mdc`` while the expected file omits ``-continued``. Match when
+    the heading contains the section id as a leading token and the source is the
+    expected file or the same stem with a ``-continued.mdc`` suffix.
+    """
+    if "#" not in rule_id:
+        return False
+    file_part, sec = rule_id.rsplit("#", 1)
+    if not file_part.endswith(".mdc") or not sec:
+        return False
+    stem = file_part[: -len(".mdc")]
+    continued = f"{stem}-continued.mdc"
+    sec_re = re.compile(rf"(^|[\s:]){re.escape(sec)}([\s:.]|$)")
+    for label in labels:
+        if ": " not in label:
+            continue
+        source, heading = label.split(": ", 1)
+        if source != file_part and source != continued:
+            continue
+        if sec_re.search(heading):
+            return True
+    return False
+
+
 def _build_meta(item: WorkItem, opts: RunOptions, outcome: ReviewOutcome) -> dict:
+    env = pinned_env(
+        opts.model,
+        opts.base_url,
+        opts.critic_base_url,
+        rules_max_tokens=opts.rules_max_tokens,
+        rules_selector=opts.rules_selector,
+        rules_selector_candidates=opts.rules_selector_candidates,
+        systemone_base_url=opts.systemone_base_url,
+    )
     return {
         "critic": opts.critic_base_url is not None,
-        "env": pinned_env(opts.model, opts.base_url, opts.critic_base_url, rules_max_tokens=opts.rules_max_tokens),
+        "env": env,
         "exit_code": outcome.exit_code,
         "findings_count": len(outcome.findings),
         "hunks_total": outcome.hunks_total,
@@ -578,6 +674,9 @@ def _build_meta(item: WorkItem, opts: RunOptions, outcome: ReviewOutcome) -> dic
         "model": opts.model,
         "rules_dir": str(opts.rules_dir) if opts.rules_dir is not None else None,
         "rules_max_tokens": opts.rules_max_tokens,
+        "rules_sections": parse_rules_sections(outcome.stderr_text),
+        "rules_selector": opts.rules_selector,
+        "rules_selector_candidates": opts.rules_selector_candidates,
         "run": item.run_n,
         "status": outcome.status,
         "stet_version": opts.stet_version,
@@ -657,6 +756,21 @@ def _run_options_from_args(args: argparse.Namespace) -> RunOptions:
             raise HarnessError(f"--rules-dir contains no .mdc files: {rules_dir}")
     if args.rules_max_tokens is not None and args.rules_max_tokens < 1:
         raise HarnessError("--rules-max-tokens must be >= 1")
+    rules_selector = bool(getattr(args, "rules_selector", False))
+    rules_selector_candidates = getattr(args, "rules_selector_candidates", None)
+    if rules_selector_candidates is not None:
+        cand = str(rules_selector_candidates).strip().lower()
+        if cand not in ("full", "digest_fair"):
+            raise HarnessError("--rules-selector-candidates must be full or digest_fair")
+        rules_selector_candidates = cand
+    systemone_base_url = _validate_base_url(
+        args.systemone_base_url, flag="--systemone-base-url"
+    )
+    if rules_selector and critic_base_url is None:
+        # Selector needs OpenJev; validate the same URL flag used for critic.
+        systemone_base_url = _validate_base_url(
+            args.systemone_base_url, flag="--systemone-base-url"
+        )
     real_refs = tuple(_validate_real_ref(sha) for sha in args.real_refs)
     return RunOptions(
         model=model,
@@ -675,6 +789,9 @@ def _run_options_from_args(args: argparse.Namespace) -> RunOptions:
         critic_base_url=critic_base_url,
         rules_dir=rules_dir,
         rules_max_tokens=args.rules_max_tokens,
+        rules_selector=rules_selector,
+        rules_selector_candidates=rules_selector_candidates,
+        systemone_base_url=systemone_base_url,
     )
 
 def _work_items(opts: RunOptions, cases: list[Case]) -> list[WorkItem]:
@@ -1041,6 +1158,27 @@ def build_model_summary(model: ModelResults, cases_by_id: dict[str, Case], windo
                 if isinstance(wall, (int, float)):
                     ok_real_walls.append(float(wall))
 
+    section_hit_vals: list[float] = []
+    section_hit_by_case: dict[str, float] = {}
+    for case in non_clean:
+        planted = [bug.rule for bug in case.bugs if bug.rule]
+        if not planted:
+            continue
+        per_run_hits: list[float] = []
+        for _run_n, run in sorted(model.cases.get(case.case_id, {}).items()):
+            if run.meta.get("status") != STATUS_OK:
+                continue
+            labels = run.meta.get("rules_sections") or []
+            if not isinstance(labels, list):
+                labels = []
+            label_strs = [str(x) for x in labels]
+            hits = sum(1 for rule_id in planted if section_hit(label_strs, rule_id))
+            per_run_hits.append(hits / len(planted))
+        if per_run_hits:
+            case_mean = _mean(per_run_hits)
+            section_hit_by_case[case.case_id] = case_mean
+            section_hit_vals.append(case_mean)
+
     return {
         "bugs_caught_all_runs": caught_all,
         "bugs_caught_some_runs": caught_some,
@@ -1052,6 +1190,8 @@ def build_model_summary(model: ModelResults, cases_by_id: dict[str, Case], windo
         "reliability": reliability,
         "seconds_per_case_mean": _mean(ok_case_walls),
         "seconds_per_real_ref_mean": _mean(ok_real_walls),
+        "section_hit_by_case": section_hit_by_case,
+        "section_hit_mean": _mean(section_hit_vals),
         "unexpected": {
             "by_severity": unexpected_by_severity,
             "mean_per_run": unexpected_total / len(ok_triples) if ok_triples else 0.0,
@@ -1311,6 +1451,17 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=None,
         help="Set STET_RULES_MAX_TOKENS for stet (default: stet's scaled budget)",
+    )
+    run_parser.add_argument(
+        "--rules-selector",
+        action="store_true",
+        help="Enable STET_RULES_SELECTOR (System One choice per hunk; needs OpenJev)",
+    )
+    run_parser.add_argument(
+        "--rules-selector-candidates",
+        choices=("full", "digest_fair"),
+        default=None,
+        help="STET_RULES_SELECTOR_CANDIDATES: full (default) or digest_fair (Protocol A)",
     )
 
     score_parser = sub.add_parser("score", help="Score recorded runs against fixture ground truth")

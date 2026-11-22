@@ -114,6 +114,8 @@ def make_run_args(tmp_path: Path, **overrides) -> argparse.Namespace:
         systemone_base_url=model_eval.DEFAULT_SYSTEMONE_BASE_URL,
         rules_dir=None,
         rules_max_tokens=None,
+        rules_selector=False,
+        rules_selector_candidates=None,
     )
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
@@ -273,8 +275,46 @@ class TestPinnedEnv:
         env = model_eval.pinned_env("m", "http://x/v1", rules_max_tokens=2000)
         assert env["STET_RULES_MAX_TOKENS"] == "2000"
 
+    def test_pinned_env_rules_selector_and_section_log(self) -> None:
+        env = model_eval.pinned_env("m", "http://x/v1")
+        assert env["STET_RULES_SECTION_LOG"] == "1"
+        assert env["STET_RULES_SELECTOR"] == "false"
+        env = model_eval.pinned_env(
+            "m",
+            "http://x/v1",
+            rules_selector=True,
+            rules_selector_candidates="digest_fair",
+            systemone_base_url="http://127.0.0.1:8080",
+        )
+        assert env["STET_RULES_SELECTOR"] == "true"
+        assert env["STET_RULES_SELECTOR_CANDIDATES"] == "digest_fair"
+        assert env["STET_SYSTEMONE_BASE_URL"] == "http://127.0.0.1:8080"
+        assert env["STET_CRITIC_ENABLED"] == "false"
+
     def test_model_tag(self) -> None:
         assert model_eval.model_tag("qwen/qwen3-coder-next") == "qwen__qwen3-coder-next"
+
+
+class TestSectionHit:
+    def test_section_hit_exact_and_continued(self) -> None:
+        labels = [
+            "go-1-21-development-standards.mdc: ### 1.3 Context Propagation (CRIT)",
+            "go-1-21-development-standards-continued.mdc: ### 2.1 Prefix Unexported Globals (Style)",
+        ]
+        assert model_eval.section_hit(labels, "go-1-21-development-standards.mdc#1.3")
+        assert model_eval.section_hit(labels, "go-1-21-development-standards.mdc#2.1")
+        assert not model_eval.section_hit(labels, "go-1-21-development-standards.mdc#9.9")
+
+    def test_parse_rules_sections(self) -> None:
+        stderr = (
+            "noise\n"
+            "stet: rules_sections kind=included count=2 labels="
+            "a.mdc: ### 1.3 Foo | b.mdc: ### 2.1 Bar\n"
+        )
+        assert model_eval.parse_rules_sections(stderr) == [
+            "a.mdc: ### 1.3 Foo",
+            "b.mdc: ### 2.1 Bar",
+        ]
         assert model_eval.model_tag("dry-run") == "dry-run"
 
 

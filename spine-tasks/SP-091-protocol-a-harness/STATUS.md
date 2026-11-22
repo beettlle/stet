@@ -1,7 +1,7 @@
 # SP-091: protocol-a-harness — Status
 
-**Current Step:** 0
-**Status:** Pending
+**Current Step:** Complete
+**Status:** Complete — operator land 2026-11-21
 **Last Updated:** 2026-11-21
 **Review Level:** 1
 **Review Counter:** 0
@@ -11,14 +11,14 @@
 ---
 
 ### Step 0: Harness flags + section-hit scoring
-**Status:** Pending
+**Status:** Complete
 
-- [ ] Flags, env pin, section_hit scoring + tests
+- [x] Flags, env pin, section_hit scoring + tests (from protocol-a-wip)
 
 ### Step 1: Testing & Verification
-**Status:** Pending
+**Status:** Complete
 
-- [ ] Contract testCommand passes
+- [x] PYTHONPATH=. /opt/homebrew/bin/pytest TestPinnedEnv TestSectionHit — 9 passed
 
 ---
 
@@ -26,7 +26,10 @@
 
 | # | Type | Step | Verdict | File |
 |---|------|------|---------|------|
+| — | — | — | Operator land (spine workers mid-prompt) | — |
 
 ---
 
 ## Discoveries
+
+- Contract testCommand should use homebrew pytest when system python3 lacks pytest.
