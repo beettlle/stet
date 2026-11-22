@@ -213,6 +213,8 @@ flowchart LR
 
 - When **`--nitpicky`** is set (or config/env `nitpicky = true`), **Append:** `prompt.AppendNitpickyInstructions(system)` adds a "## Nitpicky mode" section: persona (thorough staff engineer), do not discard style/nitpick findings, and check typos/grammar in comments and identifiers. The FP kill list is not applied so convention/comment/typo findings are kept. See [cli/internal/prompt/prompt.go](cli/internal/prompt/prompt.go).
 
+- **Rule-section selector (optional):** When `rules_selector` is true, `selectRuleSectionsForHunk` asks System One one choice question per hunk and appends the ranked sections via `prompt.AppendRuleSections` instead of round-robin digests. `rules_selector_candidates` / `STET_RULES_SELECTOR_CANDIDATES` is `digest_fair` by default (Protocol A: digest sections, file-specific-first, round-robin into ≤64 options, option text prefers `**Detect:**`); `full` uses whole-rule sections then positional `[:64]`. Selection fills `rules_max_tokens` / `ReviewRuleBudget`. On selector failure the hunk falls back to digests. With `STET_RULES_SECTION_LOG=1`, stderr lists included/selected section labels for harness scoring.
+
 ### 7.4 Prompt shadows (negative examples)
 
 - **Append:** `prompt.AppendPromptShadows(system, promptShadows)`. Up to 5 recent dismissed-finding contexts (from session `PromptShadows`) are appended as "## Negative examples (do not report)" so the model does not re-report similar issues.

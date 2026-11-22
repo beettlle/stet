@@ -1,0 +1,6 @@
+SP-089 complete.
+
+- docs/cli-extension-contract.md: rules_selector_candidates / STET_RULES_SECTION_LOG; default digest_fair.
+- docs/review-process-internals.md §7.3: Protocol A selector packing.
+- Research note already on main (ab3d6d2); results-* trees not restored (size).
+- Operator land after spine worker SIGTERM under host load (batch 20261122T010322-ae11 aborted).
