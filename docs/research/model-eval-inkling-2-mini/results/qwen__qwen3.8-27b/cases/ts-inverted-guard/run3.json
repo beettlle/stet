@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-dewl707c/src/middleware/requireAdmin.ts#L32",
+      "file": "src/middleware/requireAdmin.ts",
+      "id": "f091dab8a4cb4e9be03dfff4acc97576312e4fdecd0f305bb7f62aea103169c9",
+      "line": 32,
+      "message": "The condition `if (user.isAdmin)` is inverted. The middleware is intended to allow only admin users through, but the current logic returns a 403 error for admins and allows non-admins to proceed. This completely reverses the access control logic.",
+      "severity": "error",
+      "suggestion": "Change the condition to `if (!user.isAdmin)` to correctly reject non-admin users."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-dewl707c/src/middleware/requireAdmin.ts#L48",
+      "file": "src/middleware/requireAdmin.ts",
+      "id": "872f4ea63c66481925befd5e4ced76e522b9ffcc7aae86473bd91c7d82262e15",
+      "line": 48,
+      "message": "The function accepts `undefined` and returns `false`, but the `RoleRequest` interface defines `user` as optional (`user?: AuthenticatedUser`). In TypeScript, accessing an optional property results in `AuthenticatedUser | undefined`. If a caller passes `req.user` directly, the type is `AuthenticatedUser | undefined`, which matches. However, if the intent is to strictly check for a *present* admin, the current logic is correct. The potential issue is if `req.user` is `null` (which is common in Express middleware if not strictly typed or if a different library is used), `user !== undefined` would be true, and accessing `user.isAdmin` would throw a TypeError. Given the interface uses `?`, `null` is not part of the type, but runtime safety is often preferred.",
+      "severity": "warning",
+      "suggestion": "Change the check to `return user != null && user.isAdmin;` to safely handle both `null` and `undefined`."
+    }
+  ]
+}

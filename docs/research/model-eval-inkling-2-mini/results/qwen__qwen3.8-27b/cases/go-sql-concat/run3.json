@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "security",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-wutqr7zc/internal/catalog/search.go#L32",
+      "file": "internal/catalog/search.go",
+      "id": "5b5293437b5c6558e52582944efb120ba228f4b8f5b81eb184b50176939153d3",
+      "line": 32,
+      "message": "SQL injection vulnerability: user input 'term' is concatenated directly into the SQL query string. An attacker can inject arbitrary SQL commands (e.g., \"' OR '1'='1\") to bypass the search logic or access unauthorized data.",
+      "severity": "error",
+      "suggestion": "Use parameterized queries with placeholders. Revert to: query := \"SELECT id, sku, title FROM products WHERE title = $1\" and rows, err := s.db.Query(query, term)"
+    }
+  ]
+}

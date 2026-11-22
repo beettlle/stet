@@ -1,0 +1,37 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ai891tru/internal/notice/dispatch.go#L11",
+      "file": "internal/notice/dispatch.go",
+      "id": "6ed05c20ca24387a43488d66316e778f1cbe2d37b71f9864e7b2349cbcb34f10",
+      "line": 11,
+      "message": "Renaming the package-level variable 'timeout' to '_timeout' will cause a compilation error if 'timeout' is referenced elsewhere in the package (e.g., in the Sender methods). In Go, identifiers starting with an underscore are not treated as 'blank identifiers' (which are only valid for variables in short variable declarations like ':='); they are valid identifiers that can be referenced. If the intent was to make it unexported or unused, it should remain 'timeout' or be removed if truly unused, but renaming it breaks existing references.",
+      "severity": "error",
+      "suggestion": "Revert the name to 'timeout' or update all references to '_timeout' if the rename is intentional and necessary."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ai891tru/internal/notice/dispatch.go#L22",
+      "file": "internal/notice/dispatch.go",
+      "id": "8444ff3d62b44b925eb5935e6862031d3c5cdfb978ef8150fc82ea0b7278e8f3",
+      "line": 22,
+      "message": "The variable '_timeout' is likely a typo for 'timeout'. In Go, identifiers starting with an underscore are not special, but '_timeout' is not a standard convention and is likely a mistake. If 'timeout' is the intended constant, this will cause a compilation error if '_timeout' is not defined.",
+      "severity": "error",
+      "suggestion": "Change '_timeout' to 'timeout'."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ai891tru/internal/notice/dispatch.go#L47",
+      "file": "internal/notice/dispatch.go",
+      "id": "4d2194b730fa86a6668af830649a75f921038dfc0d367eb4f04ff2b7722c8d23",
+      "line": 47,
+      "message": "The `Dispatch` function accepts a `context.Context` but does not check for cancellation or deadline expiration before sending each message. If the context is canceled, the loop will continue attempting to send remaining messages until they fail or complete, ignoring the caller's intent to abort.",
+      "severity": "warning",
+      "suggestion": "Add a check for `ctx.Err()` at the start of the loop to return early if the context is canceled or the deadline has passed."
+    }
+  ]
+}

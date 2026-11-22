@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-j3n6swln/app/billing.py#L36",
+      "file": "app/billing.py",
+      "id": "c31a0d7b73a1722f0b05368de65c2e731ce691f3a0a86605d22a40d64ee1efb9",
+      "line": 36,
+      "message": "Bare except with pass silently swallows all exceptions (including GatewayError, KeyboardInterrupt, SystemExit) and returns an undefined variable 'result', causing an UnboundLocalError on the next line.",
+      "severity": "error",
+      "suggestion": "Restore the specific exception handling: 'except GatewayError as exc: raise PaymentError(f\"charge failed for order {order.id}: {exc}\") from exc'"
+    }
+  ]
+}

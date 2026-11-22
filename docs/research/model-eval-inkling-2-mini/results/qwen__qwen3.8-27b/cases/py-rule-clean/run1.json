@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1677_ya8/inventory/stock.py#L13",
+      "file": "inventory/stock.py",
+      "id": "4ab307ad1eb34e82051e1c118e7c0101eb778b318da7c461a810e8467ebad7ef",
+      "line": 13,
+      "message": "The docstring 'Record count more units of sku received.' is grammatically incorrect and confusing. It should state that it records the receipt of 'count' units.",
+      "severity": "warning",
+      "suggestion": "\"\"\"Record the receipt of count units of sku.\"\"\""
+    }
+  ]
+}

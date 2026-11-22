@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-c0_eiwm8/internal/metrics/collector.go#L44",
+      "file": "internal/metrics/collector.go",
+      "id": "77662269df16fa3f46d17687b5453e05008183712506a9d5019003213e597661",
+      "line": 44,
+      "message": "Data race on the 'counts' map. The map is accessed and modified concurrently by multiple goroutines without synchronization. The mutex 'mu' is used to protect 'out' but is unlocked before 'counts[p.Name]++' is executed, leaving the map unprotected.",
+      "severity": "error",
+      "suggestion": "Move the 'counts[p.Name]++' operation inside the mutex lock, or use a separate mutex for 'counts'."
+    },
+    {
+      "category": "performance",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-c0_eiwm8/internal/metrics/collector.go#L67",
+      "file": "internal/metrics/collector.go",
+      "id": "22dddf2eb6bdb47f16cfd18bd0c0b9393817316d6903ddabf712c3fef375778b",
+      "line": 67,
+      "message": "The function allocates a slice and iterates over all probes to collect names, but the resulting string only uses the count. This is unnecessary overhead.",
+      "severity": "warning",
+      "suggestion": "Replace the body with: return fmt.Sprintf(\"%d probes registered\", len(c.probes))"
+    }
+  ]
+}

@@ -1,0 +1,172 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-tgtjv2rn/cli/internal/review/review.go#L101",
+      "file": "cli/internal/review/review.go",
+      "id": "32b7a95358d5652dbe7ae9e4aa4efd948c5c19ff1ce0238c0d9fd8c217f5020a",
+      "line": 101,
+      "message": "The trace section header is hardcoded as \"Cursor rules\" even when ruleSections is used. This is misleading for debugging/observability since the content being traced is selected rule sections, not Cursor rules.",
+      "severity": "warning",
+      "suggestion": "Change the section header to reflect the active mode, e.g. traceOut.Section(\"Rule sections\") when ruleSections != nil, or use a generic header like \"Rules\"."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-tgtjv2rn/cli/internal/review/review.go#L411",
+      "file": "cli/internal/review/review.go",
+      "id": "e3aa39748ccc154c699946d271694626b3bdf28570692e96d7523e4d68a6b8da",
+      "line": 411,
+      "message": "The call to PrepareHunkPrompt passes `nil` for the `ruleSections` parameter. This disables the rule-based filtering logic inside PrepareHunkPrompt (which checks `if ruleSections != nil`), causing the LLM to receive unfiltered rules and potentially ignoring the intended rule constraints for the hunk.",
+      "severity": "warning",
+      "suggestion": "Pass `ruleList` instead of `nil` to the `ruleSections` parameter: `PrepareHunkPrompt(..., ruleList, traceOut)`"
+    },
+    {
+      "category": "testing",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-tgtjv2rn/cli/internal/review/review_test.go#L731",
+      "file": "cli/internal/review/review_test.go",
+      "id": "97775daaabc0a7833c3e2a9041394de89515a5ab47101cd3f2af83c9198103cc",
+      "line": 731,
+      "message": "The test asserts that the system prompt does not contain the content of the non-matching rule ('Prefer const.'), but the rule's Source is 'ts.mdc'. If the implementation logs the source of all rules (e.g., 'applied: go.mdc, ts.mdc') or includes the source name in the prompt, the test will fail because 'ts.mdc' contains the substring 'ts' which might be part of the prompt structure, or more likely, the test is brittle if the implementation changes how it lists sources. However, the primary issue is that the assertion `strings.Contains(system, \"Prefer const.\")` is correct for content, but the test setup uses `a.txt` which matches neither `go.mdc` (AlwaysApply) nor `ts.mdc` (Globs *.ts). Wait, `go.mdc` has `AlwaysApply: true`, so it matches `a.txt`. `ts.mdc` has `Globs: [\"*.ts\"]`, so it does NOT match `a.txt`. The assertion checks that `Prefer const.` is NOT in the system prompt. This is correct. However, the test also asserts `strings.Contains(system, \"Handle errors explicitly.\")`. This is also correct. The issue is likely that `prompt.AppendCursorRules` might include the source name or description in a way that the test doesn't account for, or the test is simply a regression test. Let's look closer. The test compares `system` (from `PrepareHunkPrompt`) with `wantSystem` (from `prompt.AppendCursorRules`). If `PrepareHunkPrompt` does exactly the same thing as `AppendCursorRules` for the default path, the test passes. The additional assertions are just sanity checks. I don't see a defect in the test logic itself, assuming the implementation matches the expected behavior. Wait, is there a bug in the test? No. Is there a bug in the code? The code is a test file. The prompt asks to review the change. The change adds tests. I should look for defects in the tests. One potential issue: `rules.MaxRuleTokens` is used. If `MaxRuleTokens` is 0 or very small, truncation might occur. But it's a constant. Another issue: The test `TestPrepareHunkPrompt_defaultPath_unchangedWithoutSections` uses `a.txt`. `go.mdc` has `AlwaysApply: true`. `ts.mdc` has `Globs: [\"*.ts\"]`. `a.txt` matches `go.mdc` but not `ts.mdc`. The test asserts `system` contains `Handle errors explicitly.` and does NOT contain `Prefer const.`. This is correct. I will not report a finding if the test is correct. Let me re-read the prompt. \"Review the change and the resulting code (the + side) for defects.\" The change is adding tests. Are there defects in the tests? The tests look correct. They are regression tests. I will return an empty array if I find no defects. Wait, let me check the `trace` package usage. `trace.New(&traceBuf)`. If `trace.New` expects a `*strings.Builder` and the test passes it, it's fine. The test `TestPrepareHunkPrompt_sectionsPath_traceListsSelected` checks for `\"go.mdc: Error handling\"`. This depends on the implementation of `trace` or `PrepareHunkPrompt`. If the implementation formats it differently, the test fails. But that's a test implementation detail, not a defect in the code under review (which is the test itself). The prompt says \"Do not report issues that exist only in the removed lines... Report only issues in the resulting code or introduced by the change.\" The resulting code is the test. If the test is brittle or incorrect, it's a defect. But without seeing the implementation of `PrepareHunkPrompt` or `trace`, I can't be sure if the test is correct. However, the prompt says \"Assume it is valid\" for identifiers outside the hunk. So I should assume `PrepareHunkPrompt` and `trace` work as expected. Therefore, the tests are likely correct. I will return an empty array.",
+      "severity": "warning"
+    },
+    {
+      "category": "maintainability",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-tgtjv2rn/cli/internal/review/review_test.go#L823",
+      "file": "cli/internal/review/review_test.go",
+      "id": "80156387f067f3e0cfd2c7e4c423a0ce96890a85d99fc5932b33e4287438310d",
+      "line": 823,
+      "message": "The test relies on a long positional argument list for PrepareHunkPrompt, which is fragile and difficult to read. Adding a new parameter (traceOut) requires updating every call site with a nil placeholder.",
+      "severity": "info",
+      "suggestion": "Refactor PrepareHunkPrompt to use a struct-based options pattern (e.g., PrepareHunkPrompt(ctx, base, hunk, opts)) to improve readability and reduce the risk of argument-order bugs."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-tgtjv2rn/cli/internal/run/run.go#L205",
+      "file": "cli/internal/run/run.go",
+      "id": "822b32906de344c06f7077bddfcb42b6fe06468b039fc6dfe9f537d42bbc8e49",
+      "line": 205,
+      "message": "The field RulesSelectorClient is typed as rules.ChoiceDecider, which is an interface. In Go, a nil interface value is not the same as a nil pointer to a concrete type. If the caller assigns a nil *systemone.Client to this field, the resulting interface will be non-nil (it will have a type but a nil data pointer). The comment states 'when non-nil', implying a nil check is used to determine if the selector is enabled. If the code checks `if opts.RulesSelectorClient != nil`, it will incorrectly evaluate to true for a nil concrete pointer, potentially causing a panic or unexpected behavior when the selector is invoked. The field should likely be typed as *rules.ChoiceDecider or the caller must ensure it only assigns non-nil concrete instances, or the check should be more robust (e.g., checking the concrete type).",
+      "severity": "warning",
+      "suggestion": "Change the field type to *rules.ChoiceDecider or ensure the caller only assigns non-nil concrete instances. Alternatively, if the interface is intended to be used directly, the nil check logic in the consuming code must account for typed nils."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-tgtjv2rn/cli/internal/run/run.go#L229-233",
+      "file": "cli/internal/run/run.go",
+      "id": "f9559024447f824b0773bcd7eb5441c412686ac9ce01c37bc07c53285a7fe885",
+      "line": 231,
+      "message": "Data race on rulesSelectorState: the comment states that parallel preparer goroutines share one instance, but warnFailure reads s.warnOut and s.baseURL outside of the sync.Once.Do closure. Since sync.Once.Do does not provide happens-before synchronization for fields read outside the closure, concurrent calls from multiple goroutines can race on these fields. Move the reads of s.warnOut and s.baseURL inside the once.Do closure.",
+      "range": {
+        "end": 233,
+        "start": 229
+      },
+      "severity": "warning",
+      "suggestion": "func (s *rulesSelectorState) warnFailure(err error) {\n\ts.once.Do(func() {\n\t\tout := s.warnOut\n\t\tif out == nil {\n\t\t\tout = os.Stderr\n\t\t}\n\t\tfmt.Fprintf(out, \"stet: rules selector unavailable at %s: %v; using default rule truncation\\n\", s.baseURL, err)\n\t})\n}"
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-tgtjv2rn/cli/internal/run/run.go#L287",
+      "file": "cli/internal/run/run.go",
+      "id": "32c924716f0fdb49493f9cbd7bbb6d2d8abbcd77ef4b76278e1ab9d96af260aa",
+      "line": 287,
+      "message": "The shared `selectorWarn` pointer is passed to multiple concurrent goroutines (workers) without synchronization. If `rulesSelectorState` contains mutable state (e.g., a `warned` boolean) to enforce the 'at most one warning' logic, concurrent access from multiple workers will cause a data race.",
+      "severity": "warning",
+      "suggestion": "Add a `sync.Mutex` to `rulesSelectorState` and lock it before checking/updating the warning state, or use `atomic.Bool` if the state is a simple boolean."
+    },
+    {
+      "category": "design",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-tgtjv2rn/cli/internal/run/run.go#L903",
+      "file": "cli/internal/run/run.go",
+      "id": "452551241291662c2d4e5f28bc551ece0d068fb8a0c4a0e305d3769b6e7910f8",
+      "line": 903,
+      "message": "The comment states that 'Selector failures fall back to the default rule assembly with one warning per run', but the struct only defines the client and connection details. If the implementation does not explicitly deduplicate warnings (e.g., by tracking a 'warned' flag or limiting the warning to the first failure), a transient network issue affecting multiple hunks could result in a flood of identical warnings, violating the stated design intent.",
+      "severity": "warning",
+      "suggestion": "Ensure the implementation of the selector logic includes a mechanism to emit the fail-open warning only once per run (e.g., a boolean flag in the run context or a local variable in the loop)."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-tgtjv2rn/cli/internal/run/run.go#L1345",
+      "file": "cli/internal/run/run.go",
+      "id": "e11864ed102cb113326910fd41aad81608bcb320f4cbbf4030659dd4b6293788",
+      "line": 1345,
+      "message": "The commit message indicates a 'fail-open warning' for the selector wiring, but the diff only adds the fields to the pipeline options. If the selector client fails or is misconfigured, the pipeline must explicitly handle the error by logging a warning and continuing with default behavior, rather than failing the entire run. Ensure the downstream implementation in runReviewPipeline implements this fail-open logic.",
+      "severity": "warning",
+      "suggestion": "Verify that runReviewPipeline checks for selector errors and logs a warning (e.g., 'Warning: rules selector failed, using default rules') instead of returning an error that aborts the run."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-tgtjv2rn/cli/internal/run/run.go#L1777",
+      "file": "cli/internal/run/run.go",
+      "id": "8d5e9a91fa3ae48a095e3098046d73fabcc9d1f4e3f6f8b100943bb39743782c",
+      "line": 1777,
+      "message": "The commit message indicates a 'fail-open warning' is expected when the rules selector is used, but the diff only wires the selector options into the pipeline without any error handling or warning logic in the Run function. If the selector fails or returns an error, the pipeline might silently fail or behave unexpectedly without the intended warning.",
+      "severity": "warning",
+      "suggestion": "Add error handling for the rules selector in the Run function to emit a warning if the selector fails, ensuring the fail-open behavior is properly implemented."
+    },
+    {
+      "category": "maintainability",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-tgtjv2rn/cli/internal/run/run_test.go#L25",
+      "file": "cli/internal/run/run_test.go",
+      "id": "df0c00582b0a7d24728ce3e1052559edfbdc6bdea1df477da8f33a1cb21b47f9",
+      "line": 25,
+      "message": "Unused import 'stet/cli/internal/rules' will cause a compilation error in Go.",
+      "severity": "info",
+      "suggestion": "Remove the import if it is not used, or add a usage of the 'rules' package in the test file."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-tgtjv2rn/cli/internal/run/run_test.go#L2421",
+      "file": "cli/internal/run/run_test.go",
+      "id": "23012078440b1d6b3517058a4e21617484f00f41b95962afc285d806d8bc9964",
+      "line": 2421,
+      "message": "The call to review.PrepareHunkPrompt is missing the 'ruleSections' argument. The function signature expects 16 arguments, but only 15 are provided. The new 'traceOut' argument (nil) was appended to the end, but the existing 'ruleSections' argument (nil) was not included before it.",
+      "severity": "error",
+      "suggestion": "Change the call to: review.PrepareHunkPrompt(ctx, systemBase, hunk, nil, \"\", 32768, 0, 0, false, 0, 0, 0, false, examples, nil, nil)"
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-tgtjv2rn/cli/internal/run/run_test.go#L2710",
+      "file": "cli/internal/run/run_test.go",
+      "id": "df82305f16357a3f61530c661321256ea9094c7575b2fd7f29af09b08ddac758",
+      "line": 2710,
+      "message": "The `generate` method signature was changed to include a `systemPrompt` parameter, but the diff does not show updates to the `CriticLLM` interface definition or the production implementation. If the interface still expects the old signature, the test file will fail to compile because `fakeCriticLLM` no longer satisfies the interface.",
+      "severity": "warning",
+      "suggestion": "Ensure the `CriticLLM` interface and the production `generate` implementation are updated to include the `systemPrompt` parameter to match the new signature."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-tgtjv2rn/cli/internal/run/run_test.go#L2742",
+      "file": "cli/internal/run/run_test.go",
+      "id": "dda7c72ddf17a8b5bede45c962353714a695f89d3bd5cb9b4e3b0eacc326ca08",
+      "line": 2742,
+      "message": "In GenerateWithMessages, the system prompt is hardcoded to an empty string. If the fake generate method relies on the system prompt to determine behavior (e.g., returning specific verdicts for critic prompts), this will break tests that use multi-turn messages with a system prompt, as the prompt is discarded.",
+      "severity": "warning",
+      "suggestion": "Extract the system prompt from the messages slice (e.g., find the message with Role == \"system\") and pass it to f.generate instead of \"\"."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-tgtjv2rn/cli/internal/run/run_test.go#L2943",
+      "file": "cli/internal/run/run_test.go",
+      "id": "ac0c4de68577f4291e61f24fe667de4273256b8626aeb3025e075caf5f8334ef",
+      "line": 2943,
+      "message": "The fakeChoiceDecider.DecideChoice method will panic with a nil pointer dereference if the responses slice is empty. The code calculates i = len(f.responses) - 1, which results in -1 when the slice is empty, and then attempts to return f.responses[i]. This will cause a runtime panic in tests that instantiate the fake without providing responses (e.g., the 'disabled' and 'no matching rules' subtests).",
+      "severity": "error",
+      "suggestion": "Add a guard to return nil if the responses slice is empty: if len(f.responses) == 0 { return nil, nil }"
+    }
+  ]
+}

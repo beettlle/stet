@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-e7w600xo/src/invoice/pricing.ts#L27",
+      "file": "src/invoice/pricing.ts",
+      "id": "d91dd0b8ffd0df7677b3391f92fffe1fe1d34310457a2c9c6eda3935b2ee7df6",
+      "line": 27,
+      "message": "The discount threshold is set to 100,000 cents ($1,000.00), but the discount is applied to the total amount. If the intent was to apply a discount for orders over $100,000, the threshold should be 10,000,000 cents. As written, the discount triggers for orders over $1,000, which may be incorrect business logic.",
+      "severity": "warning",
+      "suggestion": "Verify the intended discount threshold. If it should be $100,000, change the condition to `totalCents > 10_000_000`."
+    }
+  ]
+}

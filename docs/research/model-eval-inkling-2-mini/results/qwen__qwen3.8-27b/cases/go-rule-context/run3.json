@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1vepooo7/internal/track/submit.go#L33",
+      "file": "internal/track/submit.go",
+      "id": "7528f8bfae3192f9651b33ce48be19d6185ca0b3dc2e36809d6a5f965a07f0dd",
+      "line": 33,
+      "message": "The function signature accepts a context.Context parameter, but the implementation ignores it by using context.Background(). This breaks the contract for cancellation and deadlines, causing the HTTP request to hang indefinitely if the caller cancels the context or sets a timeout.",
+      "severity": "error",
+      "suggestion": "Revert the change to use the provided context: req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.Endpoint, bytes.NewReader(body))"
+    }
+  ]
+}

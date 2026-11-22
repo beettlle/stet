@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7dx1byul/inventory/stock.py#L13",
+      "file": "inventory/stock.py",
+      "id": "6456dbcd8105cdbe3aa5f601bb624e55ec1b885ee467cc617f8d4a9024aaff8f",
+      "line": 13,
+      "message": "The docstring for add_delivery is grammatically incorrect and confusing: \"Record count more units of sku received.\" It should clearly state that it adds the specified count to the stock.",
+      "severity": "warning",
+      "suggestion": "Change the docstring to \"Record that count units of sku were received.\" or \"Add count units of sku to the stock.\""
+    }
+  ]
+}

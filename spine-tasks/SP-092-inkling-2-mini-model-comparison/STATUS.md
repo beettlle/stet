@@ -1,6 +1,6 @@
 # SP-092: Compare thinkingmachines/inkling-2-mini vs qwen/qwen3.8-27b — Status
 
-**Current Step:** Step 1
+**Current Step:** Step 2
 **Status:** 🟡 In Progress (manual Cursor execution)
 **Last Updated:** 2026-11-22
 **Review Level:** 1
@@ -23,16 +23,16 @@
 ---
 
 ### Step 1: Run thinkingmachines/inkling-2-mini
-**Status:** 🔄 In Progress
+**Status:** ✅ Complete (2026-11-22)
 
-- [ ] All 14 cases × 3 runs + 3 real refs recorded under `thinkingmachines__inkling-2-mini`
-- [ ] `--retry-failed` once; remaining non-`ok` noted in Discoveries
-- [ ] Results committed
+- [x] All 14 cases × 3 runs + 3 real refs recorded under `thinkingmachines__inkling-2-mini` (63/63 ok after retry)
+- [x] `--retry-failed` once; first attempt of real `3ee3055f…` failed (`RAG resolve… signal: killed`), retry ok 1 finding in 1280s
+- [x] Results committed (`6b67e5d`)
 
 ---
 
 ### Step 2: Run qwen/qwen3.8-27b
-**Status:** ⬜ Not Started
+**Status:** 🔄 In Progress
 
 - [ ] Baseline loaded and run under same harness flags
 - [ ] Results committed

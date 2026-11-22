@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7gwxc2no/internal/units/parse.go#L18",
+      "file": "internal/units/parse.go",
+      "id": "b0feb3f67b77ded752455bf77d451cbdc1c3825d2b5e593977ddc868a6acd300",
+      "line": 18,
+      "message": "The variable 'unitPart' is declared but not used in the visible code, which will cause a compilation error in Go.",
+      "severity": "error",
+      "suggestion": "Use 'unitPart' in the subsequent logic (e.g., to calculate the multiplier) or omit it if not needed."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7gwxc2no/internal/units/parse.go#L37",
+      "file": "internal/units/parse.go",
+      "id": "455c848fb4066ab039ad756041d86f165ac8d793937f09ed72aebe5565d6173f",
+      "line": 37,
+      "message": "splitNumberUnit returns an empty numeric prefix when the input starts with a non-digit character (e.g., \".5GB\" or \"1.5.2GB\"). This causes strconv.ParseFloat to fail with an 'invalid syntax' error instead of parsing the number correctly.",
+      "severity": "warning",
+      "suggestion": "Skip leading non-digit characters (like '.') before starting the numeric scan, or handle the case where i == 0 by returning an error or a default value."
+    }
+  ]
+}

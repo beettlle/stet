@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ugldsqac/internal/track/submit.go#L33",
+      "file": "internal/track/submit.go",
+      "id": "7528f8bfae3192f9651b33ce48be19d6185ca0b3dc2e36809d6a5f965a07f0dd",
+      "line": 33,
+      "message": "The function signature accepts a context.Context parameter, but the implementation ignores it by using context.Background(). This breaks the contract for cancellation and deadlines, causing the HTTP request to hang indefinitely if the caller cancels the context or sets a timeout.",
+      "severity": "error",
+      "suggestion": "Revert the change to use the provided ctx parameter: http.NewRequestWithContext(ctx, http.MethodPost, c.Endpoint, bytes.NewReader(body))"
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ugldsqac/internal/track/submit.go#L57",
+      "file": "internal/track/submit.go",
+      "id": "7139655134fdb2d0eab7987a2b5ec46dad5c70fd109ca5c7d0a39a465107b89f",
+      "line": 57,
+      "message": "The error message 'submit batch entry' is misleading because it does not indicate which specific event in the batch failed. If the batch contains multiple events, the caller cannot determine which one caused the error.",
+      "severity": "warning",
+      "suggestion": "Include the index or a unique identifier of the event in the error message, e.g., fmt.Errorf(\"submit batch entry %d: %w\", i, err)"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-gc6e1wb3/app/billing.py#L36",
+      "file": "app/billing.py",
+      "id": "6b71c8aff6e91c4d1e9cc398c90e90689fd9e70bb1036747789300451e5865ad",
+      "line": 36,
+      "message": "Bare except with pass swallows all exceptions (including GatewayError) and returns an undefined variable 'result', causing a NameError on the return statement. This breaks the intended error handling and leads to unpredictable behavior.",
+      "severity": "error",
+      "suggestion": "Restore the specific exception handling: 'except GatewayError as exc: raise PaymentError(f\"charge failed for order {order.id}: {exc}\") from exc'"
+    }
+  ]
+}

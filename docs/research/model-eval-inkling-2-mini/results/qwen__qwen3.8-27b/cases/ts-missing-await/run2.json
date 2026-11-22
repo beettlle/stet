@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-qo5owz1q/src/services/userService.ts#L38",
+      "file": "src/services/userService.ts",
+      "id": "73ca94cb1e6810db991e99037bc1265644d6950df679a7b8ede9146be580879a",
+      "line": 38,
+      "message": "Removing `await` from `this.saveUser(user)` causes the function to return `{ ok: true, userId: user.id }` before the user is actually persisted to the database. If `saveUser` fails or throws, the caller will have already received a success response, leading to inconsistent state and unhandled promise rejections.",
+      "severity": "error",
+      "suggestion": "Restore `await` to ensure the user is saved before returning success: `await this.saveUser(user);`"
+    }
+  ]
+}

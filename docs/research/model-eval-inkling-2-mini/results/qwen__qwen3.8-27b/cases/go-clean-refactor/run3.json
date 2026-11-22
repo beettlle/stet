@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-o525b_fd/internal/units/parse.go#L18",
+      "file": "internal/units/parse.go",
+      "id": "b0feb3f67b77ded752455bf77d451cbdc1c3825d2b5e593977ddc868a6acd300",
+      "line": 18,
+      "message": "The variable 'unitPart' is declared but not used in the visible code, which will cause a compilation error in Go.",
+      "severity": "warning",
+      "suggestion": "Use 'unitPart' in the subsequent parsing logic or rename it to '_' if it is intentionally unused."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-o525b_fd/internal/units/parse.go#L37",
+      "file": "internal/units/parse.go",
+      "id": "7aa5ad279f4287b7072c6280d4f8bc46c4c936de32c899f543b78968aa3d5e5c",
+      "line": 37,
+      "message": "splitNumberUnit returns an empty numeric prefix when the input string starts with a non-digit character (e.g., \"1.5GB\" or \"GB\"). This causes strconv.ParseFloat to fail with an invalid syntax error instead of returning a meaningful error or handling the edge case.",
+      "severity": "warning",
+      "suggestion": "Check if i == 0 before returning, or validate that the numeric prefix is not empty before returning."
+    }
+  ]
+}

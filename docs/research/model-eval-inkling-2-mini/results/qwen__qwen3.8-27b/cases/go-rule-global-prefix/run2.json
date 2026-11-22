@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-2xwp45s3/internal/ratelimit/window.go#L25",
+      "file": "internal/ratelimit/window.go",
+      "id": "f27ce9b07c560d46453360973915f8a58dd18f79df6c76760840a551579a1980",
+      "line": 25,
+      "message": "The `span` parameter is a `time.Duration` (int64). If a caller passes a negative duration, the condition `span < minSpan` evaluates to true, causing `span` to be set to `minSpan`. This silently changes the rate-limiting window from a negative value (which would typically result in an empty window or immediate rejection depending on implementation) to `minSpan`, potentially allowing more requests than intended or masking caller errors. The check should explicitly ensure the span is positive.",
+      "severity": "warning",
+      "suggestion": "if span < minSpan {\n    if span < 0 {\n        return false\n    }\n    span = minSpan\n}"
+    }
+  ]
+}

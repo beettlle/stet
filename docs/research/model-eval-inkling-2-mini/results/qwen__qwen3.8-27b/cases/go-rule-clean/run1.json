@@ -1,0 +1,37 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ldd2yoi5/internal/notice/dispatch.go#L13",
+      "file": "internal/notice/dispatch.go",
+      "id": "6a451ae48b81b9c0d8e07cd29186f018b9f668fc201a0a69f77aab552485ccdc",
+      "line": 13,
+      "message": "Renaming the package-level variable `timeout` to `_timeout` will cause a compilation error if `timeout` is referenced elsewhere in the package (e.g., in methods of `Sender` or other files). In Go, identifiers starting with an underscore are unexported but still valid identifiers; however, if other code relies on the name `timeout`, it will break. Additionally, if the intent was to make it unexported, it already was (lowercase). If the intent was to remove it, it should be deleted, not renamed to an unused variable (which may trigger lint warnings or be dead code).",
+      "severity": "error",
+      "suggestion": "If `timeout` is used elsewhere, keep the name `timeout`. If it is no longer used, remove the variable entirely."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ldd2yoi5/internal/notice/dispatch.go#L22",
+      "file": "internal/notice/dispatch.go",
+      "id": "77fb43624b63e17edc4bf6a5cea21e45bf5544930161eeb501b6e894d7e94a8d",
+      "line": 22,
+      "message": "The variable '_timeout' is likely a typo for 'timeout'. In Go, identifiers starting with an underscore are not special, but if 'timeout' was the intended constant, this will cause a compilation error if '_timeout' is not defined.",
+      "severity": "error",
+      "suggestion": "Change '_timeout' to 'timeout'."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ldd2yoi5/internal/notice/dispatch.go#L47",
+      "file": "internal/notice/dispatch.go",
+      "id": "e2bfa827c3c4927877df220e0a84d8739a6c6600c312ea7996904ef1ef50e35f",
+      "line": 47,
+      "message": "The `Sender` struct does not have a `Client` field that accepts a `context.Context`, and the `Send` method signature is not shown to accept a context. If `Send` is not updated to accept a `context.Context` and use it for the HTTP request, the context will be ignored, leading to unbounded requests that cannot be cancelled or timed out via the context.",
+      "severity": "warning",
+      "suggestion": "Ensure the `Sender.Send` method signature is updated to `func (s *Sender) Send(ctx context.Context, text string) error` and that the HTTP request is created using `http.NewRequestWithContext(ctx, ...)` or similar."
+    }
+  ]
+}

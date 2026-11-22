@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-n1ag6mwy/src/invoice/pricing.ts#L25",
+      "file": "src/invoice/pricing.ts",
+      "id": "8d9a01a03982544ce4e616cbf682bb0842801c7b6bbf26c9e4d87ceb9c79adb4",
+      "line": 25,
+      "message": "The discount threshold is set to 100,000 cents ($1,000), but the output format divides by 100 to display dollars. This implies the intended threshold was likely $100,000 (10,000,000 cents). As written, the 5% discount is applied to orders over $1,000, which is likely too low for a 'bulk' discount.",
+      "severity": "warning",
+      "suggestion": "Change the threshold to 10_000_000 if the intent is $100,000, or verify the business requirement for the discount threshold."
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-z_4vvsd_/internal/units/parse.go#L18",
+      "file": "internal/units/parse.go",
+      "id": "1e779012523d17e5d41061d7c3ed02814337fe825a5635b2cfd05a90b2e2246c",
+      "line": 18,
+      "message": "The variable 'unitPart' is declared but not used in the visible code, which will cause a compilation error in Go. The diff shows the variable being assigned from splitNumberUnit, but the subsequent code only uses 'numPart' and 'normalized'.",
+      "severity": "warning",
+      "suggestion": "Either use 'unitPart' in the parsing logic (e.g., to validate or convert the unit) or omit it from the assignment if it is not needed."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-z_4vvsd_/internal/units/parse.go#L36",
+      "file": "internal/units/parse.go",
+      "id": "a363afdbb28a890cfcac774ae193151429ec8cfc0bb15d5818411b9c2c9bd622",
+      "line": 36,
+      "message": "The function returns an empty numeric prefix when the input string starts with a non-numeric character (e.g., \"GB\" or \".5GB\"), which will cause strconv.ParseFloat to fail with an 'invalid syntax' error instead of handling the input gracefully or returning a specific error.",
+      "severity": "warning",
+      "suggestion": "Check if i == 0 before returning. If the string starts with a non-numeric character, return an error or handle it specifically, rather than returning an empty string for the numeric part."
+    }
+  ]
+}

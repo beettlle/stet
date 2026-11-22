@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-0xz_vy8p/app/reporting/stats.py#L17",
+      "file": "app/reporting/stats.py",
+      "id": "6ba0397c29c509869bb80344e8db9ee053bd65fc2f729c6a11d5d1e3e9936e84",
+      "line": 17,
+      "message": "Using floor division (//) instead of true division (/) causes the function to return 0.0 for any completion rate less than 100% (e.g., 1 completed out of 2 tasks returns 0.0 instead of 50.0).",
+      "severity": "error",
+      "suggestion": "return completed / total * 100"
+    },
+    {
+      "category": "bug",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-0xz_vy8p/app/reporting/stats.py#L45",
+      "file": "app/reporting/stats.py",
+      "id": "af46c72ee39136726bc4d21463b4ef4f667322c330f735f82186c51972f6189a",
+      "line": 45,
+      "message": "The function passes_threshold uses a strict >= comparison, which may be incorrect if the intent is to check for a value strictly greater than the minimum, or if the minimum is inclusive/exclusive in a way that contradicts the bucket_for_percentage logic (which uses >= for medium). Without context on whether 'meets' implies inclusive or exclusive, this is a potential logic error.",
+      "severity": "warning",
+      "suggestion": "Verify if the comparison should be > instead of >= based on the business logic for thresholds."
+    }
+  ]
+}

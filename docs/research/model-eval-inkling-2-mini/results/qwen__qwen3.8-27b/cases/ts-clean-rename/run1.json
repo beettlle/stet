@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-df3y8e9h/src/invoice/pricing.ts#L27",
+      "file": "src/invoice/pricing.ts",
+      "id": "990f806b6fa3005203fb3d103d5cc46a876ee1a85f47902cf20820f090b6fd97",
+      "line": 27,
+      "message": "The discount threshold uses a strict greater-than comparison (totalCents > 100_000), which excludes orders that are exactly $1,000.00 (100,000 cents). Given that the adjacent functions (qualifiesForFreeShipping and discountBucket) use inclusive comparisons (>=) for their respective thresholds, this is likely an off-by-one logic error that prevents customers from receiving the bulk discount at the intended boundary.",
+      "severity": "warning",
+      "suggestion": "Change the condition to use an inclusive comparison: const discountRate = totalCents >= 100_000 ? 0.05 : 0;"
+    }
+  ]
+}

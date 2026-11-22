@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1e8pxbq6/internal/track/submit.go#L35",
+      "file": "internal/track/submit.go",
+      "id": "79b96c1c6a64964f43c1547480525c8335eaf57c7d5688b066bc830023d59b9d",
+      "line": 35,
+      "message": "The function signature accepts a context.Context parameter, but the implementation replaces it with context.Background(). This breaks the contract for cancellation and deadlines, causing the HTTP request to hang indefinitely if the caller cancels the context or if the remote endpoint is unresponsive. The comment was updated to reflect this, but it is a regression in behavior.",
+      "severity": "error",
+      "suggestion": "Revert the change to use the provided ctx parameter: req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.Endpoint, bytes.NewReader(body))"
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-1e8pxbq6/internal/track/submit.go#L57",
+      "file": "internal/track/submit.go",
+      "id": "69725d28f656961c71bc1fa605ded4872bcdf11a06032e5ced67fe8e7b8fd2c9",
+      "line": 57,
+      "message": "The error message was changed from 'batch submit' to 'submit batch entry', but the index of the failing event is not included. This makes it difficult to identify which specific event in the batch failed when debugging.",
+      "severity": "info",
+      "suggestion": "Include the event index in the error message, e.g., fmt.Errorf(\"submit batch entry %d: %w\", i, err)"
+    }
+  ]
+}

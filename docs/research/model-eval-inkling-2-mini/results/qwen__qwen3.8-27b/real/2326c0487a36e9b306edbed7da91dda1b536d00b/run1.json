@@ -1,0 +1,114 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-yc5fm19f/cli/cmd/stet/main.go#L31",
+      "file": "cli/cmd/stet/main.go",
+      "id": "faa86e810d8921d06b873a36502613d0d8cf31d195f3e67000fc7e51b70222a1",
+      "line": 31,
+      "message": "Unused import 'stet/cli/internal/rules' will cause a compilation error in Go.",
+      "severity": "warning",
+      "suggestion": "Remove the import if not used, or ensure it is referenced in the code."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-yc5fm19f/cli/cmd/stet/main.go#L392",
+      "file": "cli/cmd/stet/main.go",
+      "id": "2377d9316bf4e522dadc1a1eb0f6654c2f8f760d6a8274bc67e098b18ab13822",
+      "line": 392,
+      "message": "The diff changes the call to systemOneRunOptions to return a single struct (so), but the subsequent code in the enclosing function still references the old individual variables (soClient, soBaseURL, etc.) which are no longer defined. This will cause a compilation error.",
+      "severity": "warning",
+      "suggestion": "Update the field assignments in run.StartOptions to use the struct fields, e.g., SystemOneClient: so.Client, SystemOneBaseURL: so.BaseURL, etc."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-yc5fm19f/cli/cmd/stet/main.go#L428",
+      "file": "cli/cmd/stet/main.go",
+      "id": "7144c87b47f1e78f7fb4d1500430f713bbe494ce5d99da45e76bb2a3db62005f",
+      "line": 428,
+      "message": "RulesSelectorBaseURL is set to so.BaseURL, which is the System One base URL. If the rules selector is configured to use a different endpoint (e.g., a different model or service), it will incorrectly use the System One URL, causing requests to fail or be sent to the wrong service.",
+      "severity": "warning",
+      "suggestion": "Use so.SelectorBaseURL for RulesSelectorBaseURL to ensure the rules selector uses its own configured base URL."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-yc5fm19f/cli/cmd/stet/main.go#L700",
+      "file": "cli/cmd/stet/main.go",
+      "id": "5d28954abe5c6d214da25522acff42dc3f610ada165359772a133fdcafa04fc6",
+      "line": 700,
+      "message": "The `SelectorModel` field is only set when `wantSelector` is true. If the rules selector is enabled but the command is a dry-run, `SelectorClient` is nil (correctly preventing network calls), but `SelectorModel` remains empty. If downstream code uses `SelectorModel` for logging, error messages, or fail-open warnings (as hinted by the `BaseURL` comment), it will report an empty model name instead of the configured `cfg.SystemOneModel`.",
+      "severity": "warning",
+      "suggestion": "Set `o.SelectorModel = cfg.SystemOneModel` unconditionally in the struct initialization, or move it outside the `if wantSelector` block."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-yc5fm19f/cli/cmd/stet/main.go#L818",
+      "file": "cli/cmd/stet/main.go",
+      "id": "5501987b1dbd93e47c4050f26cb390e74ff2e3fa5911df0266ebaa3bfb11fbfa",
+      "line": 818,
+      "message": "The variable 'so' is declared but not used. The diff replaces the previous 5-variable declaration with a single struct assignment, but the subsequent code still references the old variables (soClient, soBaseURL, etc.) instead of the struct fields (so.Client, so.BaseURL, etc.). This will cause a compilation error.",
+      "severity": "error",
+      "suggestion": "Update the references in the run.RunOptions struct initialization to use the fields of the 'so' struct (e.g., SystemOneClient: so.Client, SystemOneBaseURL: so.BaseURL, etc.)."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-yc5fm19f/cli/cmd/stet/main.go#L850",
+      "file": "cli/cmd/stet/main.go",
+      "id": "a2e19b41f81d70a57605e4f15e21879d220186ce2ec62dbaec2b981124d9f532",
+      "line": 850,
+      "message": "The RulesSelectorClient is assigned so.SelectorClient, but the BaseURL and Model are assigned from so.BaseURL and so.SelectorModel. If the selector client is a distinct client instance (e.g., pointing to a different endpoint or using a different model than the main System One client), reusing so.BaseURL will cause the selector to send requests to the wrong endpoint. The selector should use its own BaseURL if it differs from the main client.",
+      "severity": "warning",
+      "suggestion": "Verify if so.SelectorClient has its own BaseURL field. If so, use so.SelectorBaseURL for RulesSelectorBaseURL. If the selector is intended to share the exact same endpoint as the main client, ensure so.SelectorClient is constructed with that same BaseURL and consider adding a comment to clarify this coupling."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-yc5fm19f/cli/cmd/stet/main.go#L1014",
+      "file": "cli/cmd/stet/main.go",
+      "id": "8caf42890450e7dd916a3699e521d580de011f4b94cbfbf91cd3ff5133028d86",
+      "line": 1014,
+      "message": "The variable `dryRun` is used in the call to `systemOneRunOptions` before it is declared. In the provided context, `dryRun` is declared later in the function (after `applyFP` is resolved). This will result in a compilation error.",
+      "severity": "error",
+      "suggestion": "Move the declaration of `dryRun` (and its flag retrieval) to before the call to `systemOneRunOptions`, or ensure `dryRun` is defined earlier in the function scope."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-yc5fm19f/cli/cmd/stet/main.go#L1046",
+      "file": "cli/cmd/stet/main.go",
+      "id": "56011e9c3bb531689bdbd3fc7866b40901b5a309bb1700a2c97652492fd28d26",
+      "line": 1046,
+      "message": "The RulesSelectorBaseURL is set to so.BaseURL, which is the System One Base URL. This is likely a copy-paste error; it should be so.SelectorBaseURL to match the pattern used for RulesSelectorClient and RulesSelectorModel. Using the wrong base URL will cause the rules selector to send requests to the System One endpoint instead of the intended selector endpoint.",
+      "severity": "warning",
+      "suggestion": "Change RulesSelectorBaseURL: so.BaseURL to RulesSelectorBaseURL: so.SelectorBaseURL"
+    },
+    {
+      "category": "testing",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-yc5fm19f/cli/cmd/stet/main_test.go#L3120",
+      "file": "cli/cmd/stet/main_test.go",
+      "id": "62e13037afb8483b36e6f320a25df0335364a985a9b5e192b417699985e7c926",
+      "line": 3120,
+      "message": "The test 'no selector client on dry-run' asserts that o.Client is nil when dryRun is true, but the implementation of systemOneRunOptions (and the test 'client built when enabled and systemone') indicates that the critic client is constructed based on CriticEnabled and CriticBackend, independent of the dryRun flag. The dryRun flag only suppresses the selector client. This test case will fail if the implementation correctly builds the critic client for non-dry-run logic, or it incorrectly documents that dry-run disables the critic client.",
+      "severity": "warning",
+      "suggestion": "Remove the assertion `if o.Client != nil { ... }` from the 'no selector client on dry-run' test, or update the test configuration to disable the critic (CriticEnabled: false) if the intent is to verify that no clients are built at all during dry-run."
+    },
+    {
+      "category": "security",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-yc5fm19f/docs/cli-extension-contract.md#L146",
+      "file": "docs/cli-extension-contract.md",
+      "id": "c6b3f83df3be06093f6006f642643e4f3083d5b7b6ff178100f91a9daa77b04e",
+      "line": 146,
+      "message": "The documentation states that the hunk's diff text is sent to the configured server for the rule-section selector. This is a significant data exfiltration risk if the server is remote or untrusted, as it exposes source code context. The documentation should explicitly warn users that enabling this feature sends code content to the specified endpoint, or clarify that it is intended only for local/trusted servers.",
+      "severity": "warning",
+      "suggestion": "Add a security warning to the `rules_selector` documentation entry, e.g., \"Security Note: Enabling this selector sends the hunk's diff text to the configured `systemone_base_url`. Ensure the server is trusted and local if the codebase contains sensitive information.\""
+    }
+  ]
+}

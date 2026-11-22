@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-89i58d9c/inventory/stock.py#L13",
+      "file": "inventory/stock.py",
+      "id": "bb0716b0802ddda6a35c7a709fce1e24cf407205289ccd8599ad31e51f492882",
+      "line": 13,
+      "message": "The docstring contains a grammatical error ('Record count more units') which is likely a typo for 'Record count units' or 'Record count more units' (missing 'of').",
+      "severity": "warning",
+      "suggestion": "\"\"\"Record count units of sku received.\"\"\""
+    }
+  ]
+}

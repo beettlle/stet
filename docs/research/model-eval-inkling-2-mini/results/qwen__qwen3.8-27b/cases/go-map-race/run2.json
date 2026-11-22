@@ -1,0 +1,37 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-zbaak42u/internal/metrics/collector.go#L28",
+      "file": "internal/metrics/collector.go",
+      "id": "9fbf347c4bd44e3e6aea8314a48638ab8fa417ddb030ef3ed931ce3655e601d8",
+      "line": 28,
+      "message": "The variable 'counts' is declared but never used, which will cause a compilation error in Go.",
+      "severity": "warning",
+      "suggestion": "Remove the unused 'counts' variable declaration."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-zbaak42u/internal/metrics/collector.go#L44",
+      "file": "internal/metrics/collector.go",
+      "id": "3cd073ab4a24594527fe73bf6938f247464adad9093846f7a0d141782011b761",
+      "line": 44,
+      "message": "Data race on the 'counts' map. The map is accessed and modified concurrently by multiple goroutines without synchronization. The mutex 'mu' protects 'out' but is unlocked before 'counts[p.Name]++' is executed, leading to a race condition that can cause crashes or incorrect counts.",
+      "severity": "error",
+      "suggestion": "Move 'counts[p.Name]++' inside the mutex lock, or protect 'counts' with its own mutex."
+    },
+    {
+      "category": "performance",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-zbaak42u/internal/metrics/collector.go#L67",
+      "file": "internal/metrics/collector.go",
+      "id": "337b1a4c9a792aef6e7c5223bcc5b7080237e88620c9b8428ee446089cac7c3a",
+      "line": 67,
+      "message": "The function allocates a slice and iterates through all probes to collect names, but only uses the length of the resulting slice. Since len(names) is always equal to len(c.probes), the allocation and loop are unnecessary overhead.",
+      "severity": "warning",
+      "suggestion": "Replace the body with: return fmt.Sprintf(\"%d probes registered\", len(c.probes))"
+    }
+  ]
+}

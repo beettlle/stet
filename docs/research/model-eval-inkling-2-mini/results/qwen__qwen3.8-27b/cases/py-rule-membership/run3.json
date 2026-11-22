@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "security",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-_e28fno0/auditlog/redact.py#L29",
+      "file": "auditlog/redact.py",
+      "id": "bb3c29b4205d28a9198bb9b4c5f00b94e5a3b78314816261dd6b183e6e56331d",
+      "line": 29,
+      "message": "The check `if key in SENSITIVE_FIELDS` is case-sensitive. If the input record contains keys with different casing (e.g., \"Password\" or \"SSN\"), they will not be redacted, potentially leaking sensitive data.",
+      "severity": "warning",
+      "suggestion": "Normalize the key to lowercase before checking: `if key.lower() in SENSITIVE_FIELDS:`"
+    }
+  ]
+}

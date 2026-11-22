@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-a_4docob/internal/ratelimit/window.go#L25",
+      "file": "internal/ratelimit/window.go",
+      "id": "86a7ecb6258c527ecb1a4e2f94d49db9888d76149dcf2884a4847c20efea1457",
+      "line": 25,
+      "message": "The `span` parameter is a `time.Duration` (an integer type representing nanoseconds). Comparing it against `minSpan` (presumably a `time.Duration`) and assigning it back is logically sound, but the check `span < minSpan` will not catch `span <= 0` if `minSpan` is defined as a positive duration. If a caller passes `span = 0` or a negative duration, and `minSpan` is e.g. `1*time.Second`, the condition `0 < 1s` is true, so it works. However, if `minSpan` is defined as `0`, this check does nothing. More importantly, if `span` is negative, `now.Add(-span)` results in a future time, which might cause `prune` to behave unexpectedly or prune nothing. It is safer to explicitly guard against non-positive spans.",
+      "severity": "warning",
+      "suggestion": "if span <= 0 { span = minSpan }"
+    }
+  ]
+}

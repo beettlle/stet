@@ -1,0 +1,7 @@
+Model: qwen/qwen3.8-27b
+Eval rate:       22.6 t/s (end-to-end)
+---
+Tokens: 1137 in, 139 out | Total: 6.1s
+Typical stet hunk (~3k prompt, ~200 out): ~15.4s estimated
+---
+Reference: 8B ~35-50 t/s, 30B ~15-25 t/s, 70B ~5-8 t/s (M1 Ultra)

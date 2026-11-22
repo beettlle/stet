@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "best_practice",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-w1_c2cvp/internal/ratelimit/window.go#L8",
+      "file": "internal/ratelimit/window.go",
+      "id": "4d21f67935d6f8bcddbc0003c9be1388d5f396cfd7ef21d60cd7845b6f482ba6",
+      "line": 8,
+      "message": "Package-level mutable variables are not safe for concurrent access. If minSpan is intended to be configurable at runtime, it should be protected by a mutex or made immutable. If it is a constant, it should be declared as a const.",
+      "severity": "warning",
+      "suggestion": "const minSpan = 100 * time.Millisecond"
+    },
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-w1_c2cvp/internal/ratelimit/window.go#L25",
+      "file": "internal/ratelimit/window.go",
+      "id": "cb43d4eb27c6f4d34ece7721d9e4c4eac7891cce91a08bf3c602188da0207a58",
+      "line": 25,
+      "message": "The `span` parameter is a value type (`time.Duration`). Reassigning it to `minSpan` only modifies the local variable and does not affect the caller's variable. If the intent was to enforce a minimum span globally or for the caller, this logic is ineffective. If the intent is only to protect the internal `prune` logic, it is correct but should be documented or the parameter should be named to reflect that it is a minimum bound.",
+      "severity": "warning",
+      "suggestion": "If the goal is to ensure the internal window is at least `minSpan`, the current code is functionally correct for the internal logic. However, if the caller expects their `span` to be respected, this silently changes behavior. Consider adding a comment clarifying that `span` is treated as a minimum, or rename the parameter to `minSpan` if that is the intended API contract."
+    }
+  ]
+}

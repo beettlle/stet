@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-15v_igac/app/reporting/stats.py#L17",
+      "file": "app/reporting/stats.py",
+      "id": "2358b146c4f192293dbf8ff78860cbeb8729bb2d8f04cde8641beb0fd6d936a8",
+      "line": 17,
+      "message": "Using floor division (//) instead of true division (/) causes the function to return 0.0 for any completion rate less than 100% (e.g., 50/100 * 100 becomes 0 * 100 = 0). This breaks the intended logic of returning the share as a percentage.",
+      "severity": "error",
+      "suggestion": "return completed / total * 100"
+    },
+    {
+      "category": "best_practice",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-15v_igac/app/reporting/stats.py#L47",
+      "file": "app/reporting/stats.py",
+      "id": "38738fea505e21010f5f8e795e02ea863212cfc79eb6b1df4bcfbdebdbf58a04",
+      "line": 47,
+      "message": "The function name 'passes_threshold' implies a strict inequality (value > minimum), but the implementation uses '>=' (value >= minimum). This can be misleading to callers.",
+      "severity": "info",
+      "suggestion": "Rename the function to 'meets_threshold' or 'at_least_threshold' to accurately reflect the inclusive comparison."
+    }
+  ]
+}

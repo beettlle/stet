@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-6lrpzjoc/src/middleware/requireAdmin.ts#L32",
+      "file": "src/middleware/requireAdmin.ts",
+      "id": "f091dab8a4cb4e9be03dfff4acc97576312e4fdecd0f305bb7f62aea103169c9",
+      "line": 32,
+      "message": "The condition `if (user.isAdmin)` is inverted. The middleware is intended to allow only admin users through, but the current logic returns a 403 error for admins and allows non-admins to proceed. This completely reverses the access control logic.",
+      "severity": "error",
+      "suggestion": "Change the condition to `if (!user.isAdmin)` to correctly reject non-admin users."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-6lrpzjoc/src/middleware/requireAdmin.ts#L48",
+      "file": "src/middleware/requireAdmin.ts",
+      "id": "d3866cf44b636cef245570c887f07fc50c53bd7b1372f059004f4ac7c9b445f3",
+      "line": 48,
+      "message": "The function `isAdminUser` is defined but not used within the provided context. If this is intended to be a public utility, it should be exported and documented. If it is intended for internal use, it should be used or removed to avoid dead code.",
+      "severity": "warning",
+      "suggestion": "Either use `isAdminUser` in the middleware logic or remove it if it is not needed."
+    }
+  ]
+}

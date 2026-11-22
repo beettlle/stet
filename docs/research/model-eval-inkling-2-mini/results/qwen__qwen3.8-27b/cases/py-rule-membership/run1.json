@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "performance",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-yx57giwe/auditlog/redact.py#L29",
+      "file": "auditlog/redact.py",
+      "id": "9cd0fafee0eb057937de27aede1f48493bbdd7d1b015f5213ccd8b8bc2ceb2c8",
+      "line": 29,
+      "message": "Using a list for SENSITIVE_FIELDS results in O(N) membership checks for each key, which is inefficient for large records. Converting to a set provides O(1) lookups.",
+      "severity": "warning",
+      "suggestion": "Change SENSITIVE_FIELDS to a set: SENSITIVE_FIELDS = { ... }"
+    }
+  ]
+}
