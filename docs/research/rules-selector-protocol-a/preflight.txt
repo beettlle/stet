@@ -1,0 +1,24 @@
+date: 2026-11-21T19:43:52Z
+stet: stet version dev
+model: qwen/qwen3.8-27b
+lmstudio: {
+  "data": [
+    {
+      "id": "google/gemma-4-26b-a4b",
+      "object": "model",
+      "owned_by": "organization_owner"
+    },
+    {
+      "id": "qwen/qwen3.8-27b",
+      "object": "model",
+      "o
+openjev: 200
+cases: go-clean-refactor
+go-rule-clean
+go-rule-context
+go-rule-global-prefix
+py-rule-clean
+py-rule-membership
+py-rule-naming
+rules:       50 mdc files
+decision_rule: see rules-selector-protocol-a.md (pre-registered before runs)

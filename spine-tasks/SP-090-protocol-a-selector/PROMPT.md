@@ -3,6 +3,7 @@
 **Created:** 2026-11-21
 **Size:** M
 **Type:** llm
+**Profile:** hard
 
 ## Review Level: 2 (Plan and Code)
 
@@ -13,7 +14,7 @@
 
 Closes #40
 
-Ship Protocol A for the rule-section selector: when `rules_selector` is on, candidate mode `digest_fair` builds digest sections (file-specific-first, round-robin into ≤64), choice option text prefers `**Detect:**` lines, and selection honors `rules_max_tokens` / `ReviewRuleBudget` (no hardcoded-only fill). Default `rules_selector_candidates` is **`digest_fair`**. Keep `rules_selector` **off** by default. Emit `STET_RULES_SECTION_LOG=1` stderr markers for included/selected sections. Prefer adapting the parked `protocol-a-wip` stash for the listed File Scope paths (code only — not docs/scripts owned by SP-089/SP-091).
+Ship Protocol A for the rule-section selector: when `rules_selector` is on, candidate mode `digest_fair` builds digest sections (file-specific-first, round-robin into ≤64), choice option text prefers `**Detect:**` lines, and selection honors `rules_max_tokens` / `ReviewRuleBudget` (no hardcoded-only fill). Default `rules_selector_candidates` is **`digest_fair`**. Keep `rules_selector` **off** by default. Emit `STET_RULES_SECTION_LOG=1` stderr markers for included/selected sections. Prefer adapting the parked `protocol-a-wip` stash for the listed File Scope paths (code only — not docs/scripts owned by SP-089/SP-091). Do **not** restore `docs/research/**` or `scripts/**` from the stash. Config default for `RulesSelectorCandidates` must be **`digest_fair`** (not `full`).
 
 ## Dependencies
 

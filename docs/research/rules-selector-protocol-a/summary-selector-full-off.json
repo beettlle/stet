@@ -1,0 +1,48 @@
+{
+  "qwen__qwen3.8-27b": {
+    "bugs_caught_all_runs": [
+      "go-rule-context",
+      "py-rule-membership",
+      "py-rule-naming"
+    ],
+    "bugs_caught_some_runs": [
+      "go-rule-global-prefix"
+    ],
+    "bugs_missed_all_runs": [],
+    "recall_by_category": {
+      "rule": {
+        "caught_mean": 0.8333,
+        "total": 4
+      }
+    },
+    "recall_mean": 0.8333,
+    "reliability": {
+      "failed": 0,
+      "ok": 21,
+      "timeout": 0,
+      "zero_hunks": 0
+    },
+    "repeatability_cases_excluded": 0,
+    "repeatability_jaccard_mean": 0.8254,
+    "seconds_per_case_mean": 95.4672,
+    "seconds_per_real_ref_mean": 0.0,
+    "section_hit_by_case": {
+      "go-rule-context": 0.0,
+      "go-rule-global-prefix": 0.0,
+      "py-rule-membership": 0.0,
+      "py-rule-naming": 0.0
+    },
+    "section_hit_mean": 0.0,
+    "unexpected": {
+      "by_severity": {
+        "error": 8,
+        "info": 1,
+        "nitpick": 0,
+        "warning": 21
+      },
+      "mean_per_run": 1.4286,
+      "on_clean_cases": 16,
+      "total": 30
+    }
+  }
+}
