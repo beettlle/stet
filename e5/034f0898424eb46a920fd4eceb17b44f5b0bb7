@@ -1,0 +1,23 @@
+docs/research/model-eval-inkling-2-mini/blind-key.json
+  s_4b6210e9aae418::t_f72bf24d830f5a 1-260
+docs/research/model-eval-inkling-2-mini/blind.tsv
+  s_4b6210e9aae418::t_47fb4529e3ef0c 1-44
+docs/research/model-eval-inkling-2-mini/real-labels.tsv
+  s_4b6210e9aae418::t_0bd102d1df3c11 1-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e5034f0898424eb46a920fd4eceb17b44f5b0bb7",
+  "prompts": {},
+  "sessions": {
+    "s_4b6210e9aae418": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "agent-f487dc15-4c8f-4120-bd3e-22bb54f231d9",
+        "model": "unknown"
+      },
+      "human_author": "Cesar Delgado <beettlle@gmail.com>"
+    }
+  }
+}
