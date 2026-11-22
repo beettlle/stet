@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7g9g4acf/app/cart.py#L17",
+      "file": "app/cart.py",
+      "id": "40bff62de406c82a6d19802132e02e1d7354e4a2f18aedbd843a2e2169aa53a9",
+      "line": 17,
+      "message": "Mutable default argument `items: list[Item] = []` causes all calls that omit the `items` argument to share a single list instance across invocations, so items accumulate and leak between unrelated carts/calls. The previous `None` sentinel with an explicit fresh-list fallback was correct; this change reintroduces the classic Python mutable-default bug.",
+      "severity": "error",
+      "suggestion": "Revert to `items: list[Item] | None = None` and inside the function do `if items is None: items = []` before appending (or use a factory/fresh list each call)."
+    }
+  ]
+}

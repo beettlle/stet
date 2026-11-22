@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-25c1ru78/internal/metrics/collector.go#L44",
+      "file": "internal/metrics/collector.go",
+      "id": "a348e060b021b57e77f64f37646285fcdc25bafa9773841cd5e0882279421be0",
+      "line": 44,
+      "message": "counts[p.Name]++ is executed outside the mutex (after mu.Unlock()) while other goroutines may concurrently read/write the same counts map. Concurrent writes to a Go map can panic with 'concurrent map writes' or silently corrupt counts, making the n != 1 validation unreliable and Collect nondeterministic.",
+      "severity": "error",
+      "suggestion": "Move the increment inside the mutex (e.g. mu.Lock(); out[p.Name] = ms; counts[p.Name]++; mu.Unlock()) or use a per-index slice/atomic counters like errs instead of a shared map."
+    },
+    {
+      "category": "performance",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-25c1ru78/internal/metrics/collector.go#L64",
+      "file": "internal/metrics/collector.go",
+      "id": "1774beda6e9ad438e393912f66f14b92604b5de043005617a81f629e32dd6e2b",
+      "line": 64,
+      "message": "Describe() still builds a names slice (and appends every probe name) only to use len(names); since len(names) == len(c.probes), the loop and allocation are unnecessary work on every call.",
+      "severity": "nitpick",
+      "suggestion": "Return fmt.Sprintf(\"%d probes registered\", len(c.probes)) directly and drop the names slice/loop (or keep it only if probe names are needed elsewhere)."
+    }
+  ]
+}

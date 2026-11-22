@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-_4huafym/internal/track/submit.go#L34",
+      "file": "internal/track/submit.go",
+      "id": "70f7b10e78f4cd4c7ae47b300445a0fcdff8df2f7060376456d4d6983f7568cf",
+      "line": 34,
+      "message": "Submit now builds the request with context.Background() instead of the caller's ctx, so cancellation and deadlines are ignored; requests can hang indefinitely or outlive the caller's deadline, defeating the documented contract (and any timeout/cancellation handling by callers). The doc comment was also changed to match this behavior rather than fixing it.",
+      "severity": "error",
+      "suggestion": "Revert to http.NewRequestWithContext(ctx, ...) and restore the original doc comment; if a detached request is truly intended, document that explicitly and still apply an explicit timeout/deadline via context.WithTimeout or client configuration."
+    }
+  ]
+}

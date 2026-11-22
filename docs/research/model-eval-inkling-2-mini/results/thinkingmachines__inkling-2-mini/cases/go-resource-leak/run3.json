@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-fc7sfkl2/internal/thumb/client.go#L32",
+      "file": "internal/thumb/client.go",
+      "id": "958b84b6741c15ded2dc621539a235c9f9758c8213be7718aa06763fa0dc3ea8",
+      "line": 32,
+      "message": "Removing 'defer resp.Body.Close()' leaks the response body on error paths: if os.Create fails or io.Copy returns an error, Fetch returns without closing resp.Body (the explicit Close only runs on the success path). This can exhaust connections/file descriptors under repeated failures.",
+      "severity": "error",
+      "suggestion": "Restore 'defer resp.Body.Close()' immediately after the Get error check and remove the manual close before return; or ensure resp.Body.Close() is called on every exit path (e.g. via defer)."
+    }
+  ]
+}

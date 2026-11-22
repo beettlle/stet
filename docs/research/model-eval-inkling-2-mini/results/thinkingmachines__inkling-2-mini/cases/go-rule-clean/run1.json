@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": 0.82,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-e6vomh3f/internal/notice/dispatch.go#L50",
+      "file": "internal/notice/dispatch.go",
+      "id": "b5845a8c7bcf5cd189d763045b3ce1ccb819d137e76b9ad0ef3c08a60da97575",
+      "line": 50,
+      "message": "Dispatch now calls sender.Send(ctx, message), but the shown Sender.Send signature is still Send(text string) error and no updated Send definition appears in this change; as written this will not compile/match the callee contract.",
+      "severity": "error",
+      "suggestion": "Update Sender.Send to accept context (e.g. Send(ctx context.Context, text string) error) and use ctx for the HTTP request, or revert the call site if Send is intentionally unchanged."
+    }
+  ]
+}

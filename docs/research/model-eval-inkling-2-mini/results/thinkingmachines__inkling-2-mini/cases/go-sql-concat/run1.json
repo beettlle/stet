@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "security",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-7lf7g0bf/internal/catalog/search.go#L32",
+      "file": "internal/catalog/search.go",
+      "id": "6f30d61d6adc6869a90e00f7f8eaf5e1491c4223126e21abce11d7a6df107a40",
+      "line": 32,
+      "message": "SQL injection: the term is concatenated directly into the query string (WHERE title = '\" + term + \"') and passed without parameters to s.db.Query. An attacker-controlled term containing a single quote or SQL syntax can alter the query, bypass filtering, or exfiltrate/modify data. The previous parameterized form ($1 with term as an argument) was correct.",
+      "severity": "error",
+      "suggestion": "Revert to a parameterized query: query := \"SELECT id, sku, title FROM products WHERE title = $1\"; rows, err := s.db.Query(query, term)"
+    }
+  ]
+}

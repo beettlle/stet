@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-2dtyyryz/internal/report/summary.go#L25",
+      "file": "internal/report/summary.go",
+      "id": "25e479b12fd0ec35f5d287d5d0916c401b984c7c1f862cb7ae5a3c4b7adb0460",
+      "line": 25,
+      "message": "Write error is now swallowed and nil is returned, so callers see a successful write even though the summary file may be truncated/partial (os.Create already truncated it). This silently loses data and skips f.Sync().",
+      "severity": "error",
+      "suggestion": "Restore returning the wrapped error, e.g. return fmt.Errorf(\"write summary: %w\", err); optionally remove/truncate the partial file on failure."
+    }
+  ]
+}

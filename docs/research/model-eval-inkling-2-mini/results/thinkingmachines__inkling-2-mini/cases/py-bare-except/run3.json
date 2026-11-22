@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-q9p7gyfu/app/billing.py#L36",
+      "file": "app/billing.py",
+      "id": "12e1848a91e38944b67009385833e62e5785b1020752f9e7807fa7e125841f1f",
+      "line": 36,
+      "message": "Bare `except:` with `pass` swallows every exception from charge() (including GatewayError and unexpected errors) instead of converting it to PaymentError; payment failures are silently hidden and callers cannot distinguish success from failure.",
+      "severity": "error",
+      "suggestion": "Catch the specific gateway exception (e.g. except GatewayError as exc) and re-raise PaymentError(f\"charge failed for order {order.id}: {exc}\") from exc; do not use a bare except/pass."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-q9p7gyfu/app/billing.py#L38",
+      "file": "app/billing.py",
+      "id": "e18805a3877781b230ff8230549ea6fdde89461d05362e42d69cffdc84e1669f",
+      "line": 38,
+      "message": "If charge() raises before assigning result, the exception is swallowed and `return result` executes with an unbound local, raising UnboundLocalError (or returning a stale/undefined value) instead of the intended PaymentError.",
+      "severity": "error",
+      "suggestion": "Initialize result or re-raise inside the except block so control never reaches `return result` after a failed charge; e.g. raise PaymentError from exc in the handler and only return on success."
+    }
+  ]
+}

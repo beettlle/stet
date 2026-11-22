@@ -1,7 +1,7 @@
 # SP-092: Compare thinkingmachines/inkling-2-mini vs qwen/qwen3.8-27b — Status
 
-**Current Step:** Not Started
-**Status:** 🔵 Ready for Execution
+**Current Step:** Step 1
+**Status:** 🟡 In Progress (manual Cursor execution)
 **Last Updated:** 2026-11-22
 **Review Level:** 1
 **Review Counter:** 0
@@ -11,19 +11,19 @@
 ---
 
 ### Step 0: Preflight
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete (2026-11-22, manual)
 
-- [ ] Tool versions, estimates, real-ref SHAs recorded in `preflight.txt`
-- [ ] Inkling preset saved with Reasoning Effort = none and budget off
-- [ ] Qwen 27b Enable Thinking still false
-- [ ] Inkling smoke: HTTP 200, non-empty content, finish stop (residual reasoning recorded)
-- [ ] Inkling reasoning probe: content usable as `[]` (no `<think>` leak)
-- [ ] Optional `stet benchmark` attempted; failure allowed and logged
+- [x] Tool versions, estimates, real-ref SHAs recorded in `preflight.txt`
+- [x] Inkling preset: **no saved file** under `user-concrete-model-default-config/`; operator confirmed Reasoning Effort = none and budget off in UI; smoke residual (~50–56 tokens) matches effort=none pattern
+- [x] Qwen 27b Enable Thinking still false (`ext.virtualModel.customField.qwen.qwen3.827b.enableThinking = False`)
+- [x] Inkling smoke: HTTP 200, content=`OK`, finish stop, reasoning_tokens=56
+- [x] Inkling reasoning probe: content=`[]`, finish stop, reasoning_tokens=44 (no `<think>` in content)
+- [x] Optional `stet benchmark` attempted; failed as expected (10s openai client timeout)
 
 ---
 
 ### Step 1: Run thinkingmachines/inkling-2-mini
-**Status:** ⬜ Not Started
+**Status:** 🔄 In Progress
 
 - [ ] All 14 cases × 3 runs + 3 real refs recorded under `thinkingmachines__inkling-2-mini`
 - [ ] `--retry-failed` once; remaining non-`ok` noted in Discoveries
@@ -90,6 +90,8 @@
 | Inkling residual reasoning at effort=none (~50–250 tokens) | Controlled confound; documented in PROMPT Amendments | Step 0 |
 | Reasoning budget=0 empties content | Forbidden in checklist | Step 0 |
 | `stet benchmark` openai 10s timeout fails on Inkling | Optional; wall times from model_eval primary | Step 0 |
+| No saved Inkling preset JSON under user-concrete-model-default-config | Proceeding on operator UI confirmation + smoke; please Save As default in LM Studio so reloads keep effort=none | Step 0 |
+| Spine batch `20261122T021336-7f28` aborted for manual Cursor run (worker SIGTERM ×3) | Archived | Execution Log |
 
 ---
 
@@ -98,3 +100,5 @@
 | Timestamp | Action | Outcome |
 |-----------|--------|---------|
 | 2026-11-22 | Task staged | PROMPT.md and STATUS.md created after operator Step 0 smoke |
+| 2026-11-22 | Spine batch aborted | `20261122T021336-7f28` archived; manual Cursor execution |
+| 2026-11-22 | Step 0 preflight | Smoke/probe OK; benchmark failed expected; started Step 1 |

@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "security",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-mmpwdx0j/auditlog/redact.py#L22",
+      "file": "auditlog/redact.py",
+      "id": "1f8b0e3fc30d8e781eeb3d58d35513144886f57d1c105f6ca5cdd333c87698e7",
+      "line": 22,
+      "message": "Sensitive-field matching is exact and case-sensitive against a fixed list, so common variants (e.g. 'Password', 'TOKEN', 'auth_token', 'api_key', 'password_hash') are copied through unredacted. This silently leaks secrets into audit logs.",
+      "severity": "warning",
+      "suggestion": "Normalize keys before matching (lowercase/strip separators) and match by suffix/pattern (e.g. endswith('token'), contains 'secret'/'password'/'key') or use a broader denylist; consider failing closed for unknown sensitive-looking fields."
+    }
+  ]
+}

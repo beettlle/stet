@@ -1,0 +1,184 @@
+=== SP-092 preflight 2026-11-22T18:27:22Z ===
+
+=== lms ls ===
+
+You have 5 models, taking up 94.78 GB of disk space.
+
+LLM                                            PARAMS    ARCH             SIZE        DEVICE            
+google/gemma-4-26b-a4b (1 variant)             26B       gemma4           15.64 GB    Local             
+qwen/qwen3-coder-next (1 variant)              80B       qwen3_next       44.86 GB    Local             
+qwen/qwen3.8-27b (1 variant)                   27B       qwen3_5          16.08 GB    Local             
+thinkingmachines/inkling-2-mini (1 variant)    26.4B     inkling2_loop    18.12 GB    Local     ✓ LOADED
+
+EMBEDDING                               PARAMS    ARCH          SIZE        DEVICE    
+text-embedding-nomic-embed-text-v1.5              Nomic BERT    84.11 MB    Local     
+
+
+=== lms ps ===
+
+IDENTIFIER                         MODEL                              STATUS    SIZE        CONTEXT    PARALLEL    LOAD CONFIG    DEVICE    TTL
+thinkingmachines/inkling-2-mini    thinkingmachines/inkling-2-mini    IDLE      18.12 GB    65536      1           LM Studio      Local        
+
+
+=== stet --version ===
+stet version v1.7.0
+
+=== git rev-parse HEAD ===
+36864e4e6c77b95ddfa01b858512a716c6031c79
+
+=== model_eval --help ===
+usage: model_eval.py [-h] {run,score,export-blind} ...
+
+Model comparison harness for stet
+
+positional arguments:
+  {run,score,export-blind}
+    run                 Run stet over fixture cases and real refs
+    score               Score recorded runs against fixture ground truth
+    export-blind        Export real findings to an anonymized TSV for blind
+                        triage
+
+optional arguments:
+  -h, --help            show this help message and exit
+
+=== estimate inkling ===
+
+Model: thinkingmachines/inkling-2-mini
+Context Length: 65,536
+Estimated GPU Memory:   20.92 GiB
+Estimated Total Memory: 20.92 GiB
+
+Estimate: This model may be loaded based on your resource guardrails settings.
+
+=== estimate qwen3.8-27b ===
+
+Model: qwen/qwen3.8-27b
+Context Length: 65,536
+Estimated GPU Memory:   20.97 GiB
+Estimated Total Memory: 20.97 GiB
+Confidence: LOW
+
+Estimate: This model may be loaded based on your resource guardrails settings.
+
+=== real-ref SHAs ===
+OK 3ee3055f13cf00b5cb4e182f169829b78961743e
+OK 2326c0487a36e9b306edbed7da91dda1b536d00b
+OK e9b2e61f637cf165c630061c6d8f89c5e9f39404
+
+=== Inkling preset search ===
+/Users/cdelgado/.lmstudio/.internal/user-concrete-model-default-config/chaoliangUNSW/Jev-Style-Qwen3.5-2B-Decision-v2-MLX-bf16.json
+/Users/cdelgado/.lmstudio/.internal/user-concrete-model-default-config/chaoliangUNSW/Jev-Style-Qwen3.5-2B-Decision-GGUF/Jev-Style-Qwen3.5-2B-Decision-BF16.gguf.json
+/Users/cdelgado/.lmstudio/.internal/user-concrete-model-default-config/qwen/qwen3-coder-next@lmstudio-community/Qwen3-Coder-Next-GGUF/Qwen3-Coder-Next-Q4_K_M.gguf.json
+/Users/cdelgado/.lmstudio/.internal/user-concrete-model-default-config/qwen/qwen3.8-27b.json
+/Users/cdelgado/.lmstudio/.internal/user-concrete-model-default-config/qwen/qwen3-coder-next.json
+/Users/cdelgado/.lmstudio/.internal/user-concrete-model-default-config/mlx-community/Muse-Glimmer-30B-4bit.json
+
+=== Qwen 27b preset (thinking) ===
+path: /Users/cdelgado/.lmstudio/.internal/user-concrete-model-default-config/qwen/qwen3.8-27b.json exists: True
+ext.virtualModel.customField.qwen.qwen3.827b.enableThinking = False
+ext.virtualModel.customField.qwen.qwen3.827b.preserveThinking = False
+ext.virtualModel.customField.qwen.qwen3.827b.reasoningEffort = low
+all keys:
+  llm.prediction.temperature = 0.2
+  llm.prediction.contextOverflowPolicy = stopAtLimit
+  llm.prediction.topPSampling = {'checked': True, 'value': 0.9}
+  llm.prediction.minPSampling = {'checked': False, 'value': 0.5}
+  llm.prediction.topKSampling = 20
+  ext.virtualModel.customField.qwen.qwen3.827b.enableThinking = False
+  ext.virtualModel.customField.qwen.qwen3.827b.preserveThinking = False
+  ext.virtualModel.customField.qwen.qwen3.827b.reasoningEffort = low
+  llm.prediction.maxPredictedTokens = {'checked': False, 'value': 2048}
+
+=== model.yaml customFields (inkling) ===
+# model.yaml is an open standard for defining cross-platform, composable AI models
+# Learn more at https://modelyaml.org
+model: thinkingmachines/inkling-2-mini
+base:
+  - key: lmstudio-community/inkling-2-mini-gguf
+    sources:
+      - type: huggingface
+        user: lmstudio-community
+        repo: Inkling-2-Mini-GGUF
+customFields:
+  - key: reasoningEffort
+    displayName: Reasoning Effort
+    description: Controls how much reasoning the model should perform.
+    type: select
+    defaultValue: high
+    options:
+      - value: none
+        label: None
+      - value: minimal
+        label: Minimal
+      - value: low
+        label: Low
+      - value: medium
+        label: Medium
+      - value: high
+        label: High
+      - value: xhigh
+        label: Extra High
+    effects:
+      - type: setJinjaVariable
+        variable: reasoning_effort
+metadataOverrides:
+  domain: llm
+  architectures:
+    - inkling2_loop
+  compatibilityTypes:
+    - gguf
+  paramsStrings:
+    - 26.4B
+  minMemoryUsageBytes: 17500000000
+  contextLengths:
+    - 1048576
+  vision: true
+  reasoning: true
+  trainedForToolUse: true
+
+=== smoke ===
+{
+  "label": "smoke",
+  "elapsed_s": 3.23,
+  "finish_reason": "stop",
+  "content": "OK",
+  "reasoning_content_len": 234,
+  "reasoning_tokens": 56,
+  "completion_tokens": 64,
+  "raw_message_keys": [
+    "content",
+    "reasoning_content",
+    "role",
+    "tool_calls"
+  ]
+}
+
+=== reasoning_probe ===
+{
+  "label": "reasoning_probe",
+  "elapsed_s": 2.42,
+  "finish_reason": "stop",
+  "content": "[]",
+  "reasoning_content_len": 214,
+  "reasoning_tokens": 44,
+  "completion_tokens": 52,
+  "raw_message_keys": [
+    "content",
+    "reasoning_content",
+    "role",
+    "tool_calls"
+  ]
+}
+
+=== Inkling saved preset ===
+MISSING under ~/.lmstudio/.internal/user-concrete-model-default-config/
+Operator previously set Reasoning Effort=none and budget off in UI (session confirmation 2026-11-22).
+model.yaml defaultValue for reasoningEffort is high; runtime smoke shows residual reasoning with usable content.
+
+=== optional stet benchmark ===
+Benchmark failed: benchmark generate: openai chat: LLM server unreachable
+Post "http://127.0.0.1:1234/v1/chat/completions": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+benchmark failed (known: openai client default 10s timeout vs residual reasoning TTFT)
+
+=== Qwen enableThinking === False (confirmed in saved preset)
+=== OpenJev === stopped (pgrep empty at preflight)

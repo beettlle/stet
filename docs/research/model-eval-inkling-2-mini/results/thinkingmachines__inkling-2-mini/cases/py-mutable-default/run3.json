@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.97,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-geeq9m94/app/cart.py#L17",
+      "file": "app/cart.py",
+      "id": "3edaf60ced3d190385e25dbf131f8659a17a2fad9284cb198e414c04bf503bbe",
+      "line": 17,
+      "message": "Mutable default argument `items: list[Item] = []` makes the same list object shared across all calls that omit `items`, so items accumulate and leak between independent invocations (and returned lists alias each other).",
+      "severity": "error",
+      "suggestion": "Use `items: list[Item] | None = None` and inside the function do `if items is None: items = []` before appending, or use a fresh list per call."
+    }
+  ]
+}

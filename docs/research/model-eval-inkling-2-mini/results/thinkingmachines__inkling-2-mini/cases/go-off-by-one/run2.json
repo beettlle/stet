@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-jlki8vkc/internal/pagination/page.go#L71",
+      "file": "internal/pagination/page.go",
+      "id": "b664498aa60b4a0d07343cf8c48f0adef50f6ec3427c6110539449227b57f67b",
+      "line": 71,
+      "message": "Loop bound changed from i < start+len(pageRows) to i <= start+len(pageRows), iterating one index past the end of the page slice. rows[i] will read an extra row (the first row of the next page) or panic with index out of range when the page is at the end of rows.",
+      "severity": "error",
+      "suggestion": "Revert to i < start+len(pageRows) (or iterate over pageRows directly)."
+    }
+  ]
+}

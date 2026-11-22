@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-6eg_gfck/src/services/userService.ts#L38",
+      "file": "src/services/userService.ts",
+      "id": "72c270f3f89148db98ca2527be7e9e24e25798590230db9da813c173875f19d9",
+      "line": 38,
+      "message": "saveUser is called without await (and without .catch), so the user may be returned as created before persistence completes; any save failure becomes an unhandled rejection and callers can observe a non-persisted userId.",
+      "severity": "error",
+      "suggestion": "Restore 'await this.saveUser(user)' or explicitly handle the promise (e.g. await/catch and return { ok: false, error } on failure)."
+    }
+  ]
+}

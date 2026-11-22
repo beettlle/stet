@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "security",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-ctuf2_h8/src/routes/files.ts#L17",
+      "file": "src/routes/files.ts",
+      "id": "33df21f83c37b9cce8abee89aafea88b2794d8bf62e6f04d46139bb2044566c6",
+      "line": 17,
+      "message": "The path-escape guard was removed and replaced with path.join(BASE_DIR, requested). path.join normalizes but does not confine the result to BASE_DIR, so a query like ?file=../../etc/passwd resolves outside the documents directory and fs.readFile will read it (and send contents as text/plain). This reintroduces arbitrary file read / path traversal.",
+      "severity": "error",
+      "suggestion": "Restore the containment check after resolving: const resolved = path.resolve(BASE_DIR, requested); if (resolved !== BASE_DIR && !resolved.startsWith(BASE_DIR + path.sep)) throw new HttpError(403, \"path escapes the documents directory\");"
+    }
+  ]
+}

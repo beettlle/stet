@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-i85hkrgi/internal/report/summary.go#L25",
+      "file": "internal/report/summary.go",
+      "id": "0aa14053efac6128d9ad7e830bf60c2e1c4b815e2bf8972b2ea7407cd3e2a1c2",
+      "line": 25,
+      "message": "WriteSummary now returns nil when f.Write(body) fails, silently discarding the error and reporting success despite a truncated/incomplete summary file. Callers cannot distinguish a successful write from a failed one, leading to corrupted or missing summaries being treated as valid.",
+      "severity": "error",
+      "suggestion": "Restore the wrapped error return, e.g. `return fmt.Errorf(\"write summary: %w\", err)` (and consider closing/removing the partial file on failure)."
+    }
+  ]
+}

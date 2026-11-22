@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-5jwv1yba/app/billing.py#L36",
+      "file": "app/billing.py",
+      "id": "c66cd3bef043b2265941a79ddf5b90b1710feb7e83caccad96917d82ea4e0691",
+      "line": 36,
+      "message": "Bare `except:` with `pass` swallows all exceptions (including GatewayError and programming errors) instead of raising PaymentError; callers expecting PaymentError will no longer see it.",
+      "severity": "error",
+      "suggestion": "Restore the specific handler, e.g. `except GatewayError as exc: raise PaymentError(f\"charge failed for order {order.id}: {exc}\") from exc` (and do not catch bare exceptions)."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-5jwv1yba/app/billing.py#L38",
+      "file": "app/billing.py",
+      "id": "826a1d84d1bb5cc87bc3de1967df0e68c60ad10c66c2215a9ce2d7c372c8b9a6",
+      "line": 38,
+      "message": "If `charge(...)` raises, the exception is swallowed and execution reaches `return result` with `result` unbound, producing an UnboundLocalError/NameError that masks the real failure instead of a PaymentError.",
+      "severity": "error",
+      "suggestion": "Do not return after a swallowed exception; either re-raise/convert to PaymentError or initialize/handle `result` explicitly and fail loudly on error."
+    }
+  ]
+}

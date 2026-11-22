@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-4q5qst3s/internal/pagination/page.go#L71",
+      "file": "internal/pagination/page.go",
+      "id": "053e4420251b765a905049d466b15c21bb30b2eadf39d0db298b40b18125d476",
+      "line": 71,
+      "message": "Changing the loop bound from i < start+len(pageRows) to i <= start+len(pageRows) adds one extra iteration. The final index rows[start+len(pageRows)] is out of range when the page ends at the end of rows (and otherwise reads/prints an unintended row), causing a slice-out-of-range panic or incorrect output.",
+      "severity": "error",
+      "suggestion": "Revert to i < start+len(pageRows) (or iterate over pageRows directly with index offset)."
+    }
+  ]
+}

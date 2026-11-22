@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-tbhlok50/internal/pagination/page.go#L71",
+      "file": "internal/pagination/page.go",
+      "id": "d25291fb6b1c9686cae0ae1e031c35bc9f95e70b836dcb632abaaccc2094de74",
+      "line": 71,
+      "message": "Loop condition changed from i < start+len(pageRows) to i <= start+len(pageRows), causing one extra iteration that indexes rows[start+len(pageRows)]. This reads past the page slice and can panic with index out of range (or emit an unintended row when it happens to be in bounds).",
+      "severity": "error",
+      "suggestion": "Revert to i < start+len(pageRows), or iterate over pageRows directly (e.g. for _, row := range pageRows { ... }) instead of indexing rows by computed offset."
+    }
+  ]
+}

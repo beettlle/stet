@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-h99v7yyt/internal/metrics/collector.go#L44",
+      "file": "internal/metrics/collector.go",
+      "id": "ac1847ed7b41a6ddd669c73a168a9a0ff15cefabc751e25008fd16de0348c0fc",
+      "line": 44,
+      "message": "counts[p.Name]++ is executed outside the mutex (after mu.Unlock()) while multiple goroutines write to the same counts map concurrently. Go maps are not safe for concurrent writes; this can trigger a fatal 'concurrent map writes' crash or lost increments, making the n != 1 validation unreliable.",
+      "severity": "error",
+      "suggestion": "Move counts[p.Name]++ inside the mutex-protected section (e.g. alongside out[p.Name] = ms) or use an atomic/sharded counter guarded by mu."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-h99v7yyt/internal/metrics/collector.go#L48",
+      "file": "internal/metrics/collector.go",
+      "id": "761e5891dbceeb314040a6bd2e15063121461431347e9c475452bb0719e26761",
+      "line": 48,
+      "message": "The duplicate-name check runs before the error loop and only iterates over counts entries for successful probes. A probe that fails contributes no count entry, so a name with one failing and one succeeding same-named probe yields n == 1 (passes) while out[p.Name] is silently overwritten by whichever goroutine finishes last; the real fetch error is also masked if the counts check returns first in some orderings.",
+      "severity": "warning",
+      "suggestion": "Check duplicate names/counts before or alongside the error handling and ensure a failed probe's name cannot pass validation (e.g. track per-probe success explicitly)."
+    }
+  ]
+}

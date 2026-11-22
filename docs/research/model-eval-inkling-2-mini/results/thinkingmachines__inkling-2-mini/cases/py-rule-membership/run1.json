@@ -1,0 +1,19 @@
+{
+  "findings": [
+    {
+      "category": "security",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-bi9a2son/auditlog/redact.py#L7-22",
+      "file": "auditlog/redact.py",
+      "id": "b6975d5170f5c28e3bb1a355cf17fa98789d889f8d1550a3a142daa1c4217bcf",
+      "line": 7,
+      "message": "Redaction now only matches exact key names from SENSITIVE_FIELDS, so sensitive values under differently-named or differently-cased keys (e.g. 'access_token', 'api_key', 'client_secret', 'Authorization', 'PASSWORD_HASH') are copied verbatim into the audit log. This silently leaks secrets that were previously redacted.",
+      "range": {
+        "end": 22,
+        "start": 7
+      },
+      "severity": "error",
+      "suggestion": "Normalize keys (lowercase/strip) and match by suffix/substring or a broader rule set (e.g. any key containing 'token', 'secret', 'password', 'key', 'auth', 'ssn', 'card', 'cvv', 'otp') before deciding to keep the value; fail closed by redacting unknown keys if audit logs must be safe by default."
+    }
+  ]
+}

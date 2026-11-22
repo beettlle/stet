@@ -1,0 +1,3 @@
+Benchmark failed: benchmark generate: openai chat: LLM server unreachable
+Post "http://127.0.0.1:1234/v1/chat/completions": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+benchmark failed (known: openai client default 10s timeout vs residual reasoning TTFT)

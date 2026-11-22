@@ -1,0 +1,30 @@
+{
+  "findings": [
+    {
+      "category": "security",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-5433m0y2/src/middleware/requireAdmin.ts#L32",
+      "file": "src/middleware/requireAdmin.ts",
+      "id": "5dc695d56c9254a53e34c74743db5ccf105094f44814c27618311df07a814925",
+      "line": 32,
+      "message": "Authorization logic is inverted: the middleware now returns 403 for admin users and lets non-admin authenticated users through (next()). This both blocks legitimate admins and grants access to unauthorized users.",
+      "severity": "error",
+      "suggestion": "Restore the condition to `if (!user.isAdmin)` so only admin users proceed via next()."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-5433m0y2/src/middleware/requireAdmin.ts#L48-51",
+      "file": "src/middleware/requireAdmin.ts",
+      "id": "d41fa8946264bc3016fd6aa9a4132bd2b5b103c321c6a35f9ba8b6b6b3a79cf4",
+      "line": 49,
+      "message": "The hunk adds a duplicate export of isAdminUser() while the same function already exists in the file (shown at line 49), causing a duplicate identifier/redeclaration error and making the module fail to compile.",
+      "range": {
+        "end": 51,
+        "start": 48
+      },
+      "severity": "error",
+      "suggestion": "Remove the newly added isAdminUser block; keep the existing definition only."
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "security",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-tihh03of/src/middleware/requireAdmin.ts#L32",
+      "file": "src/middleware/requireAdmin.ts",
+      "id": "f4963b6006e283a26f8b5e98d167972070e9fb2da06f0de927ab0e7d1c041283",
+      "line": 32,
+      "message": "Authorization logic is inverted: the middleware now rejects admin users with 403 and lets non-admin authenticated users through (next()). This defeats requireAdmin entirely \u2014 any authenticated non-admin can access admin routes while actual admins are blocked.",
+      "severity": "error",
+      "suggestion": "Restore the negated condition: `if (!user.isAdmin) { res.status(403)... }` so only users with user.isAdmin === true proceed to next()."
+    },
+    {
+      "category": "correctness",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-tihh03of/src/middleware/requireAdmin.ts#L48",
+      "file": "src/middleware/requireAdmin.ts",
+      "id": "563e4e0ae5527b3a7075d24fc6b6005f2b05f9e172d141e197c8ca83fbb83d35",
+      "line": 48,
+      "message": "The hunk adds a new exported isAdminUser function, but an identical isAdminUser already exists in the file (shown at line 49 / in the enclosing context). This creates a duplicate export/function declaration and will fail compilation with a duplicate identifier error.",
+      "severity": "error",
+      "suggestion": "Remove the newly added copy of isAdminUser; keep only the existing one."
+    }
+  ]
+}

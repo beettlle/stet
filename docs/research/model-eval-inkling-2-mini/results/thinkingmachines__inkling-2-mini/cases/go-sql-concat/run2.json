@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "security",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-aksgn0om/internal/catalog/search.go#L32",
+      "file": "internal/catalog/search.go",
+      "id": "23be5c69d436cd68a667f841c21ebf11ed9e5862dbee00a75597353a3cf71480",
+      "line": 32,
+      "message": "ByTitle now builds the SQL query by concatenating the user-supplied term directly into the statement (WHERE title = '<term>') and executes it without parameters. This reintroduces a SQL injection vulnerability; any caller can inject arbitrary SQL via the search term.",
+      "severity": "error",
+      "suggestion": "Revert to parameterized queries: query := \"SELECT id, sku, title FROM products WHERE title = $1\"; rows, err := s.db.Query(query, term)"
+    }
+  ]
+}

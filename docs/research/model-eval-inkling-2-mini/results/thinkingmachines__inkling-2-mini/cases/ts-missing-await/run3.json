@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-nuwgtj0t/src/services/userService.ts#L38",
+      "file": "src/services/userService.ts",
+      "id": "ce4b5ef8e9dc68b2e2019381f06fad3fa419098ab38cbef0f796878019614e75",
+      "line": 38,
+      "message": "saveUser is now called without await (fire-and-forget). The method returns { ok: true, userId } before the user is persisted; any save failure becomes an unhandled promise rejection and callers may observe a success response for a user that was never saved.",
+      "severity": "error",
+      "suggestion": "Restore 'await this.saveUser(user)' (or explicitly handle/catch the returned promise and propagate failures to the caller)."
+    }
+  ]
+}

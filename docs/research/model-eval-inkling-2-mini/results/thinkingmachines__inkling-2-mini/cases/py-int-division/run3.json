@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 1,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-r3pjkxve/app/reporting/stats.py#L17",
+      "file": "app/reporting/stats.py",
+      "id": "1cf7434ce8853639cd0978f77dc77a3d48f2d001c264982af0e1b1fa2579da2b",
+      "line": 17,
+      "message": "Changing 'completed / total * 100' to 'completed // total * 100' makes the function floor-divide before multiplying by 100, so any completed < total returns 0.0 (e.g. 1/3 -> 0 instead of ~33.33) and it also violates the float return type.",
+      "severity": "error",
+      "suggestion": "Revert to 'return completed / total * 100' (or use round(completed / total * 100, ...) if a rounded value is desired)."
+    }
+  ]
+}

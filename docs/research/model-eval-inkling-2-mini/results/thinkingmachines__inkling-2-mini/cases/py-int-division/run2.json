@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-xz4hoaus/app/reporting/stats.py#L17",
+      "file": "app/reporting/stats.py",
+      "id": "fb33407866ae10d353a84cf0c52434c3363ae5056cb9b343be98eaad3328e091",
+      "line": 17,
+      "message": "Changing completed / total * 100 to completed // total * 100 causes integer floor division before multiplying by 100, so any completion share below 1 (e.g. 1 of 3 tasks) returns 0.0 instead of the correct percentage. It also changes behavior for negative values (floor vs truncating toward zero).",
+      "severity": "error",
+      "suggestion": "Revert to true division: return completed / total * 100"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "security",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-g04r6zgq/auditlog/redact.py#L27",
+      "file": "auditlog/redact.py",
+      "id": "3d2834f23d97529726b6297031008019f6c711b8554d111974feaca2d6fa72ea",
+      "line": 27,
+      "message": "Redaction is narrowed from replacing every value to only exact-match keys in SENSITIVE_FIELDS; any other key (e.g. api_key, secret, access_token, private_key) now passes through unredacted, and listed fields with different casing/spacing (e.g. 'Authorization', 'ACCESS_TOKEN', 'access_token' vs 'token') are not matched because the comparison is exact and case-sensitive.",
+      "severity": "error",
+      "suggestion": "Normalize keys before matching (strip().lower()) and use a set; consider redacting by suffix/substring match or defaulting to full redaction with an explicit allowlist of non-sensitive fields instead of a denylist of sensitive ones."
+    }
+  ]
+}

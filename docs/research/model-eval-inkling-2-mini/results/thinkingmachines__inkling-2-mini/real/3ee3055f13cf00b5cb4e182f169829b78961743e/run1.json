@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-j_zo2mo2/cli/internal/run/run.go#L504",
+      "file": "cli/internal/run/run.go",
+      "id": "c42e6aad7b537d82089869671d5d0e1f31d944d8d0c36d32e7d65167755f524a",
+      "line": 504,
+      "message": "The diff updates only one of the two duplicated result-processing blocks (the select branch) to call annotateRuleConflictsForBatch; the else branch (after readyCh closes) still does `batch = kept` and never annotates. Depending on pipeline timing/scheduling, findings will be silently unannotated in one path but not the other, producing inconsistent output for identical input.",
+      "severity": "error",
+      "suggestion": "Apply the same `batch = annotateRuleConflictsForBatch(ctx, opts, p.Hunk, opts.RulesByFile[p.Hunk.FilePath], kept, annotateWarn)` replacement in the else branch (the second copy of this block) so both paths annotate identically."
+    }
+  ]
+}

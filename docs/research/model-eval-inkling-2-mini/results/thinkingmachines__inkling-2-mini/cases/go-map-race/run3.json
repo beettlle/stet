@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-4ztsc9rg/internal/metrics/collector.go#L47",
+      "file": "internal/metrics/collector.go",
+      "id": "763b8c7297826e463ed2b154beba03a6a3d4148f4c5d28129b8622e8b03ae485",
+      "line": 47,
+      "message": "counts[p.Name]++ is executed after mu.Unlock() inside the goroutine, so concurrent goroutines write to the counts map without synchronization. This is a data race and can trigger 'concurrent map writes' panics or lost increments, making the duplicate-name check unreliable (e.g. two probes sharing a name may both report n==1 or corrupt state).",
+      "severity": "error",
+      "suggestion": "Move counts[p.Name]++ inside the mu.Lock()/mu.Unlock() critical section (or protect it with its own mutex/atomic) so all map writes are serialized."
+    },
+    {
+      "category": "performance",
+      "confidence": 0.8,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-4ztsc9rg/internal/metrics/collector.go#L64",
+      "file": "internal/metrics/collector.go",
+      "id": "9a3cd0dc25432462c79ebf58f04e5d28d16582d451c84509f2d78976534378f1",
+      "line": 64,
+      "message": "The names slice is built (with append and capacity allocation) but only its length is used; the loop and make are now dead work. Returning len(c.probes) directly avoids an unnecessary allocation per Describe call.",
+      "severity": "info",
+      "suggestion": "Drop the names slice/loop and return fmt.Sprintf(\"%d probes registered\", len(c.probes))."
+    }
+  ]
+}

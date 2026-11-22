@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-e0gxl6lh/internal/userstore/store.go#L46",
+      "file": "internal/userstore/store.go",
+      "id": "f2c67281bb7e3844d7c119bbbf1b5fac751c52d11e68dd9e5f85c1a9c5a05414",
+      "line": 46,
+      "message": "LoadProfile now discards the error from FindByEmail and immediately dereferences u (u.Name). If FindByEmail returns an error with a nil *User, this panics instead of returning a wrapped error; callers also lose the failure signal entirely.",
+      "severity": "error",
+      "suggestion": "Restore error handling: u, err := s.FindByEmail(email); if err != nil { return Profile{}, fmt.Errorf(\"load profile for %q: %w\", email, err) } and only then build the Profile (or explicitly handle a not-found case with a defined fallback)."
+    }
+  ]
+}

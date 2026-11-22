@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-e7b8346u/src/services/userService.ts#L38",
+      "file": "src/services/userService.ts",
+      "id": "3437bba17e1157b090fa3a2fa8431c878ece024a554b75bf2b6dd3fca2d04593",
+      "line": 38,
+      "message": "saveUser is called without await (fire-and-forget). If saveUser returns a promise, the method can return ok:true before persistence completes and any rejection becomes an unhandled promise rejection instead of being surfaced to the caller.",
+      "severity": "error",
+      "suggestion": "Restore `await this.saveUser(user);` (or explicitly handle/catch the returned promise and propagate failures) so errors are reported and ordering is preserved."
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-xyxa4qwr/internal/thumb/client.go#L32",
+      "file": "internal/thumb/client.go",
+      "id": "19b072bf13dfdf2442128ebbf746d5baf00e8fcf1de41d16e905cd7d26f8502c",
+      "line": 32,
+      "message": "Removing the deferred resp.Body.Close() means the response body is never closed on early returns: if os.Create fails or io.Copy returns an error, Fetch returns without closing resp.Body, leaking the connection and preventing HTTP keep-alive reuse.",
+      "severity": "warning",
+      "suggestion": "Restore `defer resp.Body.Close()` immediately after the Get succeeds (and drop the manual Close call), so all return paths close the body exactly once."
+    }
+  ]
+}

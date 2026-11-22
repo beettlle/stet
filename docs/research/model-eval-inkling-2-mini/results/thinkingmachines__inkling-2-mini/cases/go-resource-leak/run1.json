@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-2exrhfgw/internal/thumb/client.go#L32",
+      "file": "internal/thumb/client.go",
+      "id": "4dfbc9de01eaf4ef51eb8c7e5be94d60830671bbce9ebca842d9c86cd5be2e2a",
+      "line": 32,
+      "message": "Removing defer resp.Body.Close() leaks the response body (and underlying connection) on early returns: if os.Create fails or io.Copy returns an error, Fetch returns without closing resp.Body. The explicit Close after io.Copy only covers the success path.",
+      "severity": "error",
+      "suggestion": "Restore defer resp.Body.Close() immediately after the err check (and remove the manual close), so the body is closed on all return paths."
+    },
+    {
+      "category": "bug",
+      "confidence": 0.85,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-2exrhfgw/internal/thumb/client.go#L43",
+      "file": "internal/thumb/client.go",
+      "id": "8ca1897a96c89558aaa3da143ddd8076b937a577be1a1b91f9684555700fa4bb",
+      "line": 43,
+      "message": "resp.Body is only closed on the success path; if copy fails (err != nil) the function returns early without closing resp.Body, leaking the connection/resource. The added Close should cover both paths.",
+      "severity": "warning",
+      "suggestion": "Close resp.Body immediately after obtaining it (e.g. defer resp.Body.Close() right after the response is received) or close it in the error branch before returning."
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "correctness",
+      "confidence": 0.9,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-99rp14_e/internal/notice/dispatch.go#L47",
+      "file": "internal/notice/dispatch.go",
+      "id": "143f892cb57b59fdc1d1fb0fdede2b529f1b8af7a4e79f40ba33a56860e5ebdc",
+      "line": 47,
+      "message": "Dispatch now calls sender.Send(ctx, message), but the Sender.Send method shown in the hunk context still has signature Send(text string) error and does not accept a context. This will fail to compile (too many arguments / wrong argument type) unless Send is also updated to take ctx and use it for cancellation/timeouts.",
+      "severity": "error",
+      "suggestion": "Update Sender.Send to func (s *Sender) Send(ctx context.Context, text string) error and pass ctx into the HTTP request (e.g. http.NewRequestWithContext), or revert Dispatch to call sender.Send(message) if ctx is not yet supported."
+    }
+  ]
+}

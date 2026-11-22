@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "category": "bug",
+      "confidence": 0.95,
+      "cursor_uri": "file:///private/var/folders/4d/0c_5g4r10yb2yh0tkx3x1c0h0000gn/T/stet-model-eval-h3yzk_tk/app/billing.py#L36",
+      "file": "app/billing.py",
+      "id": "60ccc97254f804c2d26cd2b548b6467a58ba4daffaf0c83147b6051eab80bc6b",
+      "line": 36,
+      "message": "Bare `except:` with `pass` swallows all exceptions (including GatewayError and unexpected errors) instead of converting them to PaymentError; callers expecting PaymentError will no longer receive it. Worse, if charge() raises, `result` is never assigned, so the following `return result` raises UnboundLocalError/NameError rather than a meaningful error.",
+      "severity": "error",
+      "suggestion": "Restore typed handling, e.g. `except GatewayError as exc: raise PaymentError(f\"charge failed for order {order.id}: {exc}\") from exc` (and do not return an unassigned result on failure)."
+    }
+  ]
+}
