@@ -101,7 +101,8 @@ Start: spine batch start ids --wave 0
 
 | Wave | Batch ID | Tasks landed | stet wave review (active findings) | release-check log | Exit | Pushed | Issues closed |
 |------|----------|--------------|------------------------------------|-------------------|------|--------|---------------|
-| | | | | | | | |
+| 0 | 20261121T230955-1293 (salvage) | SP-088 | n/a | prior | 0 | yes | — |
+| 0–1 | operator land after ae11 abort | SP-089, SP-090, SP-091 | skipped — workers mid-prompt | pending | — | pending | #40 pending close |
 
 ---
 

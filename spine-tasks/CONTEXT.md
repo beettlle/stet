@@ -259,12 +259,12 @@ Manifest: `spine-tasks/_authoring/release-v1.7.0/manifest.md`. Scope approved 20
 
 | Task | Summary | Size | Status | Deps |
 |------|---------|------|--------|------|
-| SP-088 | Pin Go toolchain to 1.27.4 in CI/release workflows | S | Pending | — |
-| SP-089 | Document Protocol A / rules_selector_candidates (#40 docs) | S | Pending | — |
-| SP-090 | Protocol A selector + wiring (Closes #40) | M | Pending | — |
-| SP-091 | model_eval selector flags + section-hit scoring | S | Pending | SP-090 |
+| SP-088 | Pin Go toolchain to 1.27.4 in CI/release workflows | S | Done | — |
+| SP-089 | Document Protocol A / rules_selector_candidates (#40 docs) | S | Done | — |
+| SP-090 | Protocol A selector + wiring (Closes #40) | M | Done | — |
+| SP-091 | model_eval selector flags + section-hit scoring | S | Done | SP-090 |
 
-Waves (intended): **W0** SP-088 ∥ SP-089 → **W1** SP-090 → **W2** SP-091.
+Waves: **W0** SP-088 (spine) → operator land SP-089/090/091 after worker mid-prompt failures.
 
 ### Completed (wave 0 + follow-on)
 
