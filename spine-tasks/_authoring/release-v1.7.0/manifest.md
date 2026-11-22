@@ -138,7 +138,7 @@ Start: spine batch start ids --wave 0
 - [x] `ci.yml` green on final HEAD `3f95b5c` (https://github.com/beettlle/stet/actions/runs/44970508304; prior notes tip `e1b6cb9` https://github.com/beettlle/stet/actions/runs/44970266205)
 - [x] Every `Closes #NNN` CLOSED (#40)
 - [x] Release notes written (`spine-tasks/_authoring/release-v1.7.0/release-notes.md`)
-- [ ] Operator approved publish
-- [ ] Tag `v1.7.0` pushed; `release.yml` green
-- [ ] `post-release-smoke.sh v1.7.0` exit 0
-- [ ] Local `stet --version` reports `v1.7.0`
+- [x] Operator approved publish (2026-11-22)
+- [x] Tag `v1.7.0` pushed; `release.yml` green (https://github.com/beettlle/stet/actions/runs/44972691385)
+- [x] `post-release-smoke.sh v1.7.0` exit 0 (`/tmp/stet-post-release-smoke-v170.log`)
+- [x] Local `stet --version` reports `v1.7.0` (`/Users/cdelgado/.local/bin/stet`)

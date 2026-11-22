@@ -266,6 +266,8 @@ Manifest: `spine-tasks/_authoring/release-v1.7.0/manifest.md`. Scope approved 20
 
 Waves: **W0** SP-088 (spine) → operator land SP-089/090/091 after worker mid-prompt failures.
 
+**Released:** v1.7.0 on 2026-11-22, tagged at `769cfe3` (closes #40; GO-2026-6859 Go 1.27.4 pin). Release: https://github.com/beettlle/stet/releases/tag/v1.7.0
+
 ### Completed (wave 0 + follow-on)
 
 SP-001, SP-002, SP-003, SP-004, SP-005, SP-008 — `.DONE` on `main`.
