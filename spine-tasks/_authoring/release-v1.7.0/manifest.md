@@ -102,7 +102,7 @@ Start: spine batch start ids --wave 0
 | Wave | Batch ID | Tasks landed | stet wave review (active findings) | release-check log | Exit | Pushed | Issues closed |
 |------|----------|--------------|------------------------------------|-------------------|------|--------|---------------|
 | 0 | 20261121T230955-1293 (salvage) | SP-088 | n/a | prior | 0 | yes | — |
-| 0–1 | operator land after ae11 abort | SP-089, SP-090, SP-091 | skipped — workers mid-prompt | pending | — | pending | #40 pending close |
+| 0–1 | operator land after ae11 abort | SP-089, SP-090, SP-091 | skipped — workers mid-prompt | `/tmp/stet-release-check-v170-land.log` | 0 | yes (`7eaa90e`) | #40 closed |
 
 ---
 
@@ -133,11 +133,11 @@ Start: spine batch start ids --wave 0
 
 ## Publish checklist
 
-- [ ] All release-scoped tasks `.DONE` and on `main`
-- [ ] `scripts/release-check.sh` exit 0 on final HEAD
-- [ ] `ci.yml` green on final HEAD
-- [ ] Every `Closes #NNN` CLOSED (#40)
-- [ ] Release notes written
+- [x] All release-scoped tasks `.DONE` and on `main` (SP-088–091)
+- [x] `scripts/release-check.sh` exit 0 on final HEAD (`/tmp/stet-release-check-v170-land.log`)
+- [x] `ci.yml` green on `7eaa90e` (https://github.com/beettlle/stet/actions/runs/44970142810); re-confirm after notes commit
+- [x] Every `Closes #NNN` CLOSED (#40)
+- [x] Release notes written (`spine-tasks/_authoring/release-v1.7.0/release-notes.md`)
 - [ ] Operator approved publish
 - [ ] Tag `v1.7.0` pushed; `release.yml` green
 - [ ] `post-release-smoke.sh v1.7.0` exit 0
