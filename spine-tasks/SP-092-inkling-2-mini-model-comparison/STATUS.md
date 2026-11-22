@@ -1,7 +1,7 @@
 # SP-092: Compare thinkingmachines/inkling-2-mini vs qwen/qwen3.8-27b — Status
 
-**Current Step:** Step 2
-**Status:** 🟡 In Progress (manual Cursor execution)
+**Current Step:** Complete
+**Status:** ✅ Complete (manual Cursor execution)
 **Last Updated:** 2026-11-22
 **Review Level:** 1
 **Review Counter:** 0
@@ -32,47 +32,48 @@
 ---
 
 ### Step 2: Run qwen/qwen3.8-27b
-**Status:** 🔄 In Progress
+**Status:** ✅ Complete (2026-11-22)
 
-- [ ] Baseline loaded and run under same harness flags
-- [ ] Results committed
+- [x] Baseline loaded and run under same harness flags (63/63 ok)
+- [x] Results committed (`4b04866`)
 
 ---
 
 ### Step 3: Blind-judge real-diff findings
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete (2026-11-22)
 
-- [ ] `blind.tsv` / `blind-key.json` exported
-- [ ] `real-labels.tsv` labeled without opening the key; committed
+- [x] `blind.tsv` / `blind-key.json` exported
+- [x] `real-labels.tsv` labeled without opening the key; committed (`e5034f0`) — 43 findings (42 Qwen + 1 Inkling); 0 actionable
 
 ---
 
 ### Step 4: Score
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete (2026-11-22)
 
-- [ ] `summary.json` written
+- [x] `summary.json` written; `--check` regenerates exactly
 
 ---
 
 ### Step 5: Write the document
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete (2026-11-22)
 
-- [ ] Comparison doc with `## Recommendation` applying the pre-registered rule
+- [x] Comparison doc with `## Recommendation`: keep `qwen/qwen3.8-27b` (recall FAIL 1.50 > 1)
 
 ---
 
 ### Step 6: Restore LM Studio
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete (2026-11-22)
 
-- [ ] `qwen/qwen3.8-27b` reloaded at 65536 / parallel 1 / MTP off
+- [x] `qwen/qwen3.8-27b` reloaded at 65536 / parallel 1 / MTP off; OpenJev may restart
 
 ---
 
 ### Step 7: Testing & Verification
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete (2026-11-22)
 
-- [ ] Contract `testCommand` passing
-- [ ] Nothing outside File Scope changed
+- [x] Contract `testCommand` passing (92 harness tests; summary check ok; Recommendation present)
+- [x] Harness bug fix: validate `--systemone-base-url` only when critic or rules-selector uses it (Amendment)
+- [x] Nothing outside File Scope changed (git status clean after commits)
 
 ---
 
@@ -92,6 +93,7 @@
 | `stet benchmark` openai 10s timeout fails on Inkling | Optional; wall times from model_eval primary | Step 0 |
 | No saved Inkling preset JSON under user-concrete-model-default-config | Proceeding on operator UI confirmation + smoke; please Save As default in LM Studio so reloads keep effort=none | Step 0 |
 | Spine batch `20261122T021336-7f28` aborted for manual Cursor run (worker SIGTERM ×3) | Archived | Execution Log |
+| SP-091 unconditional systemone URL validate broke `test_systemone_url_ignored_without_critic` | Fixed in `scripts/model_eval.py`; Amendment | Step 7 |
 
 ---
 
@@ -102,3 +104,5 @@
 | 2026-11-22 | Task staged | PROMPT.md and STATUS.md created after operator Step 0 smoke |
 | 2026-11-22 | Spine batch aborted | `20261122T021336-7f28` archived; manual Cursor execution |
 | 2026-11-22 | Step 0 preflight | Smoke/probe OK; benchmark failed expected; started Step 1 |
+| 2026-11-22 | Steps 1–4 | Both models 63/63; labels + summary; recall rule FAIL |
+| 2026-11-22 | Steps 5–7 | Keep-qwen doc; LM Studio restored; contract green; harness URL validate fix |

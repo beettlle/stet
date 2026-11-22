@@ -763,11 +763,12 @@ def _run_options_from_args(args: argparse.Namespace) -> RunOptions:
         if cand not in ("full", "digest_fair"):
             raise HarnessError("--rules-selector-candidates must be full or digest_fair")
         rules_selector_candidates = cand
-    systemone_base_url = _validate_base_url(
-        args.systemone_base_url, flag="--systemone-base-url"
-    )
-    if rules_selector and critic_base_url is None:
-        # Selector needs OpenJev; validate the same URL flag used for critic.
+    # Validate --systemone-base-url only when critic or rules-selector will use it.
+    # Otherwise leave the raw value so unused flags do not fail setup (SP-092).
+    systemone_base_url = args.systemone_base_url
+    if critic_base_url is not None:
+        systemone_base_url = critic_base_url
+    elif rules_selector:
         systemone_base_url = _validate_base_url(
             args.systemone_base_url, flag="--systemone-base-url"
         )

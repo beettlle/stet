@@ -1,0 +1,11 @@
+SP-092 complete (manual Cursor; spine batch 20261122T021336-7f28 aborted earlier).
+
+All completion criteria met:
+- Step 0 preflight green (Inkling effort=none + budget off; residual reasoning; Qwen thinking off; smoke/probe OK; optional benchmark failed on 10s openai timeout as expected).
+- Inkling: 63/63 ok after one real-ref retry (recall_mean 0.7917; misses go-rule-global-prefix and py-rule-naming all runs; 59.6 s/case, 989 s/real-ref).
+- Qwen: 63/63 ok (recall_mean 0.9167; 16.3 s/case, 622 s/real-ref).
+- 43 real-diff findings blind-labeled (0 actionable; Qwen 32 FP / 10 OOS; Inkling 1 FP); actionable_rate 0.00 both models.
+- Pre-registered decision rule from summary.json: (1) (0.9167−0.7917)×12 = 1.50 ≰ 1 FAIL; (2) Q error+warning/run 0.262 ≤ 1.25×1.024 PASS; (3) 0.00−0.00 ≤ 0.10 PASS; (4) 0 non-ok ≤ 2 PASS. → Keep qwen/qwen3.8-27b.
+- Harness bug fix: validate --systemone-base-url only when critic or rules-selector uses it (PROMPT Amendment); existing regression test green.
+- Contract testCommand green: 92/92 harness tests, summary.json check ok, ## Recommendation present. git status clean after commits; nothing outside File Scope changed.
+- LM Studio restored to qwen/qwen3.8-27b @ 65536 / parallel 1, MTP off. OpenJev may restart. Do not change .review/config.toml.
