@@ -212,6 +212,9 @@ type reviewPipelineOpts struct {
 	RulesSelectorModel string
 	// RulesSelectorWarnOut receives the selector fail-open warning; nil uses os.Stderr. Test hook.
 	RulesSelectorWarnOut io.Writer
+	// RulesSelectorCandidates is the candidate mode for SelectSections
+	// (rules_selector_candidates): "full" (default) or "digest_fair" (Protocol A).
+	RulesSelectorCandidates string
 	// RulesAnnotateClient, when non-nil, annotates each hunk's surviving findings
 	// with possible rule conflicts via review.AnnotateRuleConflicts after the critic
 	// step (SP-034). Annotation is advisory only: it never drops, reorders, or fails
@@ -313,15 +316,17 @@ func selectRuleSectionsForHunk(ctx context.Context, opts reviewPipelineOpts, hun
 	if opts.RulesSelectorClient == nil {
 		return nil
 	}
-	candidates := rules.FilterRules(cursorRules, hunk.FilePath)
-	var sections []rules.Section
-	for _, r := range candidates {
-		sections = append(sections, rules.SplitSections(r)...)
+	mode, err := rules.NormalizeSelectorCandidates(opts.RulesSelectorCandidates)
+	if err != nil {
+		mode = rules.SelectorCandidatesFull
 	}
+	sections := rules.BuildSelectorCandidates(cursorRules, hunk.FilePath, mode)
 	if len(sections) == 0 {
 		return nil
 	}
-	selected, err := rules.SelectSections(ctx, opts.RulesSelectorClient, opts.RulesSelectorModel, hunk.RawContent, sections, rules.MaxRuleTokens)
+	budget := rules.ReviewRuleBudget(opts.EffectiveContextLimit, opts.RulesMaxTokens)
+	useDetect := mode == rules.SelectorCandidatesDigestFair
+	selected, err := rules.SelectSections(ctx, opts.RulesSelectorClient, opts.RulesSelectorModel, hunk.RawContent, sections, budget, useDetect)
 	if err != nil {
 		if warn != nil {
 			warn.warnFailure(err)
@@ -1075,6 +1080,8 @@ type StartOptions struct {
 	RulesSelectorBaseURL string
 	// RulesSelectorModel is the model name sent in selector requests (reuses systemone_model).
 	RulesSelectorModel string
+	// RulesSelectorCandidates is "full" (default) or "digest_fair" (rules_selector_candidates).
+	RulesSelectorCandidates string
 	// RulesAnnotateClient, when non-nil and not DryRun, annotates each hunk's
 	// surviving findings with possible rule conflicts (rules_annotate config) after
 	// the critic step via review.AnnotateRuleConflicts. Annotation is advisory only:
@@ -1173,6 +1180,8 @@ type RunOptions struct {
 	RulesSelectorBaseURL string
 	// RulesSelectorModel is the model name sent in selector requests (reuses systemone_model).
 	RulesSelectorModel string
+	// RulesSelectorCandidates is "full" (default) or "digest_fair" (rules_selector_candidates).
+	RulesSelectorCandidates string
 	// RulesAnnotateClient, when non-nil and not DryRun, annotates each hunk's
 	// surviving findings with possible rule conflicts (rules_annotate config) after
 	// the critic step via review.AnnotateRuleConflicts. Annotation is advisory only:
@@ -1561,6 +1570,7 @@ func Start(ctx context.Context, opts StartOptions) (stats RunStats, err error) {
 			RulesSelectorClient:     opts.RulesSelectorClient,
 			RulesSelectorBaseURL:    opts.RulesSelectorBaseURL,
 			RulesSelectorModel:      opts.RulesSelectorModel,
+			RulesSelectorCandidates: opts.RulesSelectorCandidates,
 			RulesAnnotateClient:     opts.RulesAnnotateClient,
 			RulesAnnotateBaseURL:    opts.RulesAnnotateBaseURL,
 			RulesAnnotateModel:      opts.RulesAnnotateModel,
@@ -2009,6 +2019,7 @@ func Run(ctx context.Context, opts RunOptions) (RunStats, error) {
 			RulesSelectorClient:     opts.RulesSelectorClient,
 			RulesSelectorBaseURL:    opts.RulesSelectorBaseURL,
 			RulesSelectorModel:      opts.RulesSelectorModel,
+			RulesSelectorCandidates: opts.RulesSelectorCandidates,
 			RulesAnnotateClient:     opts.RulesAnnotateClient,
 			RulesAnnotateBaseURL:    opts.RulesAnnotateBaseURL,
 			RulesAnnotateModel:      opts.RulesAnnotateModel,

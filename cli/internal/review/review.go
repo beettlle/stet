@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -19,6 +20,19 @@ import (
 	"stet/cli/internal/tokens"
 	"stet/cli/internal/trace"
 )
+
+// envRulesSectionLog enables a stable one-line stderr marker listing included
+// or selected rule sections so harnesses can score section-hit without --trace.
+const envRulesSectionLog = "STET_RULES_SECTION_LOG"
+
+// logRulesSections prints one stderr line when STET_RULES_SECTION_LOG=1.
+// Labels use " | " so commas inside headings stay intact for harness parsing.
+func logRulesSections(kind string, labels []string) {
+	if os.Getenv(envRulesSectionLog) != "1" {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "stet: rules_sections kind=%s count=%d labels=%s\n", kind, len(labels), strings.Join(labels, " | "))
+}
 
 const maxExpandTokensCap = 4096
 
@@ -123,23 +137,29 @@ const maxSuppressionTokensCap = 8192
 // or half of effectiveRAGTokens when 0. Used by the pipeline to prepare the next hunk.
 func PrepareHunkPrompt(ctx context.Context, systemBase string, hunk diff.Hunk, ruleList []rules.CursorRule, repoRoot string, contextLimit int, ragMaxDefs, ragMaxTokens int, ragCallGraphEnabled bool, ragCallersMax, ragCalleesMax, ragCallGraphMaxTokens int, useSearchReplaceFormat bool, suppressionExamples []string, ruleSections []rules.Section, rulesMaxTokens int, traceOut *trace.Tracer) (system, user string, err error) {
 	var criteria rules.Criteria
+	ruleBudget := rules.ReviewRuleBudget(contextLimit, rulesMaxTokens)
 	if ruleSections != nil {
-		system = prompt.AppendRuleSections(systemBase, ruleSections, rules.MaxRuleTokens)
+		system = prompt.AppendRuleSections(systemBase, ruleSections, ruleBudget)
 	} else {
-		system, criteria = prompt.AppendCursorRules(systemBase, ruleList, hunk.FilePath, rules.ReviewRuleBudget(contextLimit, rulesMaxTokens))
+		system, criteria = prompt.AppendCursorRules(systemBase, ruleList, hunk.FilePath, ruleBudget)
 	}
 	if useSearchReplaceFormat {
 		system = prompt.AppendSearchReplaceFormatNote(system)
 	}
+	var selectedLabels []string
+	if ruleSections != nil {
+		for _, s := range ruleSections {
+			selectedLabels = append(selectedLabels, s.Source+": "+s.Heading)
+		}
+		logRulesSections("selected", selectedLabels)
+	} else {
+		logRulesSections("included", criteria.Included)
+	}
 	if traceOut != nil && traceOut.Enabled() {
 		traceOut.Section("Cursor rules")
 		if ruleSections != nil {
-			var selected []string
-			for _, s := range ruleSections {
-				selected = append(selected, s.Source+": "+s.Heading)
-			}
-			if len(selected) > 0 {
-				traceOut.Printf("selected: %s\n", strings.Join(selected, ", "))
+			if len(selectedLabels) > 0 {
+				traceOut.Printf("selected: %s\n", strings.Join(selectedLabels, ", "))
 			} else {
 				traceOut.Printf("(none selected)\n")
 			}

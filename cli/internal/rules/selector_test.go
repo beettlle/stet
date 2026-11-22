@@ -132,7 +132,7 @@ func TestSelectSections_singleRequestRanksByProbability(t *testing.T) {
 	fake := &fakeChoiceDecider{resp: &systemone.ChoiceResponse{Answers: map[string]systemone.ChoiceAnswer{
 		"q0": {Choice: "s1", Probabilities: map[string]float64{"s0": 0.2, "s1": 0.8}},
 	}}}
-	got, err := SelectSections(context.Background(), fake, "test-model", hunk, sections, 1000)
+	got, err := SelectSections(context.Background(), fake, "test-model", hunk, sections, 1000, false)
 	if err != nil {
 		t.Fatalf("SelectSections: %v", err)
 	}
@@ -191,7 +191,7 @@ func TestSelectSections_tiesBrokenByInputOrder(t *testing.T) {
 			"s0": 0.5, "s1": 0.9, "s2": 0.5, "s3": 0.1,
 		}},
 	}}}
-	got, err := SelectSections(context.Background(), fake, "m", "hunk", sections, 1000)
+	got, err := SelectSections(context.Background(), fake, "m", "hunk", sections, 1000, false)
 	if err != nil {
 		t.Fatalf("SelectSections: %v", err)
 	}
@@ -216,7 +216,7 @@ func TestSelectSections_budgetSkipsOversizedAndContinues(t *testing.T) {
 	}}}
 	// Budget 25: Big (20) fits; Mid (10) would exceed (30) and is skipped;
 	// Small (5) still fits (25 <= 25).
-	got, err := SelectSections(context.Background(), fake, "m", "hunk", sections, 25)
+	got, err := SelectSections(context.Background(), fake, "m", "hunk", sections, 25, false)
 	if err != nil {
 		t.Fatalf("SelectSections: %v", err)
 	}
@@ -240,7 +240,7 @@ func TestSelectSections_optionCapAt64(t *testing.T) {
 	fake := &fakeChoiceDecider{resp: &systemone.ChoiceResponse{Answers: map[string]systemone.ChoiceAnswer{
 		"q0": {Choice: "s0"},
 	}}}
-	got, err := SelectSections(context.Background(), fake, "m", "hunk", sections, 100000)
+	got, err := SelectSections(context.Background(), fake, "m", "hunk", sections, 100000, false)
 	if err != nil {
 		t.Fatalf("SelectSections: %v", err)
 	}
@@ -282,7 +282,7 @@ func TestSelectSections_inputValidation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := SelectSections(context.Background(), tt.client, tt.model, "hunk", tt.sections, 1000)
+			_, err := SelectSections(context.Background(), tt.client, tt.model, "hunk", tt.sections, 1000, false)
 			if err == nil {
 				t.Fatal("SelectSections: want error")
 			}
@@ -300,7 +300,7 @@ func TestSelectSections_inputValidation(t *testing.T) {
 func TestSelectSections_deciderErrorWrapped(t *testing.T) {
 	sections := []Section{{Source: "a.mdc", Heading: "A", Content: "aaaa"}}
 	fake := &fakeChoiceDecider{err: errors.New("boom")}
-	_, err := SelectSections(context.Background(), fake, "m", "hunk", sections, 1000)
+	_, err := SelectSections(context.Background(), fake, "m", "hunk", sections, 1000, false)
 	if err == nil {
 		t.Fatal("SelectSections: want error")
 	}
@@ -312,7 +312,7 @@ func TestSelectSections_deciderErrorWrapped(t *testing.T) {
 func TestSelectSections_missingAnswer(t *testing.T) {
 	sections := []Section{{Source: "a.mdc", Heading: "A", Content: "aaaa"}}
 	fake := &fakeChoiceDecider{resp: &systemone.ChoiceResponse{Answers: map[string]systemone.ChoiceAnswer{}}}
-	_, err := SelectSections(context.Background(), fake, "m", "hunk", sections, 1000)
+	_, err := SelectSections(context.Background(), fake, "m", "hunk", sections, 1000, false)
 	if err == nil {
 		t.Fatal("SelectSections: want error for missing answer")
 	}
@@ -327,7 +327,7 @@ func TestSelectSections_stateTruncation(t *testing.T) {
 		"q0": {Choice: "s0", Probabilities: map[string]float64{"s0": 1}},
 	}}}
 	hunk := strings.Repeat("x", selectorMaxHunkLen+100)
-	if _, err := SelectSections(context.Background(), fake, "m", hunk, sections, 1000); err != nil {
+	if _, err := SelectSections(context.Background(), fake, "m", hunk, sections, 1000, false); err != nil {
 		t.Fatalf("SelectSections: %v", err)
 	}
 	want := "Code under review:\n" + strings.Repeat("x", selectorMaxHunkLen) + "\n[truncated]"
@@ -341,11 +341,88 @@ func TestSelectSections_zeroBudgetSelectsNothing(t *testing.T) {
 	fake := &fakeChoiceDecider{resp: &systemone.ChoiceResponse{Answers: map[string]systemone.ChoiceAnswer{
 		"q0": {Choice: "s0", Probabilities: map[string]float64{"s0": 1}},
 	}}}
-	got, err := SelectSections(context.Background(), fake, "m", "hunk", sections, 0)
+	got, err := SelectSections(context.Background(), fake, "m", "hunk", sections, 0, false)
 	if err != nil {
 		t.Fatalf("SelectSections: %v", err)
 	}
 	if len(got) != 0 {
 		t.Errorf("SelectSections returned %d sections with zero budget, want 0", len(got))
+	}
+}
+
+func TestBuildSelectorCandidates_digestFairRoundRobin(t *testing.T) {
+	// Always-apply packs enough digest sections to fill a positional [:64] alone;
+	// digest_fair must still surface a late file-specific section in the first 64.
+	var alwaysBody strings.Builder
+	for i := 0; i < 80; i++ {
+		fmt.Fprintf(&alwaysBody, "### Always %d\n❌ Bad: x%d\n**Detect:** always-%d\n\n", i, i, i)
+	}
+	goBody := "### Go Specific\n❌ Bad: race\n**Detect:** go-specific-detect\n"
+	rules := []CursorRule{
+		{Source: "zzz-always.mdc", AlwaysApply: true, Content: alwaysBody.String()},
+		{Source: "go.mdc", AlwaysApply: false, Globs: []string{"**/*.go"}, Content: goBody},
+	}
+	full := BuildSelectorCandidates(rules, "cli/main.go", SelectorCandidatesFull)
+	if len(full) < 65 {
+		t.Fatalf("full candidates = %d, want enough to exercise the 64 cap", len(full))
+	}
+	fair := BuildSelectorCandidates(rules, "cli/main.go", SelectorCandidatesDigestFair)
+	if len(fair) != maxSelectorOptions {
+		t.Fatalf("digest_fair candidates = %d, want %d", len(fair), maxSelectorOptions)
+	}
+	found := false
+	for _, s := range fair {
+		if s.Source == "go.mdc" && strings.Contains(s.Heading, "Go Specific") {
+			found = true
+			if !strings.Contains(s.Content, "**Detect:** go-specific-detect") {
+				t.Errorf("go.mdc digest content missing Detect line: %q", s.Content)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Fatal("digest_fair must include file-specific go.mdc within the 64-option cap")
+	}
+	personaRules := []CursorRule{
+		{Source: "go.mdc", AlwaysApply: false, Globs: []string{"**/*.go"}, Content: "## Persona\nBe skeptical.\n\n### Go Specific\n❌ Bad: race\n**Detect:** go-specific-detect\n"},
+	}
+	personaFair := BuildSelectorCandidates(personaRules, "cli/main.go", SelectorCandidatesDigestFair)
+	for _, s := range personaFair {
+		if s.Heading == "Persona" {
+			t.Errorf("digest_fair included persona-only section")
+		}
+	}
+}
+
+func TestSelectSections_detectOptionText(t *testing.T) {
+	sections := []Section{{
+		Source:  "go.mdc",
+		Heading: "1.3 Context",
+		Content: "### 1.3 Context\n❌ Bad: Background()\n**Detect:** context.Background in request path",
+	}}
+	fake := &fakeChoiceDecider{resp: &systemone.ChoiceResponse{Answers: map[string]systemone.ChoiceAnswer{
+		"q0": {Choice: "s0", Probabilities: map[string]float64{"s0": 1}},
+	}}}
+	if _, err := SelectSections(context.Background(), fake, "m", "hunk", sections, 1000, true); err != nil {
+		t.Fatalf("SelectSections: %v", err)
+	}
+	got := fake.reqs[0].Questions["q0"].Criteria["s0"]
+	want := "go.mdc: **Detect:** context.Background in request path"
+	if got != want {
+		t.Errorf("option text = %q, want %q", got, want)
+	}
+}
+
+func TestNormalizeSelectorCandidates(t *testing.T) {
+	got, err := NormalizeSelectorCandidates("")
+	if err != nil || got != SelectorCandidatesFull {
+		t.Errorf("empty = %q, %v; want full", got, err)
+	}
+	got, err = NormalizeSelectorCandidates("DIGEST_FAIR")
+	if err != nil || got != SelectorCandidatesDigestFair {
+		t.Errorf("DIGEST_FAIR = %q, %v; want digest_fair", got, err)
+	}
+	if _, err := NormalizeSelectorCandidates("bogus"); err == nil {
+		t.Fatal("bogus mode: want error")
 	}
 }

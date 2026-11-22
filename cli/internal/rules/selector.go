@@ -18,6 +18,15 @@ import (
 // selector request; sections beyond the cap are not candidates.
 const maxSelectorOptions = 64
 
+// Selector candidate modes (rules_selector_candidates / STET_RULES_SELECTOR_CANDIDATES).
+const (
+	// SelectorCandidatesFull is the default: full-rule SplitSections, then positional [:64].
+	SelectorCandidatesFull = "full"
+	// SelectorCandidatesDigestFair builds digest sections file-specific-first and
+	// round-robins into the 64-option cap (Protocol A).
+	SelectorCandidatesDigestFair = "digest_fair"
+)
+
 // selectorStatePrefix prefixes the request state that carries the hunk content,
 // mirroring review/critic_systemone.go.
 const selectorStatePrefix = "Code under review:\n"
@@ -147,18 +156,114 @@ func isFenceClose(line string, c byte, n int) bool {
 	return true
 }
 
+// NormalizeSelectorCandidates returns a known candidate mode. Empty input
+// becomes SelectorCandidatesFull. Unknown values return an error.
+func NormalizeSelectorCandidates(mode string) (string, error) {
+	switch strings.TrimSpace(strings.ToLower(mode)) {
+	case "", SelectorCandidatesFull:
+		return SelectorCandidatesFull, nil
+	case SelectorCandidatesDigestFair:
+		return SelectorCandidatesDigestFair, nil
+	default:
+		return "", fmt.Errorf("rules select: unknown candidates mode %q (want %q or %q)", mode, SelectorCandidatesFull, SelectorCandidatesDigestFair)
+	}
+}
+
+// BuildSelectorCandidates returns the section list that becomes choice options
+// for SelectSections. mode SelectorCandidatesFull concatenates SplitSections of
+// each path-matched rule in FilterRules order (caller/SelectSections then caps
+// at 64). mode SelectorCandidatesDigestFair uses digest sections only, orders
+// file-specific rules first, and round-robins into at most maxSelectorOptions
+// so late language rules remain candidates when alwaysApply packs are large.
+func BuildSelectorCandidates(ruleList []CursorRule, filePath, mode string) []Section {
+	norm, err := NormalizeSelectorCandidates(mode)
+	if err != nil {
+		norm = SelectorCandidatesFull
+	}
+	matched := FilterRules(ruleList, filePath)
+	if len(matched) == 0 {
+		return nil
+	}
+	if norm == SelectorCandidatesFull {
+		var sections []Section
+		for _, r := range matched {
+			sections = append(sections, SplitSections(r)...)
+		}
+		return sections
+	}
+	ordered := fileSpecificFirst(matched)
+	queues := make([][]Section, len(ordered))
+	maxLen := 0
+	for i, r := range ordered {
+		queues[i] = SplitSections(CursorRule{Source: r.Source, Content: digestOf(r)})
+		maxLen = max(maxLen, len(queues[i]))
+	}
+	out := make([]Section, 0, maxSelectorOptions)
+	for pass := 0; pass < maxLen && len(out) < maxSelectorOptions; pass++ {
+		for _, queue := range queues {
+			if pass >= len(queue) {
+				continue
+			}
+			if len(out) >= maxSelectorOptions {
+				break
+			}
+			out = append(out, queue[pass])
+		}
+	}
+	return out
+}
+
+// selectorOptionDescription builds the choice option text for s. When
+// useDetect is true, the first "**Detect:**" line in s.Content is preferred
+// so the decision server sees review signal instead of a bare heading.
+func selectorOptionDescription(s Section, useDetect bool) string {
+	if useDetect {
+		if d := firstDetectLine(s.Content); d != "" {
+			return s.Source + ": " + d
+		}
+	}
+	return s.Source + ": " + s.Heading
+}
+
+// firstDetectLine returns the first trimmed "**Detect:**" line outside fences,
+// or "" when none exists.
+func firstDetectLine(content string) string {
+	inFence := false
+	var fenceChar byte
+	fenceLen := 0
+	for _, line := range strings.Split(content, "\n") {
+		if inFence {
+			if isFenceClose(line, fenceChar, fenceLen) {
+				inFence = false
+			}
+			continue
+		}
+		if c, n, ok := fenceMarker(line); ok {
+			inFence = true
+			fenceChar, fenceLen = c, n
+			continue
+		}
+		t := strings.TrimSpace(line)
+		if strings.HasPrefix(t, digestDetectMarker) {
+			return t
+		}
+	}
+	return ""
+}
+
 // SelectSections asks the decision server one choice question — which guideline
 // section is most relevant to reviewing the change in hunkContent — with the
 // sections as options, ranks sections by returned probability (descending,
 // ties by input order), and greedily keeps sections whose cumulative
 // tokens.Estimate fits maxTokens, skipping any section that alone exceeds the
 // remaining budget. Returns the kept sections in ranked order. Sections beyond
-// maxSelectorOptions are not candidates.
+// maxSelectorOptions are not candidates. When useDetectOptions is true, choice
+// option text prefers each section's first "**Detect:**" line (Protocol A).
 //
 // nil client, empty model, or no sections returns an error so the caller can
 // decide the fallback. Decider errors and missing answers are wrapped with
 // context.
-func SelectSections(ctx context.Context, client ChoiceDecider, model, hunkContent string, sections []Section, maxTokens int) ([]Section, error) {
+func SelectSections(ctx context.Context, client ChoiceDecider, model, hunkContent string, sections []Section, maxTokens int, useDetectOptions bool) ([]Section, error) {
 	if client == nil {
 		return nil, fmt.Errorf("rules select: nil choice decider")
 	}
@@ -173,7 +278,7 @@ func SelectSections(ctx context.Context, client ChoiceDecider, model, hunkConten
 	}
 	options := make(map[string]string, len(sections))
 	for i, s := range sections {
-		options[selectorOptionKey(i)] = s.Source + ": " + s.Heading
+		options[selectorOptionKey(i)] = selectorOptionDescription(s, useDetectOptions)
 	}
 	req := systemone.ChoiceRequest{
 		Model: model,

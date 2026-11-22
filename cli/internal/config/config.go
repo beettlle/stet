@@ -25,6 +25,7 @@
 //   - (all System One keys are used when critic_backend = systemone, plus the rules selector/annotator and critic-eval).
 //   - STET_SYSTEMONE_API_KEY (System One API key; env-only — never loaded from config files and never printed).
 //   - STET_RULES_SELECTOR (rule-section selector: 1/true/yes/on = true, 0/false/no/off = false; reuses systemone_base_url/systemone_model and STET_SYSTEMONE_API_KEY).
+//   - STET_RULES_SELECTOR_CANDIDATES (selector candidate mode when STET_RULES_SELECTOR is on: full or digest_fair; default digest_fair).
 //   - STET_RULES_ANNOTATE (rule-conflict annotation: 1/true/yes/on = true, 0/false/no/off = false; reuses systemone_base_url/systemone_model and STET_SYSTEMONE_API_KEY).
 //   - STET_RULES_MAX_TOKENS (token budget for Cursor rule digests in the review prompt; 0 = 15% of context_limit, clamped to [1000, 8192]).
 //   - STET_EXCLUDE_PATTERNS (comma-separated filepath.Match patterns to skip from review; merges with built-in defaults unless replace is set).
@@ -48,6 +49,7 @@ import (
 
 	"stet/cli/internal/diff"
 	"stet/cli/internal/erruser"
+	"stet/cli/internal/rules"
 )
 
 // Config holds all Stet configuration. Empty string or zero values for
@@ -114,6 +116,10 @@ type Config struct {
 	// unchanged. Reuses SystemOneBaseURL, SystemOneModel, and the env-only SystemOneAPIKey. One selector
 	// request is made per hunk; on selector failure the run falls back to the default rule truncation.
 	RulesSelector bool `toml:"rules_selector"`
+	// RulesSelectorCandidates selects how the selector builds its ≤64 choice options when
+	// RulesSelector is on: "full" (default) = full-rule sections then positional cap;
+	// "digest_fair" = digest sections, file-specific-first, round-robin into the cap, Detect option text.
+	RulesSelectorCandidates string `toml:"rules_selector_candidates"`
 	// RulesAnnotate enables the rule-conflict annotation (SP-027/SP-034): when true and not dry-run,
 	// each hunk's surviving findings (post-critic) are annotated via review.AnnotateRuleConflicts with
 	// the guideline section their suggestion most likely conflicts with (Finding.RuleConflict, exposed
@@ -162,6 +168,7 @@ type Overrides struct {
 	CriticModel             *string
 	CriticBackend           *string
 	RulesSelector           *bool
+	RulesSelectorCandidates *string
 	RulesAnnotate           *bool
 	RulesMaxTokens          *int
 	ExcludePatterns         *[]string
@@ -235,6 +242,15 @@ func validateCriticBackend(s string) (string, error) {
 	norm := strings.TrimSpace(strings.ToLower(s))
 	if _, ok := validCriticBackends[norm]; !ok {
 		return "", erruser.New("Invalid critic_backend; use llm or systemone.", nil)
+	}
+	return norm, nil
+}
+
+// validateRulesSelectorCandidates normalizes s to "full" or "digest_fair".
+func validateRulesSelectorCandidates(s string) (string, error) {
+	norm, err := rules.NormalizeSelectorCandidates(s)
+	if err != nil {
+		return "", erruser.New("Invalid rules_selector_candidates; use full or digest_fair.", err)
 	}
 	return norm, nil
 }
@@ -318,6 +334,7 @@ func DefaultConfig() Config {
 		SystemOneSamples:        _defaultSystemOneSamples,
 		SystemOneTimeout:        _defaultSystemOneTimeout,
 		RulesSelector:           false,
+		RulesSelectorCandidates: "digest_fair",
 		RulesAnnotate:           false,
 	}
 }
@@ -446,6 +463,7 @@ func mergeFile(cfg *Config, path string) error {
 		SystemOneSamples        *int64    `toml:"systemone_samples"`
 		SystemOneTimeout        *string   `toml:"systemone_timeout"`
 		RulesSelector           *bool     `toml:"rules_selector"`
+		RulesSelectorCandidates *string   `toml:"rules_selector_candidates"`
 		RulesAnnotate           *bool     `toml:"rules_annotate"`
 		RulesMaxTokens          *int64    `toml:"rules_max_tokens"`
 		ExcludePatterns         *[]string `toml:"exclude_patterns"`
@@ -624,6 +642,13 @@ func mergeFile(cfg *Config, path string) error {
 	if file.RulesSelector != nil {
 		cfg.RulesSelector = *file.RulesSelector
 	}
+	if file.RulesSelectorCandidates != nil && *file.RulesSelectorCandidates != "" {
+		norm, err := validateRulesSelectorCandidates(*file.RulesSelectorCandidates)
+		if err != nil {
+			return err
+		}
+		cfg.RulesSelectorCandidates = norm
+	}
 	if file.RulesAnnotate != nil {
 		cfg.RulesAnnotate = *file.RulesAnnotate
 	}
@@ -701,6 +726,7 @@ const (
 	envSystemOneTimeout        = "STET_SYSTEMONE_TIMEOUT"
 	envSystemOneAPIKey         = "STET_SYSTEMONE_API_KEY"
 	envRulesSelector           = "STET_RULES_SELECTOR"
+	envRulesSelectorCandidates = "STET_RULES_SELECTOR_CANDIDATES"
 	envRulesAnnotate           = "STET_RULES_ANNOTATE"
 	envRulesMaxTokens          = "STET_RULES_MAX_TOKENS"
 	envExcludePatterns         = "STET_EXCLUDE_PATTERNS"
@@ -992,6 +1018,13 @@ func applyEnv(cfg *Config, env []string) error {
 		}
 		cfg.RulesSelector = b
 	}
+	if v, ok := vals[envRulesSelectorCandidates]; ok && v != "" {
+		norm, err := validateRulesSelectorCandidates(v)
+		if err != nil {
+			return err
+		}
+		cfg.RulesSelectorCandidates = norm
+	}
 	if v, ok := vals[envRulesAnnotate]; ok && v != "" {
 		b, err := parseBool(v)
 		if err != nil {
@@ -1157,6 +1190,13 @@ func applyOverrides(cfg *Config, o *Overrides) error {
 	}
 	if o.RulesSelector != nil {
 		cfg.RulesSelector = *o.RulesSelector
+	}
+	if o.RulesSelectorCandidates != nil && *o.RulesSelectorCandidates != "" {
+		norm, err := validateRulesSelectorCandidates(*o.RulesSelectorCandidates)
+		if err != nil {
+			return err
+		}
+		cfg.RulesSelectorCandidates = norm
 	}
 	if o.RulesAnnotate != nil {
 		cfg.RulesAnnotate = *o.RulesAnnotate

@@ -1,0 +1,6 @@
+SP-090 complete. Closes #40.
+
+- Protocol A: digest_fair candidates, Detect option text, ReviewRuleBudget honor, STET_RULES_SECTION_LOG.
+- Default rules_selector_candidates = digest_fair; rules_selector remains off by default.
+- Scoped tests: go test ./cli/internal/{rules,config,review,run}/... -count=1 (ok).
+- Operator land from stash@{0} protocol-a-wip after batch ae11 worker SIGTERM.
