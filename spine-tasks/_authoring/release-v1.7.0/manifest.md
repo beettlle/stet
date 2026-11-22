@@ -134,8 +134,8 @@ Start: spine batch start ids --wave 0
 ## Publish checklist
 
 - [x] All release-scoped tasks `.DONE` and on `main` (SP-088–091)
-- [x] `scripts/release-check.sh` exit 0 on final HEAD (`/tmp/stet-release-check-v170-land.log`)
-- [x] `ci.yml` green on `7eaa90e` (https://github.com/beettlle/stet/actions/runs/44970142810); re-confirm after notes commit
+- [x] `scripts/release-check.sh` exit 0 on final HEAD (`/tmp/stet-release-check-v170-land.log`; re-run `/tmp/stet-release-check-v170-phase5.log` exit 0)
+- [x] `ci.yml` green on final HEAD `e1b6cb9` (https://github.com/beettlle/stet/actions/runs/44970266205)
 - [x] Every `Closes #NNN` CLOSED (#40)
 - [x] Release notes written (`spine-tasks/_authoring/release-v1.7.0/release-notes.md`)
 - [ ] Operator approved publish
