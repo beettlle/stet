@@ -53,7 +53,7 @@ From git stash `protocol-a-wip` (message match), restore only `docs/research/rul
 Update `docs/cli-extension-contract.md` with `rules_selector_candidates` / `STET_RULES_SELECTOR_CANDIDATES` and `STET_RULES_SECTION_LOG` behavior. Update `docs/review-process-internals.md` briefly so the review pipeline description matches (selector digest_fair vs round-robin digests). Prefer adapting stash hunks for the contract file over rewriting from scratch.
 
 ### Step 2: Testing & Verification
-Confirm `rg -n 'rules_selector_candidates|digest_fair|STET_RULES_SECTION_LOG' docs/cli-extension-contract.md` hits. Confirm research note path exists. Note: no test suite references these docs unless `rg` finds any — if none, record that in STATUS. Before `.DONE`, `git add` and commit any `spine-tasks/SP-089-protocol-a-docs/worker-usage.json` (and STATUS updates) so the lane is not left dirty — uncommitted in-scope files fail the task.
+Confirm `rg -n 'rules_selector_candidates|digest_fair|STET_RULES_SECTION_LOG' docs/cli-extension-contract.md` hits. Confirm research note path exists. Note: no test suite references these docs unless `rg` finds any — if none, record that in STATUS. Commit STATUS updates before `.DONE`. Do not commit `worker-usage.json` (gitignored).
 
 ## Completion Criteria
 
