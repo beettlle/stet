@@ -1,8 +1,8 @@
 # stet — Context
 
-**Last Updated:** 2026-11-21
+**Last Updated:** 2026-11-22
 **Status:** Active
-**Next Task ID:** SP-092
+**Next Task ID:** SP-093
 
 ---
 
@@ -117,6 +117,16 @@ Waves: **W0** SP-037 ∥ SP-038 (disjoint scopes; SP-037 is stet-gated `lenient`
 SP-038 landed in batch `20261010T182206-c796`. SP-037 was skipped there: its stet contract failed with `parse failed (after retry): invalid character 'L'` because the reviewer wrote prose before a fenced JSON block. SP-037 now depends on SP-040.
 
 SP-037 landed in batch `20261010T215242-59b9`. SP-039 landed in batch `20261011T202931-a926` after an aborted first run (`20261011T174423-6acb`). That run led to stet fixes for issues #2 and #3, a 64k context / 4096 output cap harness pin, and 27b with thinking off (SP-039 PROMPT Amendments; pre-fix data in `docs/research/model-eval/baseline-pre-fix/`). **Outcome:** all four decision-rule conditions hold, so the doc recommends `qwen/qwen3.8-27b` as stet's default; the noise condition passed by 0.006 and both models scored 0 actionable on the real diffs. The operator then switched `.review/config.toml` to `qwen/qwen3.8-27b` with the OpenJev critic on (2026-10-11).
+
+### Phase 7b — Inkling-2-mini model comparison (2026-11-22)
+
+Candidate `thinkingmachines/inkling-2-mini` (26.4B, ~18 GB) vs current default `qwen/qwen3.8-27b`, same harness/fixtures/real refs as SP-039, new results root `docs/research/model-eval-inkling-2-mini/`.
+
+| Task | Summary | Size | Status | Deps |
+|------|---------|------|--------|------|
+| SP-092 | Run both models, blind-judge real diffs, write `docs/research/model-comparison-qwen3.8-27b-vs-inkling-2-mini.md` | M | Ready | SP-037, SP-038 |
+
+**Operator checklist (before `spine batch start SP-092`):** stop OpenJev; exclusive LM Studio; sampling parity with SP-039; Inkling Reasoning Effort = **none**, reasoning budget **off** (not 0 — budget 0 emptied content in Step 0); Qwen thinking off; residual Inkling reasoning tokens expected and recorded; optional `stet benchmark` may fail (openai client 10s timeout). Wave: SP-092 alone.
 
 ### Phase 8 — Stet reviewer robustness (2026-10-10)
 
