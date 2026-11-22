@@ -1,0 +1,405 @@
+docs/research/model-eval-inkling-2-mini/preflight.txt
+  s_32f0c3ec4f374b::t_78b121a3fa86e3 1-184
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/benchmark.txt
+  s_32f0c3ec4f374b::t_90566eda6fee51 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-clean-refactor/run1.json
+  s_32f0c3ec4f374b::t_1d149591c1673d 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-clean-refactor/run1.meta.json
+  s_32f0c3ec4f374b::t_e369954868e242 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-clean-refactor/run1.stderr.log
+  s_32f0c3ec4f374b::t_1e59837800b9e4 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-clean-refactor/run2.json
+  s_32f0c3ec4f374b::t_900ece4cbdab2b 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-clean-refactor/run2.meta.json
+  s_32f0c3ec4f374b::t_066ac3e5674296 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-clean-refactor/run2.stderr.log
+  s_32f0c3ec4f374b::t_857403cc06869c 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-clean-refactor/run3.json
+  s_32f0c3ec4f374b::t_8b95eab02be3b7 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-clean-refactor/run3.meta.json
+  s_32f0c3ec4f374b::t_b937db7a5848b0 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-clean-refactor/run3.stderr.log
+  s_32f0c3ec4f374b::t_c0c06404f1cb80 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-map-race/run1.json
+  s_32f0c3ec4f374b::t_e2bbdadf4452b8 1-26
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-map-race/run1.meta.json
+  s_32f0c3ec4f374b::t_178ac1d3d96d5e 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-map-race/run1.stderr.log
+  s_32f0c3ec4f374b::t_934e3550d21bac 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-map-race/run2.json
+  s_32f0c3ec4f374b::t_41b27d14d53eb6 1-26
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-map-race/run2.meta.json
+  s_32f0c3ec4f374b::t_4104bfb2ef8292 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-map-race/run2.stderr.log
+  s_32f0c3ec4f374b::t_d64e53954a8d95 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-map-race/run3.json
+  s_32f0c3ec4f374b::t_6decfdf1151447 1-26
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-map-race/run3.meta.json
+  s_32f0c3ec4f374b::t_4908ddc54bc525 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-map-race/run3.stderr.log
+  s_32f0c3ec4f374b::t_5ad8e3da827a2b 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-nil-after-err/run1.json
+  s_32f0c3ec4f374b::t_ae57f03f454594 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-nil-after-err/run1.meta.json
+  s_32f0c3ec4f374b::t_4a976f6577b0cf 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-nil-after-err/run1.stderr.log
+  s_32f0c3ec4f374b::t_732dc3f5aa1c55 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-nil-after-err/run2.json
+  s_32f0c3ec4f374b::t_4c332d5d2d2664 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-nil-after-err/run2.meta.json
+  s_32f0c3ec4f374b::t_68ddbf7035a636 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-nil-after-err/run2.stderr.log
+  s_32f0c3ec4f374b::t_1e07066a21c8d4 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-nil-after-err/run3.json
+  s_32f0c3ec4f374b::t_d5876be6f75c2a 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-nil-after-err/run3.meta.json
+  s_32f0c3ec4f374b::t_31c9ff8625621e 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-nil-after-err/run3.stderr.log
+  s_32f0c3ec4f374b::t_cd722a1c9b65b5 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-off-by-one/run1.json
+  s_32f0c3ec4f374b::t_cde229359eb206 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-off-by-one/run1.meta.json
+  s_32f0c3ec4f374b::t_e14d4bd0f85f3e 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-off-by-one/run1.stderr.log
+  s_32f0c3ec4f374b::t_23523077e6524e 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-off-by-one/run2.json
+  s_32f0c3ec4f374b::t_16dae73eaa080c 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-off-by-one/run2.meta.json
+  s_32f0c3ec4f374b::t_c5817c9a90f24e 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-off-by-one/run2.stderr.log
+  s_32f0c3ec4f374b::t_411b2e9077c244 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-off-by-one/run3.json
+  s_32f0c3ec4f374b::t_558de756690fa6 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-off-by-one/run3.meta.json
+  s_32f0c3ec4f374b::t_090788cddd4493 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-off-by-one/run3.stderr.log
+  s_32f0c3ec4f374b::t_503d7fda9acd85 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-resource-leak/run1.json
+  s_32f0c3ec4f374b::t_9d63c3db028482 1-26
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-resource-leak/run1.meta.json
+  s_32f0c3ec4f374b::t_555b28fc9b1bac 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-resource-leak/run1.stderr.log
+  s_32f0c3ec4f374b::t_856a2fc259e3fc 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-resource-leak/run2.json
+  s_32f0c3ec4f374b::t_c33f11450ae70e 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-resource-leak/run2.meta.json
+  s_32f0c3ec4f374b::t_efcc40456beb7f 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-resource-leak/run2.stderr.log
+  s_32f0c3ec4f374b::t_85436c89e0cae8 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-resource-leak/run3.json
+  s_32f0c3ec4f374b::t_938b9971db348e 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-resource-leak/run3.meta.json
+  s_32f0c3ec4f374b::t_c2b00254ecc69a 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-resource-leak/run3.stderr.log
+  s_32f0c3ec4f374b::t_1d50eb5696521a 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-clean/run1.json
+  s_32f0c3ec4f374b::t_7a8b361a6cd6cc 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-clean/run1.meta.json
+  s_32f0c3ec4f374b::t_7d951e7ac48087 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-clean/run1.stderr.log
+  s_32f0c3ec4f374b::t_e503ac0a221626 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-clean/run2.json
+  s_32f0c3ec4f374b::t_4e61afb717ed6c 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-clean/run2.meta.json
+  s_32f0c3ec4f374b::t_694aedbb64ab8a 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-clean/run2.stderr.log
+  s_32f0c3ec4f374b::t_da8467dce3b9c6 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-clean/run3.json
+  s_32f0c3ec4f374b::t_e3f538603e58ea 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-clean/run3.meta.json
+  s_32f0c3ec4f374b::t_9984df509e3d7d 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-clean/run3.stderr.log
+  s_32f0c3ec4f374b::t_372206280f0cb3 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-context/run1.json
+  s_32f0c3ec4f374b::t_250a39579fd9c7 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-context/run1.meta.json
+  s_32f0c3ec4f374b::t_765c19068e4ad9 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-context/run1.stderr.log
+  s_32f0c3ec4f374b::t_a230c33a8de573 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-context/run2.json
+  s_32f0c3ec4f374b::t_1f1c6f624bfb1f 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-context/run2.meta.json
+  s_32f0c3ec4f374b::t_6110cee7077138 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-context/run2.stderr.log
+  s_32f0c3ec4f374b::t_be26ee69ee7800 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-context/run3.json
+  s_32f0c3ec4f374b::t_09044041e1aed6 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-context/run3.meta.json
+  s_32f0c3ec4f374b::t_7d3fa50e4b6fe2 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-context/run3.stderr.log
+  s_32f0c3ec4f374b::t_cf2da4bdc332e3 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-global-prefix/run1.json
+  s_32f0c3ec4f374b::t_e318af948a31e6 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-global-prefix/run1.meta.json
+  s_32f0c3ec4f374b::t_9f809439804b9a 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-global-prefix/run1.stderr.log
+  s_32f0c3ec4f374b::t_c68149334fcd92 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-global-prefix/run2.json
+  s_32f0c3ec4f374b::t_8091d3b988bfed 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-global-prefix/run2.meta.json
+  s_32f0c3ec4f374b::t_9042e4517b7780 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-global-prefix/run2.stderr.log
+  s_32f0c3ec4f374b::t_39426e2520ce92 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-global-prefix/run3.json
+  s_32f0c3ec4f374b::t_008a5870d75d3c 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-global-prefix/run3.meta.json
+  s_32f0c3ec4f374b::t_9876587689629b 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-rule-global-prefix/run3.stderr.log
+  s_32f0c3ec4f374b::t_bd3f050f3dd482 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-sql-concat/run1.json
+  s_32f0c3ec4f374b::t_5dd552206f607c 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-sql-concat/run1.meta.json
+  s_32f0c3ec4f374b::t_c4761106a5c54b 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-sql-concat/run1.stderr.log
+  s_32f0c3ec4f374b::t_8604356a260cb4 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-sql-concat/run2.json
+  s_32f0c3ec4f374b::t_7adffeebb9fd27 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-sql-concat/run2.meta.json
+  s_32f0c3ec4f374b::t_012de14cb369cb 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-sql-concat/run2.stderr.log
+  s_32f0c3ec4f374b::t_6f7298c00ca9cc 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-sql-concat/run3.json
+  s_32f0c3ec4f374b::t_4606a3a0bee168 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-sql-concat/run3.meta.json
+  s_32f0c3ec4f374b::t_8fc670ff4ab227 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-sql-concat/run3.stderr.log
+  s_32f0c3ec4f374b::t_31d647ec23a8a1 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-swallowed-error/run1.json
+  s_32f0c3ec4f374b::t_3143623484d193 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-swallowed-error/run1.meta.json
+  s_32f0c3ec4f374b::t_5ccb952312a72d 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-swallowed-error/run1.stderr.log
+  s_32f0c3ec4f374b::t_e7a4483cebe31d 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-swallowed-error/run2.json
+  s_32f0c3ec4f374b::t_b32ed11fe89a86 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-swallowed-error/run2.meta.json
+  s_32f0c3ec4f374b::t_1c33a9824f3c40 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-swallowed-error/run2.stderr.log
+  s_32f0c3ec4f374b::t_4f5ead4e43b0c8 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-swallowed-error/run3.json
+  s_32f0c3ec4f374b::t_a917b68c4630be 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-swallowed-error/run3.meta.json
+  s_32f0c3ec4f374b::t_dc77d53240cce3 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/go-swallowed-error/run3.stderr.log
+  s_32f0c3ec4f374b::t_e352ba3d9ee8d0 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-bare-except/run1.json
+  s_32f0c3ec4f374b::t_6b54edd16a4817 1-26
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-bare-except/run1.meta.json
+  s_32f0c3ec4f374b::t_1272e3845cc122 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-bare-except/run1.stderr.log
+  s_32f0c3ec4f374b::t_bd92924764ebc3 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-bare-except/run2.json
+  s_32f0c3ec4f374b::t_5822b9865135bf 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-bare-except/run2.meta.json
+  s_32f0c3ec4f374b::t_8af4ee8652e79c 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-bare-except/run2.stderr.log
+  s_32f0c3ec4f374b::t_5d5fec7fc68e41 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-bare-except/run3.json
+  s_32f0c3ec4f374b::t_357876bff9e24d 1-26
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-bare-except/run3.meta.json
+  s_32f0c3ec4f374b::t_55d9fe80647e40 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-bare-except/run3.stderr.log
+  s_32f0c3ec4f374b::t_b827c29820e761 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-int-division/run1.json
+  s_32f0c3ec4f374b::t_5a6f141546cd8d 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-int-division/run1.meta.json
+  s_32f0c3ec4f374b::t_7c57c0a7c1fe2a 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-int-division/run1.stderr.log
+  s_32f0c3ec4f374b::t_74aa60e40ea406 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-int-division/run2.json
+  s_32f0c3ec4f374b::t_98b42378e08219 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-int-division/run2.meta.json
+  s_32f0c3ec4f374b::t_e9827683f69995 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-int-division/run2.stderr.log
+  s_32f0c3ec4f374b::t_a4e9f1add6e22d 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-int-division/run3.json
+  s_32f0c3ec4f374b::t_43de56493322af 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-int-division/run3.meta.json
+  s_32f0c3ec4f374b::t_375d983e2f135a 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-int-division/run3.stderr.log
+  s_32f0c3ec4f374b::t_f942e9279c5112 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-mutable-default/run1.json
+  s_32f0c3ec4f374b::t_d9d7f0b4270926 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-mutable-default/run1.meta.json
+  s_32f0c3ec4f374b::t_7232436ba81d2b 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-mutable-default/run1.stderr.log
+  s_32f0c3ec4f374b::t_e5df4d1c4a91e1 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-mutable-default/run2.json
+  s_32f0c3ec4f374b::t_74a271a4c0fdc3 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-mutable-default/run2.meta.json
+  s_32f0c3ec4f374b::t_ca28cbfb5cd3ad 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-mutable-default/run2.stderr.log
+  s_32f0c3ec4f374b::t_253dbcb15ad603 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-mutable-default/run3.json
+  s_32f0c3ec4f374b::t_21df19080dadbd 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-mutable-default/run3.meta.json
+  s_32f0c3ec4f374b::t_17850cba6768bb 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-mutable-default/run3.stderr.log
+  s_32f0c3ec4f374b::t_79494e558b68aa 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-clean/run1.json
+  s_32f0c3ec4f374b::t_aaeacfc149c3f8 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-clean/run1.meta.json
+  s_32f0c3ec4f374b::t_772b60cf7b59c0 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-clean/run1.stderr.log
+  s_32f0c3ec4f374b::t_771bed98e07df1 1
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-clean/run2.json
+  s_32f0c3ec4f374b::t_d78471c87268ca 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-clean/run2.meta.json
+  s_32f0c3ec4f374b::t_774d5f48a5f485 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-clean/run2.stderr.log
+  s_32f0c3ec4f374b::t_7fc94b54b0fdfd 1
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-clean/run3.json
+  s_32f0c3ec4f374b::t_ebcf50befbaa4e 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-clean/run3.meta.json
+  s_32f0c3ec4f374b::t_3da9374ba7e730 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-clean/run3.stderr.log
+  s_32f0c3ec4f374b::t_8569ff84bb0936 1
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-membership/run1.json
+  s_32f0c3ec4f374b::t_a97db8a22b897c 1-19
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-membership/run1.meta.json
+  s_32f0c3ec4f374b::t_63fc67d59bf94d 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-membership/run1.stderr.log
+  s_32f0c3ec4f374b::t_5ddf8aece9e916 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-membership/run2.json
+  s_32f0c3ec4f374b::t_d67c8fb1b41700 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-membership/run2.meta.json
+  s_32f0c3ec4f374b::t_d8a432251fb224 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-membership/run2.stderr.log
+  s_32f0c3ec4f374b::t_b925448544dd63 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-membership/run3.json
+  s_32f0c3ec4f374b::t_5f5982ef668572 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-membership/run3.meta.json
+  s_32f0c3ec4f374b::t_b7e63fd17dec6c 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-membership/run3.stderr.log
+  s_32f0c3ec4f374b::t_0e1d8965edfbaf 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-naming/run1.json
+  s_32f0c3ec4f374b::t_040f017261eca0 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-naming/run1.meta.json
+  s_32f0c3ec4f374b::t_2e3ccf7030a9a0 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-naming/run1.stderr.log
+  s_32f0c3ec4f374b::t_56a13ef9b15a86 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-naming/run2.json
+  s_32f0c3ec4f374b::t_caa46a96f2d914 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-naming/run2.meta.json
+  s_32f0c3ec4f374b::t_3b32197851da80 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-naming/run2.stderr.log
+  s_32f0c3ec4f374b::t_4283e0f04e9c3a 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-naming/run3.json
+  s_32f0c3ec4f374b::t_e996ac3939e226 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-naming/run3.meta.json
+  s_32f0c3ec4f374b::t_4f54bc8729e234 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/py-rule-naming/run3.stderr.log
+  s_32f0c3ec4f374b::t_15219d8a34f577 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-clean-rename/run1.json
+  s_32f0c3ec4f374b::t_9629d2b1bf0408 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-clean-rename/run1.meta.json
+  s_32f0c3ec4f374b::t_c404e808db9ad6 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-clean-rename/run1.stderr.log
+  s_32f0c3ec4f374b::t_0e23362d861794 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-clean-rename/run2.json
+  s_32f0c3ec4f374b::t_a7bf44070f36b1 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-clean-rename/run2.meta.json
+  s_32f0c3ec4f374b::t_36933da40411ae 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-clean-rename/run2.stderr.log
+  s_32f0c3ec4f374b::t_1baa8f91acdbb7 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-clean-rename/run3.json
+  s_32f0c3ec4f374b::t_ffd6c90f3cc672 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-clean-rename/run3.meta.json
+  s_32f0c3ec4f374b::t_614cbe0e0500bb 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-clean-rename/run3.stderr.log
+  s_32f0c3ec4f374b::t_c75ec23e3aba43 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-inverted-guard/run1.json
+  s_32f0c3ec4f374b::t_7e8c96dbda704d 1-26
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-inverted-guard/run1.meta.json
+  s_32f0c3ec4f374b::t_2c3f9c6adb803f 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-inverted-guard/run1.stderr.log
+  s_32f0c3ec4f374b::t_5e52f70300ba39 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-inverted-guard/run2.json
+  s_32f0c3ec4f374b::t_6121086a0e959a 1-30
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-inverted-guard/run2.meta.json
+  s_32f0c3ec4f374b::t_fd53dca2dffa52 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-inverted-guard/run2.stderr.log
+  s_32f0c3ec4f374b::t_dcb76a35ff1d27 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-inverted-guard/run3.json
+  s_32f0c3ec4f374b::t_683dc6c6e6c0dd 1-26
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-inverted-guard/run3.meta.json
+  s_32f0c3ec4f374b::t_0db136c2e36068 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-inverted-guard/run3.stderr.log
+  s_32f0c3ec4f374b::t_5358e3460d6322 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-missing-await/run1.json
+  s_32f0c3ec4f374b::t_691cbde2871361 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-missing-await/run1.meta.json
+  s_32f0c3ec4f374b::t_c7ecd5912b72b9 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-missing-await/run1.stderr.log
+  s_32f0c3ec4f374b::t_5606834c94c50f 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-missing-await/run2.json
+  s_32f0c3ec4f374b::t_741560b10f312c 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-missing-await/run2.meta.json
+  s_32f0c3ec4f374b::t_00adb76543f06f 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-missing-await/run2.stderr.log
+  s_32f0c3ec4f374b::t_74bae26f144ff9 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-missing-await/run3.json
+  s_32f0c3ec4f374b::t_bd0cd02adb2092 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-missing-await/run3.meta.json
+  s_32f0c3ec4f374b::t_a1fe74eaf505b8 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-missing-await/run3.stderr.log
+  s_32f0c3ec4f374b::t_37d5b2852d3cc0 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-path-traversal/run1.json
+  s_32f0c3ec4f374b::t_4af51ec2e262c4 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-path-traversal/run1.meta.json
+  s_32f0c3ec4f374b::t_2537c44307b46a 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-path-traversal/run1.stderr.log
+  s_32f0c3ec4f374b::t_8457d6603aabd8 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-path-traversal/run2.json
+  s_32f0c3ec4f374b::t_0c52e270075d00 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-path-traversal/run2.meta.json
+  s_32f0c3ec4f374b::t_32c394f0cddda3 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-path-traversal/run2.stderr.log
+  s_32f0c3ec4f374b::t_c23d6c541deb8f 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-path-traversal/run3.json
+  s_32f0c3ec4f374b::t_7b3636736d966c 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-path-traversal/run3.meta.json
+  s_32f0c3ec4f374b::t_db47468ca68de5 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/cases/ts-path-traversal/run3.stderr.log
+  s_32f0c3ec4f374b::t_9d4daf749dcd15 1-2
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/real/2326c0487a36e9b306edbed7da91dda1b536d00b/run1.json
+  s_32f0c3ec4f374b::t_7edb26ccfb7293 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/real/2326c0487a36e9b306edbed7da91dda1b536d00b/run1.meta.json
+  s_32f0c3ec4f374b::t_fe2cccfefc5cf9 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/real/2326c0487a36e9b306edbed7da91dda1b536d00b/run1.stderr.log
+  s_32f0c3ec4f374b::t_3cd63b66a88db1 1-10
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/real/3ee3055f13cf00b5cb4e182f169829b78961743e/run1.json
+  s_32f0c3ec4f374b::t_913e241dd9f47c 1-15
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/real/3ee3055f13cf00b5cb4e182f169829b78961743e/run1.meta.json
+  s_32f0c3ec4f374b::t_81fa4eb9b6a086 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/real/3ee3055f13cf00b5cb4e182f169829b78961743e/run1.stderr.log
+  s_32f0c3ec4f374b::t_aa0971b5be7d03 1-30
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/real/e9b2e61f637cf165c630061c6d8f89c5e9f39404/run1.json
+  s_32f0c3ec4f374b::t_fbb14bcaff454c 1-3
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/real/e9b2e61f637cf165c630061c6d8f89c5e9f39404/run1.meta.json
+  s_32f0c3ec4f374b::t_d94c126f2aa2c0 1-33
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/real/e9b2e61f637cf165c630061c6d8f89c5e9f39404/run1.stderr.log
+  s_32f0c3ec4f374b::t_27497393c88fa3 1-22
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/run-chunk1.log
+  s_32f0c3ec4f374b::t_e9228c69676fe7 1-66
+docs/research/model-eval-inkling-2-mini/results/thinkingmachines__inkling-2-mini/run-retry.log
+  s_32f0c3ec4f374b::t_9c7c4fcd1ebcfb 1-2
+spine-tasks/SP-092-inkling-2-mini-model-comparison/STATUS.md
+  s_32f0c3ec4f374b::t_42c5b59763f046 3-4,14,16-21,26,93-94,103-104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6b67e5dcef95cfda8385e1abffb743c8a189624f",
+  "prompts": {},
+  "sessions": {
+    "s_32f0c3ec4f374b": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "agent-da38b08a-59ea-4d40-b31e-2b3a84347b0e",
+        "model": "unknown"
+      },
+      "human_author": "Cesar Delgado <beettlle@gmail.com>"
+    }
+  }
+}
